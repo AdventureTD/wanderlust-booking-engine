@@ -154,8 +154,8 @@ export const generateAndStoreInvoice = webMethod(
       throw new Error('PDF upload failed: ' + e.message);
     }
 
-    // 6. Write invoice details back to Bookings row
-    booking.invoiceNumber = result.invoice_number;
+    // 6. Write invoice number into bookingNumber (overwrites the temporary WC- number)
+    booking.bookingNumber = result.invoice_number;
     booking.invoiceUrl = uploadResult.fileUrl;
     await wixData.update(BOOKINGS, booking);
     console.log('>>> INVOICE booking updated with', result.invoice_number);
