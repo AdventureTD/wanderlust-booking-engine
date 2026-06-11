@@ -130,7 +130,7 @@ export const balanceDueReport = webMethod(
       const bal = r2(grand - paid);
       out.push({
         guestName: b.guestName,
-        invoiceNumber: b.invoiceNumber,
+        invoiceNumber: b.bookingNumber,
         dateBooked: b.dateBooked,
         checkInDate: b.checkInDate,
         finalDueDate: b.finalDueDate,
