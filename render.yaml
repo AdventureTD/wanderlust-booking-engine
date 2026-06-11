@@ -1,0 +1,20 @@
+# Render Blueprint for Wanderlust Invoice Service
+# Dashboard: https://dashboard.render.com/blueprint
+# Click "New" → "Blueprint" → paste this file from a GitHub repo.
+#
+# Or use Manual (Dashboard UI) — see RENDER_DEPLOY.md
+services:
+  - type: web
+    name: wanderlust-invoice-service
+    runtime: python
+    rootDir: .
+    buildCommand: pip install -r requirements-deploy.txt
+    startCommand: bash start.sh
+    plan: free
+    envVars:
+      - key: PYTHONPATH
+        value: /opt/render/project/src
+      - key: WBE_COUNTER_PATH
+        value: /tmp/invoice_counter.json
+      - key: WBE_SHARED_SECRET
+        generateValue: true   # Render creates a random secret; save it!

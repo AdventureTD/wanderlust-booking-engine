@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wanderlust Booking Engine — Page Mockups</title>
+<style>
+  :root{
+    --teal:#0b6b6b; --teal-d:#084f4f; --sand:#f3efe7; --ink:#243038;
+    --line:#d9d2c5; --good:#1c7c54; --warn:#b15c00; --bad:#9b2226;
+    --gray:#6b7280;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);background:#ece6db}
+  header.app{background:var(--teal);color:#fff;padding:14px 22px;display:flex;
+    align-items:center;gap:14px}
+  header.app .logo{font-weight:800;letter-spacing:.5px;font-size:18px}
+  header.app .logo small{display:block;font-weight:500;font-size:10px;opacity:.85;
+    letter-spacing:2px}
+  .tabs{display:flex;gap:4px;background:var(--teal-d);padding:0 14px}
+  .tabs button{background:transparent;border:0;color:#cfe9e9;padding:12px 16px;
+    cursor:pointer;font-size:14px;border-bottom:3px solid transparent}
+  .tabs button.active{color:#fff;border-bottom-color:#fff;font-weight:600}
+  .wrap{max-width:1040px;margin:0 auto;padding:26px 18px 60px}
+  .page{display:none}.page.active{display:block}
+  .note{background:#fff7e6;border:1px solid #f0d9a8;color:#7a5a12;border-radius:8px;
+    padding:10px 14px;font-size:13px;margin-bottom:18px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;
+    margin-bottom:18px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:0 0 12px;color:var(--teal-d)}
+  label{display:block;font-size:12px;font-weight:600;color:var(--gray);margin:0 0 4px}
+  input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;
+    font-size:14px;background:#fff}
+  .row{display:flex;gap:14px;flex-wrap:wrap}.row>div{flex:1;min-width:160px}
+  .btn{background:var(--teal);color:#fff;border:0;border-radius:8px;padding:11px 18px;
+    font-size:14px;font-weight:600;cursor:pointer}
+  .btn.alt{background:#fff;color:var(--teal);border:1px solid var(--teal)}
+  .btn.bad{background:var(--bad)}
+  /* the ID badge that maps an element to the Velo code */
+  .id{display:inline-block;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;
+    background:#eef6f6;color:var(--teal-d);border:1px dashed var(--teal);border-radius:5px;
+    padding:1px 6px;margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .badge{display:inline-block;font-size:11px;font-weight:700;border-radius:20px;padding:2px 9px}
+  .b-full{background:#e3f5ec;color:var(--good)}.b-part{background:#fdf0dd;color:var(--warn)}
+  .roomcard{display:flex;gap:14px;border:1px solid var(--line);border-radius:12px;
+    overflow:hidden;margin-bottom:14px;background:#fff}
+  .roomcard .ph{width:190px;min-height:130px;background:linear-gradient(135deg,#bcd9d4,#7fb0a8);
+    display:flex;align-items:center;justify-content:center;color:#0b3b3b;font-size:12px;
+    text-align:center;padding:8px}
+  .roomcard .body{flex:1;padding:14px}
+  .roomcard h3{margin:0 0 4px;font-size:16px}
+  .muted{color:var(--gray);font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th{background:var(--teal);color:#fff;font-weight:600;font-size:12px}
+  tr:nth-child(even) td{background:#faf8f3}
+  .tot{display:flex;justify-content:space-between;padding:6px 0;font-size:14px}
+  .tot.grand{border-top:2px solid var(--teal);margin-top:6px;padding-top:10px;
+    font-weight:800;color:var(--teal-d);font-size:16px}
+  .gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .gallery .ph{height:90px;background:linear-gradient(135deg,#bcd9d4,#7fb0a8);border-radius:8px}
+  .legend{font-size:12px;color:var(--gray);margin-top:6px}
+  .pill{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px}
+  .s-conf{background:#e3f5ec;color:var(--good)}.s-inh{background:#e6eefb;color:#1e40af}
+  .s-out{background:#eee;color:#555}.s-canc{background:#fde2e2;color:var(--bad)}
+  .s-pend{background:#fdf0dd;color:var(--warn)}
+  .msg-banner{background:#e6eefb;border:1px solid #bcd9d4;border-radius:8px;padding:10px 14px;
+    margin-bottom:14px;font-size:13px;color:#0b3b3b}
+  .msg-banner strong{display:block;margin-bottom:2px}
+</style>
+</head>
+<body>
+<header class="app">
+  <div class="logo">WANDERLUST CARIBBEAN<small>ADVENTURE TRAVEL BOOKING</small></div>
+</header>
+<div class="tabs">
+  <button class="active" onclick="show(0,this)">1 · Search</button>
+  <button onclick="show(1,this)">2 · Room Detail</button>
+  <button onclick="show(2,this)">3 · Guest &amp; Confirm</button>
+  <button onclick="show(3,this)">4 · Admin Console</button>
+</div>
+<div class="wrap">
+  <div class="note">📐 <b>This is a layout mockup</b> for building the pages in the Wix Editor.
+    Every interactive element shows its <span class="id">#elementId</span> — give each Wix
+    element that exact ID and the Velo code will drive it. Boxes labeled "PHOTO" are
+    Wix Media/Gallery elements fed from the Rooms collection.</div>
+
+  <!-- ============ PAGE 1: SEARCH ============ -->
+  <div class="page active">
+    <div class="msg-banner" id="msgBanner">
+      <strong>Promo / closure notice headline</strong>
+      Message body text goes here. These are table-driven from the Messages collection.
+      <span class="id">#messagesContainer</span> (repeater or single text)
+    </div>
+
+    <div class="card">
+      <h1>Find your adventure dates</h1>
+      <p class="muted">Four-night minimum stay. Choose your dates to see what's available.</p>
+      <div class="row" style="margin-top:12px">
+        <div><label>Check-in <span class="id">#datePickerCheckIn</span></label><input type="date"></div>
+        <div><label>Check-out <span class="id">#datePickerCheckOut</span></label><input type="date"></div>
+        <div style="flex:0 0 auto;display:flex;align-items:flex-end">
+          <button class="btn">Search availability <span class="id">#btnSearchRooms</span></button></div>
+      </div>
+      <div class="legend">Status line / 4-night-minimum message appears here <span class="id">#statusText</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Available options <span class="id">#searchResultsRepeater</span> (repeater — one card per room)</h2>
+
+      <div class="roomcard">
+        <div class="ph">PHOTO<br><span class="id">#roomThumb</span></div>
+        <div class="body">
+          <h3>Adventure Suite <span class="badge b-full">FULL STAY</span> <span class="id">#roomName</span></h3>
+          <div class="muted">Oceanfront boutique base camp · sleeps 2</div>
+          <div style="margin:8px 0" class="muted"><b>Available for your full 7 nights</b> <span class="id">#roomAvailability</span></div>
+          <div style="margin:8px 0"><b>$792 / night</b> <span class="id">#roomPrice</span></div>
+          <div><span class="pill s-conf">SELECTED</span> <span class="id">#selectedBadge</span></div>
+          <button class="btn alt">Remove <span class="id">#btnSelectRoom</span></button>
+        </div>
+      </div>
+
+      <div class="roomcard">
+        <div class="ph">PHOTO</div>
+        <div class="body">
+          <h3>Penthouse Apartment <span class="badge b-full">FULL STAY</span></h3>
+          <div class="muted">Top-floor retreat, private deck · sleeps 2</div>
+          <div style="margin:8px 0" class="muted"><b>Available for your full 7 nights</b></div>
+          <div style="margin:8px 0"><b>$930 / night</b></div>
+          <button class="btn alt">Add to booking</button>
+        </div>
+      </div>
+      <div class="legend">Select multiple rooms. Each can have its own guest count on the next page.</div>
+    </div>
+
+    <!-- Selected rooms panel -->
+    <div class="card" id="selectionPanel" style="background:var(--sand)">
+      <h2>Your selection <span class="id">#selectionPanel</span></h2>
+      <p class="muted" id="selectedRoomsContainer"><span class="id">#selectedRoomsContainer</span>
+        Adventure Suite — 2 guests ($792.00)<br>
+        Penthouse Apartment — 2 guests ($930.00)
+      </p>
+      <div style="text-align:right;margin-top:14px">
+        <button class="btn">Continue to booking summary <span class="id">#btnContinueToSummary</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PAGE 2: BOOKING SUMMARY (multi-room) ============ -->
+  <div class="page">
+    <div class="card">
+      <h1>Booking summary <span class="id">#summaryStatusText</span></h1>
+      <p class="muted"><b>Check-in:</b> Jul 1 <span class="id">#checkInDisplay</span>  ·  <b>Check-out:</b> Jul 6 <span class="id">#checkOutDisplay</span></p>
+      <p class="muted">Each room can have its own guest count. Remove a room if you change your mind.</p>
+    </div>
+
+    <div class="card">
+      <h2>Selected rooms <span class="id">#summaryRoomsRepeater</span></h2>
+      <div class="roomcard" style="margin-bottom:8px">
+        <div class="body" style="padding:10px 14px">
+          <div class="row" style="align-items:center">
+            <div><b>Adventure Suite</b> <span class="id">#roomNameText</span></div>
+            <div class="muted">$792 / night <span class="id">#roomPriceText</span></div>
+            <div>Guests: <select><option>2 (base)</option></select> <span class="id">#guestsDropdown</span></div>
+            <div><b>$3,960.00</b> <span class="id">#roomTotalText</span></div>
+            <div><button class="btn bad" style="padding:4px 10px;font-size:12px">Remove</button> <span class="id">#removeBtn</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="roomcard" style="margin-bottom:8px">
+        <div class="body" style="padding:10px 14px">
+          <div class="row" style="align-items:center">
+            <div><b>Two-Bedroom Apartment</b></div>
+            <div class="muted">$1,188 / night</div>
+            <div>Guests: <select><option>3 (base)</option><option>4</option></select></div>
+            <div><b>$5,940.00</b></div>
+            <div><button class="btn bad" style="padding:4px 10px;font-size:12px">Remove</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Price summary</h2>
+      <div class="tot"><span>Accommodations: Adventure Suite + Two-Bedroom Apartment <span class="id">#accommodationNamesText</span></span></div>
+      <div class="tot grand" style="border-top:1px solid var(--line);margin-top:4px;padding-top:8px">
+        <span>Total package price <span class="id">#pkgTotal</span></span><span>$9,900.00</span>
+      </div>
+      <div class="legend" style="margin:10px 0 4px">Price breakdown — all rooms combined:</div>
+      <table>
+        <tr><th>Line item</th><th>Net</th><th>VAT %</th><th>VAT</th><th>Total</th></tr>
+        <tr><td>Accommodation (Adventure Suite)</td><td>$1,980.00</td><td>10%</td><td>$198.00</td><td>$2,178.00</td></tr>
+        <tr><td>Adventure Package (Adventure Suite)</td><td>$1,980.00</td><td>15%</td><td>$297.00</td><td>$2,277.00</td></tr>
+        <tr><td>Accommodation (Two-Bedroom)</td><td>$2,970.00</td><td>10%</td><td>$297.00</td><td>$3,267.00</td></tr>
+        <tr><td>Adventure Package (Two-Bedroom)</td><td>$2,970.00</td><td>15%</td><td>$445.50</td><td>$3,415.50</td></tr>
+      </table>
+      <div class="tot" style="margin-top:8px"><span>Subtotal net <span class="id">#subtotalNetText</span></span><span>$9,900.00</span></div>
+      <div class="tot"><span>VAT 10% (accommodation) <span class="id">#vatAccommodationText</span></span><span>$495.00</span></div>
+      <div class="tot"><span>VAT 15% (adventure) <span class="id">#vatAdventureText</span></span><span>$742.50</span></div>
+      <div class="tot"><span>Total VAT <span class="id">#totalVatText</span></span><span>$1,237.50</span></div>
+      <div class="tot"><span>Property fee (5%) <span class="id">#propertyFeeText</span></span><span>$495.00</span></div>
+      <div class="tot grand"><span>Grand total <span class="id">#grandTotalText</span></span><span>$11,632.50</span></div>
+      <div style="margin-top:14px;text-align:right">
+        <button class="btn">Continue to guest details <span class="id">#btnContinue</span></button></div>
+    </div>
+  </div>
+
+  <!-- ============ PAGE 3: GUEST & CONFIRM ============ -->
+  <div class="page">
+    <div class="card">
+      <h1>Your details</h1>
+      <div class="row">
+        <div><label>Full name <span class="id">#inputGuestName</span></label><input placeholder="Jane &amp; John Doe"></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div><label>Email <span class="id">#inputGuestEmail</span></label><input type="email" placeholder="you@email.com"></div>
+        <div><label>Phone <span class="id">#inputGuestPhone</span></label><input placeholder="+1 ..."></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Review &amp; confirm</h2>
+      <div class="muted">Your dates, rooms, guests and full price breakdown for review
+        <span class="id">#confirmSummary</span>.</div>
+      <div class="tot"><span>Dates <span class="id">#reviewDates</span></span><span>Jul 1 – Jul 6 (5 nights)</span></div>
+      <div class="tot"><span>Rooms <span class="id">#reviewRooms</span></span></div>
+      <div class="muted" style="margin-left:20px">
+        Adventure Suite — 2 guests · $4,653.00<br>
+        Two-Bedroom Apartment — 3 guests · $6,979.50
+      </div>
+      <div class="tot grand"><span>Total due <span class="id">#reviewGrandTotal</span></span><span>$11,632.50</span></div>
+      <div class="muted" style="margin-top:6px">Deposit (50%) due now: <b>$4,653.00</b> ·
+        balance due 30 days before arrival. Payment is processed manually — we'll be in touch.</div>
+      <div style="margin-top:14px;text-align:right">
+        <button class="btn">Confirm booking <span class="id">#btnConfirmBooking</span></button></div>
+      <div class="legend">On confirm: creates the booking, generates the invoice PDF, emails guest + info@,
+        stores the invoice. Result message <span class="id">#confirmStatus</span>.</div>
+    </div>
+  </div>
+
+  <!-- ============ PAGE 4: ADMIN CONSOLE ============ -->
+  <div class="page">
+    <div class="note">🔒 Admin-only page — put it behind member/admin login in Wix.</div>
+
+    <div class="card">
+      <h1>Bookings &amp; reports</h1>
+      <div class="row">
+        <div><label>From <span class="id">#datePickerFrom</span></label><input type="date"></div>
+        <div><label>To <span class="id">#datePickerTo</span></label><input type="date"></div>
+        <div><label>Filter date by <span class="id">#dateFieldSelect</span></label>
+          <select><option>Check-out date</option><option>Date booked</option><option>Check-in date</option></select></div>
+        <div style="flex:0 0 auto;display:flex;align-items:flex-end">
+          <button class="btn">Run report <span class="id">#btnRunReport</span></button></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Results <span class="id">#bookingsRepeater</span></h2>
+      <table>
+        <tr><th>Guest</th><th>Invoice</th><th>Check-in</th><th>Check-out</th><th>Status</th>
+          <th>Grand total</th><th>Paid</th><th>Balance due</th><th>Actions</th></tr>
+        <tr><td>Jim &amp; Sandy Evans</td><td>WBE-INV-0007</td><td>2026-12-13</td><td>2026-12-20</td>
+          <td><span class="pill s-conf">Confirmed</span></td><td>$27,172.30</td><td>$13,586.15</td>
+          <td>$13,586.15</td><td><button class="btn alt">Edit</button> <button class="btn bad">Cancel</button></td></tr>
+        <tr><td>Erin Hahl</td><td>WBE-INV-0009</td><td>2026-07-01</td><td>2026-07-05</td>
+          <td><span class="pill s-inh">In-House</span></td><td>$4,356.00</td><td>$4,356.00</td>
+          <td>$0.00</td><td><button class="btn alt">Edit</button> <button class="btn bad">Cancel</button></td></tr>
+        <tr><td>Tom Seddon</td><td>WBE-INV-0011</td><td>2026-02-10</td><td>2026-02-17</td>
+          <td><span class="pill s-pend">Pending Confirmation</span></td><td>$9,930.00</td><td>$4,965.00</td>
+          <td>$4,965.00</td><td><button class="btn alt">Reinstate</button></td></tr>
+      </table>
+      <div class="legend">Actions per row: Edit dates/rooms (recompute + new invoice), Cancel, or
+        Reinstate a postponed booking. Buttons: <span class="id">#btnEdit</span>
+        <span class="id">#btnCancel</span> <span class="id">#btnReinstate</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Report totals (range)</h2>
+      <div class="tot"><span>Count <span class="id">#sumCount</span></span><span>3</span></div>
+      <div class="tot"><span>Revenue count <span class="id">#sumRevenueCount</span></span><span>2</span></div>
+      <div class="tot"><span>Accommodation net <span class="id">#sumAccommodation</span></span><span>$3,960.00</span></div>
+      <div class="tot"><span>Package net <span class="id">#sumPackages</span></span><span>$3,960.00</span></div>
+      <div class="tot"><span>VAT 10% <span class="id">#sumVat10</span></span><span>$396.00</span></div>
+      <div class="tot"><span>VAT 15% <span class="id">#sumVat15</span></span><span>$594.00</span></div>
+      <div class="tot"><span>Total VAT <span class="id">#sumVatTotal</span></span><span>$990.00</span></div>
+      <div class="tot grand"><span>Grand total <span class="id">#sumGrandTotal</span></span><span>$9,306.00</span></div>
+      <div class="legend">Cancelled, Pending Confirmation, and Blocked bookings are excluded from revenue totals.</div>
+    </div>
+
+    <div class="card">
+      <h2>Record a payment <span class="id">#paymentPanel</span></h2>
+      <div class="row">
+        <div><label>Amount <span class="id">#inputAmount</span></label><input placeholder="6840.00"></div>
+        <div><label>Date <span class="id">#datePickerPaid</span></label><input type="date"></div>
+        <div><label>Type <span class="id">#dropdownPayType</span></label>
+          <select><option>deposit</option><option>final</option><option>other</option><option>refund</option></select></div>
+        <div style="flex:0 0 auto;display:flex;align-items:flex-end">
+          <button class="btn">Save payment <span class="id">#btnSavePayment</span></button></div>
+      </div>
+      <div class="legend">Balance updates after saving <span class="id">#balanceText</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Pricing settings <span class="id">#settingsPanel</span></h2>
+      <div class="row">
+        <div><label>Accommodation share % <span class="id">#inputAccomShare</span></label>
+          <input value="50" style="max-width:120px"></div>
+        <div><label>Property fee % <span class="id">#inputPropertyFee</span></label>
+          <input value="5" style="max-width:120px"></div>
+        <div style="flex:0 0 auto;display:flex;align-items:flex-end">
+          <button class="btn">Save settings <span class="id">#btnSaveSplit</span></button></div>
+      </div>
+      <div class="legend">Accommodation share = how the package total is split for VAT
+        (accommodation 10% vs Adventure Package 15%). Property fee = % of the net package
+        price, charged below the VAT taxes. Both changeable without code.</div>
+    </div>
+
+    <div class="card">
+      <h2>Tax rates <span class="id">#taxRatesPanel</span></h2>
+      <div class="row">
+        <div><label>Accommodation VAT % <span class="id">#inpTaxRateAccom</span></label>
+          <input value="10" style="max-width:120px"></div>
+        <div><label>Standard VAT % <span class="id">#inpTaxRateStandard</span></label>
+          <input value="15" style="max-width:120px"></div>
+        <div style="flex:0 0 auto;display:flex;align-items:flex-end">
+          <button class="btn">Save tax rates <span class="id">#btnSaveTaxRates</span></button></div>
+      </div>
+      <div class="legend">Current rates: <span class="id">#currentTaxRatesText</span> — changing these updates all future quotes instantly.</div>
+    </div>
+
+    <div class="card">
+      <h2>Room blocking <span class="id">#blockingPanel</span></h2>
+      <div class="row">
+        <div><label>Room <span class="id">#ddBlockRoom</span></label>
+          <select><option>adventure_suite</option><option>penthouse_apartment</option><option>two_bedroom_apartment</option></select></div>
+        <div><label>From <span class="id">#dateBlockFrom</span></label><input type="date"></div>
+        <div><label>To <span class="id">#dateBlockTo</span></label><input type="date"></div>
+        <div><label>Units <span class="id">#numBlockQuantity</span></label>
+          <input value="1" style="max-width:80px"></div>
+        <div><label>Reason <span class="id">#txtBlockReason</span></label>
+          <input placeholder="Maintenance"></div>
+        <div style="flex:0 0 auto;display:flex;align-items:flex-end;gap:8px">
+          <button class="btn">Block room <span class="id">#btnBlockRoom</span></button>
+          <button class="btn bad">Close hotel <span class="id">#btnBlockAllRooms</span></button></div>
+      </div>
+      <div class="legend">Status: <span class="id">#statusTextBlocking</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Messages <span class="id">#messagesPanel</span></h2>
+      <div class="row">
+        <div><label>Title <span class="id">#txtMsgTitle</span></label><input placeholder="Headline"></div>
+        <div><label>Body <span class="id">#txtMsgBody</span></label><input placeholder="Message text"></div>
+        <div><label>Page <span class="id">#ddMsgPage</span></label>
+          <select><option>search</option><option>detail</option><option>confirm</option></select></div>
+        <div><label>Priority <span class="id">#numMsgPriority</span></label>
+          <input value="0" style="max-width:80px"></div>
+        <div><label>Active <span class="id">#swMsgActive</span></label>
+          <input type="checkbox" checked></div>
+        <div style="flex:0 0 auto;display:flex;align-items:flex-end">
+          <button class="btn">Save message <span class="id">#btnMsgCreate</span></button></div>
+      </div>
+      <div class="legend">Status: <span class="id">#statusTextMessages</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Create booking (admin) <span class="id">#bookingCreatePanel</span></h2>
+      <div class="row">
+        <div><label>Room <span class="id">#ddBookingRoom</span></label>
+          <select><option>adventure_suite</option><option>penthouse_apartment</option><option>two_bedroom_apartment</option></select></div>
+        <div><label>Check-in <span class="id">#dateBookingCheckIn</span></label><input type="date"></div>
+        <div><label>Check-out <span class="id">#dateBookingCheckOut</span></label><input type="date"></div>
+        <div><label>Guests <span class="id">#numBookingGuests</span></label>
+          <input value="2" style="max-width:80px"></div>
+        <div style="flex:0 0 auto;display:flex;align-items:flex-end">
+          <button class="btn">Create booking <span class="id">#btnBookingCreate</span></button></div>
+      </div>
+      <div class="legend">Status: <span class="id">#statusTextBookings</span></div>
+    </div>
+  </div>
+</div>
+<script>
+  function show(i,btn){
+    document.querySelectorAll('.page').forEach((p,n)=>p.classList.toggle('active',n===i));
+    document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    window.scrollTo(0,0);
+  }
+</script>
+</body>
+</html>

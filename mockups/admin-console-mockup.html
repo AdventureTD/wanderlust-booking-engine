@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Wanderlust Admin Console — Layout Mock-up</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --panel: #ffffff;
+      --text: #1a1a1a;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --primary: #065f46; /* emerald 800 */
+      --primary-hover: #047857;
+      --danger: #991b1b;
+      --danger-bg: #fee2e2;
+      --accent: #fef3c7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 2rem;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+    /* Section cards */
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: var(--primary);
+      background: #d1fae5;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+    }
+
+    /* Form rows */
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    label { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+    label .id-tag {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.7rem;
+      background: #eef2ff;
+      color: #3730a3;
+      padding: 0.05rem 0.35rem;
+      border-radius: 0.25rem;
+      margin-left: 0.35rem;
+    }
+    input, select, textarea {
+      padding: 0.5rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 0.35rem;
+      font-size: 0.9rem;
+      min-width: 160px;
+      background: #fff;
+    }
+    input[type="number"] { min-width: 80px; }
+    textarea { min-height: 60px; min-width: 280px; resize: vertical; }
+    .switch-wrap { display: flex; align-items: center; gap: 0.5rem; margin-top: 1.25rem; }
+    .switch {
+      appearance: none; width: 40px; height: 22px; background: #d1d5db;
+      border-radius: 9999px; position: relative; cursor: pointer; outline: none;
+    }
+    .switch::after {
+      content: ""; position: absolute; top: 2px; left: 2px;
+      width: 18px; height: 18px; background: #fff; border-radius: 50%;
+      transition: left 0.2s;
+    }
+    .switch:checked { background: var(--primary); }
+    .switch:checked::after { left: 20px; }
+
+    /* Buttons */
+    .btn {
+      padding: 0.55rem 1.1rem;
+      border: none;
+      border-radius: 0.35rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-ghost:hover { background: #f9fafb; }
+    .actions { display: flex; gap: 0.5rem; align-items: flex-end; flex-wrap: wrap; }
+
+    /* Repeater (table) */
+    .repeater-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.55rem 0.6rem;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    th {
+      background: #f9fafb;
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    tr:hover { background: #f9fafb; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+    .status-badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .status-confirmed { background: #d1fae5; color: #065f46; }
+    .status-hold { background: #fef3c7; color: #92400e; }
+    .status-cancelled { background: var(--danger-bg); color: var(--danger); }
+    .status-blocked { background: #e0e7ff; color: #3730a3; }
+
+    /* Summary row */
+    .summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; margin-top: 0.5rem; }
+    .sum-card { background: #f9fafb; border: 1px solid var(--border); border-radius: 0.35rem; padding: 0.6rem; text-align: center; }
+    .sum-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .sum-value { font-size: 1.1rem; font-weight: 700; margin-top: 0.15rem; }
+
+    /* Status bar */
+    .status-bar {
+      font-size: 0.85rem;
+      padding: 0.6rem 0.85rem;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 0.35rem;
+      color: #92400e;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .status-bar::before { content: "⚠"; }
+  </style>
+</head>
+<body>
+
+  <h1>Wanderlust Booking Engine — Admin Console</h1>
+  <p class="subtitle">Drag this mock-up to your second monitor while building in the Wix Editor. Each element shows its exact ID in <span class="mono" style="background:#eef2ff;color:#3730a3;padding:0 .2rem;">monospace</span>.</p>
+
+  <!-- STATUS BAR -->
+  <div class="status-bar" id="statusText">
+    Status: ready — 42 booking(s) found (38 revenue).
+  </div>
+
+  <!-- ============ REPORTS ============ -->
+  <div class="section" id="sectionReports">
+    <div class="section-title">
+      Reports
+      <span class="badge">Revenue</span>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>From <span class="id-tag">#datePickerFrom</span></label>
+        <input type="date" value="2026-06-01">
+      </div>
+      <div class="field">
+        <label>To <span class="id-tag">#datePickerTo</span></label>
+        <input type="date" value="2026-06-30">
+      </div>
+      <div class="field">
+        <label>Date Field <span class="id-tag">#dateFieldSelect</span></label>
+        <select>
+          <option selected>dateBooked</option>
+          <option>checkInDate</option>
+          <option>checkOutDate</option>
+        </select>
+      </div>
+      <div class="actions" style="align-self:flex-end;">
+        <button class="btn btn-primary" id="btnRunReport">Run Report</button>
+      </div>
+    </div>
+
+    <div class="repeater-wrap">
+      <table id="bookingsRepeater">
+        <thead>
+          <tr>
+            <th>Guest</th>
+            <th>Invoice</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Date Booked</th>
+            <th>Check-In</th>
+            <th>Check-Out</th>
+            <th>Status</th>
+            <th>Accom.</th>
+            <th>Packages</th>
+            <th>VAT 10%</th>
+            <th>VAT 15%</th>
+            <th>Total VAT</th>
+            <th>Grand Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Jane Doe</td>
+            <td class="mono">WL-001</td>
+            <td>+1-555-0101</td>
+            <td>jane@example.com</td>
+            <td>2026-05-15</td>
+            <td>2026-06-10</td>
+            <td>2026-06-14</td>
+            <td><span class="status-badge status-confirmed">Confirmed</span></td>
+            <td>$1,200.00</td>
+            <td>$800.00</td>
+            <td>$120.00</td>
+            <td>$120.00</td>
+            <td>$240.00</td>
+            <td><strong>$2,240.00</strong></td>
+          </tr>
+          <tr>
+            <td>John Smith</td>
+            <td class="mono">WL-002</td>
+            <td>+1-555-0199</td>
+            <td>john@example.com</td>
+            <td>2026-05-20</td>
+            <td>2026-06-12</td>
+            <td>2026-06-18</td>
+            <td><span class="status-badge status-hold">Hold</span></td>
+            <td>$1,800.00</td>
+            <td>$1,200.00</td>
+            <td>$180.00</td>
+            <td>$180.00</td>
+            <td>$360.00</td>
+            <td><strong>$3,360.00</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="summary">
+      <div class="sum-card"><div class="sum-label">Bookings</div><div class="sum-value" id="sumCount">42</div></div>
+      <div class="sum-card"><div class="sum-label">Revenue Count</div><div class="sum-value" id="sumRevenueCount">38</div></div>
+      <div class="sum-card"><div class="sum-label">Accommodation</div><div class="sum-value" id="sumAccommodation">$48,200</div></div>
+      <div class="sum-card"><div class="sum-label">Packages</div><div class="sum-value" id="#sumPackages">$32,100</div></div>
+      <div class="sum-card"><div class="sum-label">VAT 10%</div><div class="sum-value" id="sumVat10">$4,820</div></div>
+      <div class="sum-card"><div class="sum-label">VAT 15%</div><div class="sum-value" id="sumVat15">$4,815</div></div>
+      <div class="sum-card"><div class="sum-label">Total VAT</div><div class="sum-value" id="sumVatTotal">$9,635</div></div>
+      <div class="sum-card"><div class="sum-label">Grand Total</div><div class="sum-value" id="sumGrandTotal">$89,935</div></div>
+    </div>
+  </div>
+
+  <!-- ============ BOOKING CRUD ============ -->
+  <div class="section" id="sectionBookings">
+    <div class="section-title">
+      Booking CRUD
+      <span class="badge">Create / Edit</span>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Room <span class="id-tag">#ddBookingRoom</span></label>
+        <select>
+          <option selected>Adventure Suite</option>
+          <option>Penthouse Apartment</option>
+          <option>Two-Bedroom Apartment</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Check-In <span class="id-tag">#dpBookingCheckIn</span></label>
+        <input type="date" value="2026-07-01">
+      </div>
+      <div class="field">
+        <label>Check-Out <span class="id-tag">#dpBookingCheckOut</span></label>
+        <input type="date" value="2026-07-08">
+      </div>
+      <div class="field">
+        <label>Guests <span class="id-tag">#inpBookingGuests</span></label>
+        <input type="number" value="2" min="1">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>Guest Name <span class="id-tag">#inpBookingName</span></label>
+        <input type="text" placeholder="e.g. Maria Garcia">
+      </div>
+      <div class="field">
+        <label>Email <span class="id-tag">#inpBookingEmail</span></label>
+        <input type="email" placeholder="maria@example.com">
+      </div>
+      <div class="field">
+        <label>Phone <span class="id-tag">#inpBookingPhone</span></label>
+        <input type="tel" placeholder="+1-555-0123">
+      </div>
+      <div class="actions" style="align-self:flex-end;">
+        <button class="btn btn-primary" id="btnCreateBooking">Create Booking</button>
+      </div>
+    </div>
+
+    <div class="repeater-wrap">
+      <table id="bookingsListRepeater">
+        <thead>
+          <tr>
+            <th>Guest</th>
+            <th>Room</th>
+            <th>Check-In</th>
+            <th>Check-Out</th>
+            <th>Status</th>
+            <th style="text-align:right;">Grand Total</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Jane Doe</td>
+            <td>Adventure Suite</td>
+            <td>2026-06-10</td>
+            <td>2026-06-14</td>
+            <td><span class="status-badge status-confirmed">Confirmed</span></td>
+            <td style="text-align:right;"><strong>$2,240.00</strong></td>
+            <td><button class="btn btn-ghost" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Cancel</button></td>
+          </tr>
+          <tr>
+            <td>John Smith</td>
+            <td>Penthouse Apartment</td>
+            <td>2026-06-12</td>
+            <td>2026-06-18</td>
+            <td><span class="status-badge status-hold">Hold</span></td>
+            <td style="text-align:right;"><strong>$3,360.00</strong></td>
+            <td><button class="btn btn-ghost" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Cancel</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ BLOCKING ============ -->
+  <div class="section" id="sectionBlocking">
+    <div class="section-title">
+      Room Blocking
+      <span class="badge">Maintenance / Closure</span>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Room <span class="id-tag">#ddBlockRoom</span></label>
+        <select>
+          <option selected>Adventure Suite</option>
+          <option>Penthouse Apartment</option>
+          <option>Two-Bedroom Apartment</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>From <span class="id-tag">#dpBlockStart</span></label>
+        <input type="date" value="2026-09-01">
+      </div>
+      <div class="field">
+        <label>To <span class="id-tag">#dpBlockEnd</span></label>
+        <input type="date" value="2026-09-10">
+      </div>
+      <div class="field">
+        <label>Quantity <span class="id-tag">#inpBlockQuantity</span></label>
+        <input type="number" value="1" min="1">
+      </div>
+      <div class="field" style="flex:1;min-width:200px;">
+        <label>Reason / Note <span class="id-tag">#inpBlockReason</span></label>
+        <input type="text" placeholder="e.g. Off-season closure, maintenance">
+      </div>
+    </div>
+    <div class="actions" style="margin-bottom:1rem;">
+      <button class="btn btn-primary" id="btnBlockRoom">Block Room</button>
+      <button class="btn btn-danger" id="btnBlockAllRooms">Close Hotel (All Rooms)</button>
+    </div>
+
+    <div class="repeater-wrap">
+      <table id="blocksListRepeater">
+        <thead>
+          <tr>
+            <th>Room</th>
+            <th>Qty</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Note</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Adventure Suite</td>
+            <td>1</td>
+            <td>2026-09-01</td>
+            <td>2026-09-10</td>
+            <td>Off-season closure</td>
+            <td><button class="btn btn-ghost" id="btnUnblock" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Unblock</button></td>
+          </tr>
+          <tr>
+            <td>Penthouse Apartment</td>
+            <td>1</td>
+            <td>2026-09-01</td>
+            <td>2026-09-10</td>
+            <td>Off-season closure</td>
+            <td><button class="btn btn-ghost" id="btnUnblock" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Unblock</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ MESSAGES ============ -->
+  <div class="section" id="sectionMessages">
+    <div class="section-title">
+      Page Messages
+      <span class="badge">Promos / Notices</span>
+    </div>
+
+    <div class="row">
+      <div class="field" style="flex:1;">
+        <label>Title <span class="id-tag">#inpMsgTitle</span></label>
+        <input type="text" value="Hurricane Season Notice">
+      </div>
+      <div class="field">
+        <label>Page <span class="id-tag">#ddMsgPage</span></label>
+        <select>
+          <option selected>search</option>
+          <option>detail</option>
+          <option>confirm</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Priority <span class="id-tag">#inpMsgPriority</span></label>
+        <input type="number" value="10">
+      </div>
+      <div class="field">
+        <label>Start <span class="id-tag">#dpMsgStart</span></label>
+        <input type="date" value="2026-09-01">
+      </div>
+      <div class="field">
+        <label>End <span class="id-tag">#dpMsgEnd</span></label>
+        <input type="date" value="2026-09-30">
+      </div>
+      <div class="switch-wrap">
+        <input type="checkbox" class="switch" id="swMsgActive" checked>
+        <label for="swMsgActive">Active</label>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1;">
+        <label>Body <span class="id-tag">#inpMsgBody</span></label>
+        <textarea>We are closed September 1–30 for off-season maintenance. Online bookings will reopen in October.</textarea>
+      </div>
+      <div class="actions" style="align-self:flex-end;">
+        <button class="btn btn-primary" id="btnSaveMessage">Save Message</button>
+      </div>
+    </div>
+
+    <div class="repeater-wrap">
+      <table id="messagesListRepeater">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Body</th>
+            <th>Page</th>
+            <th>Priority</th>
+            <th>Active</th>
+            <th>Start</th>
+            <th>End</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Hurricane Season Notice</strong></td>
+            <td style="max-width:300px;white-space:normal;">We are closed September 1–30 for off-season maintenance. Online bookings will reopen in October.</td>
+            <td>search</td>
+            <td>10</td>
+            <td><span class="status-badge status-confirmed">Yes</span></td>
+            <td>2026-09-01</td>
+            <td>2026-09-30</td>
+            <td>
+              <button class="btn btn-ghost" id="btnEditMessage" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Edit</button>
+              <button class="btn btn-danger" id="btnDeleteMessage" style="padding:0.3rem 0.6rem;font-size:0.75rem;margin-left:.25rem;">Delete</button>
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Early Bird Special</strong></td>
+            <td style="max-width:300px;white-space:normal;">Book 7+ nights and receive a complimentary island tour.</td>
+            <td>search</td>
+            <td>5</td>
+            <td><span class="status-badge status-confirmed">Yes</span></td>
+            <td>2026-06-01</td>
+            <td>2026-08-31</td>
+            <td>
+              <button class="btn btn-ghost" id="btnEditMessage" style="padding:0.3rem 0.6rem;font-size:0.75rem;">Edit</button>
+              <button class="btn btn-danger" id="btnDeleteMessage" style="padding:0.3rem 0.6rem;font-size:0.75rem;margin-left:.25rem;">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ TAX RATES ============ -->
+  <div class="section" id="sectionTaxRates">
+    <div class="section-title">
+      Tax Rates
+      <span class="badge">No Code Changes</span>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Accommodation VAT % <span class="id-tag">#inpTaxRateAccom</span></label>
+        <input type="number" value="10" min="0" max="99" id="inpTaxRateAccom">
+      </div>
+      <div class="field">
+        <label>Standard VAT % <span class="id-tag">#inpTaxRateStandard</span></label>
+        <input type="number" value="15" min="0" max="99" id="inpTaxRateStandard">
+      </div>
+      <div class="actions" style="align-self:flex-end;">
+        <button class="btn btn-primary" id="btnSaveTaxRates">Save Tax Rates</button>
+      </div>
+    </div>
+
+    <div style="margin-top:0.75rem;font-size:0.85rem;color:var(--muted);">
+      <strong id="currentTaxRatesText">Current: Accommodation 10% / Standard 15%</strong>
+    </div>
+    <div style="margin-top:0.5rem;font-size:0.75rem;color:var(--muted);">
+      These rates drive ALL pricing — every quote, invoice, and report.
+      Changes take effect immediately for new bookings; existing bookings keep their originally quoted totals.
+      If a rate row is missing in Settings, the engine falls back to the defaults shown above.
+    </div>
+  </div>
+
+</body>
+</html>
