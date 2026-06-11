@@ -115,7 +115,6 @@ async function initGuestDetails() {
     r.roomTotal = total;
     r.accomodationVat = accVat;
     r.packageVat = pkgVat;
-    r.invoiceNumber = '';
     r.country = '';
     roomLines.push(displayName.charAt(0).toUpperCase() + displayName.slice(1) + ' — ' + r.guests + ' guest' + (r.guests > 1 ? 's' : '') + ' · $' + fmtCurrency(total));
   }
@@ -200,7 +199,6 @@ async function confirmHandler() {
           accomodationVat: r.accomodationVat || 0,
           packageVat: r.packageVat || 0,
           grandTotal: bookingData.grandTotal || 0,
-          invoiceNumber: r.invoiceNumber || '',
           country: r.country || ''
         };
         if (sharedBookingNumber) payload.bookingNumber = sharedBookingNumber;

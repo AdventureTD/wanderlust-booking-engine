@@ -24,20 +24,7 @@ import { generateAndStoreInvoice } from 'backend/invoices';
 const BOOKINGS = 'Bookings';
 
 async function getNextBookingNumber() {
-  try {
-    const res = await wixData.query(BOOKINGS)
-      .hasSome('status', ['confirmed', 'hold'])
-      .startsWith('bookingNumber', 'WC-')
-      .descending('bookingNumber')
-      .limit(1)
-      .find();
-    if (res.items.length) {
-      const last = res.items[0].bookingNumber;
-      const m = last && last.match(/WC-(\d+)/);
-      if (m) return 'WC-' + String(parseInt(m[1], 10) + 1);
-    }
-  } catch (e) {}
-  return 'WC-146';
+  return "";
 }
 
 function nightsBetween(checkIn, checkOut) {
@@ -114,7 +101,7 @@ export const createBooking = webMethod(
     const { roomCode, checkIn, checkOut, guests = 1,
       guestName, guestEmail, guestPhone,
       roomTotal, accomodationVat, packageVat, propertyFee,
-      grandTotal, note, bookingNumber, invoiceNumber, country } = booking;
+      grandTotal, note, bookingNumber, country } = booking;
 
     console.log('>>> SERVER roomCode:', roomCode, 'checkIn:', checkIn, 'checkOut:', checkOut, 'guests:', guests);
     if (!(roomCode in ROOM_UNITS)) throw new Error(`Unknown room type '${roomCode}'`);
@@ -150,7 +137,6 @@ export const createBooking = webMethod(
       packageVat: packageVat || 0,
       grandTotal: grandTotal || 0,
       bookingNumber: bookingNumber || await getNextBookingNumber(),
-      invoiceNumber: invoiceNumber || '',
       country: country || '',
       note: note || '',
     };
