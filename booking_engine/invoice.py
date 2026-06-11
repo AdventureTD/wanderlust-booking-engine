@@ -113,11 +113,15 @@ class Invoice:
         raw_vbc = {}
         for li in lines:
             raw_vbc[li.tax_class] = round(raw_vbc.get(li.tax_class, 0.0) + li.vat, 2)
+        # Invoice total = subtotal_net + total_vat (property fee is shown separately)
+        # Wix may send 'total' as grand total including property fee, so we
+        # recalculate to avoid double-counting.
+        invoice_total = quote_breakdown.get("subtotal_net", 0) + quote_breakdown.get("total_vat", 0)
         return cls(
             invoice_number=invoice_number, issue_date=issue_date, guest=guest,
             lines=lines, subtotal_net=quote_breakdown["subtotal_net"],
             vat_by_class=raw_vbc, total_vat=quote_breakdown["total_vat"],
-            total=quote_breakdown["total"],
+            total=invoice_total,
             property_fee_rate=quote_breakdown.get("property_fee_rate", 0.0),
             property_fee=quote_breakdown.get("property_fee", 0.0),
             currency=quote_breakdown.get("currency", "USD"),
