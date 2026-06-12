@@ -17,7 +17,7 @@ import json
 import base64
 from email.message import EmailMessage
 
-GMAIL_TOKEN_PATH = os.path.expanduser("~/.hermes/gmail_token.json")
+GMAIL_TOKEN_PATH = os.environ.get("GMAIL_TOKEN_PATH", os.path.expanduser("~/.hermes/gmail_token.json"))
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
 SENDER = "info@wanderlustcaribbean.com"
 BCC_COPY = "info@wanderlustcaribbean.com"
