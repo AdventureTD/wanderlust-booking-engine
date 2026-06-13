@@ -293,6 +293,7 @@ export const createBooking = webMethod(
 
     // Generate invoice BEFORE inserting — so invoice number is included from the start
     let invoiceNumber = bookingNumber || '';
+    let invoiceErr = '';
     try {
       const quoteBreakdown = buildQuoteBreakdown({
         roomCode,
@@ -315,7 +316,8 @@ export const createBooking = webMethod(
       invoiceNumber = result.invoice_number;
       console.log('>>> SERVER invoice generated BEFORE insert:', invoiceNumber);
     } catch (e) {
-      console.log('>>> SERVER invoice generation failed BEFORE insert:', e.message);
+      invoiceErr = String(e.message || e);
+      console.log('>>> SERVER invoice generation failed BEFORE insert:', invoiceErr);
     }
 
     const toInsert = {
@@ -335,7 +337,7 @@ export const createBooking = webMethod(
       accomodationVat: accomodationVat || 0,
       packageVat: packageVat || 0,
       grandTotal: grandTotal || 0,
-      bookingNumber: invoiceNumber || 'TEST-v3-' + new Date().toISOString(),
+      bookingNumber: invoiceNumber || 'ERR:' + (invoiceErr || 'empty').substring(0,60),
       country: country || '',
       note: note || '',
     };
