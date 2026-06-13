@@ -18,3 +18,5 @@ services:
         value: /tmp/invoice_counter.json
       - key: WBE_SHARED_SECRET
         generateValue: true   # Render creates a random secret; save it!
+      # WBE_INVOICE_FOLDER_ID: 13bWfjvkMxPUssY7VnripFEsTtPC8h7sh
+      # GOOGLE_SERVICE_ACCOUNT_B64: (base64-encoded service account JSON key)
