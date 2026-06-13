@@ -1,8 +1,16 @@
 import wixLocation from 'wix-location';
 import { createBooking } from 'backend/availability';
 import { getAllSettings } from 'backend/settings';
-import { getRoomDisplayName } from 'backend/wbeConfig';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+
+const ROOM_DISPLAY_NAMES = {
+  adventure_suite: 'Adventure Suite',
+  penthouse_apartment: 'Penthouse Apartment',
+  two_bedroom_apartment: 'Two Bedroom Apartment',
+};
+function getRoomDisplayName(roomCode) {
+  return ROOM_DISPLAY_NAMES[roomCode] || (roomCode || '').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
 
 function getParam(name) {
   const q = wixLocation.query || {};

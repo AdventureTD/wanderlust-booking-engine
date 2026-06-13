@@ -55,7 +55,15 @@ import { createBooking, cancelBooking, blockRoom, blockAllRooms, unblock, listBl
 import { createMessage, updateMessage, deleteMessage, listMessages, getActiveMessages } from 'backend/messages';
 import { quotePackage } from 'backend/packagePricing';
 import { getAllTaxRates, setTaxRate } from 'backend/settings';
-import { getRoomDisplayName } from 'backend/wbeConfig';
+
+const ROOM_DISPLAY_NAMES = {
+  adventure_suite: 'Adventure Suite',
+  penthouse_apartment: 'Penthouse Apartment',
+  two_bedroom_apartment: 'Two Bedroom Apartment',
+};
+function getRoomDisplayName(roomCode) {
+  return ROOM_DISPLAY_NAMES[roomCode] || (roomCode || '').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
 
 $w.onReady(function () {
   // --- Reports ---
