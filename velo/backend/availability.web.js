@@ -185,11 +185,14 @@ async function generateAndStoreInvoice(bookingId) {
     throw new Error('Invoice generation failed: ' + e.message);
   }
 
-  // Store invoice number in bookingNumber field
-  booking.bookingNumber = result.invoice_number;
+  // Store invoice number in bookingNumber field (minimal update pattern)
+  const updateObj = {
+    _id: booking._id,
+    bookingNumber: result.invoice_number
+  };
   try {
-    await wixData.update(BOOKINGS, booking);
-    console.log('>>> INVOICE booking updated with', result.invoice_number);
+    await wixData.update(BOOKINGS, updateObj);
+    console.log('>>> INVOICE booking update SUCCESS with', result.invoice_number);
   } catch (err) {
     console.log('>>> INVOICE wixData.update FAILED:', err.message);
   }
