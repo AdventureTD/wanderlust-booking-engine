@@ -273,6 +273,7 @@ export const createBooking = webMethod(
     const propertyFee = booking.propertyFee;
     const grandTotal = booking.grandTotal;
     const note = booking.note;
+    let saveNote = note;
     const bookingNumber = booking.bookingNumber;
     const country = booking.country;
 
@@ -293,7 +294,6 @@ export const createBooking = webMethod(
 
     // Generate invoice BEFORE inserting — so invoice number is included from the start
     let invoiceNumber = bookingNumber || '';
-    let invoiceErr = '';
     try {
       const quoteBreakdown = buildQuoteBreakdown({
         roomCode,
@@ -316,8 +316,9 @@ export const createBooking = webMethod(
       invoiceNumber = result.invoice_number;
       console.log('>>> SERVER invoice generated BEFORE insert:', invoiceNumber);
     } catch (e) {
-      invoiceErr = String(e.message || e);
-      console.log('>>> SERVER invoice generation failed BEFORE insert:', invoiceErr);
+      console.log('>>> SERVER invoice generation failed BEFORE insert:', e.message);
+      // Preserve error in note so admin can see why invoice is missing
+      saveNote = (saveNote || '') + ' [Invoice error: ' + (e.message || 'unknown') + ']';
     }
 
     const toInsert = {
@@ -337,9 +338,9 @@ export const createBooking = webMethod(
       accomodationVat: accomodationVat || 0,
       packageVat: packageVat || 0,
       grandTotal: grandTotal || 0,
-      bookingNumber: invoiceNumber || 'ERR:' + (invoiceErr || 'empty').substring(0,60),
+      bookingNumber: invoiceNumber || '',
       country: country || '',
-      note: note || '',
+      note: saveNote || '',
     };
     const inserted = await wixData.insert(BOOKINGS, toInsert);
 
