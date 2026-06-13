@@ -33,6 +33,7 @@ from booking_engine.invoice_pdf import render_invoice_pdf
 from booking_engine.invoice_number import next_invoice_number
 from booking_engine.report import build_report_record
 from booking_engine import gmail_sender
+from booking_engine.drive_uploader import upload_invoice_pdf
 
 SHARED_SECRET = os.environ.get("WBE_SHARED_SECRET", "")
 
@@ -130,17 +131,19 @@ def issue_invoice(req: IssueRequest, x_wbe_secret: str = Header(default="")):
     pdf_path = os.path.join(tempfile.gettempdir(), f"{invoice_number}.pdf")
     render_invoice_pdf(inv, pdf_path)
 
-    # Include the PDF as base64 so Velo can upload it to Wix Media (Velo cannot
-    # read this service's local filesystem). Velo stores the resulting URL on a
-    # NEW row in the Invoices collection (one-to-many: a booking can have many).
-    import base64 as _b64
-    with open(pdf_path, "rb") as _f:
-        pdf_b64 = _b64.b64encode(_f.read()).decode()
+    # Upload PDF to Google Drive and get a shareable URL.
+    try:
+        invoice_url = upload_invoice_pdf(pdf_path, invoice_number)
+    except Exception as e:
+        # Drive upload failure is not fatal — invoice number and email still work.
+        invoice_url = ""
+        import logging
+        logging.warning(f"Drive upload failed for {invoice_number}: {e}")
 
     result = {"invoice_number": invoice_number,
               "total": inv.total, "pdf_path": pdf_path, "emailed": False,
               "pdf_filename": f"{invoice_number}.pdf",
-              "pdf_base64": pdf_b64,
+              "invoice_url": invoice_url,
               "issue_date": issue.isoformat(),
               "report_record": report.to_dict()}
 

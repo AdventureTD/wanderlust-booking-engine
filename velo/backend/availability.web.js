@@ -294,6 +294,7 @@ export const createBooking = webMethod(
 
     // Generate invoice BEFORE inserting — so invoice number is included from the start
     let invoiceNumber = bookingNumber || '';
+    let invoiceUrl = '';
     try {
       const quoteBreakdown = buildQuoteBreakdown({
         roomCode,
@@ -314,7 +315,8 @@ export const createBooking = webMethod(
       };
       const result = await callIssueInvoice(guest, quoteBreakdown, dates, true);
       invoiceNumber = result.invoice_number;
-      console.log('>>> SERVER invoice generated BEFORE insert:', invoiceNumber);
+      invoiceUrl = result.invoice_url || '';
+      console.log('>>> SERVER invoice generated BEFORE insert:', invoiceNumber, 'URL:', invoiceUrl);
     } catch (e) {
       console.log('>>> SERVER invoice generation failed BEFORE insert:', e.message);
       // Preserve error in note so admin can see why invoice is missing
@@ -339,6 +341,7 @@ export const createBooking = webMethod(
       packageVat: packageVat || 0,
       grandTotal: grandTotal || 0,
       bookingNumber: invoiceNumber || '',
+      invoiceUrl: invoiceUrl || '',
       country: country || '',
       note: saveNote || '',
     };
