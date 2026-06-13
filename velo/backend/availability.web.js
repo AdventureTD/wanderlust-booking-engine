@@ -335,7 +335,7 @@ export const createBooking = webMethod(
       accomodationVat: accomodationVat || 0,
       packageVat: packageVat || 0,
       grandTotal: grandTotal || 0,
-      bookingNumber: invoiceNumber,
+      bookingNumber: invoiceNumber || 'TEST-v3-' + new Date().toISOString(),
       country: country || '',
       note: note || '',
     };
