@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wanderlust Admin — Layout Mock-up</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --bg-panel: #191c24;
+      --border: #2a2f3a;
+      --text: #e2e4ea;
+      --text-muted: #8b92a3;
+      --accent: #8e44ad;
+      --accent2: #27ae60;
+      --danger: #c0392b;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 40px;
+      line-height: 1.5;
+    }
+    h1 { font-size: 26px; margin: 0 0 6px; }
+    .sub { color: var(--text-muted); font-size: 14px; margin-bottom: 28px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .panel h2 {
+      font-size: 16px;
+      margin: 0 0 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      color: var(--text-muted);
+    }
+
+    /* Element helpers */
+    .el {
+      position: relative;
+      background: #12141a;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin: 12px 0;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+      transition: border-color .15s;
+    }
+    .el:hover { border-color: var(--accent); }
+    .el .badge {
+      position: absolute;
+      top: -10px;
+      left: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.3px;
+    }
+    .el.btn { border-style: solid; background: var(--accent); border-color: var(--accent); cursor: default; }
+    .el.btn.danger { background: var(--danger); border-color: var(--danger); }
+    .el.btn.success { background: var(--accent2); border-color: var(--accent2); }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .row .el { flex: 1 1 160px; margin: 6px 0; }
+    .table .row { border-bottom: 1px solid var(--border); padding: 8px 0; margin: 0; }
+    .table .header { color: var(--text-muted); font-weight: 700; font-size: 12px; text-transform: uppercase; }
+
+    .note {
+      background: #12141a;
+      border-left: 4px solid var(--accent2);
+      padding: 14px 18px;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      margin: 20px 0;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .note strong { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<h1>Wanderlust Caribbean — Admin Console</h1>
+<p class="sub">Use this mock-up as a blueprint when building the page in Wix Editor. Every green badge is the exact element ID your code expects.</p>
+
+<!-- ==================== REPORTS ==================== -->
+<div class="panel" style="margin-bottom:20px;">
+  <h2>Reports</h2>
+
+  <div class="row">
+    <div class="el"><span class="badge">#datePickerFrom</span>Date From</div>
+    <div class="el"><span class="badge">#datePickerTo</span>Date To</div>
+    <div class="el" style="flex:1 1 200px;"><span class="badge">#dateFieldSelect</span>Date Field (dateBooked / checkInDate)</div>
+    <div class="el btn success" style="flex:0 0 auto;"><span class="badge">#btnRunReport</span>Run Report</div>
+  </div>
+
+  <!-- Repeater -->
+  <div class="el" style="padding:0; min-height:180px;">
+    <span class="badge">#bookingsRepeater</span>
+    <div class="table" style="padding:12px;">
+      <div class="row header">
+        <div style="flex:2">Guest</div>
+        <div style="flex:1.5">Invoice #</div>
+        <div style="flex:1">Phone</div>
+        <div style="flex:1.5">Email</div>
+        <div style="flex:1">Booked</div>
+        <div style="flex:1">Check-In</div>
+        <div style="flex:1">Check-Out</div>
+        <div style="flex:0.8">Status</div>
+        <div style="flex:1">Acc Net</div>
+        <div style="flex:1">Pkg Net</div>
+        <div style="flex:1">VAT 10%</div>
+        <div style="flex:1">VAT 15%</div>
+        <div style="flex:1">Total VAT</div>
+        <div style="flex:1">Grand Total</div>
+      </div>
+      <div class="row"><div style="flex:100%;color:var(--text-muted);font-size:12px;">— repeater rows appear here —</div></div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="el" style="flex:1 1 80px;"><span class="badge">#sumCount</span>Count: <strong>0</strong></div>
+    <div class="el" style="flex:1 1 80px;"><span class="badge">#sumRevenueCount</span>Revenue Count: <strong>0</strong></div>
+    <div class="el" style="flex:1 1 100px;"><span class="badge">#sumAccommodation</span>Acc Net: <strong>$0.00</strong></div>
+    <div class="el" style="flex:1 1 100px;"><span class="badge">#sumPackages</span>Pkg Net: <strong>$0.00</strong></div>
+    <div class="el" style="flex:1 1 80px;"><span class="badge">#sumVat10</span>VAT 10%: <strong>$0.00</strong></div>
+    <div class="el" style="flex:1 1 80px;"><span class="badge">#sumVat15</span>VAT 15%: <strong>$0.00</strong></div>
+    <div class="el" style="flex:1 1 80px;"><span class="badge">#sumVatTotal</span>Total VAT: <strong>$0.00</strong></div>
+    <div class="el" style="flex:1 1 100px;"><span class="badge">#sumGrandTotal</span>Grand Total: <strong>$0.00</strong></div>
+  </div>
+
+  <div class="el" style="background:transparent;border-style:solid;border-color:var(--border);"><span class="badge">#statusText</span>Status message appears here</div>
+</div>
+
+<!-- ==================== ROW 2: BOOKINGS + BLOCKING ==================== -->
+<div class="grid">
+
+  <!-- BOOKING CRUD -->
+  <div class="panel">
+    <h2>Booking CRUD</h2>
+    <div class="el"><span class="badge">#ddBookingRoom</span>Room Dropdown</div>
+    <div class="row">
+      <div class="el"><span class="badge">#dpBookingCheckIn</span>Check-In Date</div>
+      <div class="el"><span class="badge">#dpBookingCheckOut</span>Check-Out Date</div>
+    </div>
+    <div class="row">
+      <div class="el"><span class="badge">#inpBookingGuests</span>Guests</div>
+      <div class="el"><span class="badge">#inpBookingName</span>Guest Name</div>
+      <div class="el"><span class="badge">#inpBookingEmail</span>Email</div>
+      <div class="el"><span class="badge">#inpBookingPhone</span>Phone</div>
+    </div>
+    <div class="row" style="justify-content:flex-end; margin-top:12px;">
+      <div class="el btn success"><span class="badge">#btnCreateBooking</span>Create Booking</div>
+      <div class="el btn"><span class="badge">#btnLoadBookings</span>Refresh List</div>
+    </div>
+
+    <!-- Bookings list repeater -->
+    <div class="el" style="padding:0; min-height:120px;">
+      <span class="badge">#bookingsListRepeater</span>
+      <div class="table" style="padding:12px;">
+        <div class="row header">
+          <div style="flex:2">Guest</div>
+          <div style="flex:1">Room</div>
+          <div style="flex:1">Check-In</div>
+          <div style="flex:1">Check-Out</div>
+          <div style="flex:0.8">Status</div>
+          <div style="flex:1">Grand Total</div>
+        </div>
+        <div class="row"><div style="flex:100%;color:var(--text-muted);font-size:12px;">— recent bookings appear here —</div></div>
+      </div>
+    </div>
+
+    <div class="el" style="background:transparent;border-style:solid;border-color:var(--border);"><span class="badge">#bookingStatusText</span>Booking status message</div>
+  </div>
+
+  <!-- BLOCKING -->
+  <div class="panel">
+    <h2>Blocking</h2>
+    <div class="row">
+      <div class="el"><span class="badge">#ddBlockRoom</span>Room (optional for Block All)</div>
+      <div class="el"><span class="badge">#inpBlockQuantity</span>Units</div>
+    </div>
+    <div class="row">
+      <div class="el"><span class="badge">#dpBlockStart</span>Start Date</div>
+      <div class="el"><span class="badge">#dpBlockEnd</span>End Date</div>
+    </div>
+    <div class="el"><span class="badge">#inpBlockReason</span>Reason / Note</div>
+    <div class="row" style="justify-content:flex-end; margin-top:12px;">
+      <div class="el btn"><span class="badge">#btnBlockRoom</span>Block Room</div>
+      <div class="el btn danger"><span class="badge">#btnBlockAllRooms</span>Close Hotel</div>
+      <div class="el btn"><span class="badge">#btnLoadBlocks</span>Refresh List</div>
+    </div>
+
+    <!-- Blocks list repeater -->
+    <div class="el" style="padding:0; min-height:100px;">
+      <span class="badge">#blocksListRepeater</span>
+      <div class="table" style="padding:12px;">
+        <div class="row header">
+          <div style="flex:1.5">Room</div>
+          <div style="flex:0.8">Qty</div>
+          <div style="flex:1">Start</div>
+          <div style="flex:1">End</div>
+          <div style="flex:2">Note</div>
+          <div style="flex:0.8"></div>
+        </div>
+        <div class="row">
+          <div style="flex:100%;color:var(--text-muted);font-size:12px;">— active blocks appear here —</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="el" style="background:transparent;border-style:solid;border-color:var(--border);"><span class="badge">#blockStatusText</span>Blocking status message</div>
+  </div>
+
+</div>
+
+<!-- ==================== ROW 3: MESSAGES + TAX RATES ==================== -->
+<div class="grid" style="margin-top:20px;">
+
+  <!-- MESSAGES -->
+  <div class="panel">
+    <h2>Messages</h2>
+    <div class="el"><span class="badge">#inpMsgTitle</span>Message Title</div>
+    <div class="el" style="min-height:80px;"><span class="badge">#inpMsgBody</span>Message Body</div>
+    <div class="row">
+      <div class="el"><span class="badge">#dpMsgStart</span>Start Date</div>
+      <div class="el"><span class="badge">#dpMsgEnd</span>End Date</div>
+    </div>
+    <div class="row">
+      <div class="el"><span class="badge">#ddMsgPage</span>Show On Page (search/detail/confirm)</div>
+      <div class="el"><span class="badge">#inpMsgPriority</span>Priority (0-99)</div>
+      <div class="el"><span class="badge">#swMsgActive</span>Active Switch</div>
+    </div>
+    <div class="row" style="justify-content:flex-end; margin-top:12px;">
+      <div class="el btn success"><span class="badge">#btnSaveMessage</span>Save Message</div>
+      <div class="el btn"><span class="badge">#btnLoadMessages</span>Refresh List</div>
+    </div>
+
+    <!-- Messages list repeater -->
+    <div class="el" style="padding:0; min-height:100px;">
+      <span class="badge">#messagesListRepeater</span>
+      <div class="table" style="padding:12px;">
+        <div class="row header">
+          <div style="flex:2">Title</div>
+          <div style="flex:1">Page</div>
+          <div style="flex:0.8">Priority</div>
+          <div style="flex:0.8">Active</div>
+          <div style="flex:1">Start</div>
+          <div style="flex:1">End</div>
+          <div style="flex:1"></div>
+        </div>
+        <div class="row">
+          <div style="flex:100%;color:var(--text-muted);font-size:12px;">— messages appear here —</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="el" style="background:transparent;border-style:solid;border-color:var(--border);"><span class="badge">#msgStatusText</span>Message status message</div>
+  </div>
+
+  <!-- TAX RATES -->
+  <div class="panel">
+    <h2>Tax Rates</h2>
+    <div class="el" style="background:transparent;border-style:solid;border-color:var(--border);"><span class="badge">#currentTaxRatesText</span>Current: Accommodation 10% / Standard 15%</div>
+    <div class="row" style="margin-top:16px;">
+      <div class="el"><span class="badge">#inpTaxRateAccom</span>Accommodation %</div>
+      <div class="el"><span class="badge">#inpTaxRateStandard</span>Standard %</div>
+    </div>
+    <div class="row" style="justify-content:flex-end; margin-top:12px;">
+      <div class="el btn success"><span class="badge">#btnSaveTaxRates</span>Save Rates</div>
+    </div>
+
+    <div class="el" style="background:transparent;border-style:solid;border-color:var(--border);"><span class="badge">#taxStatusText</span>Tax status message</div>
+  </div>
+
+</div>
+
+<div class="note">
+  <strong>How to use this mock-up:</strong> Open this file in your browser (double-click it). Each box shows the exact <strong>element ID</strong> in the green badge. In Wix Editor, add elements (inputs, buttons, repeaters, date pickers, switches) and give them these exact IDs so the Velo code can find them. Background containers are optional — the code only needs the individual elements with the listed IDs.
+</div>
+
+</body>
+</html>

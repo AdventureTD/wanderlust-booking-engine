@@ -16,7 +16,7 @@
 
 import wixData from 'wix-data';
 import { Permissions, webMethod } from 'wix-web-module';
-import { mediaManager } from 'wix-media-backend';
+import wixMediaBackend from 'wix-media-backend';
 import { issueInvoice } from 'backend/issueInvoice';
 import { getAllSettings } from 'backend/settings';
 
@@ -142,7 +142,7 @@ export const generateAndStoreInvoice = webMethod(
     try {
       const pdfBuffer = Buffer.from(result.pdf_base64, 'base64');
       const fileName = result.pdf_filename || (result.invoice_number + '.pdf');
-      uploadResult = await mediaManager.upload(
+      uploadResult = await wixMediaBackend.upload(
         '/invoices',
         pdfBuffer,
         fileName,
