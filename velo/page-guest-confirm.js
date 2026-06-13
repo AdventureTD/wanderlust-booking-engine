@@ -228,6 +228,9 @@ async function confirmHandler() {
     safeText('inputGuestName', '');
     safeText('inputGuestEmail', '');
     safeText('inputGuestPhone', '');
+
+    // Redirect to main website after successful booking
+    wixLocation.to('https://www.wanderlustcaribbean.com');
   } catch (e) {
     console.log('>>> confirmHandler OUTER CATCH:', e.message);
     safeText('confirmStatus', 'Booking error: ' + e.message);
