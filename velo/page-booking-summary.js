@@ -1,6 +1,7 @@
 import wixLocation from 'wix-location';
 import { getAllSettings } from 'backend/settings';
 import { getRoomNames } from 'backend/rooms';
+import { getRoomDisplayName } from 'backend/wbeConfig';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
 function getParam(name) {
@@ -150,7 +151,7 @@ async function renderSummary() {
 
   for (let i = 0; i < rooms.length; i++) {
     const r = rooms[i];
-    const displayName = _roomNames[r.roomCode] || r.roomCode.replace(/_/g, ' ');
+    const displayName = _roomNames[r.roomCode] && _roomNames[r.roomCode] !== r.roomCode ? _roomNames[r.roomCode] : getRoomDisplayName(r.roomCode);
     names.push(displayName + ' x' + r.qty);
     const rate = r.baseRate || (r.roomCode === 'adventure_suite' ? 792 : r.roomCode === 'penthouse_apartment' ? 930 : r.roomCode === 'two_bedroom_apartment' ? 1188 : 0);
     const roomTotal = rate * r.qty * nights;

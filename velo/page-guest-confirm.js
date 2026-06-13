@@ -1,6 +1,7 @@
 import wixLocation from 'wix-location';
 import { createBooking } from 'backend/availability';
 import { getAllSettings } from 'backend/settings';
+import { getRoomDisplayName } from 'backend/wbeConfig';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
 function getParam(name) {
@@ -105,7 +106,7 @@ async function initGuestDetails() {
 
   let subtotal = 0, totalAccVat = 0, totalPkgVat = 0, roomLines = [];
   for (let i = 0; i < rooms.length; i++) {
-    const r = rooms[i], displayName = r.roomCode.replace(/_/g, ' ');
+    const r = rooms[i], displayName = getRoomDisplayName(r.roomCode);
     const total = r.baseRate * (r.qty || 1) * nights;
     const accNet = total * accommodationShare, advNet = total * (1 - accommodationShare);
     const accVat = accNet * taxRateAccommodation, pkgVat = advNet * taxRateAdventure;
@@ -116,7 +117,7 @@ async function initGuestDetails() {
     r.accomodationVat = accVat;
     r.packageVat = pkgVat;
     r.country = '';
-    roomLines.push(displayName.charAt(0).toUpperCase() + displayName.slice(1) + ' — ' + r.guests + ' guest' + (r.guests > 1 ? 's' : '') + ' · $' + fmtCurrency(total));
+    roomLines.push(displayName + ' — ' + r.guests + ' guest' + (r.guests > 1 ? 's' : '') + ' · $' + fmtCurrency(total));
   }
 
   safeText('reviewRooms', roomLines.join('  |  '));

@@ -43,6 +43,16 @@ const ROOM_MIN_OCCUPANCY = {
   two_bedroom_apartment: 3,
 };
 
+const ROOM_DISPLAY_NAMES = {
+  adventure_suite: 'Adventure Suite',
+  penthouse_apartment: 'Penthouse Apartment',
+  two_bedroom_apartment: 'Two Bedroom Apartment',
+};
+
+function getRoomDisplayName(roomCode) {
+  return ROOM_DISPLAY_NAMES[roomCode] || (roomCode || '').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
+
 /* ---------- helpers ---------- */
 async function getNextBookingNumber() {
   return "";
@@ -122,7 +132,7 @@ function buildQuoteBreakdown(booking) {
   const accUnitPrice = nights > 0 ? accNet / nights : 0;
   const advUnitPrice = nights > 0 ? advNet / nights : 0;
 
-  const displayName = capitaliseWords((booking.roomCode || '').replace(/_/g, ' '));
+  const displayName = getRoomDisplayName(booking.roomCode);
 
   return {
     line_items: [
@@ -278,18 +288,19 @@ export const createBooking = webMethod(
     const country = booking.country;
 
     console.log('>>> SERVER roomCode:', roomCode, 'checkIn:', checkIn, 'checkOut:', checkOut, 'guests:', guests);
-    if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomCode + '\'');
+    const roomDisplay = getRoomDisplayName(roomCode);
+    if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomDisplay + '\'');
     if (nightsBetween(checkIn, checkOut) <= 0) throw new Error('checkOut must be after checkIn');
     if (guests < ROOM_MIN_OCCUPANCY[roomCode]) {
-      throw new Error(roomCode + ' requires at least ' + ROOM_MIN_OCCUPANCY[roomCode] + ' guests (no single-guest bookings); requested ' + guests);
+      throw new Error(roomDisplay + ' requires at least ' + ROOM_MIN_OCCUPANCY[roomCode] + ' guests (no single-guest bookings); requested ' + guests);
     }
     if (guests > ROOM_MAX_OCCUPANCY[roomCode]) {
-      throw new Error(roomCode + ' sleeps ' + ROOM_MAX_OCCUPANCY[roomCode] + '; requested ' + guests);
+      throw new Error(roomDisplay + ' sleeps ' + ROOM_MAX_OCCUPANCY[roomCode] + '; requested ' + guests);
     }
 
     const available = await isAvailable(roomCode, checkIn, checkOut);
     if (!available) {
-      throw new Error('No ' + roomCode + ' available for ' + checkIn + ' to ' + checkOut);
+      throw new Error('No ' + roomDisplay + ' available for ' + checkIn + ' to ' + checkOut);
     }
 
     // Generate invoice BEFORE inserting — so invoice number is included from the start
@@ -374,7 +385,8 @@ export const blockRoom = webMethod(
   async (roomCode, checkIn, checkOut, quantity, note) => {
     quantity = quantity || 1;
     note = note || '';
-    if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomCode + '\'');
+    const roomDisplay = getRoomDisplayName(roomCode);
+    if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomDisplay + '\'');
     if (nightsBetween(checkIn, checkOut) <= 0) throw new Error('checkOut must be after checkIn');
     if (quantity < 1) throw new Error('quantity must be >= 1');
 
@@ -398,12 +410,12 @@ export const blockRoom = webMethod(
     const warnings = [];
     if (actual < quantity) {
       warnings.push(
-        roomCode + ': requested ' + quantity + ' unit(s) blocked, but only ' + actual + ' available for the full range (' + checkIn + ' to ' + checkOut + '). Reduced to ' + actual + '.'
+        roomDisplay + ': requested ' + quantity + ' unit(s) blocked, but only ' + actual + ' available for the full range (' + checkIn + ' to ' + checkOut + '). Reduced to ' + actual + '.'
       );
     }
     if (actual < 1) {
       throw new Error(
-        'Cannot block ' + roomCode + ': all units already booked for the requested period (' + checkIn + ' to ' + checkOut + ').'
+        'Cannot block ' + roomDisplay + ': all units already booked for the requested period (' + checkIn + ' to ' + checkOut + ').'
       );
     }
 

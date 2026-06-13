@@ -55,6 +55,7 @@ import { createBooking, cancelBooking, blockRoom, blockAllRooms, unblock, listBl
 import { createMessage, updateMessage, deleteMessage, listMessages, getActiveMessages } from 'backend/messages';
 import { quotePackage } from 'backend/packagePricing';
 import { getAllTaxRates, setTaxRate } from 'backend/settings';
+import { getRoomDisplayName } from 'backend/wbeConfig';
 
 $w.onReady(function () {
   // --- Reports ---
@@ -257,6 +258,7 @@ async function loadAllBookings() {
       _id: r._id,
       guestName: r.guestName || '(no name)',
       roomCode: r.roomCode || '',
+      roomName: getRoomDisplayName(r.roomCode),
       checkInDate: fmtDate(r.checkInDate),
       checkOutDate: fmtDate(r.checkOutDate),
       status: r.status || 'Confirmed',
@@ -299,8 +301,8 @@ async function blockRoomHandler() {
     const result = await blockRoom(roomCode, start.toISOString(), end.toISOString(), quantity, reason);
     const warnings = result.warnings || [];
     const b = result.booking;
-    statusText.text = `Blocked ${b.quantity} unit(s) of ${roomCode} (${fmtDate(b.checkIn)} to ${fmtDate(b.checkOut)}). ` +
-      (warnings.length ? 'Warnings: ' + warnings.join('; ') : '');
+    statusText.text = `Blocked ${b.quantity} unit(s) of ${getRoomDisplayName(roomCode)} (${fmtDate(b.checkIn)} to ${fmtDate(b.checkOut)}). ` +
+      (warnings.length ? warnings.join(' ') : '');
     loadBlocks();
   } catch (e) {
     statusText.text = 'Error: ' + e.message;
@@ -338,6 +340,7 @@ async function loadBlocks() {
     repeater.data = blocks.map((b) => ({
       _id: b._id,
       roomCode: b.roomCode,
+      roomName: getRoomDisplayName(b.roomCode),
       quantity: b.quantity || 1,
       checkIn: fmtDate(b.checkIn),
       checkOut: fmtDate(b.checkOut),
