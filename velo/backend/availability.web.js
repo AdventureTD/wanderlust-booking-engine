@@ -309,7 +309,7 @@ export const createBooking = webMethod(
       country: country || '',
       note: note || '',
     };
-    const inserted = await wixData.insert(BOOKINGS, toInsert);
+    let inserted = await wixData.insert(BOOKINGS, toInsert);
 
     // Post-insert safety re-check (race-condition guard).
     const countNow = await overlappingCount(roomCode, checkIn, checkOut);
