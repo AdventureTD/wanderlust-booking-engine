@@ -19,7 +19,7 @@
 import wixData from 'wix-data';
 import { Permissions, webMethod } from 'wix-web-module';
 import { ROOM_UNITS, ROOM_MAX_OCCUPANCY, ROOM_MIN_OCCUPANCY } from 'backend/wbeConfig';
-import { generateAndStoreInvoice } from 'backend/invoiceservice';
+import { generateAndStoreInvoice } from 'backend/invoice';
 
 const BOOKINGS = 'Bookings';
 
