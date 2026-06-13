@@ -319,18 +319,19 @@ export const createBooking = webMethod(
     }
 
     // Generate invoice PDF and store on the booking row (non-blocking).
-    let invoiceResult = null;
+    let final = inserted;
     try {
-      invoiceResult = await generateAndStoreInvoice(inserted._id);
+      const invoiceResult = await generateAndStoreInvoice(inserted._id);
       console.log('>>> SERVER invoice generated for', inserted._id, 'number:', invoiceResult.invoiceNumber);
       // Re-fetch the updated row so we return the invoice number to the frontend
-      inserted = await wixData.get(BOOKINGS, inserted._id);
-      console.log('>>> SERVER re-fetched bookingNumber:', inserted.bookingNumber);
+      const updated = await wixData.get(BOOKINGS, inserted._id);
+      if (updated) final = updated;
+      console.log('>>> SERVER re-fetched bookingNumber:', final.bookingNumber);
     } catch (e) {
       console.log('>>> SERVER invoice generation failed for', inserted._id, ':', e.message);
     }
 
-    return inserted;
+    return final;
   }
 );
 
