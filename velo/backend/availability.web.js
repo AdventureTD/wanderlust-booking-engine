@@ -191,10 +191,10 @@ async function generateAndStoreInvoice(bookingId) {
     bookingNumber: result.invoice_number
   };
   try {
-    await wixData.update(BOOKINGS, updateObj);
-    console.log('>>> INVOICE booking update SUCCESS with', result.invoice_number);
+    await wixData.save(BOOKINGS, updateObj);
+    console.log('>>> INVOICE booking save SUCCESS with', result.invoice_number);
   } catch (err) {
-    console.log('>>> INVOICE wixData.update FAILED:', err.message);
+    console.log('>>> INVOICE wixData.save FAILED:', err.message);
   }
 
   return {
@@ -291,6 +291,33 @@ export const createBooking = webMethod(
       throw new Error('No ' + roomCode + ' available for ' + checkIn + ' to ' + checkOut);
     }
 
+    // Generate invoice BEFORE inserting — so invoice number is included from the start
+    let invoiceNumber = bookingNumber || '';
+    try {
+      const quoteBreakdown = buildQuoteBreakdown({
+        roomCode,
+        checkIn: new Date(checkIn),
+        checkOut: new Date(checkOut),
+        roomTotal: roomTotal || 0,
+        propertyFee: propertyFee || 0,
+      });
+      const guest = {
+        name: guestName || '',
+        email: guestEmail || '',
+        phone: guestPhone || ''
+      };
+      const dates = {
+        checkIn: checkIn,
+        checkOut: checkOut,
+        roomCode: roomCode
+      };
+      const result = await callIssueInvoice(guest, quoteBreakdown, dates, true);
+      invoiceNumber = result.invoice_number;
+      console.log('>>> SERVER invoice generated BEFORE insert:', invoiceNumber);
+    } catch (e) {
+      console.log('>>> SERVER invoice generation failed BEFORE insert:', e.message);
+    }
+
     const toInsert = {
       roomCode: roomCode,
       checkIn: new Date(checkIn),
@@ -308,11 +335,11 @@ export const createBooking = webMethod(
       accomodationVat: accomodationVat || 0,
       packageVat: packageVat || 0,
       grandTotal: grandTotal || 0,
-      bookingNumber: bookingNumber || await getNextBookingNumber(),
+      bookingNumber: invoiceNumber,
       country: country || '',
       note: note || '',
     };
-    let inserted = await wixData.insert(BOOKINGS, toInsert);
+    const inserted = await wixData.insert(BOOKINGS, toInsert);
 
     // Post-insert safety re-check (race-condition guard).
     const countNow = await overlappingCount(roomCode, checkIn, checkOut);
@@ -321,20 +348,8 @@ export const createBooking = webMethod(
       throw new Error('Booking conflict — ' + roomCode + ' was just taken. Please retry.');
     }
 
-    // Generate invoice PDF and store on the booking row (non-blocking).
-    let final = inserted;
-    try {
-      const invoiceResult = await generateAndStoreInvoice(inserted._id);
-      console.log('>>> SERVER invoice generated for', inserted._id, 'number:', invoiceResult.invoiceNumber);
-      // Re-fetch the updated row so we return the invoice number to the frontend
-      const updated = await wixData.get(BOOKINGS, inserted._id);
-      if (updated) final = updated;
-      console.log('>>> SERVER re-fetched bookingNumber:', final.bookingNumber);
-    } catch (e) {
-      console.log('>>> SERVER invoice generation failed for', inserted._id, ':', e.message);
-    }
-
-    return final;
+    console.log('>>> SERVER createBooking complete. bookingNumber:', inserted.bookingNumber);
+    return inserted;
   }
 );
 
