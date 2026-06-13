@@ -99,10 +99,18 @@ $w.onReady(function () {
       if (itemData.mainPhoto) try { $item('#roomThumb').src = itemData.mainPhoto; } catch (e) {}
       const dd = safeItem($item, '#roomQtyDropdown', null, null);
       if (dd && typeof dd.onChange === 'function') {
-        const opts = [], maxQty = itemData.maxQty || 1;
-        for (let q = 0; q <= maxQty; q++) opts.push({ label: String(q), value: String(q) });
-        dd.options = opts;
-        dd.value = '0';
+        const maxQty = typeof itemData.maxQty === 'number' ? itemData.maxQty : 1;
+        if (maxQty <= 0) {
+          dd.options = [{ label: '0', value: '0' }];
+          dd.value = '0';
+          dd.disable && dd.disable();
+        } else {
+          const opts = [];
+          for (let q = 0; q <= maxQty; q++) opts.push({ label: String(q), value: String(q) });
+          dd.options = opts;
+          dd.value = '0';
+          dd.enable && dd.enable();
+        }
         dd.onChange((event) => {
           const qty = parseInt(event.target.value || '1', 10);
           setRoomQty(itemData.roomCode, itemData.roomName || itemData.roomCode, itemData.baseRate || 0, qty, itemData.availableCheckIn, itemData.availableCheckOut);

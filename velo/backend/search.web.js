@@ -127,10 +127,11 @@ export const searchAvailability = webMethod(
         let count = 0;
         for (let b = 0; b < rBookings.length; b++) {
           const bk = rBookings[b];
-          const st = ['Confirmed', 'In-House', 'hold', 'Pending Confirmation'];
+          const st = ['confirmed', 'hold', 'blocked', 'in-house', 'pending confirmation'];
+          const bkStatus = (bk.status || '').toLowerCase().trim();
           let valid = false;
           for (let s = 0; s < st.length; s++) {
-            if (bk.status === st[s]) { valid = true; break; }
+            if (bkStatus === st[s]) { valid = true; break; }
           }
           if (!valid) { continue; }
           if (bk.checkIn < nx && bk.checkOut > nt) {
@@ -197,6 +198,12 @@ export const searchAvailability = webMethod(
         const key = code + '|' + bl;
         const rate = priceMap[key];
         if (rate === undefined) { continue; }
+        // Calculate min free units across the partial stretch (not entire range)
+        let minFreePartial = units;
+        for (let i = bs; i < bs + bl; i++) {
+          const free = units - bpn[i];
+          if (free < minFreePartial) { minFreePartial = free; }
+        }
         const aci = nights[bs];
         const aco = ad(nights[bs + bl - 1], 1);
         out.push({
@@ -205,7 +212,7 @@ export const searchAvailability = webMethod(
           units: units,
           occupancy: maxOcc,
           baseOccupancy: baseOcc,
-          maxQty: maxQty,
+          maxQty: minFreePartial,
           status: 'partial',
           availableCheckIn: aci.toISOString(),
           availableCheckOut: aco.toISOString(),
@@ -216,11 +223,19 @@ export const searchAvailability = webMethod(
       }
     }
 
+    // Safety filter: drop any results with maxQty <= 0
+    const filtered = [];
+    for (let i = 0; i < out.length; i++) {
+      if (out[i].maxQty > 0) {
+        filtered.push(out[i]);
+      }
+    }
+
     return {
       ok: true,
       error: null,
       requestedNights: rq,
-      results: out,
+      results: filtered,
     };
   }
 );
