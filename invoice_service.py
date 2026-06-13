@@ -27,13 +27,13 @@ from datetime import date
 
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel
+from starlette.responses import FileResponse
 
 from booking_engine.invoice import Guest, Invoice
 from booking_engine.invoice_pdf import render_invoice_pdf
 from booking_engine.invoice_number import next_invoice_number
 from booking_engine.report import build_report_record
 from booking_engine import gmail_sender
-from booking_engine.drive_uploader import upload_invoice_pdf
 
 SHARED_SECRET = os.environ.get("WBE_SHARED_SECRET", "")
 
@@ -131,14 +131,10 @@ def issue_invoice(req: IssueRequest, x_wbe_secret: str = Header(default="")):
     pdf_path = os.path.join(tempfile.gettempdir(), f"{invoice_number}.pdf")
     render_invoice_pdf(inv, pdf_path)
 
-    # Upload PDF to Google Drive and get a shareable URL.
-    try:
-        invoice_url = upload_invoice_pdf(pdf_path, invoice_number)
-    except Exception as e:
-        # Drive upload failure is not fatal — invoice number and email still work.
-        invoice_url = ""
-        import logging
-        logging.warning(f"Drive upload failed for {invoice_number}: {e}")
+    # Build a download URL served by this Render service.
+    # (Google Drive upload skipped — service accounts lack storage quota on free plans.)
+    base_url = os.environ.get("RENDER_EXTERNAL_URL", "https://wanderlust-invoice-service.onrender.com")
+    invoice_url = f"{base_url}/download/{invoice_number}"
 
     result = {"invoice_number": invoice_number,
               "total": inv.total, "pdf_path": pdf_path, "emailed": False,
@@ -160,3 +156,16 @@ def issue_invoice(req: IssueRequest, x_wbe_secret: str = Header(default="")):
             # Don't lose the invoice if email fails; report it clearly.
             result["email_error"] = str(e)
     return result
+
+
+@app.get("/download/{invoice_number}")
+def download_invoice(invoice_number: str):
+    """Serve the generated PDF invoice directly from the temp directory.
+    Returns 404 if the file is no longer available (e.g. service restarted)."""
+    pdf_path = os.path.join(tempfile.gettempdir(), f"{invoice_number}.pdf")
+    if not os.path.exists(pdf_path):
+        raise HTTPException(status_code=404, detail=f"Invoice {invoice_number} not found on this server. "
+                           "It may have been cleared after a restart. Check your email for the PDF.")
+    return FileResponse(pdf_path, media_type="application/pdf",
+                        filename=f"{invoice_number}.pdf",
+                        content_disposition_type="attachment")
