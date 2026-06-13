@@ -187,8 +187,12 @@ async function generateAndStoreInvoice(bookingId) {
 
   // Store invoice number in bookingNumber field
   booking.bookingNumber = result.invoice_number;
-  await wixData.update(BOOKINGS, booking);
-  console.log('>>> INVOICE booking updated with', result.invoice_number);
+  try {
+    await wixData.update(BOOKINGS, booking);
+    console.log('>>> INVOICE booking updated with', result.invoice_number);
+  } catch (err) {
+    console.log('>>> INVOICE wixData.update FAILED:', err.message);
+  }
 
   return {
     invoiceNumber: result.invoice_number,
@@ -315,11 +319,15 @@ export const createBooking = webMethod(
     }
 
     // Generate invoice PDF and store on the booking row (non-blocking).
+    let invoiceResult = null;
     try {
-      await generateAndStoreInvoice(inserted._id);
-      console.log('>>> SERVER invoice generated for', inserted.bookingNumber);
+      invoiceResult = await generateAndStoreInvoice(inserted._id);
+      console.log('>>> SERVER invoice generated for', inserted._id, 'number:', invoiceResult.invoiceNumber);
+      // Re-fetch the updated row so we return the invoice number to the frontend
+      inserted = await wixData.get(BOOKINGS, inserted._id);
+      console.log('>>> SERVER re-fetched bookingNumber:', inserted.bookingNumber);
     } catch (e) {
-      console.log('>>> SERVER invoice generation failed for', inserted.bookingNumber, ':', e.message);
+      console.log('>>> SERVER invoice generation failed for', inserted._id, ':', e.message);
     }
 
     return inserted;
