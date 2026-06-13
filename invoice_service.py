@@ -85,12 +85,12 @@ def recompute(req: RecomputeRequest, x_wbe_secret: str = Header(default="")):
                       phone=req.guest.phone)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid guest: {e}")
-    db = _date.fromisoformat(req.date_booked) if req.date_booked else _date.today()
+    db = _date.fromisoformat(req.date_booked[:10]) if req.date_booked else _date.today()
     rec = build_report_record(
         guest=guest, invoice_number=req.invoice_number,
         quote_breakdown=req.quote_breakdown,
-        check_in=_date.fromisoformat(req.check_in),
-        check_out=_date.fromisoformat(req.check_out),
+        check_in=_date.fromisoformat(req.check_in[:10]),
+        check_out=_date.fromisoformat(req.check_out[:10]),
         date_booked=db, room_code=req.room_code,
     )
     out = rec.to_dict()
@@ -118,8 +118,8 @@ def issue_invoice(req: IssueRequest, x_wbe_secret: str = Header(default="")):
     # Build the reporting record (returned so Velo can log it to the Bookings
     # collection). check_in/check_out default to issue date if not supplied.
     from datetime import date as _date
-    ci = _date.fromisoformat(req.check_in) if req.check_in else issue
-    co = _date.fromisoformat(req.check_out) if req.check_out else issue
+    ci = _date.fromisoformat(req.check_in[:10]) if req.check_in else issue
+    co = _date.fromisoformat(req.check_out[:10]) if req.check_out else issue
     report = build_report_record(
         guest=guest, invoice_number=invoice_number,
         quote_breakdown=req.quote_breakdown,
