@@ -11,18 +11,39 @@
  * .web.js = Velo web module: these exported functions are callable from the
  * frontend but EXECUTE ON THE SERVER, so guests cannot tamper with availability.
  *
- * UPDATED 2026-06-05: blocked bookings now count against inventory.
- *   - overlappingCount sums the `quantity` field (default 1).
- *   - 'blocked' added to the active-status set.
+ * Completely self-contained — no imports of custom backend modules.
+ * Only built-in Wix modules: wix-data, wix-web-module, wix-fetch, wix-secrets-backend.
  */
 
 import wixData from 'wix-data';
 import { Permissions, webMethod } from 'wix-web-module';
-import { ROOM_UNITS, ROOM_MAX_OCCUPANCY, ROOM_MIN_OCCUPANCY } from 'backend/wbeConfig';
-import { issueInvoice } from 'backend/issueInvoice';
+import { fetch } from 'wix-fetch';
+import { getSecret } from 'wix-secrets-backend';
 
 const BOOKINGS = 'Bookings';
+const INVOICE_SERVICE_URL_KEY = 'WBE_INVOICE_SERVICE_URL';
+const SHARED_SECRET_KEY = 'WBE_SHARED_SECRET';
 
+/* ---------- room config (inlined from wbeConfig.js) ---------- */
+const ROOM_UNITS = {
+  adventure_suite: 3,
+  penthouse_apartment: 1,
+  two_bedroom_apartment: 1,
+};
+
+const ROOM_MAX_OCCUPANCY = {
+  adventure_suite: 2,
+  penthouse_apartment: 2,
+  two_bedroom_apartment: 4,
+};
+
+const ROOM_MIN_OCCUPANCY = {
+  adventure_suite: 2,
+  penthouse_apartment: 2,
+  two_bedroom_apartment: 3,
+};
+
+/* ---------- helpers ---------- */
 async function getNextBookingNumber() {
   return "";
 }
@@ -36,6 +57,55 @@ function capitaliseWords(s) {
   return s.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
 }
 
+function snakeCaseKeys(obj) {
+  if (Array.isArray(obj)) return obj.map(snakeCaseKeys);
+  if (obj && typeof obj === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+      const sk = k.replace(/[A-Z]/g, (m) => '_' + m.toLowerCase());
+      out[sk] = snakeCaseKeys(v);
+    }
+    return out;
+  }
+  return obj;
+}
+
+/* ---------- invoice service call (inlined from issueInvoice.web.js) ---------- */
+async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail) {
+  const serviceUrl = await getSecret(INVOICE_SERVICE_URL_KEY);
+  const secret = await getSecret(SHARED_SECRET_KEY);
+  if (!serviceUrl || !secret) {
+    throw new Error('Invoice service not configured. Set WBE_INVOICE_SERVICE_URL and WBE_SHARED_SECRET in Secrets Manager.');
+  }
+
+  const body = {
+    guest: guest,
+    quote_breakdown: snakeCaseKeys(quoteBreakdown),
+    issue_date: new Date().toISOString().slice(0, 10),
+    check_in: dates.checkIn,
+    check_out: dates.checkOut,
+    room_code: Array.isArray(dates.roomCode) ? dates.roomCode.join(', ') : dates.roomCode,
+    send_email: sendEmail,
+  };
+
+  const res = await fetch(serviceUrl + '/issue-invoice', {
+    method: 'post',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-WBE-Secret': secret,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error('Invoice service error ' + res.status + ': ' + text);
+  }
+
+  return res.json();
+}
+
+/* ---------- quote breakdown (inlined from invoice.web.js) ---------- */
 function buildQuoteBreakdown(booking) {
   const nights = nightsBetween(booking.checkIn, booking.checkOut);
   const roomTotal = booking.roomTotal || 0;
@@ -108,10 +178,10 @@ async function generateAndStoreInvoice(bookingId) {
 
   let result;
   try {
-    result = await issueInvoice(guest, quoteBreakdown, dates, true); // true = send email
+    result = await callIssueInvoice(guest, quoteBreakdown, dates, true);
     console.log('>>> INVOICE service returned number:', result.invoice_number);
   } catch (e) {
-    console.log('>>> INVOICE issueInvoice ERROR:', e.message);
+    console.log('>>> INVOICE callIssueInvoice ERROR:', e.message);
     throw new Error('Invoice generation failed: ' + e.message);
   }
 
@@ -127,9 +197,7 @@ async function generateAndStoreInvoice(bookingId) {
   };
 }
 
-// Count how many units are occupied (confirmed/hold/blocked) for a room type
-// over the requested date range. We MUST use .find() here (not .count()) because
-// each row has a `quantity` field and we need to sum them.
+/* ---------- availability helpers ---------- */
 async function overlappingCount(roomCode, checkIn, checkOut) {
   const res = await wixData.query(BOOKINGS)
     .eq('roomCode', roomCode)
@@ -146,8 +214,6 @@ async function overlappingCount(roomCode, checkIn, checkOut) {
   return total;
 }
 
-// Same as overlappingCount but returns the ROWS so callers can inspect them
-// (used for conflict-detection before creating a block).
 async function overlappingRows(roomCode, checkIn, checkOut) {
   const res = await wixData.query(BOOKINGS)
     .eq('roomCode', roomCode)
@@ -159,11 +225,12 @@ async function overlappingRows(roomCode, checkIn, checkOut) {
   return res.items;
 }
 
+/* ---------- exported methods ---------- */
 export const isAvailable = webMethod(
   Permissions.Anyone,
   async (roomCode, checkIn, checkOut) => {
     if (!(roomCode in ROOM_UNITS)) {
-      throw new Error(`Unknown room type '${roomCode}'`);
+      throw new Error('Unknown room type \'' + roomCode + '\'');
     }
     if (nightsBetween(checkIn, checkOut) <= 0) {
       throw new Error('checkOut must be after checkIn');
@@ -176,49 +243,52 @@ export const isAvailable = webMethod(
 export const unitsAvailable = webMethod(
   Permissions.Anyone,
   async (roomCode, checkIn, checkOut) => {
-    if (!(roomCode in ROOM_UNITS)) throw new Error(`Unknown room type '${roomCode}'`);
+    if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomCode + '\'');
     const booked = await overlappingCount(roomCode, checkIn, checkOut);
     return Math.max(0, ROOM_UNITS[roomCode] - booked);
   }
 );
 
-/*
- * Create a booking, refusing it if it would overbook the room type.
- * NOTE on race conditions: two simultaneous requests could both pass the
- * availability check and then both insert. Wix Data has no multi-row
- * transaction, so we re-check immediately AFTER insert and roll back if we
- * exceeded inventory. This is the standard Velo pattern for this problem.
- */
 export const createBooking = webMethod(
   Permissions.Anyone,
   async (booking) => {
     console.log('>>> SERVER createBooking called:', JSON.stringify(booking).substring(0,200));
-    const { roomCode, checkIn, checkOut, guests = 1,
-      guestName, guestEmail, guestPhone,
-      roomTotal, accomodationVat, packageVat, propertyFee,
-      grandTotal, note, bookingNumber, country } = booking;
+    const roomCode = booking.roomCode;
+    const checkIn = booking.checkIn;
+    const checkOut = booking.checkOut;
+    const guests = booking.guests || 1;
+    const guestName = booking.guestName;
+    const guestEmail = booking.guestEmail;
+    const guestPhone = booking.guestPhone;
+    const roomTotal = booking.roomTotal;
+    const accomodationVat = booking.accomodationVat;
+    const packageVat = booking.packageVat;
+    const propertyFee = booking.propertyFee;
+    const grandTotal = booking.grandTotal;
+    const note = booking.note;
+    const bookingNumber = booking.bookingNumber;
+    const country = booking.country;
 
     console.log('>>> SERVER roomCode:', roomCode, 'checkIn:', checkIn, 'checkOut:', checkOut, 'guests:', guests);
-    if (!(roomCode in ROOM_UNITS)) throw new Error(`Unknown room type '${roomCode}'`);
+    if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomCode + '\'');
     if (nightsBetween(checkIn, checkOut) <= 0) throw new Error('checkOut must be after checkIn');
     if (guests < ROOM_MIN_OCCUPANCY[roomCode]) {
-      throw new Error(`${roomCode} requires at least ${ROOM_MIN_OCCUPANCY[roomCode]} guests `
-        + `(no single-guest bookings); requested ${guests}`);
+      throw new Error(roomCode + ' requires at least ' + ROOM_MIN_OCCUPANCY[roomCode] + ' guests (no single-guest bookings); requested ' + guests);
     }
     if (guests > ROOM_MAX_OCCUPANCY[roomCode]) {
-      throw new Error(`${roomCode} sleeps ${ROOM_MAX_OCCUPANCY[roomCode]}; requested ${guests}`);
+      throw new Error(roomCode + ' sleeps ' + ROOM_MAX_OCCUPANCY[roomCode] + '; requested ' + guests);
     }
 
     const available = await isAvailable(roomCode, checkIn, checkOut);
     if (!available) {
-      throw new Error(`No ${roomCode} available for ${checkIn} to ${checkOut}`);
+      throw new Error('No ' + roomCode + ' available for ' + checkIn + ' to ' + checkOut);
     }
 
     const toInsert = {
-      roomCode,
+      roomCode: roomCode,
       checkIn: new Date(checkIn),
       checkOut: new Date(checkOut),
-      guests,
+      guests: guests,
       status: booking.status || 'confirmed',
       quantity: 1,
       packages: booking.packages || [],
@@ -241,10 +311,10 @@ export const createBooking = webMethod(
     const countNow = await overlappingCount(roomCode, checkIn, checkOut);
     if (countNow > ROOM_UNITS[roomCode]) {
       await wixData.remove(BOOKINGS, inserted._id);
-      throw new Error(`Booking conflict — ${roomCode} was just taken. Please retry.`);
+      throw new Error('Booking conflict — ' + roomCode + ' was just taken. Please retry.');
     }
 
-    // Generate invoice PDF and store on the booking row (non-blocking — booking succeeds even if invoice fails).
+    // Generate invoice PDF and store on the booking row (non-blocking).
     try {
       await generateAndStoreInvoice(inserted._id);
       console.log('>>> SERVER invoice generated for', inserted.bookingNumber);
@@ -256,37 +326,25 @@ export const createBooking = webMethod(
   }
 );
 
-// Admin-only: guests cannot self-cancel (they contact the hotel). This prevents
-// anyone with a booking ID from cancelling someone else's reservation.
 export const cancelBooking = webMethod(
   Permissions.Admin,
   async (bookingId) => {
     const b = await wixData.get(BOOKINGS, bookingId);
-    if (!b) throw new Error(`No booking ${bookingId}`);
+    if (!b) throw new Error('No booking ' + bookingId);
     b.status = 'Cancelled';
     return wixData.update(BOOKINGS, b);
   }
 );
 
-// ============================================================================
-// BLOCKING (admin only)
-// ============================================================================
-
-/*
- * blockRoom(roomCode, checkIn, checkOut, quantity, note)
- *   Blocks `quantity` units of a room type for the date range.
- *   If existing bookings overlap, the block is REDUCED to what fits (never
- *   overriding guests). Returns { booking, warnings }.
- *   Raises if zero units can be blocked.
- */
 export const blockRoom = webMethod(
   Permissions.Admin,
-  async (roomCode, checkIn, checkOut, quantity = 1, note = '') => {
-    if (!(roomCode in ROOM_UNITS)) throw new Error(`Unknown room type '${roomCode}'`);
+  async (roomCode, checkIn, checkOut, quantity, note) => {
+    quantity = quantity || 1;
+    note = note || '';
+    if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomCode + '\'');
     if (nightsBetween(checkIn, checkOut) <= 0) throw new Error('checkOut must be after checkIn');
     if (quantity < 1) throw new Error('quantity must be >= 1');
 
-    // Find the minimum free units across the whole range.
     let minFree = ROOM_UNITS[roomCode];
     const rows = await overlappingRows(roomCode, checkIn, checkOut);
     const nights = nightsBetween(checkIn, checkOut);
@@ -294,7 +352,8 @@ export const blockRoom = webMethod(
       const probe = new Date(checkIn);
       probe.setDate(probe.getDate() + d);
       let bookedThatNight = 0;
-      for (const row of rows) {
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
         if (new Date(row.checkIn) <= probe && probe < new Date(row.checkOut)) {
           bookedThatNight += (row.quantity || 1);
         }
@@ -306,73 +365,62 @@ export const blockRoom = webMethod(
     const warnings = [];
     if (actual < quantity) {
       warnings.push(
-        `${roomCode}: requested ${quantity} unit(s) blocked, but only ${actual} available ` +
-        `for the full range (${checkIn} to ${checkOut}). Reduced to ${actual}.`
+        roomCode + ': requested ' + quantity + ' unit(s) blocked, but only ' + actual + ' available for the full range (' + checkIn + ' to ' + checkOut + '). Reduced to ' + actual + '.'
       );
     }
     if (actual < 1) {
       throw new Error(
-        `Cannot block ${roomCode}: all units already booked for the requested period ` +
-        `(${checkIn} to ${checkOut}).`
+        'Cannot block ' + roomCode + ': all units already booked for the requested period (' + checkIn + ' to ' + checkOut + ').'
       );
     }
 
     const toInsert = {
-      roomCode,
+      roomCode: roomCode,
       checkIn: new Date(checkIn),
       checkOut: new Date(checkOut),
       guests: 1,
       status: 'blocked',
       quantity: actual,
-      note,
+      note: note,
     };
     const inserted = await wixData.insert(BOOKINGS, toInsert);
-    return { booking: inserted, warnings };
+    return { booking: inserted, warnings: warnings };
   }
 );
 
-/*
- * unblock(bookingId) — remove a blocked entry.
- */
 export const unblock = webMethod(
   Permissions.Admin,
   async (bookingId) => {
     const b = await wixData.get(BOOKINGS, bookingId);
-    if (!b) throw new Error(`No booking ${bookingId}`);
-    if (b.status !== 'blocked') throw new Error(`Booking ${bookingId} is not a block (status=${b.status})`);
+    if (!b) throw new Error('No booking ' + bookingId);
+    if (b.status !== 'blocked') throw new Error('Booking ' + bookingId + ' is not a block (status=' + b.status + ')');
     await wixData.remove(BOOKINGS, bookingId);
     return b;
   }
 );
 
-/*
- * blockAllRooms(checkIn, checkOut, note) — hotel closure.
- * Creates one block per room type, consuming the FULL unit count (or whatever
- * fits after accounting for existing bookings).
- * Returns a list of { roomCode, booking, warnings }.
- */
 export const blockAllRooms = webMethod(
   Permissions.Admin,
-  async (checkIn, checkOut, note = '') => {
+  async (checkIn, checkOut, note) => {
+    note = note || '';
     const results = [];
-    for (const roomCode of Object.keys(ROOM_UNITS)) {
+    const roomCodes = Object.keys(ROOM_UNITS);
+    for (let i = 0; i < roomCodes.length; i++) {
+      const roomCode = roomCodes[i];
       try {
-        const { booking, warnings } = await blockRoom(roomCode, checkIn, checkOut, ROOM_UNITS[roomCode], note);
-        results.push({ roomCode, booking, warnings });
+        const outcome = await blockRoom(roomCode, checkIn, checkOut, ROOM_UNITS[roomCode], note);
+        results.push({ roomCode: roomCode, booking: outcome.booking, warnings: outcome.warnings });
       } catch (e) {
-        results.push({ roomCode, booking: null, warnings: [e.message] });
+        results.push({ roomCode: roomCode, booking: null, warnings: [e.message] });
       }
     }
     return results;
   }
 );
 
-/*
- * listBlocks(roomCode) — return all blocked bookings, optionally filtered.
- */
 export const listBlocks = webMethod(
   Permissions.Admin,
-  async (roomCode = null) => {
+  async (roomCode) => {
     let q = wixData.query(BOOKINGS).eq('status', 'blocked').limit(1000);
     if (roomCode) q = q.eq('roomCode', roomCode);
     const res = await q.find();
