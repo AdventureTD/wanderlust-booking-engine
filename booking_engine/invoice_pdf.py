@@ -165,6 +165,16 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     elems.append(totals)
     elems.append(Spacer(1, 8 * mm))
 
+    terms = ParagraphStyle("terms", parent=styles["Normal"], fontSize=9,
+                           leading=13, textColor=colors.HexColor("#333333"),
+                           alignment=0)  # left aligned
+    elems.append(Paragraph(
+        "<b>Payment Terms:</b> A 50% deposit is processed upon booking and the "
+        "remaining balance will be processed 30 days prior to arrival. You will "
+        "receive a payment link by email for the deposit payment within a few days.",
+        terms))
+    elems.append(Spacer(1, 5 * mm))
+
     elems.append(Paragraph(
         inv.notes or "Thank you for booking with Wanderlust Caribbean. "
         "Come as guests, leave as friends.", small))
