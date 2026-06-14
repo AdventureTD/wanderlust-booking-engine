@@ -293,6 +293,8 @@ export const createBooking = webMethod(
   Permissions.Anyone,
   async (booking) => {
     console.log('>>> SERVER createBooking called:', JSON.stringify(booking).substring(0,200));
+    console.log('>>> SERVER incoming checkIn type:', typeof booking.checkIn, 'value:', booking.checkIn);
+    console.log('>>> SERVER incoming checkOut type:', typeof booking.checkOut, 'value:', booking.checkOut);
     const roomCode = booking.roomCode;
     const checkIn = booking.checkIn;
     const checkOut = booking.checkOut;
@@ -379,6 +381,8 @@ export const createBooking = webMethod(
       country: country || '',
       note: saveNote || '',
     };
+    console.log('>>> SERVER toInsert.checkIn type:', typeof toInsert.checkIn, 'value:', toInsert.checkIn instanceof Date ? toInsert.checkIn.toISOString() : toInsert.checkIn);
+    console.log('>>> SERVER toInsert.checkOut type:', typeof toInsert.checkOut, 'value:', toInsert.checkOut instanceof Date ? toInsert.checkOut.toISOString() : toInsert.checkOut);
     const inserted = await wixData.insert(BOOKINGS, toInsert);
 
     // Post-insert safety re-check (race-condition guard).
