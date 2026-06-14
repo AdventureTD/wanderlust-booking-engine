@@ -63,6 +63,29 @@ function nightsBetween(checkIn, checkOut) {
   return Math.round(ms / (1000 * 60 * 60 * 24));
 }
 
+/* Convert any date-ish value to a proper Wix Date (midnight local time, no time component).
+   Wix Date fields require a Date object — not a string — and store it as date-only. */
+function toWixDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) {
+    const d = new Date(v.getFullYear(), v.getMonth(), v.getDate());
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  const s = String(v);
+  const m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return null;
+  const clean = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  clean.setHours(0, 0, 0, 0);
+  return clean;
+}
+
 function capitaliseWords(s) {
   return s.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
 }
@@ -336,8 +359,8 @@ export const createBooking = webMethod(
 
     const toInsert = {
       roomCode: roomCode,
-      checkIn: new Date(checkIn),
-      checkOut: new Date(checkOut),
+      checkIn: toWixDate(checkIn),
+      checkOut: toWixDate(checkOut),
       guests: guests,
       status: booking.status || 'confirmed',
       quantity: 1,
@@ -421,8 +444,8 @@ export const blockRoom = webMethod(
 
     const toInsert = {
       roomCode: roomCode,
-      checkIn: new Date(checkIn),
-      checkOut: new Date(checkOut),
+      checkIn: toWixDate(checkIn),
+      checkOut: toWixDate(checkOut),
       guests: 1,
       status: 'blocked',
       quantity: actual,
