@@ -63,29 +63,6 @@ function nightsBetween(checkIn, checkOut) {
   return Math.round(ms / (1000 * 60 * 60 * 24));
 }
 
-/* Convert any date-ish value to a proper Wix Date (midnight local time, no time component).
-   Wix Date fields require a Date object — not a string — and store it as date-only. */
-function toWixDate(v) {
-  if (!v) return null;
-  if (v instanceof Date) {
-    const d = new Date(v.getFullYear(), v.getMonth(), v.getDate());
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }
-  const s = String(v);
-  const m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (m) {
-    const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }
-  const d = new Date(v);
-  if (isNaN(d.getTime())) return null;
-  const clean = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  clean.setHours(0, 0, 0, 0);
-  return clean;
-}
-
 function capitaliseWords(s) {
   return s.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
 }
@@ -293,8 +270,6 @@ export const createBooking = webMethod(
   Permissions.Anyone,
   async (booking) => {
     console.log('>>> SERVER createBooking called:', JSON.stringify(booking).substring(0,200));
-    console.log('>>> SERVER incoming checkIn type:', typeof booking.checkIn, 'value:', booking.checkIn);
-    console.log('>>> SERVER incoming checkOut type:', typeof booking.checkOut, 'value:', booking.checkOut);
     const roomCode = booking.roomCode;
     const checkIn = booking.checkIn;
     const checkOut = booking.checkOut;
@@ -361,8 +336,8 @@ export const createBooking = webMethod(
 
     const toInsert = {
       roomCode: roomCode,
-      checkIn: toWixDate(checkIn),
-      checkOut: toWixDate(checkOut),
+      checkIn: new Date(checkIn),
+      checkOut: new Date(checkOut),
       guests: guests,
       status: booking.status || 'confirmed',
       quantity: 1,
@@ -381,8 +356,6 @@ export const createBooking = webMethod(
       country: country || '',
       note: saveNote || '',
     };
-    console.log('>>> SERVER toInsert.checkIn type:', typeof toInsert.checkIn, 'value:', toInsert.checkIn instanceof Date ? toInsert.checkIn.toISOString() : toInsert.checkIn);
-    console.log('>>> SERVER toInsert.checkOut type:', typeof toInsert.checkOut, 'value:', toInsert.checkOut instanceof Date ? toInsert.checkOut.toISOString() : toInsert.checkOut);
     const inserted = await wixData.insert(BOOKINGS, toInsert);
 
     // Post-insert safety re-check (race-condition guard).
@@ -448,8 +421,8 @@ export const blockRoom = webMethod(
 
     const toInsert = {
       roomCode: roomCode,
-      checkIn: toWixDate(checkIn),
-      checkOut: toWixDate(checkOut),
+      checkIn: new Date(checkIn),
+      checkOut: new Date(checkOut),
       guests: 1,
       status: 'blocked',
       quantity: actual,
