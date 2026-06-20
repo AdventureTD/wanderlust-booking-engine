@@ -60,7 +60,7 @@ $w.onReady(function () {
   if (tryFind('btnContinueToSummary')) {
     $w('#btnContinueToSummary').onClick(() => {
       if (_selections.length === 0) {
-        safeText('Please choose a room');
+        safeText('Please choose a room to continue.');
         return;
       }
       const parts = [], first = _selections[0];
