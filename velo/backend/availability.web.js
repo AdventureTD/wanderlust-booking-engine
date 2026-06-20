@@ -596,13 +596,17 @@ export const issueBookingInvoice = webMethod(
       }
     }
 
-    const summaryRes = await wixData.query(BOOKING_SUMMARIES)
-      .eq('bookingNumber', bookingNumber)
-      .limit(1)
-      .find();
+    try {
+      const summaryRes = await wixData.query(BOOKING_SUMMARIES)
+        .eq('bookingNumber', bookingNumber)
+        .limit(1)
+        .find();
 
-    if (summaryRes.items.length > 0) {
-      await wixData.save(BOOKING_SUMMARIES, { _id: summaryRes.items[0]._id, invoiceUrl: invoiceUrl });
+      if (summaryRes.items.length > 0) {
+        await wixData.save(BOOKING_SUMMARIES, { _id: summaryRes.items[0]._id, invoiceUrl: invoiceUrl });
+      }
+    } catch (summaryErr) {
+      console.log('>>> issueBookingInvoice Booking Summary update skipped:', summaryErr.message);
     }
 
     return result;
