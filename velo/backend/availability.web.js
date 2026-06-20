@@ -257,69 +257,91 @@ async function generateAndStoreInvoice(bookingId) {
 
 /* ---------- availability helpers ---------- */
 async function updateBookingSummary(bookingNumber) {
-  if (!bookingNumber) return;
-
-  const res = await wixData.query(BOOKINGS)
-    .eq('bookingNumber', bookingNumber)
-    .limit(1000)
-    .find();
-
-  let totalRoomTotal = 0;
-  let totalAccommodationVat = 0;
-  let totalPackageVat = 0;
-  let totalPropertyFee = 0;
-  let grandTotal = 0;
-  let checkIn = null, checkOut = null;
-  let guestName = '', guestEmail = '', guestPhone = '';
-  let roomCount = 0;
-  let status = '';
-
-  for (const row of res.items) {
-    totalRoomTotal += (row.roomTotal || 0);
-    totalAccommodationVat += (row.accomodationVat || 0);
-    totalPackageVat += (row.packageVat || 0);
-    totalPropertyFee += (row.propertyFee || 0);
-    grandTotal += (row.grandTotal || 0);
-    roomCount++;
-
-    if (!checkIn || new Date(row.checkIn) < new Date(checkIn)) {
-      checkIn = row.checkIn;
-    }
-    if (!checkOut || new Date(row.checkOut) > new Date(checkOut)) {
-      checkOut = row.checkOut;
-    }
-    guestName = row.guestName || guestName;
-    guestEmail = row.guestEmail || guestEmail;
-    guestPhone = row.guestPhone || guestPhone;
-    if (!status && row.status) status = row.status;
+  if (!bookingNumber) {
+    console.log('>>> updateBookingSummary SKIPPED — no bookingNumber');
+    return;
   }
+  console.log('>>> updateBookingSummary START for', bookingNumber);
 
-  const summary = {
-    bookingNumber,
-    checkIn,
-    checkOut,
-    guestName,
-    guestEmail,
-    guestPhone,
-    roomCount,
-    roomTotal: Math.round((totalRoomTotal + Number.EPSILON) * 100) / 100,
-    accommodationVat: Math.round((totalAccommodationVat + Number.EPSILON) * 100) / 100,
-    packageVat: Math.round((totalPackageVat + Number.EPSILON) * 100) / 100,
-    propertyFee: Math.round((totalPropertyFee + Number.EPSILON) * 100) / 100,
-    grandTotal: Math.round((grandTotal + Number.EPSILON) * 100) / 100,
-    status: status || 'confirmed'
-  };
+  try {
+    const res = await wixData.query(BOOKINGS)
+      .eq('bookingNumber', bookingNumber)
+      .limit(1000)
+      .find();
 
-  const existing = await wixData.query(BOOKING_SUMMARIES)
-    .eq('bookingNumber', bookingNumber)
-    .limit(1)
-    .find();
+    console.log('>>> updateBookingSummary found', res.items.length, 'rows');
 
-  if (existing.items.length > 0) {
-    summary._id = existing.items[0]._id;
-    await wixData.update(BOOKING_SUMMARIES, summary);
-  } else {
-    await wixData.insert(BOOKING_SUMMARIES, summary);
+    if (res.items.length === 0) {
+      console.log('>>> updateBookingSummary ABORT — zero rows found');
+      return;
+    }
+
+    let totalRoomTotal = 0;
+    let totalAccommodationVat = 0;
+    let totalPackageVat = 0;
+    let totalPropertyFee = 0;
+    let grandTotal = 0;
+    let checkIn = null, checkOut = null;
+    let guestName = '', guestEmail = '', guestPhone = '';
+    let roomCount = 0;
+    let status = '';
+
+    for (const row of res.items) {
+      totalRoomTotal += (row.roomTotal || 0);
+      totalAccommodationVat += (row.accomodationVat || 0);
+      totalPackageVat += (row.packageVat || 0);
+      totalPropertyFee += (row.propertyFee || 0);
+      grandTotal += (row.grandTotal || 0);
+      roomCount++;
+
+      if (!checkIn || new Date(row.checkIn) < new Date(checkIn)) {
+        checkIn = row.checkIn;
+      }
+      if (!checkOut || new Date(row.checkOut) > new Date(checkOut)) {
+        checkOut = row.checkOut;
+      }
+      guestName = row.guestName || guestName;
+      guestEmail = row.guestEmail || guestEmail;
+      guestPhone = row.guestPhone || guestPhone;
+      if (!status && row.status) status = row.status;
+    }
+
+    const summary = {
+      bookingNumber,
+      checkIn,
+      checkOut,
+      guestName,
+      guestEmail,
+      guestPhone,
+      roomCount,
+      roomTotal: Math.round((totalRoomTotal + Number.EPSILON) * 100) / 100,
+      accommodationVat: Math.round((totalAccommodationVat + Number.EPSILON) * 100) / 100,
+      packageVat: Math.round((totalPackageVat + Number.EPSILON) * 100) / 100,
+      propertyFee: Math.round((totalPropertyFee + Number.EPSILON) * 100) / 100,
+      grandTotal: Math.round((grandTotal + Number.EPSILON) * 100) / 100,
+      status: status || 'confirmed'
+    };
+
+    console.log('>>> updateBookingSummary computed:', JSON.stringify(summary).substring(0,200));
+
+    const existing = await wixData.query(BOOKING_SUMMARIES)
+      .eq('bookingNumber', bookingNumber)
+      .limit(1)
+      .find();
+
+    if (existing.items.length > 0) {
+      summary._id = existing.items[0]._id;
+      console.log('>>> updateBookingSummary UPDATING row', existing.items[0]._id);
+      await wixData.update(BOOKING_SUMMARIES, summary);
+      console.log('>>> updateBookingSummary UPDATE complete');
+    } else {
+      console.log('>>> updateBookingSummary INSERTING new row');
+      await wixData.insert(BOOKING_SUMMARIES, summary);
+      console.log('>>> updateBookingSummary INSERT complete');
+    }
+  } catch (e) {
+    console.log('>>> updateBookingSummary ERROR:', e.message);
+    throw e; // re-throw so caller can log it too
   }
 }
 async function overlappingCount(roomCode, checkIn, checkOut) {
@@ -452,6 +474,7 @@ export const createBooking = webMethod(
     }
 
     // Update booking summary
+    console.log('>>> SERVER calling updateBookingSummary for', inserted.bookingNumber);
     try {
       await updateBookingSummary(inserted.bookingNumber);
     } catch (e) {
