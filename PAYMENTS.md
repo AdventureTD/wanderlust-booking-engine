@@ -44,7 +44,7 @@ Permissions: Admin read/write only.
 ## Balance Due Report (admin enters START + END date)
 `balanceDueReport(startDate, endDate, dateField)` filters bookings by
 **Check-out date** in the admin-entered range (default) and returns, per booking:
-  guestName, invoiceNumber, dateBooked, checkInDate, finalDueDate, status,
+  guestName, bookingNumber, dateBooked, checkInDate, finalDueDate, status,
   grandTotal, totalPaid, **balanceDue**, paidInFull
 plus `totals` { grandTotal, totalPaid, balanceDue, revenueCount }.
 Cancelled and Pending Confirmation are EXCLUDED from the money totals.
@@ -61,7 +61,7 @@ $w('#btnBalanceReport').onClick(async () => {
   const start = $w('#datePickerStart').value;   // admin-entered start date
   const end = $w('#datePickerEnd').value;        // admin-entered end date
   const { rows, totals } = await balanceDueReport(start.toISOString(), end.toISOString());
-  $w('#balanceRepeater').data = rows.map(r => ({ _id: r.invoiceNumber, ...r }));
+  $w('#balanceRepeater').data = rows.map(r => ({ _id: r.bookingNumber, ...r }));
   $w('#sumBalanceDue').text = '$' + totals.balanceDue.toLocaleString('en-US', {minimumFractionDigits:2});
   $w('#sumPaid').text = '$' + totals.totalPaid.toLocaleString('en-US', {minimumFractionDigits:2});
   $w('#sumGrand').text = '$' + totals.grandTotal.toLocaleString('en-US', {minimumFractionDigits:2});

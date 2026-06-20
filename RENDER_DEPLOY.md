@@ -153,7 +153,7 @@ Make a test booking on your published Wix site:
    - `>>> INVOICE upload OK, url: ...`
    - `>>> INVOICE booking updated with WBE-INV-0001`
 4. In Wix Content Manager → Bookings → open the new row. You should see:
-   - `invoiceNumber`: `WBE-INV-0001`
+   - `bookingNumber`: `WBE-INV-0001`
    - `invoiceUrl`: a Wix Media URL
 
 ---

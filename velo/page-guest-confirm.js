@@ -215,7 +215,7 @@ async function confirmHandler() {
         console.log('>>> confirmHandler calling createBooking for', r.roomCode);
         const b = await createBooking(payload);
         console.log('>>> confirmHandler createBooking success:', b ? 'yes' : 'no');
-        console.log('>>> confirmHandler RETURNED booking:', JSON.stringify(b && b._id ? { _id: b._id, status: b.status, bookingNumber: b.bookingNumber, invoiceNumber: b.invoiceNumber, fieldKeys: Object.keys(b).slice(0,10) } : b));
+        console.log('>>> confirmHandler RETURNED booking:', JSON.stringify(b && b._id ? { _id: b._id, status: b.status, bookingNumber: b.bookingNumber, fieldKeys: Object.keys(b).slice(0,10) } : b));
         bookings.push(b);
         if (!sharedBookingNumber && b.bookingNumber) sharedBookingNumber = b.bookingNumber;
       } catch (e) { console.log('>>> confirmHandler createBooking ERROR for', r.roomCode + ':', e.message); errors.push(r.roomCode + ': ' + e.message); }

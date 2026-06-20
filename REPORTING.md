@@ -10,7 +10,7 @@ Create this in the Wix Content Manager. Fields (exactly what the owner requested
 | Field                 | Type   | Meaning                                            |
 |-----------------------|--------|----------------------------------------------------|
 | guestName             | Text   | Guest Name                                         |
-| invoiceNumber         | Text   | Invoice #                                          |
+| bookingNumber         | Text   | Booking / Invoice #                               |
 | guestPhone            | Text   | Guest Phone Number                                 |
 | guestEmail            | Text   | Guest Email                                        |
 | dateBooked            | Date   | Date Booked                                        |

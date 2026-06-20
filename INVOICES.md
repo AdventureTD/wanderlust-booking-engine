@@ -15,7 +15,7 @@ Linked to `BookingReports` by `bookingId` (one booking → many invoices).
 | Field         | Type    | Notes                                          |
 |---------------|---------|------------------------------------------------|
 | bookingId     | Text    | _id of the BookingReports row it belongs to    |
-| invoiceNumber | Text    | WBE-INV-#### (unique per invoice)              |
+| bookingNumber | Text    | WBE-INV-#### (unique per booking+invoice)      |
 | invoiceUrl    | Text    | Wix Media URL of the stored PDF                |
 | total         | Number  | invoice grand total at issue time              |
 | issueDate     | Date    | when this invoice was issued                   |

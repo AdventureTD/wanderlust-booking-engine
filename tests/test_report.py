@@ -53,7 +53,7 @@ def test_report_buckets_and_reconciliation():
 
     # Required descriptive fields present
     assert rec.guestName == "Jim & Sandy Evans"
-    assert rec.invoiceNumber == "WBE-INV-0007"
+    assert rec.bookingNumber == "WBE-INV-0007"
     assert rec.guestPhone and rec.guestEmail
     assert rec.dateBooked == "2026-06-01"
     assert rec.checkInDate == "2026-12-13"

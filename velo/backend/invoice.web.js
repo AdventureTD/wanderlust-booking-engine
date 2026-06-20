@@ -113,7 +113,7 @@ export const generateAndStoreInvoice = webMethod(
     console.log('>>> INVOICE booking updated with', result.invoice_number);
 
     return {
-      invoiceNumber: result.invoice_number,
+      bookingNumber: result.invoice_number,
       total: result.total,
       emailed: result.emailed || false
     };

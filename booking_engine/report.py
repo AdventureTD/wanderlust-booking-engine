@@ -4,7 +4,7 @@ Wanderlust Booking Engine — booking report record.
 Builds the flat record logged to the Wix `Bookings` collection for reporting.
 Exactly the fields the owner requested (2026-06-01):
 
-  guestName, invoiceNumber, guestPhone, guestEmail,
+  guestName, bookingNumber, guestPhone, guestEmail,
   dateBooked, checkInDate, checkOutDate,
   totalVat10  (total 10% VAT — accommodation),
   totalVat15  (total 15% VAT — packages/services),
@@ -33,7 +33,7 @@ def _r2(x):
 @dataclass
 class BookingReportRecord:
     guestName: str
-    invoiceNumber: str
+    bookingNumber: str
     guestPhone: str
     guestEmail: str
     dateBooked: str        # ISO date the booking was made
@@ -92,7 +92,7 @@ def build_report_record(*, guest, invoice_number: str, quote_breakdown: dict,
 
     return BookingReportRecord(
         guestName=guest.name,
-        invoiceNumber=invoice_number,
+        bookingNumber=invoice_number,
         guestPhone=guest.phone,
         guestEmail=guest.email,
         dateBooked=date_booked.isoformat(),

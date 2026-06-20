@@ -138,7 +138,7 @@ async function runReport() {
     $w('#bookingsRepeater').data = rows.map((r) => ({
       _id: r._id,
       guestName: r.guestName,
-      invoiceNumber: r.bookingNumber,
+      bookingNumber: r.bookingNumber,
       guestPhone: r.guestPhone,
       guestEmail: r.guestEmail,
       dateBooked: fmtDate(r.dateBooked),

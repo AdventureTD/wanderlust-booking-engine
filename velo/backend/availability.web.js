@@ -208,7 +208,7 @@ async function generateAndStoreInvoice(bookingId) {
   }
 
   return {
-    invoiceNumber: result.invoice_number,
+    bookingNumber: result.invoice_number,
     total: result.total,
     emailed: result.emailed || false
   };

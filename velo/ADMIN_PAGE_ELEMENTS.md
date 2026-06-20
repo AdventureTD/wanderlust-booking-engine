@@ -37,7 +37,7 @@ handlers.
 | `#sumGrandTotal` | Text | Grand total |
 
 **Repeater fields to bind inside `#bookingsRepeater`:**
-- `guestName`, `invoiceNumber`, `guestPhone`, `guestEmail`
+- `guestName`, `bookingNumber`, `guestPhone`, `guestEmail`
 - `dateBooked`, `checkInDate`, `checkOutDate`, `status`
 - `accommodationSaleNet`, `packageSaleNet`, `totalVat10`, `totalVat15`, `totalVat`, `grandTotal`
 
