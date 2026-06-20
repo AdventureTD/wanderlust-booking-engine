@@ -58,9 +58,10 @@ function tryFind(id) { try { return $w('#' + id); } catch (e) { return null; } }
 $w.onReady(function () {
   if (tryFind('btnSearchRooms')) $w('#btnSearchRooms').onClick(searchHandler);
   if (tryFind('btnContinueToSummary')) {
-    $w('#btnContinueToSummary').onClick(() => {
+    $w('#btnContinueToSummary').onClick((event) => {
       if (_selections.length === 0) {
         safeText('Please choose a room to continue.');
+        event.preventDefault();
         return;
       }
       const parts = [], first = _selections[0];
