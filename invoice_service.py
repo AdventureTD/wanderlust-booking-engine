@@ -54,6 +54,7 @@ class IssueRequest(BaseModel):
     check_out: str | None = None
     room_code: str = ""
     send_email: bool = True
+    invoice_number: str | None = None
 
 
 @app.get("/health")
@@ -112,7 +113,7 @@ def issue_invoice(req: IssueRequest, x_wbe_secret: str = Header(default="")):
         raise HTTPException(status_code=400, detail=f"Invalid guest: {e}")
 
     issue = date.fromisoformat(req.issue_date) if req.issue_date else date.today()
-    invoice_number = next_invoice_number()
+    invoice_number = req.invoice_number or next_invoice_number()
 
     inv = Invoice.from_quote(invoice_number, issue, guest, req.quote_breakdown)
 

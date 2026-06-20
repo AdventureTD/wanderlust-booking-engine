@@ -39,7 +39,7 @@ function snakeCaseKeys(obj) {
  */
 export const issueInvoice = webMethod(
   Permissions.Anyone,
-  async (guest, quoteBreakdown, dates, sendEmail = true) => {
+  async (guest, quoteBreakdown, dates, sendEmail = true, invoiceNumber = '') => {
     const serviceUrl = await getSecret(INVOICE_SERVICE_URL_KEY);
     const secret = await getSecret(SHARED_SECRET_KEY);
     if (!serviceUrl || !secret) {
@@ -55,6 +55,9 @@ export const issueInvoice = webMethod(
       room_code: Array.isArray(dates.roomCode) ? dates.roomCode.join(', ') : dates.roomCode,
       send_email: sendEmail,
     };
+    if (invoiceNumber) {
+      body.invoice_number = invoiceNumber;
+    }
 
     const res = await fetch(`${serviceUrl}/issue-invoice`, {
       method: 'post',

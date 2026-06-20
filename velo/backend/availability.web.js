@@ -55,7 +55,44 @@ function getRoomDisplayName(roomCode) {
 
 /* ---------- helpers ---------- */
 async function getNextBookingNumber() {
-  return "";
+  const PREFIX = 'WBE-INV-';
+  const PAD = 4;
+  let maxNum = 0;
+  let page = await wixData.query(BOOKINGS)
+    .limit(1000)
+    .find();
+  while (page.items.length) {
+    for (const item of page.items) {
+      const bn = item.bookingNumber;
+      if (bn) {
+        const m = String(bn).match(/(\d+)$/);
+        if (m) {
+          const n = parseInt(m[1], 10);
+          if (n > maxNum) maxNum = n;
+        }
+      }
+    }
+    if (page.hasNext()) {
+      page = await page.next();
+    } else {
+      break;
+    }
+  }
+  let candidate = maxNum + 1;
+  let attempts = 0;
+  while (attempts < 5) {
+    const numStr = PREFIX + String(candidate).padStart(PAD, '0');
+    const exist = await wixData.query(BOOKINGS)
+      .eq('bookingNumber', numStr)
+      .limit(1)
+      .find();
+    if (exist.items.length === 0) {
+      return numStr;
+    }
+    candidate++;
+    attempts++;
+  }
+  throw new Error('Failed to generate unique booking number');
 }
 
 function nightsBetween(checkIn, checkOut) {
@@ -81,7 +118,7 @@ function snakeCaseKeys(obj) {
 }
 
 /* ---------- invoice service call (inlined from issueInvoice.web.js) ---------- */
-async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail) {
+async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoiceNumber) {
   const serviceUrl = await getSecret(INVOICE_SERVICE_URL_KEY);
   const secret = await getSecret(SHARED_SECRET_KEY);
   if (!serviceUrl || !secret) {
@@ -97,6 +134,9 @@ async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail) {
     room_code: Array.isArray(dates.roomCode) ? dates.roomCode.join(', ') : dates.roomCode,
     send_email: sendEmail,
   };
+  if (invoiceNumber) {
+    body.invoice_number = invoiceNumber;
+  }
 
   const res = await fetch(serviceUrl + '/issue-invoice', {
     method: 'post',
@@ -188,7 +228,7 @@ async function generateAndStoreInvoice(bookingId) {
 
   let result;
   try {
-    result = await callIssueInvoice(guest, quoteBreakdown, dates, true);
+    result = await callIssueInvoice(guest, quoteBreakdown, dates, true, '');
     console.log('>>> INVOICE service returned number:', result.invoice_number);
   } catch (e) {
     console.log('>>> INVOICE callIssueInvoice ERROR:', e.message);
@@ -306,6 +346,14 @@ export const createBooking = webMethod(
     // Generate invoice BEFORE inserting — so invoice number is included from the start
     let invoiceNumber = bookingNumber || '';
     let invoiceUrl = '';
+    if (!invoiceNumber) {
+      try {
+        invoiceNumber = await getNextBookingNumber();
+      } catch (e) {
+        console.log('>>> SERVER getNextBookingNumber ERROR:', e.message);
+        invoiceNumber = '';
+      }
+    }
     try {
       const quoteBreakdown = buildQuoteBreakdown({
         roomCode,
@@ -324,8 +372,8 @@ export const createBooking = webMethod(
         checkOut: checkOut,
         roomCode: roomCode
       };
-      const result = await callIssueInvoice(guest, quoteBreakdown, dates, true);
-      invoiceNumber = result.invoice_number;
+      const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, invoiceNumber);
+      invoiceNumber = result.invoice_number || invoiceNumber;
       invoiceUrl = result.invoice_url || '';
       console.log('>>> SERVER invoice generated BEFORE insert:', invoiceNumber, 'URL:', invoiceUrl);
     } catch (e) {
