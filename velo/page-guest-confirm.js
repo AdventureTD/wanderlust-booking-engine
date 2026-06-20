@@ -124,6 +124,7 @@ async function initGuestDetails() {
     r.roomTotal = total;
     r.accomodationVat = accVat;
     r.packageVat = pkgVat;
+    r.propertyFee = total * propertyFeeRate;
     r.country = '';
     roomLines.push(displayName + ' — ' + r.guests + ' guest' + (r.guests > 1 ? 's' : '') + ' · $' + fmtCurrency(total));
   }
@@ -204,10 +205,10 @@ async function confirmHandler() {
           guestEmail: email,
           guestPhone: phone,
           roomTotal: r.roomTotal || 0,
-          propertyFee: bookingData.propertyFee || 0,
+          propertyFee: r.propertyFee || 0,
           accomodationVat: r.accomodationVat || 0,
           packageVat: r.packageVat || 0,
-          grandTotal: bookingData.grandTotal || 0,
+          grandTotal: (r.roomTotal + r.accomodationVat + r.packageVat) || 0,
           country: r.country || ''
         };
         if (sharedBookingNumber) payload.bookingNumber = sharedBookingNumber;
