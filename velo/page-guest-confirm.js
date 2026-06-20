@@ -1,5 +1,5 @@
 import wixLocation from 'wix-location';
-import { createBooking } from 'backend/availability';
+import { createBooking, issueBookingInvoice } from 'backend/availability';
 import { getAllSettings } from 'backend/settings';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
@@ -226,6 +226,17 @@ async function confirmHandler() {
       safeText('confirmStatus', 'Some rooms could not be booked: ' + errors.join('; '));
       safeDisable('confirmBooking', false);
       return;
+    }
+
+    // Generate multi-room invoice after all rooms are confirmed
+    if (sharedBookingNumber) {
+      try {
+        safeText('confirmStatus', 'Generating invoice...');
+        await issueBookingInvoice(sharedBookingNumber);
+        console.log('>>> confirmHandler invoice generated for', sharedBookingNumber);
+      } catch (e) {
+        console.log('>>> confirmHandler invoice ERROR:', e.message);
+      }
     }
 
     const roomNames = rooms.map(function (r) { return r.roomCode.replace(/_/g, ' '); }).join(', ');

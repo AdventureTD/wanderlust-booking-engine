@@ -410,9 +410,8 @@ export const createBooking = webMethod(
       throw new Error('No ' + roomDisplay + ' available for ' + checkIn + ' to ' + checkOut);
     }
 
-    // Generate invoice BEFORE inserting — so invoice number is included from the start
+    // Generate booking number if not provided
     let invoiceNumber = bookingNumber || '';
-    let invoiceUrl = '';
     if (!invoiceNumber) {
       try {
         invoiceNumber = await getNextBookingNumber();
@@ -420,33 +419,6 @@ export const createBooking = webMethod(
         console.log('>>> SERVER getNextBookingNumber ERROR:', e.message);
         invoiceNumber = '';
       }
-    }
-    try {
-      const quoteBreakdown = buildQuoteBreakdown({
-        roomCode,
-        checkIn: new Date(checkIn),
-        checkOut: new Date(checkOut),
-        roomTotal: roomTotal || 0,
-        propertyFee: propertyFee || 0,
-      });
-      const guest = {
-        name: guestName || '',
-        email: guestEmail || '',
-        phone: guestPhone || ''
-      };
-      const dates = {
-        checkIn: checkIn,
-        checkOut: checkOut,
-        roomCode: roomCode
-      };
-      const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, invoiceNumber);
-      invoiceNumber = result.invoice_number || invoiceNumber;
-      invoiceUrl = result.invoice_url || '';
-      console.log('>>> SERVER invoice generated BEFORE insert:', invoiceNumber, 'URL:', invoiceUrl);
-    } catch (e) {
-      console.log('>>> SERVER invoice generation failed BEFORE insert:', e.message);
-      // Preserve error in note so admin can see why invoice is missing
-      saveNote = (saveNote || '') + ' [Invoice error: ' + (e.message || 'unknown') + ']';
     }
 
     const toInsert = {
@@ -467,7 +439,6 @@ export const createBooking = webMethod(
       packageVat: packageVat || 0,
       grandTotal: grandTotal || 0,
       bookingNumber: invoiceNumber || '',
-      invoiceUrl: invoiceUrl || '',
       country: country || '',
       note: saveNote || '',
     };
@@ -489,6 +460,118 @@ export const createBooking = webMethod(
 
     console.log('>>> SERVER createBooking complete. bookingNumber:', inserted.bookingNumber);
     return inserted;
+  }
+);
+
+export const issueBookingInvoice = webMethod(
+  Permissions.Anyone,
+  async (bookingNumber) => {
+    if (!bookingNumber) throw new Error('bookingNumber required');
+
+    const bookingsRes = await wixData.query(BOOKINGS)
+      .eq('bookingNumber', bookingNumber)
+      .limit(1000)
+      .find();
+
+    if (bookingsRes.items.length === 0) {
+      throw new Error('No bookings found for ' + bookingNumber);
+    }
+
+    const firstRow = bookingsRes.items[0];
+    const guest = {
+      name: firstRow.guestName || '',
+      email: firstRow.guestEmail || '',
+      phone: firstRow.guestPhone || ''
+    };
+
+    const dates = {
+      checkIn: firstRow.checkIn.toISOString().slice(0, 10),
+      checkOut: firstRow.checkOut.toISOString().slice(0, 10),
+      roomCode: bookingsRes.items.map(function (r) { return r.roomCode; }).join(', ')
+    };
+
+    const line_items = [];
+    let subtotal_net = 0;
+    let total_vat = 0;
+    let total_property_fee = 0;
+
+    for (const row of bookingsRes.items) {
+      const nights = nightsBetween(row.checkIn, row.checkOut);
+      const roomTotal = row.roomTotal || 0;
+      const propertyFee = row.propertyFee || 0;
+      const accommodationShare = 0.5;
+      const taxRateAccommodation = 0.10;
+      const taxRateStandard = 0.15;
+
+      const accNet = roomTotal * accommodationShare;
+      const advNet = roomTotal * (1 - accommodationShare);
+      const accVat = accNet * taxRateAccommodation;
+      const pkgVat = advNet * taxRateStandard;
+
+      const accUnitPrice = nights > 0 ? accNet / nights : 0;
+      const advUnitPrice = nights > 0 ? advNet / nights : 0;
+
+      const displayName = getRoomDisplayName(row.roomCode);
+
+      line_items.push({
+        label: displayName + ' — Accommodation',
+        tax_class: 'accommodation',
+        quantity: nights,
+        unit_price: accUnitPrice,
+        net: accNet,
+        vat_rate: taxRateAccommodation,
+        vat: accVat,
+        gross: accNet + accVat
+      });
+
+      line_items.push({
+        label: displayName + ' — Activities & Services',
+        tax_class: 'standard',
+        quantity: nights,
+        unit_price: advUnitPrice,
+        net: advNet,
+        vat_rate: taxRateStandard,
+        vat: pkgVat,
+        gross: advNet + pkgVat
+      });
+
+      subtotal_net += roomTotal;
+      total_vat += accVat + pkgVat;
+      total_property_fee += propertyFee;
+    }
+
+    const total = subtotal_net + total_property_fee + total_vat;
+
+    const quoteBreakdown = {
+      line_items,
+      subtotal_net: Math.round((subtotal_net + Number.EPSILON) * 100) / 100,
+      total_vat: Math.round((total_vat + Number.EPSILON) * 100) / 100,
+      total: Math.round((total + Number.EPSILON) * 100) / 100,
+      property_fee_rate: subtotal_net > 0 ? total_property_fee / subtotal_net : 0,
+      property_fee: Math.round((total_property_fee + Number.EPSILON) * 100) / 100,
+      currency: 'USD'
+    };
+
+    const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, bookingNumber);
+
+    const invoiceUrl = result.invoice_url || '';
+
+    for (const row of bookingsRes.items) {
+      if (!row.invoiceUrl) {
+        await wixData.save(BOOKINGS, { _id: row._id, invoiceUrl: invoiceUrl });
+      }
+    }
+
+    const summaryRes = await wixData.query(BOOKING_SUMMARIES)
+      .eq('bookingNumber', bookingNumber)
+      .limit(1)
+      .find();
+
+    if (summaryRes.items.length > 0) {
+      await wixData.save(BOOKING_SUMMARIES, { _id: summaryRes.items[0]._id, invoiceUrl: invoiceUrl });
+    }
+
+    return result;
   }
 );
 
