@@ -21,7 +21,7 @@ import { fetch } from 'wix-fetch';
 import { getSecret } from 'wix-secrets-backend';
 
 const BOOKINGS = 'Bookings';
-const BOOKING_SUMMARIES = 'Booking Summary';
+const BOOKING_SUMMARIES = 'BookingSummary';
 const INVOICE_SERVICE_URL_KEY = 'WBE_INVOICE_SERVICE_URL';
 const SHARED_SECRET_KEY = 'WBE_SHARED_SECRET';
 
