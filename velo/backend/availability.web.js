@@ -304,9 +304,9 @@ async function updateBookingSummary(bookingNumber) {
     roomCount,
     roomTotal: Math.round((totalRoomTotal + Number.EPSILON) * 100) / 100,
     accommodationVat: Math.round((totalAccommodationVat + Number.EPSILON) * 100) / 100,
-    totalPackageVat: Math.round((totalPackageVat + Number.EPSILON) * 100) / 100,
+    packageVat: Math.round((totalPackageVat + Number.EPSILON) * 100) / 100,
     propertyFee: Math.round((totalPropertyFee + Number.EPSILON) * 100) / 100,
-    totalGrandTotal: Math.round((totalGrandTotal + Number.EPSILON) * 100) / 100,
+    grandTotal: Math.round((totalGrandTotal + Number.EPSILON) * 100) / 100,
     status: status || 'confirmed'
   };
 
