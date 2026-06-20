@@ -228,4 +228,14 @@ function parseDate(v) {
   return null;
 }
 
-function safeText(txt) { try { $w('#statusText').text = txt; } catch (e) {} }
+function safeText(txt) {
+  try {
+    const el = tryFind('statusText');
+    if (!el) { console.log('>>> safeText: statusText element not found'); return; }
+    if (typeof el.expand === 'function') el.expand();
+    if (typeof el.show === 'function') el.show();
+    el.text = txt;
+    console.log('>>> safeText:', txt);
+  } catch (e) { console.log('>>> safeText error:', e.message); }
+}
+
