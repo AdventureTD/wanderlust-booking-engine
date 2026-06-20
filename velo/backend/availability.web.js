@@ -464,7 +464,18 @@ export const createBooking = webMethod(
       country: country || '',
       note: saveNote || '',
     };
+    console.log('>>> SERVER toInsert keys:', Object.keys(toInsert).join(', '));
+    console.log('>>> SERVER toInsert financials => roomTotal:', toInsert.roomTotal, '| propertyFee:', toInsert.propertyFee, '| accomodationVat:', toInsert.accomodationVat, '| packageVat:', toInsert.packageVat, '| grandTotal:', toInsert.grandTotal, '| bookingNumber:', toInsert.bookingNumber);
     const inserted = await wixData.insert(BOOKINGS, toInsert);
+    console.log('>>> SERVER insert returned keys:', Object.keys(inserted).join(', '));
+    console.log('>>> SERVER insert returned financials => roomTotal:', inserted.roomTotal, '| propertyFee:', inserted.propertyFee, '| accomodationVat:', inserted.accomodationVat, '| packageVat:', inserted.packageVat, '| grandTotal:', inserted.grandTotal, '| bookingNumber:', inserted.bookingNumber);
+    try {
+      const verify = await wixData.get(BOOKINGS, inserted._id);
+      console.log('>>> SERVER verify-db row keys:', Object.keys(verify).join(', '));
+      console.log('>>> SERVER verify-db financials => roomTotal:', verify.roomTotal, '| propertyFee:', verify.propertyFee, '| accomodationVat:', verify.accomodationVat, '| packageVat:', verify.packageVat, '| grandTotal:', verify.grandTotal, '| bookingNumber:', verify.bookingNumber);
+    } catch (ve) {
+      console.log('>>> SERVER verify-db ERROR:', ve.message);
+    }
 
     // Post-insert safety re-check (race-condition guard).
     const countNow = await overlappingCount(roomCode, checkIn, checkOut);
