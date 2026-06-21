@@ -58,10 +58,12 @@ function tryFind(id) { try { return $w('#' + id); } catch (e) { return null; } }
 $w.onReady(function () {
   if (tryFind('btnSearchRooms')) $w('#btnSearchRooms').onClick(searchHandler);
   if (tryFind('btnContinueToSummary')) {
-    $w('#btnContinueToSummary').onClick((event) => {
+    const btn = $w('#btnContinueToSummary');
+    if (typeof btn.link === 'string') btn.link = '';
+    btn.onClick(() => {
       if (_selections.length === 0) {
-        safeText('Please choose a room to continue.');
-        event.preventDefault();
+        safeText('Please select a room above.');
+        console.log('>>> Continue blocked: no room selected');
         return;
       }
       const parts = [], first = _selections[0];
