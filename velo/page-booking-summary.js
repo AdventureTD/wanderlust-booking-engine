@@ -34,7 +34,14 @@ function fmtDate(d) {
   return (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
 }
 
-function safeText(id, txt) { try { $w('#' + id).text = txt; } catch (e) {} }
+function safeText(id, txt) {
+  try {
+    const el = $w('#' + id);
+    if (el.expand) el.expand();
+    if (el.show) el.show();
+    el.text = txt;
+  } catch (e) {}
+}
 function safeCollapse(id) { try { $w('#' + id).collapse(); } catch (e) {} }
 function safeExpand(id) { try { $w('#' + id).expand(); } catch (e) {} }
 function safeVal(id) { try { return $w('#' + id).value || ''; } catch (e) { return ''; } }
