@@ -208,7 +208,7 @@ async function confirmHandler() {
           propertyFee: r.propertyFee || 0,
           accomodationVat: r.accomodationVat || 0,
           packageVat: r.packageVat || 0,
-          grandTotal: (r.roomTotal + r.accomodationVat + r.packageVat) || 0,
+          grandTotal: (r.roomTotal + r.accomodationVat + r.packageVat + r.propertyFee) || 0,
           country: r.country || ''
         };
         if (sharedBookingNumber) payload.bookingNumber = sharedBookingNumber;

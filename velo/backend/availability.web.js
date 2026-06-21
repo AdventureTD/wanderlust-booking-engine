@@ -280,7 +280,6 @@ async function updateBookingSummary(bookingNumber) {
     let totalAccommodationVat = 0;
     let totalPackageVat = 0;
     let totalPropertyFee = 0;
-    let grandTotal = 0;
     let checkIn = null, checkOut = null;
     let guestName = '', guestEmail = '', guestPhone = '';
     let roomCount = 0;
@@ -291,7 +290,6 @@ async function updateBookingSummary(bookingNumber) {
       totalAccommodationVat += (row.accomodationVat || 0);
       totalPackageVat += (row.packageVat || 0);
       totalPropertyFee += (row.propertyFee || 0);
-      grandTotal += (row.grandTotal || 0);
       roomCount++;
 
       if (!checkIn || new Date(row.checkIn) < new Date(checkIn)) {
@@ -318,7 +316,7 @@ async function updateBookingSummary(bookingNumber) {
       accommodationVat: Math.round((totalAccommodationVat + Number.EPSILON) * 100) / 100,
       packageVat: Math.round((totalPackageVat + Number.EPSILON) * 100) / 100,
       propertyFee: Math.round((totalPropertyFee + Number.EPSILON) * 100) / 100,
-      grandTotal: Math.round((grandTotal + Number.EPSILON) * 100) / 100,
+      grandTotal: Math.round((totalRoomTotal + totalAccommodationVat + totalPackageVat + totalPropertyFee + Number.EPSILON) * 100) / 100,
       status: status || 'confirmed'
     };
 
