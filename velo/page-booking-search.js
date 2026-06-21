@@ -175,7 +175,18 @@ async function searchHandler() {
 
     const rep = tryFind('searchResultsRepeater');
     if (!rep) { safeText('Found ' + res.results.length + ' result(s) but no repeater to display them.'); return; }
-    if (res.results.length === 0) { rep.data = []; safeText('No rooms are available for the dates entered.'); return; }
+    if (res.results.length === 0) {
+      rep.data = [];
+      safeText('No rooms are available for the dates entered.');
+      clearSelections(true);
+      const box3 = tryFind('box3');
+      if (box3) { try { box3.collapse(); } catch (e) {} }
+      const panel = tryFind('selectionPanel');
+      if (panel) { try { panel.collapse(); } catch (e) {} }
+      const container = tryFind('selectedRoomsContainer');
+      if (container) { try { container.collapse(); } catch (e) {} }
+      return;
+    }
 
     const repData = [];
     for (let i = 0; i < res.results.length; i++) {
