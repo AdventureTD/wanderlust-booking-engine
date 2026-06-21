@@ -592,7 +592,8 @@ export const issueBookingInvoice = webMethod(
 
     for (const row of bookingsRes.items) {
       if (!row.invoiceUrl) {
-        await wixData.save(BOOKINGS, { _id: row._id, invoiceUrl: invoiceUrl });
+        row.invoiceUrl = invoiceUrl;
+        await wixData.update(BOOKINGS, row);
       }
     }
 
@@ -603,7 +604,9 @@ export const issueBookingInvoice = webMethod(
         .find();
 
       if (summaryRes.items.length > 0) {
-        await wixData.save(BOOKING_SUMMARIES, { _id: summaryRes.items[0]._id, invoiceUrl: invoiceUrl });
+        const summaryItem = summaryRes.items[0];
+        summaryItem.invoiceUrl = invoiceUrl;
+        await wixData.update(BOOKING_SUMMARIES, summaryItem);
       }
     } catch (summaryErr) {
       console.log('>>> issueBookingInvoice Booking Summary update skipped:', summaryErr.message);
