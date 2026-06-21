@@ -1,6 +1,7 @@
 import wixLocation from 'wix-location';
 import { getAllSettings } from 'backend/settings';
 import { getRoomNames } from 'backend/rooms';
+import { createBooking, issueBookingInvoice } from 'backend/availability';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
 const ROOM_DISPLAY_NAMES = {
@@ -36,6 +37,14 @@ function fmtDate(d) {
 function safeText(id, txt) { try { $w('#' + id).text = txt; } catch (e) {} }
 function safeCollapse(id) { try { $w('#' + id).collapse(); } catch (e) {} }
 function safeExpand(id) { try { $w('#' + id).expand(); } catch (e) {} }
+function safeVal(id) { try { return $w('#' + id).value || ''; } catch (e) { return ''; } }
+function safeDisable(id, v) {
+  try {
+    const el = $w('#' + id);
+    if (v && typeof el.disable === 'function') el.disable();
+    if (!v && typeof el.enable === 'function') el.enable();
+  } catch (e) {}
+}
 
 function isPreviewMode() {
   try { const q = wixLocation.query || {}; return !!q.editorSessionId || !!q.isEditor; } catch (e) { return false; }
@@ -166,6 +175,14 @@ async function renderSummary() {
     subtotalNet += roomTotal;
     propertyFee += roomTotal * propertyFeeRate;
 
+    const accNet = roomTotal * accommodationShare;
+    const advNet = roomTotal * (1 - accommodationShare);
+    r.roomTotal = roomTotal;
+    r.accomodationVat = accNet * taxRateAccommodation;
+    r.packageVat = advNet * taxRateAdventure;
+    r.propertyFee = roomTotal * propertyFeeRate;
+    r.country = '';
+
     repData.push({ _id: 'sum_' + i + '_' + _renderCount, roomCode: r.roomCode, roomName: displayName, qty: r.qty, baseRate: rate, roomTotal: roomTotal });
   }
 
@@ -249,25 +266,92 @@ function renderRoomRepeater(repData) {
 }
 
 function wireContinueButton() {
-  const btnContinue = (function () { try { return $w('#btnContinue'); } catch (e) { return null; } })();
-  if (!btnContinue || typeof btnContinue.onClick !== 'function') return;
+  let btn;
+  try { btn = $w('#btnContinue'); } catch (e) { return; }
+  if (!btn || typeof btn.onClick !== 'function') return;
+  if (typeof btn.link === 'string') btn.link = '';
 
-  btnContinue.onClick(function () {
-    const parts = [];
-    for (let i = 0; i < _summaryRooms.length; i++) {
-      const r = _summaryRooms[i], g = getGuestCount(i) || r.qty || 1;
-      parts.push(r.roomCode + ':' + g + ':' + (r.baseRate || 0));
-    }
+  btn.onClick(async function () {
+    const name = safeVal('inputGuestName').trim();
+    const email = safeVal('inputGuestEmail').trim();
+    const phone = safeVal('inputGuestPhone').trim();
+
+    if (!name) { safeText('bookingStatus', 'Please enter your full name.'); return; }
+    if (!email || email.indexOf('@') < 0) { safeText('bookingStatus', 'Please enter a valid email address.'); return; }
+
+    safeText('bookingStatus', 'Processing your booking...');
+    safeDisable('btnContinue', true);
+
+    const rooms = _summaryRooms || [];
+    const ci = _summaryCis;
+    const bookings = [], errors = [];
+    let sharedBookingNumber = '';
+
     try {
-      sessionStorage.setItem('_wbe_rc', parts.join(','));
-      sessionStorage.setItem('_wbe_ci', _summaryCis || '');
-      sessionStorage.setItem('_wbe_co', _summaryCos || '');
-    } catch (e) {}
-    const targetUrl = '/booking-guest?rc=' + encodeURIComponent(parts.join(',')) +
-      '&ci=' + encodeURIComponent(_summaryCis || '') +
-      '&co=' + encodeURIComponent(_summaryCos || '');
-    console.log('>>> NAVIGATING TO:', targetUrl);
-    wixLocation.to(targetUrl);
+      for (let i = 0; i < rooms.length; i++) {
+        const r = rooms[i];
+        try {
+          const payload = {
+            roomCode: r.roomCode,
+            checkIn: ci,
+            checkOut: _summaryCos,
+            guests: _guestCounts[r.roomCode] || r.qty || 1,
+            status: 'confirmed',
+            guestName: name,
+            guestEmail: email,
+            guestPhone: phone,
+            roomTotal: r.roomTotal || 0,
+            propertyFee: r.propertyFee || 0,
+            accomodationVat: r.accomodationVat || 0,
+            packageVat: r.packageVat || 0,
+            grandTotal: ((r.roomTotal || 0) + (r.accomodationVat || 0) + (r.packageVat || 0) + (r.propertyFee || 0)) || 0,
+            country: r.country || ''
+          };
+          if (sharedBookingNumber) payload.bookingNumber = sharedBookingNumber;
+
+          console.log('>>> Summary creating booking for', r.roomCode);
+          const b = await createBooking(payload);
+          console.log('>>> Summary createBooking success:', b ? 'yes' : 'no');
+          bookings.push(b);
+          if (!sharedBookingNumber && b.bookingNumber) sharedBookingNumber = b.bookingNumber;
+        } catch (e) {
+          console.log('>>> Summary createBooking ERROR for', r.roomCode + ':', e.message);
+          errors.push(r.roomCode + ': ' + e.message);
+        }
+      }
+
+      if (errors.length > 0) {
+        safeText('bookingStatus', 'Some rooms could not be booked: ' + errors.join('; '));
+        safeDisable('btnContinue', false);
+        return;
+      }
+
+      if (sharedBookingNumber) {
+        try {
+          safeText('bookingStatus', 'Generating invoice...');
+          await issueBookingInvoice(sharedBookingNumber);
+          console.log('>>> Summary invoice generated for', sharedBookingNumber);
+        } catch (e) {
+          console.log('>>> Summary invoice ERROR:', e.message);
+        }
+      }
+
+      const roomNames = rooms.map(function (r) { return r.roomCode.replace(/_/g, ' '); }).join(', ');
+      safeText('bookingStatus',
+        'Booking confirmed! Reserved ' + roomNames +
+        ' from ' + fmtDate(parseDateStr(ci)) + ' to ' + fmtDate(parseDateStr(_summaryCos)) +
+        '. Confirmation sent to ' + email + '.');
+
+      try { $w('#inputGuestName').value = ''; } catch (e) {}
+      try { $w('#inputGuestEmail').value = ''; } catch (e) {}
+      try { $w('#inputGuestPhone').value = ''; } catch (e) {}
+
+      wixLocation.to('https://www.wanderlustcaribbean.com');
+    } catch (e) {
+      console.log('>>> Summary OUTER CATCH:', e.message);
+      safeText('bookingStatus', 'Booking error: ' + e.message);
+      safeDisable('btnContinue', false);
+    }
   });
 }
 
