@@ -62,7 +62,7 @@ $w.onReady(function () {
     if (typeof btn.link === 'string') btn.link = '';
     btn.onClick(() => {
       if (_selections.length === 0) {
-        safeText('Please select a room above.');
+        safeText('Please select a room below.');
         console.log('>>> Continue blocked: no room selected');
         return;
       }
