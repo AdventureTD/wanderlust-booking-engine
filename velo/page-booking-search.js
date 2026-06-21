@@ -141,12 +141,6 @@ async function searchHandler() {
   const gallery = tryFind('hotelRoomPhotos');
   if (gallery && typeof gallery.collapse === 'function') gallery.collapse();
 
-  const box3 = tryFind('box3');
-  if (box3) { try { box3.show(); } catch (e) {} try { box3.expand(); } catch (e) {} }
-
-  const selPanel = tryFind('selectionPanel');
-  if (selPanel) { try { selPanel.show(); } catch (e) {} try { selPanel.expand(); } catch (e) {} }
-
   let ciEl = tryFind('datePickerCheckIn'), coEl = tryFind('datePickerCheckOut');
   if (!ciEl || !coEl) {
     try {
@@ -187,6 +181,13 @@ async function searchHandler() {
       if (container) { try { container.collapse(); } catch (e) {} }
       return;
     }
+
+    const box3 = tryFind('box3');
+    if (box3) { try { box3.show(); } catch (e) {} try { box3.expand(); } catch (e) {} }
+    const selPanel = tryFind('selectionPanel');
+    if (selPanel) { try { selPanel.show(); } catch (e) {} try { selPanel.expand(); } catch (e) {} }
+    const container = tryFind('selectedRoomsContainer');
+    if (container) { try { container.show(); } catch (e) {} try { container.expand(); } catch (e) {} }
 
     const repData = [];
     for (let i = 0; i < res.results.length; i++) {
