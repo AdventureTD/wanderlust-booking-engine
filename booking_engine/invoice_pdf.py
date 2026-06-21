@@ -140,7 +140,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
 
     # ---- Totals block (right aligned) ----
     tot_rows = [["Subtotal (net)", _money(inv.subtotal_net)]]
-    label_map = {"accommodation": "VAT 10% (accommodation)",
+    label_map = {"accommodation": "VAT 10% (Accommodation)",
                  "standard": "VAT 15% (services)"}
     for cls, amt in inv.vat_by_class.items():
         tot_rows.append([label_map.get(cls, f"VAT ({cls})"), _money(amt)])
