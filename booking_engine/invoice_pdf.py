@@ -112,25 +112,22 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     elems.append(Spacer(1, 5 * mm))
 
     # ---- Line items table ----
-    head = ["Description", "Qty", "Unit", "Net", "VAT %", "VAT", "Total"]
+    head = ["Description", "Qty", "Net", "Total"]
     rows = [head]
     for li in inv.lines:
         rows.append([
             Paragraph(li.label, h_biz),
             f"{li.quantity:g}",
-            _money(li.unit_price),
             _money(li.net),
-            f"{int(round(li.vat_rate * 100))}%",
-            _money(li.vat),
             _money(li.gross),
         ])
-    col_w = [62 * mm, 12 * mm, 22 * mm, 24 * mm, 14 * mm, 18 * mm, 22 * mm]
+    col_w = [95 * mm, 20 * mm, 30 * mm, 30 * mm]
     tbl = Table(rows, colWidths=col_w, repeatRows=1)
     tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), BRAND_TEAL),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT]),

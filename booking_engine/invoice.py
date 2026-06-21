@@ -100,19 +100,25 @@ class Invoice:
         """Build an Invoice from a Quote.breakdown() or package_pricing
         breakdown() dict. Handles both shapes (the package breakdown has no
         quantity/unit_price on its line items)."""
+        # Use display_line_items if present (one row per room, no VAT columns).
+        # Fall back to line_items for backward compatibility.
+        display_items = quote_breakdown.get("display_line_items", quote_breakdown["line_items"])
         lines = [
             InvoiceLine(
-                label=li["label"], tax_class=li["tax_class"],
+                label=li["label"], tax_class=li.get("tax_class", "standard"),
                 quantity=li.get("quantity", 1), unit_price=li.get("unit_price", li["net"]),
                 net=li["net"], vat_rate=li["vat_rate"], vat=li["vat"],
                 gross=li["gross"],
             )
-            for li in quote_breakdown["line_items"]
+            for li in display_items
         ]
-        # vat_by_class keys in breakdown look like "accommodation (10%)"; keep raw too
-        raw_vbc = {}
-        for li in lines:
-            raw_vbc[li.tax_class] = round(raw_vbc.get(li.tax_class, 0.0) + li.vat, 2)
+        # Prefer pre-computed vat_by_class if available; otherwise compute from line_items.
+        raw_vbc = quote_breakdown.get("vat_by_class")
+        if raw_vbc is None:
+            raw_vbc = {}
+            for li in quote_breakdown["line_items"]:
+                tax_cls = li.get("tax_class", "standard")
+                raw_vbc[tax_cls] = round(raw_vbc.get(tax_cls, 0.0) + li["vat"], 2)
         # Invoice total = subtotal_net + total_vat (property fee is shown separately)
         # Wix may send 'total' as grand total including property fee, so we
         # recalculate to avoid double-counting.

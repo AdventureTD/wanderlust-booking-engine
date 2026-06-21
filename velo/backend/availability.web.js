@@ -523,9 +523,12 @@ export const issueBookingInvoice = webMethod(
     };
 
     const line_items = [];
+    const display_line_items = [];
     let subtotal_net = 0;
     let total_vat = 0;
     let total_property_fee = 0;
+    let total_acc_vat = 0;
+    let total_pkg_vat = 0;
 
     for (const row of bookingsRes.items) {
       const nights = nightsBetween(row.checkIn, row.checkOut);
@@ -567,21 +570,38 @@ export const issueBookingInvoice = webMethod(
         gross: advNet + pkgVat
       });
 
+      display_line_items.push({
+        label: displayName,
+        quantity: nights,
+        unit_price: nights > 0 ? roomTotal / nights : 0,
+        net: roomTotal,
+        vat_rate: 0,
+        vat: accVat + pkgVat,
+        gross: roomTotal + accVat + pkgVat
+      });
+
       subtotal_net += roomTotal;
       total_vat += accVat + pkgVat;
       total_property_fee += propertyFee;
+      total_acc_vat += accVat;
+      total_pkg_vat += pkgVat;
     }
 
     const total = subtotal_net + total_property_fee + total_vat;
 
     const quoteBreakdown = {
       line_items,
+      display_line_items,
       subtotal_net: Math.round((subtotal_net + Number.EPSILON) * 100) / 100,
       total_vat: Math.round((total_vat + Number.EPSILON) * 100) / 100,
       total: Math.round((total + Number.EPSILON) * 100) / 100,
       property_fee_rate: subtotal_net > 0 ? total_property_fee / subtotal_net : 0,
       property_fee: Math.round((total_property_fee + Number.EPSILON) * 100) / 100,
-      currency: 'USD'
+      currency: 'USD',
+      vat_by_class: {
+        accommodation: Math.round((total_acc_vat + Number.EPSILON) * 100) / 100,
+        standard: Math.round((total_pkg_vat + Number.EPSILON) * 100) / 100
+      }
     };
 
     const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, bookingNumber);
