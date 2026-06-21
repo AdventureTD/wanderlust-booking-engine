@@ -179,6 +179,8 @@ async function searchHandler() {
       if (panel) { try { panel.collapse(); } catch (e) {} }
       const container = tryFind('selectedRoomsContainer');
       if (container) { try { container.collapse(); } catch (e) {} }
+      const btnContinue = tryFind('btnContinueToSummary');
+      if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
       return;
     }
 
@@ -188,6 +190,8 @@ async function searchHandler() {
     if (selPanel) { try { selPanel.show(); } catch (e) {} try { selPanel.expand(); } catch (e) {} }
     const container = tryFind('selectedRoomsContainer');
     if (container) { try { container.show(); } catch (e) {} try { container.expand(); } catch (e) {} }
+    const btnContinue = tryFind('btnContinueToSummary');
+    if (btnContinue) { try { btnContinue.show(); } catch (e) {} try { btnContinue.expand(); } catch (e) {} }
 
     const repData = [];
     for (let i = 0; i < res.results.length; i++) {
