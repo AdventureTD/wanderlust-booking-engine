@@ -145,25 +145,6 @@ export const searchAvailability = webMethod(
         }
       }
 
-      // Also add legacy rows that still have checkIn on Bookings
-      for (const bk of rBookings) {
-        const bkStatus = (bk.status || '').toLowerCase().trim();
-        const validSt = ['confirmed', 'hold', 'blocked', 'in-house', 'pending confirmation'];
-        let valid = false;
-        for (const vs of validSt) { if (bkStatus === vs) { valid = true; break; } }
-        if (!valid) continue;
-        for (const nt of nights) {
-          const nx = ad(nt, 1);
-          if (bk.checkIn && bk.checkOut) {
-            if (bk.checkIn < nx && bk.checkOut > nt) {
-              if (bk.bookingNumber && overlapNumbers.indexOf(String(bk.bookingNumber)) === -1) {
-                overlapNumbers.push(String(bk.bookingNumber));
-              }
-            }
-          }
-        }
-      }
-
       // Attach summary dates to each booking row
       if (overlapNumbers.length > 0) {
         const summaryRes = await wixData.query(BOOKING_SUMMARIES)
@@ -191,14 +172,8 @@ export const searchAvailability = webMethod(
           if (!valid) { continue; }
 
           const dates = summaryMap[String(bk.bookingNumber)];
-          let bkCheckIn = bk.checkIn;
-          let bkCheckOut = bk.checkOut;
           if (dates && dates.checkIn && dates.checkOut) {
-            bkCheckIn = dates.checkIn;
-            bkCheckOut = dates.checkOut;
-          }
-          if (bkCheckIn && bkCheckOut) {
-            if (bkCheckIn < nx && bkCheckOut > nt) {
+            if (dates.checkIn < nx && dates.checkOut > nt) {
               count += 1;
             }
           }

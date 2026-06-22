@@ -48,20 +48,6 @@ export const findRooms = webMethod(
         bookings = bookings.concat(res.items);
       }
 
-      // Legacy fallback: rows that still store checkIn on Bookings directly
-      const legacyRes = await wixData.query(BOOKINGS)
-        .hasSome('status', ['Confirmed', 'In-House', 'hold', 'Pending Confirmation'])
-        .lt('checkIn', co)
-        .gt('checkOut', ci)
-        .limit(1000)
-        .find();
-      const seenIds = [];
-      for (const row of bookings) { if (row._id) seenIds.push(row._id); }
-      for (const row of legacyRes.items) {
-        if (row._id && seenIds.indexOf(row._id) >= 0) continue;
-        bookings.push(row);
-      }
-
       const pr = await wixData.query('RoomPricing').limit(1000).find();
       const prices = {};
       for (let i = 0; i < pr.items.length; i++) {

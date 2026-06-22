@@ -309,25 +309,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       totalPropertyFee += (row.propertyFee || 0);
       roomCount++;
 
-      // Legacy fallback: derive guest info from Bookings rows if not provided via optGuest
-      if (!guestName && row.guestName) guestName = row.guestName;
-      if (!guestEmail && row.guestEmail) guestEmail = row.guestEmail;
-      if (!guestPhone && row.guestPhone) guestPhone = row.guestPhone;
       if (!status && row.status) status = row.status;
-
-      // Legacy fallback: derive dates from Bookings rows if summary has none
-      if (!checkIn && row.checkIn) {
-        checkIn = row.checkIn;
-      }
-      if (!checkOut && row.checkOut) {
-        checkOut = row.checkOut;
-      }
-      if (checkIn && row.checkIn && new Date(row.checkIn) < new Date(checkIn)) {
-        checkIn = row.checkIn;
-      }
-      if (checkOut && row.checkOut && new Date(row.checkOut) > new Date(checkOut)) {
-        checkOut = row.checkOut;
-      }
     }
 
     const summary = {
@@ -399,19 +381,6 @@ async function overlappingCount(roomCode, checkIn, checkOut) {
     }
   }
 
-  // Legacy fallback: rows that still store checkIn/checkOut directly on Bookings
-  const legacyRes = await wixData.query(BOOKINGS)
-    .eq('roomCode', roomCode)
-    .hasSome('status', ['confirmed', 'hold', 'blocked'])
-    .lt('checkIn', new Date(checkOut))
-    .gt('checkOut', new Date(checkIn))
-    .limit(1000)
-    .find();
-  for (const row of legacyRes.items) {
-    if (row._id && seenIds.indexOf(row._id) >= 0) continue;
-    total += (row.quantity || 1);
-  }
-
   return total;
 }
 
@@ -455,19 +424,6 @@ async function overlappingRows(roomCode, checkIn, checkOut) {
       rows.push(row);
       if (row._id) seenIds.push(row._id);
     }
-  }
-
-  // Legacy fallback
-  const legacyRes = await wixData.query(BOOKINGS)
-    .eq('roomCode', roomCode)
-    .hasSome('status', ['confirmed', 'hold', 'blocked'])
-    .lt('checkIn', new Date(checkOut))
-    .gt('checkOut', new Date(checkIn))
-    .limit(1000)
-    .find();
-  for (const row of legacyRes.items) {
-    if (row._id && seenIds.indexOf(row._id) >= 0) continue;
-    rows.push(row);
   }
 
   return rows;
@@ -630,18 +586,10 @@ export const issueBookingInvoice = webMethod(
       console.log('>>> issueBookingInvoice BookingSummary read ERROR:', summaryErr.message);
     }
 
-    // Fallback to first booking row if summary has no dates
-    if (!checkInDate && firstRow.checkIn) {
-      checkInDate = new Date(firstRow.checkIn).toISOString().slice(0, 10);
-    }
-    if (!checkOutDate && firstRow.checkOut) {
-      checkOutDate = new Date(firstRow.checkOut).toISOString().slice(0, 10);
-    }
-
     const guest = {
-      name: summaryRow && summaryRow.guestName ? summaryRow.guestName : firstRow.guestName || '',
-      email: summaryRow && summaryRow.guestEmail ? summaryRow.guestEmail : firstRow.guestEmail || '',
-      phone: summaryRow && summaryRow.guestPhone ? summaryRow.guestPhone : firstRow.guestPhone || '',
+      name: summaryRow && summaryRow.guestName ? summaryRow.guestName : '',
+      email: summaryRow && summaryRow.guestEmail ? summaryRow.guestEmail : '',
+      phone: summaryRow && summaryRow.guestPhone ? summaryRow.guestPhone : '',
     };
 
     const dates = {
