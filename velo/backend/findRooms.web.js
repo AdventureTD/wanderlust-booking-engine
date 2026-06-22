@@ -1,6 +1,9 @@
 import wixData from 'wix-data';
 import { Permissions, webMethod } from 'wix-web-module';
 
+const BOOKING_SUMMARIES = 'BookingSummary';
+const BOOKINGS = 'Bookings';
+
 export const findRooms = webMethod(
   Permissions.Anyone,
   async (checkInStr, checkOutStr) => {
@@ -21,8 +24,43 @@ export const findRooms = webMethod(
       const rr = await wixData.query('Rooms').limit(50).find();
       const rooms = rr.items;
 
-      const br = await wixData.query('Bookings').limit(1000).find();
-      const bookings = br.items;
+      // Primary: join via BookingSummary (new canonical path)
+      const summaryRes = await wixData.query(BOOKING_SUMMARIES)
+        .lt('checkIn', co)
+        .gt('checkOut', ci)
+        .limit(1000)
+        .find();
+
+      const overlapNumbers = [];
+      for (const s of summaryRes.items) {
+        if (s.bookingNumber && overlapNumbers.indexOf(String(s.bookingNumber)) === -1) {
+          overlapNumbers.push(String(s.bookingNumber));
+        }
+      }
+
+      let bookings = [];
+      if (overlapNumbers.length > 0) {
+        const res = await wixData.query(BOOKINGS)
+          .hasSome('bookingNumber', overlapNumbers)
+          .hasSome('status', ['Confirmed', 'In-House', 'hold', 'Pending Confirmation'])
+          .limit(1000)
+          .find();
+        bookings = bookings.concat(res.items);
+      }
+
+      // Legacy fallback: rows that still store checkIn on Bookings directly
+      const legacyRes = await wixData.query(BOOKINGS)
+        .hasSome('status', ['Confirmed', 'In-House', 'hold', 'Pending Confirmation'])
+        .lt('checkIn', co)
+        .gt('checkOut', ci)
+        .limit(1000)
+        .find();
+      const seenIds = [];
+      for (const row of bookings) { if (row._id) seenIds.push(row._id); }
+      for (const row of legacyRes.items) {
+        if (row._id && seenIds.indexOf(row._id) >= 0) continue;
+        bookings.push(row);
+      }
 
       const pr = await wixData.query('RoomPricing').limit(1000).find();
       const prices = {};
@@ -42,16 +80,8 @@ export const findRooms = webMethod(
         for (let b = 0; b < bookings.length; b++) {
           const bk = bookings[b];
           if (bk.roomCode !== code) continue;
-          const st = ['Confirmed', 'In-House', 'hold', 'Pending Confirmation'];
-          let valid = false;
-          for (let s = 0; s < st.length; s++) {
-            if (bk.status === st[s]) { valid = true; break; }
-          }
-          if (!valid) continue;
-          if (bk.checkIn < co && bk.checkOut > ci) {
-            blocked = true;
-            break;
-          }
+          blocked = true;
+          break;
         }
 
         if (!blocked) {

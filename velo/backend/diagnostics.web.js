@@ -43,8 +43,6 @@ export const getDataStatus = webMethod(
       bookingsCount: bookings.length,
       bookings: bookings.map(b => ({
         roomCode: b.roomCode,
-        checkIn: b.checkIn,
-        checkOut: b.checkOut,
         status: b.status,
         guests: b.guests,
       })),

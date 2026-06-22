@@ -256,7 +256,7 @@ async function generateAndStoreInvoice(bookingId) {
 }
 
 /* ---------- availability helpers ---------- */
-async function updateBookingSummary(bookingNumber) {
+async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg) {
   if (!bookingNumber) {
     console.log('>>> updateBookingSummary SKIPPED — no bookingNumber');
     return;
@@ -264,6 +264,22 @@ async function updateBookingSummary(bookingNumber) {
   console.log('>>> updateBookingSummary START for', bookingNumber);
 
   try {
+    // Try to read existing summary first (for dates during cancel, invoice, etc.)
+    let checkIn = checkInArg || null;
+    let checkOut = checkOutArg || null;
+
+    if (!checkIn || !checkOut) {
+      const existingSummaryRes = await wixData.query(BOOKING_SUMMARIES)
+        .eq('bookingNumber', bookingNumber)
+        .limit(1)
+        .find();
+      if (existingSummaryRes.items.length > 0) {
+        const es = existingSummaryRes.items[0];
+        if (!checkIn && es.checkIn) checkIn = es.checkIn;
+        if (!checkOut && es.checkOut) checkOut = es.checkOut;
+      }
+    }
+
     const res = await wixData.query(BOOKINGS)
       .eq('bookingNumber', bookingNumber)
       .limit(1000)
@@ -280,7 +296,6 @@ async function updateBookingSummary(bookingNumber) {
     let totalAccommodationVat = 0;
     let totalPackageVat = 0;
     let totalPropertyFee = 0;
-    let checkIn = null, checkOut = null;
     let guestName = '', guestEmail = '', guestPhone = '';
     let roomCount = 0;
     let status = '';
@@ -292,10 +307,17 @@ async function updateBookingSummary(bookingNumber) {
       totalPropertyFee += (row.propertyFee || 0);
       roomCount++;
 
-      if (!checkIn || new Date(row.checkIn) < new Date(checkIn)) {
+      // Legacy fallback: derive dates from Bookings rows if summary has none
+      if (!checkIn && row.checkIn) {
         checkIn = row.checkIn;
       }
-      if (!checkOut || new Date(row.checkOut) > new Date(checkOut)) {
+      if (!checkOut && row.checkOut) {
+        checkOut = row.checkOut;
+      }
+      if (checkIn && row.checkIn && new Date(row.checkIn) < new Date(checkIn)) {
+        checkIn = row.checkIn;
+      }
+      if (checkOut && row.checkOut && new Date(row.checkOut) > new Date(checkOut)) {
         checkOut = row.checkOut;
       }
       guestName = row.guestName || guestName;
@@ -343,30 +365,108 @@ async function updateBookingSummary(bookingNumber) {
   }
 }
 async function overlappingCount(roomCode, checkIn, checkOut) {
-  const res = await wixData.query(BOOKINGS)
+  let total = 0;
+  const seenIds = [];
+
+  // Primary: join via BookingSummary (new canonical path)
+  const summaryRes = await wixData.query(BOOKING_SUMMARIES)
+    .lt('checkIn', new Date(checkOut))
+    .gt('checkOut', new Date(checkIn))
+    .limit(1000)
+    .find();
+
+  const overlapNumbers = [];
+  for (const s of summaryRes.items) {
+    if (s.bookingNumber && overlapNumbers.indexOf(String(s.bookingNumber)) === -1) {
+      overlapNumbers.push(String(s.bookingNumber));
+    }
+  }
+
+  if (overlapNumbers.length > 0) {
+    const res = await wixData.query(BOOKINGS)
+      .eq('roomCode', roomCode)
+      .hasSome('status', ['confirmed', 'hold', 'blocked'])
+      .hasSome('bookingNumber', overlapNumbers)
+      .limit(1000)
+      .find();
+    for (const row of res.items) {
+      total += (row.quantity || 1);
+      if (row._id) seenIds.push(row._id);
+    }
+  }
+
+  // Legacy fallback: rows that still store checkIn/checkOut directly on Bookings
+  const legacyRes = await wixData.query(BOOKINGS)
     .eq('roomCode', roomCode)
     .hasSome('status', ['confirmed', 'hold', 'blocked'])
     .lt('checkIn', new Date(checkOut))
     .gt('checkOut', new Date(checkIn))
     .limit(1000)
     .find();
-
-  let total = 0;
-  for (const row of res.items) {
+  for (const row of legacyRes.items) {
+    if (row._id && seenIds.indexOf(row._id) >= 0) continue;
     total += (row.quantity || 1);
   }
+
   return total;
 }
 
 async function overlappingRows(roomCode, checkIn, checkOut) {
-  const res = await wixData.query(BOOKINGS)
+  const rows = [];
+  const seenIds = [];
+  const summaryDateMap = {}; // bookingNumber -> {checkIn, checkOut}
+
+  // Primary: join via BookingSummary
+  const summaryRes = await wixData.query(BOOKING_SUMMARIES)
+    .lt('checkIn', new Date(checkOut))
+    .gt('checkOut', new Date(checkIn))
+    .limit(1000)
+    .find();
+
+  const overlapNumbers = [];
+  for (const s of summaryRes.items) {
+    if (s.bookingNumber) {
+      const num = String(s.bookingNumber);
+      if (overlapNumbers.indexOf(num) === -1) {
+        overlapNumbers.push(num);
+        if (s.checkIn && s.checkOut) {
+          summaryDateMap[num] = { checkIn: s.checkIn, checkOut: s.checkOut };
+        }
+      }
+    }
+  }
+
+  if (overlapNumbers.length > 0) {
+    const res = await wixData.query(BOOKINGS)
+      .eq('roomCode', roomCode)
+      .hasSome('status', ['confirmed', 'hold', 'blocked'])
+      .hasSome('bookingNumber', overlapNumbers)
+      .limit(1000)
+      .find();
+    for (const row of res.items) {
+      if (!row.checkIn && summaryDateMap[String(row.bookingNumber)]) {
+        row.checkIn = summaryDateMap[String(row.bookingNumber)].checkIn;
+        row.checkOut = summaryDateMap[String(row.bookingNumber)].checkOut;
+      }
+      rows.push(row);
+      if (row._id) seenIds.push(row._id);
+    }
+  }
+
+  // Legacy fallback
+  const legacyRes = await wixData.query(BOOKINGS)
     .eq('roomCode', roomCode)
     .hasSome('status', ['confirmed', 'hold', 'blocked'])
     .lt('checkIn', new Date(checkOut))
     .gt('checkOut', new Date(checkIn))
     .limit(1000)
     .find();
-  return res.items;
+  for (const row of legacyRes.items) {
+    if (row._id && seenIds.indexOf(row._id) >= 0) continue;
+    rows.push(row);
+  }
+
+  return rows;
 }
 
 /* ---------- exported methods ---------- */
@@ -443,8 +543,8 @@ export const createBooking = webMethod(
 
     const toInsert = {
       roomCode: roomCode,
-      checkIn: new Date(checkIn),
-      checkOut: new Date(checkOut),
+      // checkIn and checkOut are intentionally stored only in BookingSummary
+      // to maintain single source of truth for booking dates.
       guests: guests,
       status: booking.status || 'confirmed',
       quantity: 1,
@@ -482,10 +582,10 @@ export const createBooking = webMethod(
       throw new Error('Booking conflict — ' + roomCode + ' was just taken. Please retry.');
     }
 
-    // Update booking summary
+    // Update booking summary — pass dates so the summary row is created with correct dates
     console.log('>>> SERVER calling updateBookingSummary for', inserted.bookingNumber);
     try {
-      await updateBookingSummary(inserted.bookingNumber);
+      await updateBookingSummary(inserted.bookingNumber, checkIn, checkOut);
     } catch (e) {
       console.log('>>> SERVER updateBookingSummary ERROR:', e.message);
     }
@@ -510,6 +610,31 @@ export const issueBookingInvoice = webMethod(
     }
 
     const firstRow = bookingsRes.items[0];
+
+    // Read dates from BookingSummary (single source of truth)
+    let checkInDate = '', checkOutDate = '';
+    try {
+      const summaryRes = await wixData.query(BOOKING_SUMMARIES)
+        .eq('bookingNumber', bookingNumber)
+        .limit(1)
+        .find();
+      if (summaryRes.items.length > 0) {
+        const s = summaryRes.items[0];
+        if (s.checkIn) checkInDate = new Date(s.checkIn).toISOString().slice(0, 10);
+        if (s.checkOut) checkOutDate = new Date(s.checkOut).toISOString().slice(0, 10);
+      }
+    } catch (summaryErr) {
+      console.log('>>> issueBookingInvoice BookingSummary read ERROR:', summaryErr.message);
+    }
+
+    // Fallback to first booking row if summary has no dates
+    if (!checkInDate && firstRow.checkIn) {
+      checkInDate = new Date(firstRow.checkIn).toISOString().slice(0, 10);
+    }
+    if (!checkOutDate && firstRow.checkOut) {
+      checkOutDate = new Date(firstRow.checkOut).toISOString().slice(0, 10);
+    }
+
     const guest = {
       name: firstRow.guestName || '',
       email: firstRow.guestEmail || '',
@@ -517,8 +642,8 @@ export const issueBookingInvoice = webMethod(
     };
 
     const dates = {
-      checkIn: firstRow.checkIn.toISOString().slice(0, 10),
-      checkOut: firstRow.checkOut.toISOString().slice(0, 10),
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
       roomCode: bookingsRes.items.map(function (r) { return r.roomCode; }).join(', ')
     };
 
@@ -531,7 +656,7 @@ export const issueBookingInvoice = webMethod(
     let total_pkg_vat = 0;
 
     for (const row of bookingsRes.items) {
-      const nights = nightsBetween(row.checkIn, row.checkOut);
+      const nights = nightsBetween(checkInDate || dates.checkIn, checkOutDate || dates.checkOut);
       const roomTotal = row.roomTotal || 0;
       const propertyFee = row.propertyFee || 0;
       const accommodationShare = 0.5;
@@ -695,14 +820,22 @@ export const blockRoom = webMethod(
 
     const toInsert = {
       roomCode: roomCode,
-      checkIn: new Date(checkIn),
-      checkOut: new Date(checkOut),
+      // checkIn and checkOut intentionally stored only in BookingSummary
       guests: 1,
       status: 'blocked',
       quantity: actual,
       note: note,
+      bookingNumber: await getNextBookingNumber(),
     };
     const inserted = await wixData.insert(BOOKINGS, toInsert);
+
+    // Create/update BookingSummary so overlapping joins find this block
+    try {
+      await updateBookingSummary(inserted.bookingNumber, checkIn, checkOut);
+    } catch (e) {
+      console.log('>>> blockRoom updateBookingSummary ERROR:', e.message);
+    }
+
     return { booking: inserted, warnings: warnings };
   }
 );
