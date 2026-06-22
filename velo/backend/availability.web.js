@@ -256,7 +256,7 @@ async function generateAndStoreInvoice(bookingId) {
 }
 
 /* ---------- availability helpers ---------- */
-async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg) {
+async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optGuest) {
   if (!bookingNumber) {
     console.log('>>> updateBookingSummary SKIPPED — no bookingNumber');
     return;
@@ -296,7 +296,9 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg) {
     let totalAccommodationVat = 0;
     let totalPackageVat = 0;
     let totalPropertyFee = 0;
-    let guestName = '', guestEmail = '', guestPhone = '';
+    let guestName = optGuest && optGuest.guestName ? optGuest.guestName : '';
+    let guestEmail = optGuest && optGuest.guestEmail ? optGuest.guestEmail : '';
+    let guestPhone = optGuest && optGuest.guestPhone ? optGuest.guestPhone : '';
     let roomCount = 0;
     let status = '';
 
@@ -306,6 +308,12 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg) {
       totalPackageVat += (row.packageVat || 0);
       totalPropertyFee += (row.propertyFee || 0);
       roomCount++;
+
+      // Legacy fallback: derive guest info from Bookings rows if not provided via optGuest
+      if (!guestName && row.guestName) guestName = row.guestName;
+      if (!guestEmail && row.guestEmail) guestEmail = row.guestEmail;
+      if (!guestPhone && row.guestPhone) guestPhone = row.guestPhone;
+      if (!status && row.status) status = row.status;
 
       // Legacy fallback: derive dates from Bookings rows if summary has none
       if (!checkIn && row.checkIn) {
@@ -320,10 +328,6 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg) {
       if (checkOut && row.checkOut && new Date(row.checkOut) > new Date(checkOut)) {
         checkOut = row.checkOut;
       }
-      guestName = row.guestName || guestName;
-      guestEmail = row.guestEmail || guestEmail;
-      guestPhone = row.guestPhone || guestPhone;
-      if (!status && row.status) status = row.status;
     }
 
     const summary = {
@@ -512,7 +516,6 @@ export const createBooking = webMethod(
     const note = booking.note;
     let saveNote = note;
     const bookingNumber = booking.bookingNumber;
-    const country = booking.country;
 
     console.log('>>> SERVER roomCode:', roomCode, 'checkIn:', checkIn, 'checkOut:', checkOut, 'guests:', guests);
     const roomDisplay = getRoomDisplayName(roomCode);
@@ -549,17 +552,14 @@ export const createBooking = webMethod(
       status: booking.status || 'confirmed',
       quantity: 1,
       packages: booking.packages || [],
-      alaCarte: booking.alaCarte || [],
       guestName: guestName || '',
       guestEmail: guestEmail || '',
-      guestPhone: guestPhone || '',
       roomTotal: roomTotal || 0,
       propertyFee: propertyFee || 0,
       accomodationVat: accomodationVat || 0,
       packageVat: packageVat || 0,
       grandTotal: grandTotal || 0,
       bookingNumber: invoiceNumber || '',
-      country: country || '',
       note: saveNote || '',
     };
     console.log('>>> SERVER toInsert keys:', Object.keys(toInsert).join(', '));
@@ -582,10 +582,14 @@ export const createBooking = webMethod(
       throw new Error('Booking conflict — ' + roomCode + ' was just taken. Please retry.');
     }
 
-    // Update booking summary — pass dates so the summary row is created with correct dates
+    // Update booking summary — pass dates + guest info so the summary row is complete
     console.log('>>> SERVER calling updateBookingSummary for', inserted.bookingNumber);
     try {
-      await updateBookingSummary(inserted.bookingNumber, checkIn, checkOut);
+      await updateBookingSummary(inserted.bookingNumber, checkIn, checkOut, {
+        guestName: guestName || '',
+        guestEmail: guestEmail || '',
+        guestPhone: guestPhone || '',
+      });
     } catch (e) {
       console.log('>>> SERVER updateBookingSummary ERROR:', e.message);
     }
@@ -613,15 +617,16 @@ export const issueBookingInvoice = webMethod(
 
     // Read dates from BookingSummary (single source of truth)
     let checkInDate = '', checkOutDate = '';
+    let summaryRow = null;
     try {
       const summaryRes = await wixData.query(BOOKING_SUMMARIES)
         .eq('bookingNumber', bookingNumber)
         .limit(1)
         .find();
       if (summaryRes.items.length > 0) {
-        const s = summaryRes.items[0];
-        if (s.checkIn) checkInDate = new Date(s.checkIn).toISOString().slice(0, 10);
-        if (s.checkOut) checkOutDate = new Date(s.checkOut).toISOString().slice(0, 10);
+        summaryRow = summaryRes.items[0];
+        if (summaryRow.checkIn) checkInDate = new Date(summaryRow.checkIn).toISOString().slice(0, 10);
+        if (summaryRow.checkOut) checkOutDate = new Date(summaryRow.checkOut).toISOString().slice(0, 10);
       }
     } catch (summaryErr) {
       console.log('>>> issueBookingInvoice BookingSummary read ERROR:', summaryErr.message);
@@ -636,9 +641,9 @@ export const issueBookingInvoice = webMethod(
     }
 
     const guest = {
-      name: firstRow.guestName || '',
-      email: firstRow.guestEmail || '',
-      phone: firstRow.guestPhone || ''
+      name: summaryRow && summaryRow.guestName ? summaryRow.guestName : firstRow.guestName || '',
+      email: summaryRow && summaryRow.guestEmail ? summaryRow.guestEmail : firstRow.guestEmail || '',
+      phone: summaryRow && summaryRow.guestPhone ? summaryRow.guestPhone : firstRow.guestPhone || '',
     };
 
     const dates = {

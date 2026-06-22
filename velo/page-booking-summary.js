@@ -188,7 +188,6 @@ async function renderSummary() {
     r.accomodationVat = accNet * taxRateAccommodation;
     r.packageVat = advNet * taxRateAdventure;
     r.propertyFee = roomTotal * propertyFeeRate;
-    r.country = '';
 
     repData.push({ _id: 'sum_' + i + '_' + _renderCount, roomCode: r.roomCode, roomName: displayName, qty: r.qty, baseRate: rate, roomTotal: roomTotal });
   }
@@ -312,7 +311,6 @@ function wireContinueButton() {
             accomodationVat: r.accomodationVat || 0,
             packageVat: r.packageVat || 0,
             grandTotal: ((r.roomTotal || 0) + (r.accomodationVat || 0) + (r.packageVat || 0) + (r.propertyFee || 0)) || 0,
-            country: r.country || ''
           };
           if (sharedBookingNumber) payload.bookingNumber = sharedBookingNumber;
 
