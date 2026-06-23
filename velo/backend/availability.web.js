@@ -507,7 +507,6 @@ export const createBooking = webMethod(
       guests: guests,
       status: booking.status || 'confirmed',
       quantity: 1,
-      packages: booking.packages || [],
       roomTotal: roomTotal || 0,
       propertyFee: propertyFee || 0,
       accomodationVat: accomodationVat || 0,
