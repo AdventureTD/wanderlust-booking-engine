@@ -1,6 +1,8 @@
 import wixLocation from 'wix-location';
+import wixData from 'wix-data';
 import { getAllSettings } from 'backend/settings';
 import { getRoomNames } from 'backend/rooms';
+import { getPackageAmenities } from 'backend/packages';
 import { createBooking, issueBookingInvoice } from 'backend/availability';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
@@ -34,17 +36,44 @@ function fmtDate(d) {
   return (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
 }
 
+/* nightsFromDisplay — parse checkInDisplay / checkOutDisplay text ("M/D/YYYY")
+   and return the number of nights.  Used to look up package title by stay length. */
+function nightsFromDisplay(ciText, coText) {
+  if (!ciText || !coText) return 0;
+  try {
+    const d1 = new Date(ciText);
+    const d2 = new Date(coText);
+    if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return 0;
+    const ms = d2 - d1;
+    const days = Math.round(ms / 86400000);
+    return days > 0 ? days : 0;
+  } catch (e) { return 0; }
+}
+
 function safeText(id, txt) {
   try {
     const el = $w('#' + id);
-    if (el.expand) el.expand();
-    if (el.show) el.show();
+    if (typeof el.expand === 'function') el.expand();
+    if (typeof el.show   === 'function') el.show();
     el.text = txt;
   } catch (e) {}
 }
-function safeCollapse(id) { try { $w('#' + id).collapse(); } catch (e) {} }
-function safeExpand(id) { try { $w('#' + id).expand(); } catch (e) {} }
+function safeCollapse(id) {
+  try {
+    const el = $w('#' + id);
+    if (typeof el.collapse === 'function') el.collapse();
+    if (typeof el.hide    === 'function') el.hide();
+  } catch (e) {}
+}
+function safeExpand(id) {
+  try {
+    const el = $w('#' + id);
+    if (typeof el.expand === 'function') el.expand();
+    if (typeof el.show   === 'function') el.show();
+  } catch (e) {}
+}
 function safeVal(id) { try { return $w('#' + id).value || ''; } catch (e) { return ''; } }
+function safeTextRead(id) { try { return $w('#' + id).text || ''; } catch (e) { return ''; } }
 function safeDisable(id, v) {
   try {
     const el = $w('#' + id);
@@ -88,21 +117,15 @@ async function initSummary() {
   let cis = getParam('ci');
   let cos = getParam('co');
 
-  console.log('>>> SUMMARY: url query rc=', rcParam, 'ci=', cis, 'co=', cos);
-
   if (!rcParam) {
     try {
       rcParam = sessionStorage.getItem('_wbe_rc') || localStorage.getItem('_wbe_rc');
       cis = cis || sessionStorage.getItem('_wbe_ci') || localStorage.getItem('_wbe_ci');
       cos = cos || sessionStorage.getItem('_wbe_co') || localStorage.getItem('_wbe_co');
-      console.log('>>> SUMMARY: loaded from storage:', rcParam, cis, cos);
-    } catch (e) {
-      console.log('>>> SUMMARY: storage read error:', e.message);
-    }
+    } catch (e) {}
   }
 
   if (!rcParam && isPreviewMode()) {
-    console.log('>>> SUMMARY: using PREVIEW fallback');
     rcParam = 'adventure_suite:2:792,two_bedroom_apartment:3:1188';
     cis = '2026-06-07';
     cos = '2026-06-12';
@@ -210,19 +233,65 @@ async function renderSummary() {
   safeText('propertyFeeText', '$' + fmtCurrency(propertyFee));
   safeText('grandTotalText', '$' + fmtCurrency(grandTotal));
 
+  // Update totalNightsDisplay with calculated nights
+  if (nights > 0) {
+    safeText('totalNightsDisplay', String(nights) + ' night' + (nights !== 1 ? 's' : ''));
+  }
+
+  // packageName: look up title from Packages by nights.
+  let pkgTitle = '';
+  try {
+    const ciText = safeTextRead('checkInDisplay');
+    const coText = safeTextRead('checkOutDisplay');
+    const nts = nightsFromDisplay(ciText, coText) || _summaryNights || 0;
+
+    if (nts > 0) {
+      try {
+        const beResult = await getPackageAmenities(nts);
+        if (beResult && beResult.title) pkgTitle = beResult.title;
+      } catch (beErr) {}
+
+      if (!pkgTitle) {
+        try {
+          const res = await wixData.query('Packages').limit(100).find();
+          for (let i = 0; i < res.items.length; i++) {
+            const item = res.items[i];
+            const itemNights = item.numberOfNights || item.NumberOfNights || item.numberofnights || 0;
+            if (Number(itemNights) === Number(nts)) {
+              pkgTitle = item.title_fld || item.title || item.Title || item.name || item.Name || '';
+              break;
+            }
+          }
+        } catch (qErr) {}
+      }
+    }
+
+    // Single debug log to diagnose the exact state
+    console.log('[WBE] nts=' + nts + ' pkgTitle=' + pkgTitle + ' summaryNights=' + _summaryNights);
+
+    if (pkgTitle) {
+      safeExpand('box1');
+      safeExpand('packageName');
+      safeText('packageName', pkgTitle);
+      console.log('[WBE] SET packageName to:', pkgTitle);
+    } else {
+      safeCollapse('packageName');
+      console.log('[WBE] COLLAPSED packageName, no title found');
+    }
+  } catch (e) {
+    safeCollapse('packageName');
+    console.log('[WBE] ERROR:', e.message);
+  }
+
   renderRoomRepeater(repData);
 }
 
 function initRoomRepeater() {
-  if (_roomRepReady) { console.log('>>> initRoomRepeater already ready'); return; }
+  if (_roomRepReady) return;
   let rep;
   try { rep = $w('#summaryRoomsRepeater'); } catch (e) { rep = null; }
-  console.log('>>> summaryRoomsRepeater element:', typeof rep, rep ? Object.keys(rep).slice(0, 10) : null);
-  if (!rep) { console.log('>>> repeater NOT FOUND'); return; }
-  if (typeof rep.onItemReady !== 'function') {
-    console.log('>>> repeater found but onItemReady is not a function. Type:', rep.type || 'unknown');
-    return;
-  }
+  if (!rep) return;
+  if (typeof rep.onItemReady !== 'function') return;
   _roomRepReady = true;
 
   rep.onItemReady(($item, itemData) => {
@@ -314,13 +383,10 @@ function wireContinueButton() {
           };
           if (sharedBookingNumber) payload.bookingNumber = sharedBookingNumber;
 
-          console.log('>>> Summary creating booking for', r.roomCode);
           const b = await createBooking(payload);
-          console.log('>>> Summary createBooking success:', b ? 'yes' : 'no');
           bookings.push(b);
           if (!sharedBookingNumber && b.bookingNumber) sharedBookingNumber = b.bookingNumber;
         } catch (e) {
-          console.log('>>> Summary createBooking ERROR for', r.roomCode + ':', e.message);
           errors.push(r.roomCode + ': ' + e.message);
         }
       }
@@ -335,10 +401,7 @@ function wireContinueButton() {
         try {
           safeText('bookingStatus', 'Generating invoice...');
           await issueBookingInvoice(sharedBookingNumber);
-          console.log('>>> Summary invoice generated for', sharedBookingNumber);
-        } catch (e) {
-          console.log('>>> Summary invoice ERROR:', e.message);
-        }
+        } catch (e) {}
       }
 
       const roomNames = rooms.map(function (r) { return r.roomCode.replace(/_/g, ' '); }).join(', ');
@@ -353,7 +416,6 @@ function wireContinueButton() {
 
       wixLocation.to('https://www.wanderlustcaribbean.com');
     } catch (e) {
-      console.log('>>> Summary OUTER CATCH:', e.message);
       safeText('bookingStatus', 'Booking error: ' + e.message);
       safeDisable('btnContinue', false);
     }
