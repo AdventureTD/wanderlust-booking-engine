@@ -341,7 +341,8 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       await wixData.update(BOOKING_SUMMARIES, summary);
       console.log('>>> updateBookingSummary UPDATE complete');
     } else {
-      console.log('>>> updateBookingSummary INSERTING new row');
+      summary.bookingDate = new Date();
+      console.log('>>> updateBookingSummary INSERTING new row with bookingDate');
       await wixData.insert(BOOKING_SUMMARIES, summary);
       console.log('>>> updateBookingSummary INSERT complete');
     }
