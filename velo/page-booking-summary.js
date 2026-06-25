@@ -116,6 +116,15 @@ async function initSummary() {
   let rcParam = getParam('rc');
   let cis = getParam('ci');
   let cos = getParam('co');
+  let guestsParam = getParam('guests');
+
+  // Single-room detail-page redirect fallback (roomCode, checkIn, checkOut, guests)
+  const roomParam = getParam('roomCode');
+  if (!rcParam && roomParam) {
+    rcParam = roomParam + ':1:0';
+    cis = cis || getParam('checkIn') || '';
+    cos = cos || getParam('checkOut') || '';
+  }
 
   if (!rcParam) {
     try {

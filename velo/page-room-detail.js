@@ -153,7 +153,7 @@ async function initPage() {
         return;
       }
       // Pass room + dates + guests to the confirm page
-      wixLocation.to(`/guest-confirm?roomCode=${encodeURIComponent(_roomCode)}&checkIn=${encodeURIComponent(_checkIn)}&checkOut=${encodeURIComponent(_checkOut)}&guests=${_guests}`);
+      wixLocation.to(`/booking-summary?roomCode=${encodeURIComponent(_roomCode)}&checkIn=${encodeURIComponent(_checkIn)}&checkOut=${encodeURIComponent(_checkOut)}&guests=${_guests}`);
     });
   }
 }
