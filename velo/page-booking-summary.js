@@ -363,9 +363,34 @@ function wireContinueButton() {
     let sharedBookingNumber = '';
 
     try {
-      for (let i = 0; i < rooms.length; i++) {
-        const r = rooms[i];
-        try {
+      // Phase 1: book first room to get shared booking number
+      if (rooms.length > 0) {
+        const r0 = rooms[0];
+        const payload0 = {
+          roomCode: r0.roomCode,
+          checkIn: ci,
+          checkOut: _summaryCos,
+          guests: _guestCounts[r0.roomCode] || r0.qty || 1,
+          status: 'confirmed',
+          guestName: name,
+          guestEmail: email,
+          guestPhone: phone,
+          roomTotal: r0.roomTotal || 0,
+          propertyFee: r0.propertyFee || 0,
+          accomodationVat: r0.accomodationVat || 0,
+          packageVat: r0.packageVat || 0,
+          grandTotal: ((r0.roomTotal || 0) + (r0.accomodationVat || 0) + (r0.packageVat || 0) + (r0.propertyFee || 0)) || 0,
+        };
+        const b0 = await createBooking(payload0);
+        bookings.push(b0);
+        if (b0.bookingNumber) sharedBookingNumber = b0.bookingNumber;
+      }
+
+      // Phase 2: book remaining rooms in parallel
+      if (rooms.length > 1 && sharedBookingNumber) {
+        const restPromises = [];
+        for (let i = 1; i < rooms.length; i++) {
+          const r = rooms[i];
           const payload = {
             roomCode: r.roomCode,
             checkIn: ci,
@@ -380,17 +405,24 @@ function wireContinueButton() {
             accomodationVat: r.accomodationVat || 0,
             packageVat: r.packageVat || 0,
             grandTotal: ((r.roomTotal || 0) + (r.accomodationVat || 0) + (r.packageVat || 0) + (r.propertyFee || 0)) || 0,
+            bookingNumber: sharedBookingNumber,
           };
-          if (sharedBookingNumber) payload.bookingNumber = sharedBookingNumber;
-
-          const b = await createBooking(payload);
-          bookings.push(b);
-          if (!sharedBookingNumber && b.bookingNumber) sharedBookingNumber = b.bookingNumber;
-        } catch (e) {
-          errors.push(r.roomCode + ': ' + e.message);
+          restPromises.push(
+            createBooking(payload)
+              .then(function (b) { return { ok: true, b: b }; })
+              .catch(function (e) { return { ok: false, err: r.roomCode + ': ' + e.message }; })
+          );
+        }
+        const restResults = await Promise.all(restPromises);
+        for (let j = 0; j < restResults.length; j++) {
+          const res = restResults[j];
+          if (res.ok) {
+            bookings.push(res.b);
+          } else {
+            errors.push(res.err);
+          }
         }
       }
-
       if (errors.length > 0) {
         safeText('bookingStatus', 'Some rooms could not be booked: ' + errors.join('; '));
         safeDisable('btnContinue', false);

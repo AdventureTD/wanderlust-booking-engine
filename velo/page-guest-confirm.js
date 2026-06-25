@@ -191,9 +191,37 @@ async function confirmHandler() {
   let sharedBookingNumber = '';
 
   try {
-    for (let i = 0; i < rooms.length; i++) {
-      const r = rooms[i];
-      try {
+    // Phase 1: book first room to get shared booking number
+    if (rooms.length > 0) {
+      const r0 = rooms[0];
+      const payload0 = {
+        roomCode: r0.roomCode,
+        checkIn: ci,
+        checkOut: bookingData.co,
+        guests: r0.guests,
+        status: 'confirmed',
+        guestName: name,
+        guestEmail: email,
+        guestPhone: phone,
+        roomTotal: r0.roomTotal || 0,
+        propertyFee: r0.propertyFee || 0,
+        accomodationVat: r0.accomodationVat || 0,
+        packageVat: r0.packageVat || 0,
+        grandTotal: ((r0.roomTotal || 0) + (r0.accomodationVat || 0) + (r0.packageVat || 0) + (r0.propertyFee || 0)) || 0,
+      };
+      console.log('>>> confirmHandler calling createBooking for', r0.roomCode);
+      const b0 = await createBooking(payload0);
+      console.log('>>> confirmHandler createBooking success:', b0 ? 'yes' : 'no');
+      console.log('>>> confirmHandler RETURNED booking:', JSON.stringify(b0 && b0._id ? { _id: b0._id, status: b0.status, bookingNumber: b0.bookingNumber, fieldKeys: Object.keys(b0).slice(0,10) } : b0));
+      bookings.push(b0);
+      if (b0.bookingNumber) sharedBookingNumber = b0.bookingNumber;
+    }
+
+    // Phase 2: book remaining rooms in parallel
+    if (rooms.length > 1 && sharedBookingNumber) {
+      const restPromises = [];
+      for (let i = 1; i < rooms.length; i++) {
+        const r = rooms[i];
         const payload = {
           roomCode: r.roomCode,
           checkIn: ci,
@@ -208,16 +236,23 @@ async function confirmHandler() {
           accomodationVat: r.accomodationVat || 0,
           packageVat: r.packageVat || 0,
           grandTotal: ((r.roomTotal || 0) + (r.accomodationVat || 0) + (r.packageVat || 0) + (r.propertyFee || 0)) || 0,
-          };
-        if (sharedBookingNumber) payload.bookingNumber = sharedBookingNumber;
-
-        console.log('>>> confirmHandler calling createBooking for', r.roomCode);
-        const b = await createBooking(payload);
-        console.log('>>> confirmHandler createBooking success:', b ? 'yes' : 'no');
-        console.log('>>> confirmHandler RETURNED booking:', JSON.stringify(b && b._id ? { _id: b._id, status: b.status, bookingNumber: b.bookingNumber, fieldKeys: Object.keys(b).slice(0,10) } : b));
-        bookings.push(b);
-        if (!sharedBookingNumber && b.bookingNumber) sharedBookingNumber = b.bookingNumber;
-      } catch (e) { console.log('>>> confirmHandler createBooking ERROR for', r.roomCode + ':', e.message); errors.push(r.roomCode + ': ' + e.message); }
+          bookingNumber: sharedBookingNumber,
+        };
+        restPromises.push(
+          createBooking(payload)
+            .then(function (b) { return { ok: true, b: b }; })
+            .catch(function (e) { return { ok: false, err: r.roomCode + ': ' + e.message }; })
+        );
+      }
+      const restResults = await Promise.all(restPromises);
+      for (let j = 0; j < restResults.length; j++) {
+        const res = restResults[j];
+        if (res.ok) {
+          bookings.push(res.b);
+        } else {
+          errors.push(res.err);
+        }
+      }
     }
 
     if (errors.length > 0) {
@@ -230,8 +265,8 @@ async function confirmHandler() {
     if (sharedBookingNumber) {
       try {
         safeText('confirmStatus', 'Generating invoice...');
-        await issueBookingInvoice(sharedBookingNumber);
-        console.log('>>> confirmHandler invoice generated for', sharedBookingNumber);
+        issueBookingInvoice(sharedBookingNumber); // fire-and-forget
+        console.log('>>> confirmHandler invoice triggered for', sharedBookingNumber);
       } catch (e) {
         console.log('>>> confirmHandler invoice ERROR:', e.message);
       }
