@@ -585,6 +585,24 @@ export const issueBookingInvoice = webMethod(
       console.log('>>> issueBookingInvoice BookingSummary read ERROR:', summaryErr.message);
     }
 
+    // Look up package title & amenities from Packages collection by nights
+    let packageTitle = '';
+    let includedAmenities = '';
+    try {
+      const nights = nightsBetween(checkInDate, checkOutDate);
+      if (nights > 0) {
+        const pkgRes = await wixData.query('Packages')
+          .eq('NumberOfNights', nights)
+          .limit(1)
+          .find();
+        if (pkgRes.items.length > 0) {
+          const pkg = pkgRes.items[0];
+          packageTitle = pkg.title_fld || pkg.Title || pkg.title || pkg.name || pkg.Name || '';
+          includedAmenities = pkg.includedAmenities || '';
+        }
+      }
+    } catch (pkgErr) {}
+
     const guest = {
       name: summaryRow && summaryRow.guestName ? summaryRow.guestName : '',
       email: summaryRow && summaryRow.guestEmail ? summaryRow.guestEmail : '',
@@ -676,7 +694,11 @@ export const issueBookingInvoice = webMethod(
       vat_by_class: {
         accommodation: Math.round((total_acc_vat + Number.EPSILON) * 100) / 100,
         standard: Math.round((total_pkg_vat + Number.EPSILON) * 100) / 100
-      }
+      },
+      package_title: packageTitle,
+      included_amenities: includedAmenities,
+      check_in: checkInDate,
+      check_out: checkOutDate,
     };
 
     const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, bookingNumber);

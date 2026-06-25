@@ -93,6 +93,10 @@ class Invoice:
     currency: str = "USD"
     business: dict = field(default_factory=lambda: dict(BUSINESS))
     notes: str = ""
+    package_title: str = ""
+    included_amenities: str = ""
+    check_in: str = ""
+    check_out: str = ""
 
     @classmethod
     def from_quote(cls, invoice_number: str, issue_date: date, guest: Guest,
@@ -131,4 +135,8 @@ class Invoice:
             property_fee_rate=quote_breakdown.get("property_fee_rate", 0.0),
             property_fee=quote_breakdown.get("property_fee", 0.0),
             currency=quote_breakdown.get("currency", "USD"),
+            package_title=quote_breakdown.get("package_title", ""),
+            included_amenities=quote_breakdown.get("included_amenities", ""),
+            check_in=quote_breakdown.get("check_in", ""),
+            check_out=quote_breakdown.get("check_out", ""),
         )

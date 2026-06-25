@@ -6,7 +6,8 @@ Renders an Invoice (from invoice.py) to a professional PDF:
   - Business identity + Tax ID
   - Invoice number + date
   - Bill-to (guest name, email, phone)
-  - Itemized line table: description, qty, unit price, net, VAT %, VAT, gross
+  - Package info (check-in, check-out, package title, included amenities)
+  - Itemized line table: description, qty, net, gross
   - VAT summary by class (10% accommodation / 15% standard)
   - Total VAT and grand total
 
@@ -53,7 +54,6 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     logo_path = biz.get("logo_path") or ""
     if logo_path and os.path.exists(logo_path):
         try:
-            # Preserve the logo's real aspect ratio (don't stretch).
             from reportlab.lib.utils import ImageReader
             iw, ih = ImageReader(logo_path).getSize()
             target_w = 70 * mm
@@ -66,7 +66,6 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         except Exception:
             logo_cell = Paragraph("<b>Wanderlust Caribbean</b>", h_biz)
     else:
-        # Placeholder if no logo file configured yet.
         logo_cell = Paragraph(
             "<b>WANDERLUST CARIBBEAN</b><br/>"
             "<font size=7 color='#888'>[logo image not yet configured]</font>",
@@ -110,6 +109,21 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     elems.append(Paragraph(
         f"{g.name}<br/>{g.email}<br/>{g.phone}", h_biz))
     elems.append(Spacer(1, 5 * mm))
+
+    # ---- Package info ----
+    if inv.package_title or inv.included_amenities or inv.check_in or inv.check_out:
+        pkg_lines = []
+        if inv.check_in and inv.check_out:
+            pkg_lines.append(f"<b>Stay:</b> {inv.check_in} to {inv.check_out}")
+        if inv.package_title:
+            pkg_lines.append(f"<b>Package:</b> {inv.package_title}")
+        if inv.included_amenities:
+            pkg_lines.append(f"<b>Included:</b> {inv.included_amenities}")
+        if pkg_lines:
+            pkg_html = "<br/>".join(pkg_lines)
+            elems.append(Paragraph("PACKAGE INFORMATION", bold))
+            elems.append(Paragraph(pkg_html, h_biz))
+            elems.append(Spacer(1, 5 * mm))
 
     # ---- Line items table ----
     head = ["Description", "Qty", "Net", "Total"]
