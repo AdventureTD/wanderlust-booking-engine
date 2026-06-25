@@ -398,17 +398,13 @@ function wireContinueButton() {
       }
 
       if (sharedBookingNumber) {
+        // Fire-and-forget invoice generation; do NOT block the user.
         try {
-          safeText('bookingStatus', 'Generating invoice...');
-          await issueBookingInvoice(sharedBookingNumber);
+          issueBookingInvoice(sharedBookingNumber);
         } catch (e) {}
       }
 
-      const roomNames = rooms.map(function (r) { return r.roomCode.replace(/_/g, ' '); }).join(', ');
-      safeText('bookingStatus',
-        'Booking confirmed! Reserved ' + roomNames +
-        ' from ' + fmtDate(parseDateStr(ci)) + ' to ' + fmtDate(parseDateStr(_summaryCos)) +
-        '. Confirmation sent to ' + email + '.');
+      safeText('bookingStatus', 'Booking confirmed! Taking you home...');
 
       try { $w('#inputGuestName').value = ''; } catch (e) {}
       try { $w('#inputGuestEmail').value = ''; } catch (e) {}
