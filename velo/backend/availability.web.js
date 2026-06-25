@@ -591,14 +591,14 @@ export const issueBookingInvoice = webMethod(
     try {
       const nights = nightsBetween(checkInDate, checkOutDate);
       if (nights > 0) {
-        const pkgRes = await wixData.query('Packages')
-          .eq('NumberOfNights', nights)
-          .limit(1)
-          .find();
-        if (pkgRes.items.length > 0) {
-          const pkg = pkgRes.items[0];
-          packageTitle = pkg.title_fld || pkg.Title || pkg.title || pkg.name || pkg.Name || '';
-          includedAmenities = pkg.includedAmenities || '';
+        const pkgRes = await wixData.query('Packages').limit(100).find();
+        for (const pkg of pkgRes.items) {
+          const itemNights = pkg.NumberOfNights || pkg.numberOfNights || pkg.numberofnights || 0;
+          if (Number(itemNights) === Number(nights)) {
+            packageTitle = pkg.title_fld || pkg.Title || pkg.title || pkg.name || pkg.Name || '';
+            includedAmenities = pkg.includedAmenities || '';
+            break;
+          }
         }
       }
     } catch (pkgErr) {}
