@@ -337,6 +337,8 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
 
     if (existing.items.length > 0) {
       summary._id = existing.items[0]._id;
+      // Preserve existing bookingDate when updating so the original creation date stays
+      summary.bookingDate = existing.items[0].bookingDate || new Date();
       console.log('>>> updateBookingSummary UPDATING row', existing.items[0]._id);
       await wixData.update(BOOKING_SUMMARIES, summary);
       console.log('>>> updateBookingSummary UPDATE complete');
