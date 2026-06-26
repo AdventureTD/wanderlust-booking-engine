@@ -123,6 +123,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
             pkg_html = "<br/>".join(pkg_lines)
             elems.append(Paragraph("PACKAGE INFORMATION", bold))
             elems.append(Paragraph(pkg_html, h_biz))
+            elems.append(Paragraph(" ", h_biz))  # blank row
             elems.append(Spacer(1, 5 * mm))
 
     # ---- Line items table ----
