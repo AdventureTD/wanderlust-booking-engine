@@ -127,7 +127,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
             elems.append(Spacer(1, 5 * mm))
 
     # ---- Line items table ----
-    head = ["Description", "Qty", "Net", "Total"]
+    head = ["Description", "Nights", "Net", "Total"]
     rows = [head]
     for li in inv.lines:
         rows.append([
