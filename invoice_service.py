@@ -34,6 +34,7 @@ from booking_engine.invoice_pdf import render_invoice_pdf
 from booking_engine.invoice_number import next_invoice_number
 from booking_engine.report import build_report_record
 from booking_engine import gmail_sender
+from booking_engine.calendar import create_calendar_event
 
 SHARED_SECRET = os.environ.get("WBE_SHARED_SECRET", "")
 
@@ -156,6 +157,19 @@ def issue_invoice(req: IssueRequest, x_wbe_secret: str = Header(default="")):
         except Exception as e:
             # Don't lose the invoice if email fails; report it clearly.
             result["email_error"] = str(e)
+
+    # Create Google Calendar event (best-effort; never blocks response)
+    if req.check_in and req.check_out and guest.name:
+        try:
+            cal = create_calendar_event(
+                guest_name=guest.name,
+                check_in=req.check_in[:10],
+                check_out=req.check_out[:10],
+            )
+            result["calendar"] = cal
+        except Exception as e:
+            result["calendar_error"] = str(e)
+
     return result
 
 
