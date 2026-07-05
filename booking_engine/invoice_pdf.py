@@ -136,7 +136,8 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         # Blank line before Included
         if inv.included_amenities:
             elems.append(Spacer(1, 4 * mm))
-            elems.append(Paragraph(f"<b>Included:</b> {inv.included_amenities}", h_biz))
+            elems.append(Paragraph("<b>Package Details:</b>", h_biz))
+            elems.append(Paragraph(inv.included_amenities, h_biz))
         elems.append(Spacer(1, 5 * mm))
 
     # ---- Line items table ----
