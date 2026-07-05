@@ -112,19 +112,38 @@ def render_invoice_pdf(inv, out_path: str) -> str:
 
     # ---- Package info ----
     if inv.package_title or inv.included_amenities or inv.check_in or inv.check_out:
-        pkg_lines = []
+        elems.append(Paragraph("PACKAGE INFORMATION", bold))
+        # Stay and Package on the same line
+        stay_text = ""
         if inv.check_in and inv.check_out:
-            pkg_lines.append(f"<b>Stay:</b> {inv.check_in} to {inv.check_out}")
+            stay_text = f"<b>Stay:</b> {inv.check_in} to {inv.check_out}"
+        package_text = ""
         if inv.package_title:
-            pkg_lines.append(f"<b>Package:</b> {inv.package_title}")
+            package_text = f"<b>Package:</b> {inv.package_title}"
+        if stay_text and package_text:
+            pkg_row = Table(
+                [[Paragraph(stay_text, h_biz), Paragraph(package_text, h_biz)]],
+                colWidths=[90 * mm, 85 * mm]
+            )
+            pkg_row.setStyle(TableStyle([( "VALIGN", (0, 0), (-1, -1), "TOP" ),
+                                          ( "LEFTPADDING", (0, 0), (-1, -1), 0 ),
+                                          ( "RIGHTPADDING", (0, 0), (-1, -1), 0 ),]))
+            elems.append(pkg_row)
+        elif stay_text:
+            elems.append(Paragraph(stay_text, h_biz))
+        elif package_text:
+            elems.append(Paragraph(package_text, h_biz))
+        # Black line before Included
         if inv.included_amenities:
-            pkg_lines.append(f"<b>Included:</b> {inv.included_amenities}")
-        if pkg_lines:
-            pkg_html = "<br/>".join(pkg_lines)
-            elems.append(Paragraph("PACKAGE INFORMATION", bold))
-            elems.append(Paragraph(pkg_html, h_biz))
-            elems.append(Paragraph(" ", h_biz))  # blank row
-            elems.append(Spacer(1, 5 * mm))
+            line_tbl = Table([[""]], colWidths=[175 * mm])
+            line_tbl.setStyle(TableStyle([
+                ("LINEBELOW", (0, 0), (-1, 0), 1, colors.black),
+                ("TOPPADDING", (0, 0), (-1, 0), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
+            ]))
+            elems.append(line_tbl)
+            elems.append(Paragraph(f"<b>Included:</b> {inv.included_amenities}", h_biz))
+        elems.append(Spacer(1, 5 * mm))
 
     # ---- Line items table ----
     head = ["Description", "Nights", "Net", "Total"]
