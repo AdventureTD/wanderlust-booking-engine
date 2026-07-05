@@ -173,12 +173,18 @@ export const searchAvailability = webMethod(
 
           const dates = summaryMap[String(bk.bookingNumber)];
           if (dates && dates.checkIn && dates.checkOut) {
-            if (dates.checkIn < nx && dates.checkOut > nt) {
+            const dsCheckIn = ds(dates.checkIn);
+            const dsCheckOut = ds(dates.checkOut);
+            if (dsCheckIn < nx && dsCheckOut > nt) {
               count += 1;
             }
           }
         }
         bpn.push(count);
+      }
+
+      if (code === 'adventure_suite') {
+        console.log('>>> [SEARCH] bpn for adventure_suite:', bpn.join(','), '| units=', units, '| maxBooked=', Math.max(...bpn), '| overlapNumbers=', overlapNumbers.length);
       }
 
       let allAvail = true;
