@@ -165,6 +165,7 @@ async function searchHandler() {
 
   try {
     const res = await searchAvailability(ciDate, coDate);
+    console.log('>>> [WBE-SEARCH] raw results:', JSON.stringify(res));
     if (!res.ok) { safeText(res.error); return; }
 
     const rep = tryFind('searchResultsRepeater');
