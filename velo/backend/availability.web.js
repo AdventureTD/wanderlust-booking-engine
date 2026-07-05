@@ -705,6 +705,7 @@ export const issueBookingInvoice = webMethod(
     };
 
     const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, bookingNumber);
+    console.log('>>> CALENDAR result from invoice service:', JSON.stringify(result.calendar || result.calendar_error || 'no-calendar-field'));
 
     const invoiceUrl = result.invoice_url || '';
 

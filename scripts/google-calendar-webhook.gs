@@ -19,7 +19,7 @@
  *    - WBE_CALENDAR_SECRET = <a secret passphrase you'll share with me>
  */
 
-var CALENDAR_SECRET = 'wanderlust-cal-2026';
+var CALENDAR_SECRET = 'DominicaBooking';
 
 function doPost(e) {
   try {
