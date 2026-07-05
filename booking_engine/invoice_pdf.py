@@ -133,15 +133,9 @@ def render_invoice_pdf(inv, out_path: str) -> str:
             elems.append(Paragraph(stay_text, h_biz))
         elif package_text:
             elems.append(Paragraph(package_text, h_biz))
-        # Black line before Included
+        # Blank line before Included
         if inv.included_amenities:
-            line_tbl = Table([[""]], colWidths=[175 * mm])
-            line_tbl.setStyle(TableStyle([
-                ("LINEBELOW", (0, 0), (-1, 0), 1, colors.black),
-                ("TOPPADDING", (0, 0), (-1, 0), 2),
-                ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
-            ]))
-            elems.append(line_tbl)
+            elems.append(Spacer(1, 4 * mm))
             elems.append(Paragraph(f"<b>Included:</b> {inv.included_amenities}", h_biz))
         elems.append(Spacer(1, 5 * mm))
 
