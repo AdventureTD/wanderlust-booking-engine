@@ -99,14 +99,41 @@ export const searchAvailability = webMethod(
       priceMap[p.roomCode + '|' + p.nights] = p.baseRate;
     }
 
+    // ── NEW: fetch all BookingSummary records ONCE and do overlap in JS ──
+    const summaryAllRes = await wixData.query(BOOKING_SUMMARIES).limit(1000).find();
+    const allSummaries = summaryAllRes.items;
+
+    // Pre-process summaries: only keep those with valid dates.
+    // Normalize each checkIn/checkOut with ds() for midnight-stripping.
+    const normalizedSummaries = [];
+    for (const s of allSummaries) {
+      const bn = s.bookingNumber != null ? String(s.bookingNumber) : null;
+      if (!bn) continue;
+      // Support both string dates and Wix Date objects
+      const ciRaw = s.checkIn;
+      const coRaw = s.checkOut;
+      if (ciRaw == null || coRaw == null) continue;
+      try {
+        const dsCi = ds(ciRaw);
+        const dsCo = ds(coRaw);
+        if (isNaN(dsCi.getTime()) || isNaN(dsCo.getTime())) continue;
+        normalizedSummaries.push({
+          bn: bn,
+          dsCi: dsCi,
+          dsCo: dsCo,
+          rawCi: ciRaw,
+          rawCo: coRaw,
+        });
+      } catch (e) {
+        continue;
+      }
+    }
+    // ── end NEW ──
+
     const asBookings = [];
     for (const bk of allBookings) {
       if (bk.roomCode === 'adventure_suite') {
-        asBookings.push({
-          bookingNumber: bk.bookingNumber,
-          bnString: String(bk.bookingNumber),
-          status: bk.status,
-        });
+        asBookings.push({ bookingNumber: String(bk.bookingNumber), status: bk.status });
       }
     }
 
@@ -133,44 +160,12 @@ export const searchAvailability = webMethod(
         }
       }
 
+      // ── NEW: build per-room summaryMap purely in-memory ──
       const summaryMap = {};
-      for (const bk of allBookings) {
-        if (bk.bookingNumber && bk.roomCode === code && !summaryMap[bk.bookingNumber]) {
-          summaryMap[bk.bookingNumber] = {};
-        }
+      for (const ns of normalizedSummaries) {
+        summaryMap[ns.bn] = { checkIn: ns.rawCi, checkOut: ns.rawCo, dsCi: ns.dsCi, dsCo: ns.dsCo };
       }
-
-      const overlapNumbers = [];
-      for (const nt of nights) {
-        const nx = ad(nt, 1);
-        const summaryRes = await wixData.query(BOOKING_SUMMARIES)
-          .lt('checkIn', nx)
-          .gt('checkOut', nt)
-          .limit(1000)
-          .find();
-        for (const s of summaryRes.items) {
-          if (s.bookingNumber && overlapNumbers.indexOf(String(s.bookingNumber)) === -1) {
-            overlapNumbers.push(String(s.bookingNumber));
-          }
-        }
-      }
-
-      let summaryDetails = [];
-      if (overlapNumbers.length > 0) {
-        const summaryRes = await wixData.query(BOOKING_SUMMARIES)
-          .hasSome('bookingNumber', overlapNumbers)
-          .limit(1000)
-          .find();
-        for (const s of summaryRes.items) {
-          summaryDetails.push({
-            bn: s.bookingNumber,
-            bnStr: String(s.bookingNumber),
-            checkIn: s.checkIn,
-            checkOut: s.checkOut,
-          });
-          summaryMap[String(s.bookingNumber)] = { checkIn: s.checkIn, checkOut: s.checkOut };
-        }
-      }
+      // ── end NEW ──
 
       const bpn = [];
       let night0Diag = [];
@@ -183,29 +178,24 @@ export const searchAvailability = webMethod(
           const bkStatus = (bk.status || '').toLowerCase().trim();
           if (bkStatus === 'cancelled' || bkStatus === 'canceled') { continue; }
 
-          const dates = summaryMap[String(bk.bookingNumber)];
-          const hasDates = !!(dates && dates.checkIn && dates.checkOut);
+          const ns = summaryMap[String(bk.bookingNumber)];
+          const hasDates = !!(ns && ns.dsCi && ns.dsCo);
 
           if (code === 'adventure_suite' && i === 0) {
-            const dsCheckIn = hasDates ? ds(dates.checkIn).toISOString() : null;
-            const dsCheckOut = hasDates ? ds(dates.checkOut).toISOString() : null;
-            const overlapCheck = hasDates ? (ds(dates.checkIn) < nx && ds(dates.checkOut) > nt) : null;
             night0Diag.push({
               bkNum: String(bk.bookingNumber),
               status: bkStatus,
               hasDates: hasDates,
-              dsCI: dsCheckIn,
-              dsCO: dsCheckOut,
+              dsCI: hasDates ? ns.dsCi.toISOString() : null,
+              dsCO: hasDates ? ns.dsCo.toISOString() : null,
               nt: nt.toISOString(),
               nx: nx.toISOString(),
-              overlap: overlapCheck,
+              overlap: hasDates ? (ns.dsCi < nx && ns.dsCo > nt) : null,
             });
           }
 
           if (hasDates) {
-            const dsCheckIn = ds(dates.checkIn);
-            const dsCheckOut = ds(dates.checkOut);
-            if (dsCheckIn < nx && dsCheckOut > nt) {
+            if (ns.dsCi < nx && ns.dsCo > nt) {
               count += 1;
             }
           }
@@ -217,8 +207,6 @@ export const searchAvailability = webMethod(
         asDebug = {
           requestDates: { checkIn: ci.toISOString(), checkOut: co.toISOString() },
           allAsBookings: asBookings,
-          overlapNumbers: overlapNumbers,
-          summaryDetails: summaryDetails,
           night0Diagnosis: night0Diag,
           bpn: bpn,
           units: units,
@@ -314,30 +302,12 @@ export const searchAvailability = webMethod(
       }
     }
 
-    // Raw diagnostic: inspect actual BookingSummary records
-    const rawSummary10 = (await wixData.query(BOOKING_SUMMARIES).limit(10).find()).items;
-    const rawDiag = [];
-    for (const s of rawSummary10) {
-      rawDiag.push({
-        bn: s.bookingNumber,
-        bnType: typeof s.bookingNumber,
-        allFields: Object.keys(s),
-        checkIn: s.checkIn,
-        checkInType: typeof s.checkIn,
-        checkOut: s.checkOut,
-        checkOutType: typeof s.checkOut,
-      });
-    }
-    if (asDebug) {
-      asDebug.rawSummary = rawDiag;
-    }
-
     return {
       ok: true,
       error: null,
       requestedNights: rq,
       results: filtered,
-      _ver: 'cancel-only-v2-diag3',
+      _ver: 'cancel-only-v2-diag4',
       _debug: asDebug,
     };
   }
