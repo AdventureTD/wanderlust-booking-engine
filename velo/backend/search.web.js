@@ -163,13 +163,9 @@ export const searchAvailability = webMethod(
         let count = 0;
         for (let b = 0; b < rBookings.length; b++) {
           const bk = rBookings[b];
-          const st = ['confirmed', 'hold', 'blocked', 'in-house', 'pending confirmation', 'in process'];
+          // Exclude cancelled bookings only
           const bkStatus = (bk.status || '').toLowerCase().trim();
-          let valid = false;
-          for (let s = 0; s < st.length; s++) {
-            if (bkStatus === st[s]) { valid = true; break; }
-          }
-          if (!valid) { continue; }
+          if (bkStatus === 'cancelled' || bkStatus === 'canceled') { continue; }
 
           const dates = summaryMap[String(bk.bookingNumber)];
           if (dates && dates.checkIn && dates.checkOut) {
