@@ -218,7 +218,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         tot_rows.append([f"Property fee ({fee_pct}%)", _money(inv.property_fee)])
     tot_rows.append(["TOTAL DUE", _money(inv.total)])
 
-    totals = Table(tot_rows, colWidths=[50 * mm, 30 * mm], hAlign="RIGHT")
+    totals = Table(tot_rows, colWidths=[40 * mm, 20 * mm], hAlign="RIGHT")
     totals.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (1, 0), (1, -1), "RIGHT"),
@@ -228,7 +228,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         ("TOPPADDING", (0, 0), (-1, -1), 3),
     ]))
 
-    parent = Table([[left_inner, totals]], colWidths=[110 * mm, 70 * mm])
+    parent = Table([[left_inner, totals]], colWidths=[120 * mm, 60 * mm])
     parent.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
