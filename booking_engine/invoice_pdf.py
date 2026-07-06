@@ -141,16 +141,15 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         elems.append(Spacer(1, 5 * mm))
 
     # ---- Line items table ----
-    head = ["Description", "Nights", "Net", "Total"]
+    head = ["Description", "Nights", "Package Total"]
     rows = [head]
     for li in inv.lines:
         rows.append([
             Paragraph(li.label, h_biz),
             f"{li.quantity:g}",
-            _money(li.net),
             _money(li.gross),
         ])
-    col_w = [95 * mm, 20 * mm, 30 * mm, 30 * mm]
+    col_w = [100 * mm, 20 * mm, 60 * mm]
     tbl = Table(rows, colWidths=col_w, repeatRows=1)
     tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), BRAND_TEAL),

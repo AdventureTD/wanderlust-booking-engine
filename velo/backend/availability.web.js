@@ -1,483 +1,887 @@
-1|/*
-2| * Wanderlust Booking Engine — Velo backend: availability, booking, blocking, and invoice generation.
-3| * File location in Wix Editor: backend/availability.web.js
-4| *
-5| * Uses Wix Data (wix-data) to query the Bookings collection. Mirrors the tested
-6| * Python availability engine. The half-open interval rule is identical:
-7| *   a booking occupies nights [checkIn, checkOut)
-8| *   two bookings conflict iff  a.checkIn < b.checkOut && b.checkIn < a.checkOut
-9| *   => same-day turnover (checkout == next checkin) is allowed.
-10| *
-11| * .web.js = Velo web module: these exported functions are callable from the
-12| * frontend but EXECUTE ON THE SERVER, so guests cannot tamper with availability.
-13| *
-14| * Completely self-contained — no imports of custom backend modules.
-15| * Only built-in Wix modules: wix-data, wix-web-module, wix-fetch, wix-secrets-backend.
-16| */
-17|
-18|import wixData from 'wix-data';
-19|import { Permissions, webMethod } from 'wix-web-module';
-20|import { fetch } from 'wix-fetch';
-21|import { getSecret } from 'wix-secrets-backend';
-22|import { getAllSettings } from 'backend/settings.web';
-23|
-24|const BOOKINGS = 'Bookings';
-25|const BOOKING_SUMMARIES = 'BookingSummary';
-26|const INVOICE_SERVICE_URL_KEY = 'WBE_INVOICE_SERVICE_URL';
-27|const SHARED_SECRET_KEY = 'WBE_SHARED_SECRET';
-28|
-29|/* ---------- room config (inlined from wbeConfig.js) ---------- */
-30|const ROOM_UNITS = {
-31|  adventure_suite: 3,
-32|  penthouse_apartment: 1,
-33|  two_bedroom_apartment: 1,
-34|};
-35|
-36|const ROOM_MAX_OCCUPANCY = {
-37|  adventure_suite: 2,
-38|  penthouse_apartment: 2,
-39|  two_bedroom_apartment: 4,
-40|};
-41|
-42|const ROOM_MIN_OCCUPANCY = {
-43|  adventure_suite: 2,
-44|  penthouse_apartment: 2,
-45|  two_bedroom_apartment: 3,
-46|};
-47|
-48|const ROOM_DISPLAY_NAMES = {
-49|  adventure_suite: 'Adventure Suite',
-50|  penthouse_apartment: 'Penthouse Apartment',
-51|  two_bedroom_apartment: 'Two Bedroom Apartment',
-52|};
-53|
-54|function getRoomDisplayName(roomCode) {
-55|  return ROOM_DISPLAY_NAMES[roomCode] || (roomCode || '').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
-56|}
-57|
-58|/* ---------- helpers ---------- */
-59|async function getNextBookingNumber() {
-60|  const PREFIX = 'WBE-INV-';
-61|  const PAD = 4;
-62|  let maxNum = 0;
-63|  let page = await wixData.query(BOOKINGS)
-64|    .limit(1000)
-65|    .find();
-66|  while (page.items.length) {
-67|    for (const item of page.items) {
-68|      const bn = item.bookingNumber;
-69|      if (bn) {
-70|        const m = String(bn).match(/(\d+)$/);
-71|        if (m) {
-72|          const n = parseInt(m[1], 10);
-73|          if (n > maxNum) maxNum = n;
-74|        }
-75|      }
-76|    }
-77|    if (page.hasNext()) {
-78|      page = await page.next();
-79|    } else {
-80|      break;
-81|    }
-82|  }
-83|  let candidate = maxNum + 1;
-84|  let attempts = 0;
-85|  while (attempts < 5) {
-86|    const numStr = PREFIX + String(candidate).padStart(PAD, '0');
-87|    const exist = await wixData.query(BOOKINGS)
-88|      .eq('bookingNumber', numStr)
-89|      .limit(1)
-90|      .find();
-91|    if (exist.items.length === 0) {
-92|      return numStr;
-93|    }
-94|    candidate++;
-95|    attempts++;
-96|  }
-97|  throw new Error('Failed to generate unique booking number');
-98|}
-99|
-100|function nightsBetween(checkIn, checkOut) {
-101|  const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
-102|  return Math.round(ms / (1000 * 60 * 60 * 24));
-103|}
-104|
-105|function capitaliseWords(s) {
-106|  return s.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
-107|}
-108|
-109|function snakeCaseKeys(obj) {
-110|  if (Array.isArray(obj)) return obj.map(snakeCaseKeys);
-111|  if (obj && typeof obj === 'object') {
-112|    const out = {};
-113|    for (const [k, v] of Object.entries(obj)) {
-114|      const sk = k.replace(/[A-Z]/g, (m) => '_' + m.toLowerCase());
-115|      out[sk] = snakeCaseKeys(v);
-116|    }
-117|    return out;
-118|  }
-119|  return obj;
-120|}
-121|
-122|/* ---------- invoice service call (inlined from issueInvoice.web.js) ---------- */
-123|async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoiceNumber) {
-124|  const serviceUrl = await getSecret(INVOICE_SERVICE_URL_KEY);
-125|  const secret = await getSecret(SHARED_SECRET_KEY);
-126|  if (!serviceUrl || !secret) {
-127|    throw new Error('Invoice service not configured. Set WBE_INVOICE_SERVICE_URL and WBE_SHARED_SECRET in Secrets Manager.');
-128|  }
-129|
-130|  const body = {
-131|    guest: guest,
-132|    quote_breakdown: snakeCaseKeys(quoteBreakdown),
-133|    issue_date: new Date().toISOString().slice(0, 10),
-134|    check_in: dates.checkIn,
-135|    check_out: dates.checkOut,
-136|    room_code: Array.isArray(dates.roomCode) ? dates.roomCode.join(', ') : dates.roomCode,
-137|    send_email: sendEmail,
-138|  };
-139|  if (invoiceNumber) {
-140|    body.invoice_number = invoiceNumber;
-141|  }
-142|
-143|  const res = await fetch(serviceUrl + '/issue-invoice', {
-144|    method: 'post',
-145|    headers: {
-146|      'Content-Type': 'application/json',
-147|      'X-WBE-Secret': secret,
-148|    },
-149|    body: JSON.stringify(body),
-150|  });
-151|
-152|  if (!res.ok) {
-153|    const text = await res.text();
-154|    throw new Error('Invoice service error ' + res.status + ': ' + text);
-155|  }
-156|
-157|  return res.json();
-158|}
-159|
-160|/* ---------- quote breakdown (inlined from invoice.web.js) ---------- */
-161|function buildQuoteBreakdown(booking) {
-162|  const nights = nightsBetween(booking.checkIn, booking.checkOut);
-163|  const roomTotal = booking.roomTotal || 0;
-164|  const propertyFee = booking.propertyFee || 0;
-165|  const accommodationShare = 0.5;
-166|  const taxRateAccommodation = 0.10;
-167|  const taxRateStandard = 0.15;
-168|
-169|  const accNet = roomTotal * accommodationShare;
-170|  const advNet = roomTotal * (1 - accommodationShare);
-171|  const accVat = accNet * taxRateAccommodation;
-172|  const pkgVat = advNet * taxRateStandard;
-173|
-174|  const accUnitPrice = nights > 0 ? accNet / nights : 0;
-175|  const advUnitPrice = nights > 0 ? advNet / nights : 0;
-176|
-177|  const displayName = getRoomDisplayName(booking.roomCode);
-178|
-179|  return {
-180|    line_items: [
-181|      {
-182|        label: displayName + ' — Accommodation',
-183|        tax_class: 'accommodation',
-184|        quantity: nights,
-185|        unit_price: accUnitPrice,
-186|        net: accNet,
-187|        vat_rate: taxRateAccommodation,
-188|        vat: accVat,
-189|        gross: accNet + accVat
-190|      },
-191|      {
-192|        label: displayName + ' — Activities & Services',
-193|        tax_class: 'standard',
-194|        quantity: nights,
-195|        unit_price: advUnitPrice,
-196|        net: advNet,
-197|        vat_rate: taxRateStandard,
-198|        vat: pkgVat,
-199|        gross: advNet + pkgVat
-200|      }
-201|    ],
-202|    subtotal_net: roomTotal,
-203|    total_vat: Math.round((accVat + pkgVat + Number.EPSILON) * 100) / 100,
-204|    total: roomTotal + propertyFee + accVat + pkgVat,
-205|    property_fee_rate: roomTotal > 0 ? propertyFee / roomTotal : 0,
-206|    property_fee: propertyFee,
-207|    currency: 'USD'
-208|  };
-209|}
-210|
-211|async function generateAndStoreInvoice(bookingId) {
-213|
-214|  const booking = await wixData.get(BOOKINGS, bookingId);
-215|  if (!booking) throw new Error('Booking ' + bookingId + ' not found');
-216|
-217|  const quoteBreakdown = buildQuoteBreakdown(booking);
-219|
-220|  const guest = {
-221|    name: booking.guestName || '',
-222|    email: booking.guestEmail || '',
-223|    phone: booking.guestPhone || ''
-224|  };
-225|  const dates = {
-226|    checkIn: booking.checkIn.toISOString().slice(0, 10),
-227|    checkOut: booking.checkOut.toISOString().slice(0, 10),
-228|    roomCode: booking.roomCode || ''
-229|  };
-230|
-231|  let result;
-232|  try {
-233|    result = await callIssueInvoice(guest, quoteBreakdown, dates, true, '');
-235|  } catch (e) {
-237|    throw new Error('Invoice generation failed: ' + e.message);
-238|  }
-239|
-240|  // Store invoice number in bookingNumber field (minimal update pattern)
-241|  const updateObj = {
-242|    _id: booking._id,
-243|    bookingNumber: result.invoice_number
-244|  };
-245|  try {
-246|    await wixData.save(BOOKINGS, updateObj);
-248|  } catch (err) {
-250|  }
-251|
-252|  return {
-253|    bookingNumber: result.invoice_number,
-254|    total: result.total,
-255|    emailed: result.emailed || false
-256|  };
-257|}
-258|
-259|/* ---------- availability helpers ---------- */
-260|async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optGuest) {
-261|  if (!bookingNumber) {
-263|    return;
-264|  }
-266|
-267|  try {
-268|    // Try to read existing summary first (for dates during cancel, invoice, etc.)
-269|    let checkIn = checkInArg || null;
-270|    let checkOut = checkOutArg || null;
-271|
-272|    if (!checkIn || !checkOut) {
-273|      const existingSummaryRes = await wixData.query(BOOKING_SUMMARIES)
-274|        .eq('bookingNumber', bookingNumber)
-275|        .limit(1)
-276|        .find();
-277|      if (existingSummaryRes.items.length > 0) {
-278|        const es = existingSummaryRes.items[0];
-279|        if (!checkIn && es.checkIn) checkIn = es.checkIn;
-280|        if (!checkOut && es.checkOut) checkOut = es.checkOut;
-281|      }
-282|    }
-283|
-284|    const res = await wixData.query(BOOKINGS)
-285|      .eq('bookingNumber', bookingNumber)
-286|      .limit(1000)
-287|      .find();
-288|
-290|
-291|    if (res.items.length === 0) {
-293|      return;
-294|    }
-295|
-296|    let totalRoomTotal = 0;
-297|    let totalAccommodationVat = 0;
-298|    let totalPackageVat = 0;
-299|    let totalPropertyFee = 0;
-300|    let guestName = optGuest && optGuest.guestName ? optGuest.guestName : '';
-301|    let guestEmail = optGuest && optGuest.guestEmail ? optGuest.guestEmail : '';
-302|    let guestPhone = optGuest && optGuest.guestPhone ? optGuest.guestPhone : '';
-303|    let roomCount = 0;
-304|    let status = '';
-305|
-306|    for (const row of res.items) {
-307|      totalRoomTotal += (row.roomTotal || 0);
-308|      totalAccommodationVat += (row.accomodationVat || 0);
-309|      totalPackageVat += (row.packageVat || 0);
-310|      totalPropertyFee += (row.propertyFee || 0);
-311|      roomCount++;
-312|
-313|      if (!status && row.status) status = row.status;
-314|    }
-315|
-316|    const summary = {
-317|      bookingNumber,
-318|      checkIn,
-319|      checkOut,
-320|      guestName,
-321|      guestEmail,
-322|      guestPhone,
-323|      roomCount,
-324|      roomTotal: Math.round((totalRoomTotal + Number.EPSILON) * 100) / 100,
-325|      accommodationVat: Math.round((totalAccommodationVat + Number.EPSILON) * 100) / 100,
-326|      packageVat: Math.round((totalPackageVat + Number.EPSILON) * 100) / 100,
-327|      propertyFee: Math.round((totalPropertyFee + Number.EPSILON) * 100) / 100,
-328|      grandTotal: Math.round((totalRoomTotal + totalAccommodationVat + totalPackageVat + totalPropertyFee + Number.EPSILON) * 100) / 100,
-329|      status: status || 'confirmed'
-330|    };
-331|
-333|
-334|    const existing = await wixData.query(BOOKING_SUMMARIES)
-335|      .eq('bookingNumber', bookingNumber)
-336|      .limit(1)
-337|      .find();
-338|
-339|    if (existing.items.length > 0) {
-340|      summary._id = existing.items[0]._id;
-341|      // Preserve existing bookingDate when updating so the original creation date stays
-342|      summary.bookingDate = existing.items[0].bookingDate || new Date();
-344|      await wixData.update(BOOKING_SUMMARIES, summary);
-346|    } else {
-347|      summary.bookingDate = new Date();
-349|      await wixData.insert(BOOKING_SUMMARIES, summary);
-351|    }
-352|  } catch (e) {
-354|    throw e; // re-throw so caller can log it too
-355|  }
-356|}
-357|async function overlappingCount(roomCode, checkIn, checkOut) {
-358|  let total = 0;
-359|  const seenIds = [];
-360|
-361|  // Primary: join via BookingSummary (new canonical path)
-362|  const summaryRes = await wixData.query(BOOKING_SUMMARIES)
-363|    .lt('checkIn', new Date(checkOut))
-364|    .gt('checkOut', new Date(checkIn))
-365|    .limit(1000)
-366|    .find();
-367|
-368|  const overlapNumbers = [];
-369|  for (const s of summaryRes.items) {
-370|    if (s.bookingNumber && overlapNumbers.indexOf(String(s.bookingNumber)) === -1) {
-371|      overlapNumbers.push(String(s.bookingNumber));
-372|    }
-373|  }
-374|
-375|  if (overlapNumbers.length > 0) {
-376|    const res = await wixData.query(BOOKINGS)
-377|      .eq('roomCode', roomCode)
-378|      .hasSome('status', ['confirmed', 'hold', 'blocked'])
-379|      .hasSome('bookingNumber', overlapNumbers)
-380|      .limit(1000)
-381|      .find();
-382|    for (const row of res.items) {
-383|      total += (row.quantity || 1);
-384|      if (row._id) seenIds.push(row._id);
-385|    }
-386|  }
-387|
-388|  return total;
-389|}
-390|
-391|async function overlappingRows(roomCode, checkIn, checkOut) {
-392|  const rows = [];
-393|  const seenIds = [];
-394|  const summaryDateMap = {}; // bookingNumber -> {checkIn, checkOut}
-395|
-396|  // Primary: join via BookingSummary
-397|  const summaryRes = await wixData.query(BOOKING_SUMMARIES)
-398|    .lt('checkIn', new Date(checkOut))
-399|    .gt('checkOut', new Date(checkIn))
-400|    .limit(1000)
-401|    .find();
-402|
-403|  const overlapNumbers = [];
-404|  for (const s of summaryRes.items) {
-405|    if (s.bookingNumber) {
-406|      const num = String(s.bookingNumber);
-407|      if (overlapNumbers.indexOf(num) === -1) {
-408|        overlapNumbers.push(num);
-409|        if (s.checkIn && s.checkOut) {
-410|          summaryDateMap[num] = { checkIn: s.checkIn, checkOut: s.checkOut };
-411|        }
-412|      }
-413|    }
-414|  }
-415|
-416|  if (overlapNumbers.length > 0) {
-417|    const res = await wixData.query(BOOKINGS)
-418|      .eq('roomCode', roomCode)
-419|      .hasSome('status', ['confirmed', 'hold', 'blocked'])
-420|      .hasSome('bookingNumber', overlapNumbers)
-421|      .limit(1000)
-422|      .find();
-423|    for (const row of res.items) {
-424|      if (!row.checkIn && summaryDateMap[String(row.bookingNumber)]) {
-425|        row.checkIn = summaryDateMap[String(row.bookingNumber)].checkIn;
-426|        row.checkOut = summaryDateMap[String(row.bookingNumber)].checkOut;
-427|      }
-428|      rows.push(row);
-429|      if (row._id) seenIds.push(row._id);
-430|    }
-431|  }
-432|
-433|  return rows;
-434|}
-435|
-436|/* ---------- exported methods ---------- */
-437|export const isAvailable = webMethod(
-438|  Permissions.Anyone,
-439|  async (roomCode, checkIn, checkOut) => {
-440|    if (!(roomCode in ROOM_UNITS)) {
-441|      throw new Error('Unknown room type \'' + roomCode + '\'');
-442|    }
-443|    if (nightsBetween(checkIn, checkOut) <= 0) {
-444|      throw new Error('checkOut must be after checkIn');
-445|    }
-446|    const booked = await overlappingCount(roomCode, checkIn, checkOut);
-447|    return booked < ROOM_UNITS[roomCode];
-448|  }
-449|);
-450|
-451|export const unitsAvailable = webMethod(
-452|  Permissions.Anyone,
-453|  async (roomCode, checkIn, checkOut) => {
-454|    if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomCode + '\'');
-455|    const booked = await overlappingCount(roomCode, checkIn, checkOut);
-456|    return Math.max(0, ROOM_UNITS[roomCode] - booked);
-457|  }
-458|);
-459|
-460|export const createBooking = webMethod(
-461|  Permissions.Anyone,
-462|  async (booking) => {
-464|    const roomCode = booking.roomCode;
-465|    const checkIn = booking.checkIn;
-466|    const checkOut = booking.checkOut;
-467|    const guests = booking.guests || 1;
-468|    const guestName = booking.guestName;
-469|    const guestEmail = booking.guestEmail;
-470|    const guestPhone = booking.guestPhone;
-471|    const roomTotal = booking.roomTotal;
-472|    const accomodationVat = booking.accomodationVat;
-473|    const packageVat = booking.packageVat;
-474|    const propertyFee = booking.propertyFee;
-475|    const grandTotal = booking.grandTotal;
-476|    const note = booking.note;
-477|    let saveNote = note;
-478|    const bookingNumber = booking.bookingNumber;
-479|
-481|    const roomDisplay = getRoomDisplayName(roomCode);
-482|    if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomDisplay + '\'');
-483|    if (nightsBetween(checkIn, checkOut) <= 0) throw new Error('checkOut must be after checkIn');
-484|    if (guests < ROOM_MIN_OCCUPANCY[roomCode]) {
-485|      throw new Error(roomDisplay + ' requires at least ' + ROOM_MIN_OCCUPANCY[roomCode] + ' guests (no single-guest bookings); requested ' + guests);
-486|    }
-487|    if (guests > ROOM_MAX_OCCUPANCY[roomCode]) {
-488|      throw new Error(roomDisplay + ' sleeps ' + ROOM_MAX_OCCUPANCY[roomCode] + '; requested ' + guests);
-489|    }
-490|
-491|    const available = await isAvailable(roomCode, checkIn, checkOut);
-492|    if (!available) {
-493|      throw new Error('No ' + roomDisplay + ' available for ' + checkIn + ' to ' + checkOut);
-494|    }
-495|
-496|    // Generate booking number if not provided
-497|    let invoiceNumber = bookingNumber || '';
-498|    if (!invoiceNumber) {
-499|      try {
-500|        invoiceNumber = await getNextBookingNumber();
-501|
+/*
+ * Wanderlust Booking Engine — Velo backend: availability, booking, blocking, and invoice generation.
+ * File location in Wix Editor: backend/availability.web.js
+ *
+ * Uses Wix Data (wix-data) to query the Bookings collection. Mirrors the tested
+ * Python availability engine. The half-open interval rule is identical:
+ *   a booking occupies nights [checkIn, checkOut)
+ *   two bookings conflict iff  a.checkIn < b.checkOut && b.checkIn < a.checkOut
+ *   => same-day turnover (checkout == next checkin) is allowed.
+ *
+ * .web.js = Velo web module: these exported functions are callable from the
+ * frontend but EXECUTE ON THE SERVER, so guests cannot tamper with availability.
+ *
+ * Completely self-contained — no imports of custom backend modules.
+ * Only built-in Wix modules: wix-data, wix-web-module, wix-fetch, wix-secrets-backend.
+ */
+
+import wixData from 'wix-data';
+import { Permissions, webMethod } from 'wix-web-module';
+import { fetch } from 'wix-fetch';
+import { getSecret } from 'wix-secrets-backend';
+import { getAllSettings } from 'backend/settings.web';
+
+const BOOKINGS = 'Bookings';
+const BOOKING_SUMMARIES = 'BookingSummary';
+const INVOICE_SERVICE_URL_KEY = 'WBE_INVOICE_SERVICE_URL';
+const SHARED_SECRET_KEY = 'WBE_SHARED_SECRET';
+
+/* ---------- room config (inlined from wbeConfig.js) ---------- */
+const ROOM_UNITS = {
+  adventure_suite: 3,
+  penthouse_apartment: 1,
+  two_bedroom_apartment: 1,
+};
+
+const ROOM_MAX_OCCUPANCY = {
+  adventure_suite: 2,
+  penthouse_apartment: 2,
+  two_bedroom_apartment: 4,
+};
+
+const ROOM_MIN_OCCUPANCY = {
+  adventure_suite: 2,
+  penthouse_apartment: 2,
+  two_bedroom_apartment: 3,
+};
+
+const ROOM_DISPLAY_NAMES = {
+  adventure_suite: 'Adventure Suite',
+  penthouse_apartment: 'Penthouse Apartment',
+  two_bedroom_apartment: 'Two Bedroom Apartment',
+};
+
+function getRoomDisplayName(roomCode) {
+  return ROOM_DISPLAY_NAMES[roomCode] || (roomCode || '').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
+
+/* ---------- helpers ---------- */
+async function getNextBookingNumber() {
+  const PREFIX = 'WBE-INV-';
+  const PAD = 4;
+  let maxNum = 0;
+  let page = await wixData.query(BOOKINGS)
+    .limit(1000)
+    .find();
+  while (page.items.length) {
+    for (const item of page.items) {
+      const bn = item.bookingNumber;
+      if (bn) {
+        const m = String(bn).match(/(\d+)$/);
+        if (m) {
+          const n = parseInt(m[1], 10);
+          if (n > maxNum) maxNum = n;
+        }
+      }
+    }
+    if (page.hasNext()) {
+      page = await page.next();
+    } else {
+      break;
+    }
+  }
+  let candidate = maxNum + 1;
+  let attempts = 0;
+  while (attempts < 5) {
+    const numStr = PREFIX + String(candidate).padStart(PAD, '0');
+    const exist = await wixData.query(BOOKINGS)
+      .eq('bookingNumber', numStr)
+      .limit(1)
+      .find();
+    if (exist.items.length === 0) {
+      return numStr;
+    }
+    candidate++;
+    attempts++;
+  }
+  throw new Error('Failed to generate unique booking number');
+}
+
+function nightsBetween(checkIn, checkOut) {
+  const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
+  return Math.round(ms / (1000 * 60 * 60 * 24));
+}
+
+function capitaliseWords(s) {
+  return s.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+}
+
+function snakeCaseKeys(obj) {
+  if (Array.isArray(obj)) return obj.map(snakeCaseKeys);
+  if (obj && typeof obj === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(obj)) {
+      const sk = k.replace(/[A-Z]/g, (m) => '_' + m.toLowerCase());
+      out[sk] = snakeCaseKeys(v);
+    }
+    return out;
+  }
+  return obj;
+}
+
+/* ---------- invoice service call (inlined from issueInvoice.web.js) ---------- */
+async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoiceNumber) {
+  const serviceUrl = await getSecret(INVOICE_SERVICE_URL_KEY);
+  const secret = await getSecret(SHARED_SECRET_KEY);
+  if (!serviceUrl || !secret) {
+    throw new Error('Invoice service not configured. Set WBE_INVOICE_SERVICE_URL and WBE_SHARED_SECRET in Secrets Manager.');
+  }
+
+  const body = {
+    guest: guest,
+    quote_breakdown: snakeCaseKeys(quoteBreakdown),
+    issue_date: new Date().toISOString().slice(0, 10),
+    check_in: dates.checkIn,
+    check_out: dates.checkOut,
+    room_code: Array.isArray(dates.roomCode) ? dates.roomCode.join(', ') : dates.roomCode,
+    send_email: sendEmail,
+  };
+  if (invoiceNumber) {
+    body.invoice_number = invoiceNumber;
+  }
+
+  const res = await fetch(serviceUrl + '/issue-invoice', {
+    method: 'post',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-WBE-Secret': secret,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error('Invoice service error ' + res.status + ': ' + text);
+  }
+
+  return res.json();
+}
+
+/* ---------- quote breakdown (inlined from invoice.web.js) ---------- */
+function buildQuoteBreakdown(booking) {
+  const nights = nightsBetween(booking.checkIn, booking.checkOut);
+  const roomTotal = booking.roomTotal || 0;
+  const propertyFee = booking.propertyFee || 0;
+  const accommodationShare = 0.5;
+  const taxRateAccommodation = 0.10;
+  const taxRateStandard = 0.15;
+
+  const accNet = roomTotal * accommodationShare;
+  const advNet = roomTotal * (1 - accommodationShare);
+  const accVat = accNet * taxRateAccommodation;
+  const pkgVat = advNet * taxRateStandard;
+
+  const accUnitPrice = nights > 0 ? accNet / nights : 0;
+  const advUnitPrice = nights > 0 ? advNet / nights : 0;
+
+  const displayName = getRoomDisplayName(booking.roomCode);
+
+  return {
+    line_items: [
+      {
+        label: displayName + ' — Accommodation',
+        tax_class: 'accommodation',
+        quantity: nights,
+        unit_price: accUnitPrice,
+        net: accNet,
+        vat_rate: taxRateAccommodation,
+        vat: accVat,
+        gross: accNet + accVat
+      },
+      {
+        label: displayName + ' — Activities & Services',
+        tax_class: 'standard',
+        quantity: nights,
+        unit_price: advUnitPrice,
+        net: advNet,
+        vat_rate: taxRateStandard,
+        vat: pkgVat,
+        gross: advNet + pkgVat
+      }
+    ],
+    subtotal_net: roomTotal,
+    total_vat: Math.round((accVat + pkgVat + Number.EPSILON) * 100) / 100,
+    total: roomTotal + propertyFee + accVat + pkgVat,
+    property_fee_rate: roomTotal > 0 ? propertyFee / roomTotal : 0,
+    property_fee: propertyFee,
+    currency: 'USD'
+  };
+}
+
+async function generateAndStoreInvoice(bookingId) {
+  console.log('>>> INVOICE generate called for bookingId:', bookingId);
+
+  const booking = await wixData.get(BOOKINGS, bookingId);
+  if (!booking) throw new Error('Booking ' + bookingId + ' not found');
+
+  const quoteBreakdown = buildQuoteBreakdown(booking);
+  console.log('>>> INVOICE quote total:', quoteBreakdown.total);
+
+  const guest = {
+    name: booking.guestName || '',
+    email: booking.guestEmail || '',
+    phone: booking.guestPhone || ''
+  };
+  const dates = {
+    checkIn: booking.checkIn.toISOString().slice(0, 10),
+    checkOut: booking.checkOut.toISOString().slice(0, 10),
+    roomCode: booking.roomCode || ''
+  };
+
+  let result;
+  try {
+    result = await callIssueInvoice(guest, quoteBreakdown, dates, true, '');
+    console.log('>>> INVOICE service returned number:', result.invoice_number);
+  } catch (e) {
+    console.log('>>> INVOICE callIssueInvoice ERROR:', e.message);
+    throw new Error('Invoice generation failed: ' + e.message);
+  }
+
+  // Store invoice number in bookingNumber field (minimal update pattern)
+  const updateObj = {
+    _id: booking._id,
+    bookingNumber: result.invoice_number
+  };
+  try {
+    await wixData.save(BOOKINGS, updateObj);
+    console.log('>>> INVOICE booking save SUCCESS with', result.invoice_number);
+  } catch (err) {
+    console.log('>>> INVOICE wixData.save FAILED:', err.message);
+  }
+
+  return {
+    bookingNumber: result.invoice_number,
+    total: result.total,
+    emailed: result.emailed || false
+  };
+}
+
+/* ---------- availability helpers ---------- */
+async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optGuest) {
+  if (!bookingNumber) {
+    console.log('>>> updateBookingSummary SKIPPED — no bookingNumber');
+    return;
+  }
+  console.log('>>> updateBookingSummary START for', bookingNumber);
+
+  try {
+    // Try to read existing summary first (for dates during cancel, invoice, etc.)
+    let checkIn = checkInArg || null;
+    let checkOut = checkOutArg || null;
+
+    if (!checkIn || !checkOut) {
+      const existingSummaryRes = await wixData.query(BOOKING_SUMMARIES)
+        .eq('bookingNumber', bookingNumber)
+        .limit(1)
+        .find();
+      if (existingSummaryRes.items.length > 0) {
+        const es = existingSummaryRes.items[0];
+        if (!checkIn && es.checkIn) checkIn = es.checkIn;
+        if (!checkOut && es.checkOut) checkOut = es.checkOut;
+      }
+    }
+
+    const res = await wixData.query(BOOKINGS)
+      .eq('bookingNumber', bookingNumber)
+      .limit(1000)
+      .find();
+
+    console.log('>>> updateBookingSummary found', res.items.length, 'rows');
+
+    if (res.items.length === 0) {
+      console.log('>>> updateBookingSummary ABORT — zero rows found');
+      return;
+    }
+
+    let totalRoomTotal = 0;
+    let totalAccommodationVat = 0;
+    let totalPackageVat = 0;
+    let totalPropertyFee = 0;
+    let guestName = optGuest && optGuest.guestName ? optGuest.guestName : '';
+    let guestEmail = optGuest && optGuest.guestEmail ? optGuest.guestEmail : '';
+    let guestPhone = optGuest && optGuest.guestPhone ? optGuest.guestPhone : '';
+    let roomCount = 0;
+    let status = '';
+
+    for (const row of res.items) {
+      totalRoomTotal += (row.roomTotal || 0);
+      totalAccommodationVat += (row.accomodationVat || 0);
+      totalPackageVat += (row.packageVat || 0);
+      totalPropertyFee += (row.propertyFee || 0);
+      roomCount++;
+
+      if (!status && row.status) status = row.status;
+    }
+
+    const summary = {
+      bookingNumber,
+      checkIn,
+      checkOut,
+      guestName,
+      guestEmail,
+      guestPhone,
+      roomCount,
+      roomTotal: Math.round((totalRoomTotal + Number.EPSILON) * 100) / 100,
+      accommodationVat: Math.round((totalAccommodationVat + Number.EPSILON) * 100) / 100,
+      packageVat: Math.round((totalPackageVat + Number.EPSILON) * 100) / 100,
+      propertyFee: Math.round((totalPropertyFee + Number.EPSILON) * 100) / 100,
+      grandTotal: Math.round((totalRoomTotal + totalAccommodationVat + totalPackageVat + totalPropertyFee + Number.EPSILON) * 100) / 100,
+      status: status || 'confirmed'
+    };
+
+    console.log('>>> updateBookingSummary computed:', JSON.stringify(summary).substring(0,200));
+
+    const existing = await wixData.query(BOOKING_SUMMARIES)
+      .eq('bookingNumber', bookingNumber)
+      .limit(1)
+      .find();
+
+    if (existing.items.length > 0) {
+      summary._id = existing.items[0]._id;
+      // Preserve existing bookingDate when updating so the original creation date stays
+      summary.bookingDate = existing.items[0].bookingDate || new Date();
+      console.log('>>> updateBookingSummary UPDATING row', existing.items[0]._id);
+      await wixData.update(BOOKING_SUMMARIES, summary);
+      console.log('>>> updateBookingSummary UPDATE complete');
+    } else {
+      summary.bookingDate = new Date();
+      console.log('>>> updateBookingSummary INSERTING new row with bookingDate');
+      await wixData.insert(BOOKING_SUMMARIES, summary);
+      console.log('>>> updateBookingSummary INSERT complete');
+    }
+  } catch (e) {
+    console.log('>>> updateBookingSummary ERROR:', e.message);
+    throw e; // re-throw so caller can log it too
+  }
+}
+async function overlappingCount(roomCode, checkIn, checkOut) {
+  let total = 0;
+  const seenIds = [];
+
+  // Primary: join via BookingSummary (new canonical path)
+  const summaryRes = await wixData.query(BOOKING_SUMMARIES)
+    .lt('checkIn', new Date(checkOut))
+    .gt('checkOut', new Date(checkIn))
+    .limit(1000)
+    .find();
+
+  const overlapNumbers = [];
+  for (const s of summaryRes.items) {
+    if (s.bookingNumber && overlapNumbers.indexOf(String(s.bookingNumber)) === -1) {
+      overlapNumbers.push(String(s.bookingNumber));
+    }
+  }
+
+  if (overlapNumbers.length > 0) {
+    const res = await wixData.query(BOOKINGS)
+      .eq('roomCode', roomCode)
+      .hasSome('status', ['confirmed', 'hold', 'blocked'])
+      .hasSome('bookingNumber', overlapNumbers)
+      .limit(1000)
+      .find();
+    for (const row of res.items) {
+      total += (row.quantity || 1);
+      if (row._id) seenIds.push(row._id);
+    }
+  }
+
+  return total;
+}
+
+async function overlappingRows(roomCode, checkIn, checkOut) {
+  const rows = [];
+  const seenIds = [];
+  const summaryDateMap = {}; // bookingNumber -> {checkIn, checkOut}
+
+  // Primary: join via BookingSummary
+  const summaryRes = await wixData.query(BOOKING_SUMMARIES)
+    .lt('checkIn', new Date(checkOut))
+    .gt('checkOut', new Date(checkIn))
+    .limit(1000)
+    .find();
+
+  const overlapNumbers = [];
+  for (const s of summaryRes.items) {
+    if (s.bookingNumber) {
+      const num = String(s.bookingNumber);
+      if (overlapNumbers.indexOf(num) === -1) {
+        overlapNumbers.push(num);
+        if (s.checkIn && s.checkOut) {
+          summaryDateMap[num] = { checkIn: s.checkIn, checkOut: s.checkOut };
+        }
+      }
+    }
+  }
+
+  if (overlapNumbers.length > 0) {
+    const res = await wixData.query(BOOKINGS)
+      .eq('roomCode', roomCode)
+      .hasSome('status', ['confirmed', 'hold', 'blocked'])
+      .hasSome('bookingNumber', overlapNumbers)
+      .limit(1000)
+      .find();
+    for (const row of res.items) {
+      if (!row.checkIn && summaryDateMap[String(row.bookingNumber)]) {
+        row.checkIn = summaryDateMap[String(row.bookingNumber)].checkIn;
+        row.checkOut = summaryDateMap[String(row.bookingNumber)].checkOut;
+      }
+      rows.push(row);
+      if (row._id) seenIds.push(row._id);
+    }
+  }
+
+  return rows;
+}
+
+/* ---------- exported methods ---------- */
+export const isAvailable = webMethod(
+  Permissions.Anyone,
+  async (roomCode, checkIn, checkOut) => {
+    if (!(roomCode in ROOM_UNITS)) {
+      throw new Error('Unknown room type \'' + roomCode + '\'');
+    }
+    if (nightsBetween(checkIn, checkOut) <= 0) {
+      throw new Error('checkOut must be after checkIn');
+    }
+    const booked = await overlappingCount(roomCode, checkIn, checkOut);
+    return booked < ROOM_UNITS[roomCode];
+  }
+);
+
+export const unitsAvailable = webMethod(
+  Permissions.Anyone,
+  async (roomCode, checkIn, checkOut) => {
+    if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomCode + '\'');
+    const booked = await overlappingCount(roomCode, checkIn, checkOut);
+    return Math.max(0, ROOM_UNITS[roomCode] - booked);
+  }
+);
+
+export const createBooking = webMethod(
+  Permissions.Anyone,
+  async (booking) => {
+    console.log('>>> SERVER createBooking called:', JSON.stringify(booking).substring(0,200));
+    const roomCode = booking.roomCode;
+    const checkIn = booking.checkIn;
+    const checkOut = booking.checkOut;
+    const guests = booking.guests || 1;
+    const guestName = booking.guestName;
+    const guestEmail = booking.guestEmail;
+    const guestPhone = booking.guestPhone;
+    const roomTotal = booking.roomTotal;
+    const accomodationVat = booking.accomodationVat;
+    const packageVat = booking.packageVat;
+    const propertyFee = booking.propertyFee;
+    const grandTotal = booking.grandTotal;
+    const note = booking.note;
+    let saveNote = note;
+    const bookingNumber = booking.bookingNumber;
+
+    console.log('>>> SERVER roomCode:', roomCode, 'checkIn:', checkIn, 'checkOut:', checkOut, 'guests:', guests);
+    const roomDisplay = getRoomDisplayName(roomCode);
+    if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomDisplay + '\'');
+    if (nightsBetween(checkIn, checkOut) <= 0) throw new Error('checkOut must be after checkIn');
+    if (guests < ROOM_MIN_OCCUPANCY[roomCode]) {
+      throw new Error(roomDisplay + ' requires at least ' + ROOM_MIN_OCCUPANCY[roomCode] + ' guests (no single-guest bookings); requested ' + guests);
+    }
+    if (guests > ROOM_MAX_OCCUPANCY[roomCode]) {
+      throw new Error(roomDisplay + ' sleeps ' + ROOM_MAX_OCCUPANCY[roomCode] + '; requested ' + guests);
+    }
+
+    const available = await isAvailable(roomCode, checkIn, checkOut);
+    if (!available) {
+      throw new Error('No ' + roomDisplay + ' available for ' + checkIn + ' to ' + checkOut);
+    }
+
+    // Generate booking number if not provided
+    let invoiceNumber = bookingNumber || '';
+    if (!invoiceNumber) {
+      try {
+        invoiceNumber = await getNextBookingNumber();
+      } catch (e) {
+        console.log('>>> SERVER getNextBookingNumber ERROR:', e.message);
+        invoiceNumber = '';
+      }
+    }
+
+    const toInsert = {
+      roomCode: roomCode,
+      // checkIn and checkOut are intentionally stored only in BookingSummary
+      // to maintain single source of truth for booking dates.
+      guests: guests,
+      status: booking.status || 'confirmed',
+      quantity: 1,
+      roomTotal: roomTotal || 0,
+      propertyFee: propertyFee || 0,
+      accomodationVat: accomodationVat || 0,
+      packageVat: packageVat || 0,
+      grandTotal: grandTotal || 0,
+      bookingNumber: invoiceNumber || '',
+      note: saveNote || '',
+    };
+    console.log('>>> SERVER toInsert keys:', Object.keys(toInsert).join(', '));
+    console.log('>>> SERVER toInsert financials => roomTotal:', toInsert.roomTotal, '| propertyFee:', toInsert.propertyFee, '| accomodationVat:', toInsert.accomodationVat, '| packageVat:', toInsert.packageVat, '| grandTotal:', toInsert.grandTotal, '| bookingNumber:', toInsert.bookingNumber);
+    const inserted = await wixData.insert(BOOKINGS, toInsert);
+    console.log('>>> SERVER insert returned keys:', Object.keys(inserted).join(', '));
+    console.log('>>> SERVER insert returned financials => roomTotal:', inserted.roomTotal, '| propertyFee:', inserted.propertyFee, '| accomodationVat:', inserted.accomodationVat, '| packageVat:', inserted.packageVat, '| grandTotal:', inserted.grandTotal, '| bookingNumber:', inserted.bookingNumber);
+    try {
+      const verify = await wixData.get(BOOKINGS, inserted._id);
+      console.log('>>> SERVER verify-db row keys:', Object.keys(verify).join(', '));
+      console.log('>>> SERVER verify-db financials => roomTotal:', verify.roomTotal, '| propertyFee:', verify.propertyFee, '| accomodationVat:', verify.accomodationVat, '| packageVat:', verify.packageVat, '| grandTotal:', verify.grandTotal, '| bookingNumber:', verify.bookingNumber);
+    } catch (ve) {
+      console.log('>>> SERVER verify-db ERROR:', ve.message);
+    }
+
+    // Post-insert safety re-check (race-condition guard).
+    const countNow = await overlappingCount(roomCode, checkIn, checkOut);
+    if (countNow > ROOM_UNITS[roomCode]) {
+      await wixData.remove(BOOKINGS, inserted._id);
+      throw new Error('Booking conflict — ' + roomCode + ' was just taken. Please retry.');
+    }
+
+    // Update booking summary — pass dates + guest info so the summary row is complete
+    console.log('>>> SERVER calling updateBookingSummary for', inserted.bookingNumber);
+    try {
+      await updateBookingSummary(inserted.bookingNumber, checkIn, checkOut, {
+        guestName: guestName || '',
+        guestEmail: guestEmail || '',
+        guestPhone: guestPhone || '',
+      });
+    } catch (e) {
+      console.log('>>> SERVER updateBookingSummary ERROR:', e.message);
+    }
+
+    console.log('>>> SERVER createBooking complete. bookingNumber:', inserted.bookingNumber);
+    return inserted;
+  }
+);
+
+export const issueBookingInvoice = webMethod(
+  Permissions.Anyone,
+  async (bookingNumber) => {
+    if (!bookingNumber) throw new Error('bookingNumber required');
+
+    const bookingsRes = await wixData.query(BOOKINGS)
+      .eq('bookingNumber', bookingNumber)
+      .limit(1000)
+      .find();
+
+    if (bookingsRes.items.length === 0) {
+      throw new Error('No bookings found for ' + bookingNumber);
+    }
+
+    const firstRow = bookingsRes.items[0];
+
+    // Read dates from BookingSummary (single source of truth)
+    let checkInDate = '', checkOutDate = '';
+    let summaryRow = null;
+    try {
+      const summaryRes = await wixData.query(BOOKING_SUMMARIES)
+        .eq('bookingNumber', bookingNumber)
+        .limit(1)
+        .find();
+      if (summaryRes.items.length > 0) {
+        summaryRow = summaryRes.items[0];
+        if (summaryRow.checkIn) checkInDate = new Date(summaryRow.checkIn).toISOString().slice(0, 10);
+        if (summaryRow.checkOut) checkOutDate = new Date(summaryRow.checkOut).toISOString().slice(0, 10);
+      }
+    } catch (summaryErr) {
+      console.log('>>> issueBookingInvoice BookingSummary read ERROR:', summaryErr.message);
+    }
+
+    // Look up package title & amenities from Packages collection by nights
+    let packageTitle = '';
+    let includedAmenities = '';
+    try {
+      const nights = nightsBetween(checkInDate, checkOutDate);
+      if (nights > 0) {
+        const pkgRes = await wixData.query('Packages').limit(100).find();
+        for (const pkg of pkgRes.items) {
+          const itemNights = pkg.NumberOfNights || pkg.numberOfNights || pkg.numberofnights || 0;
+          if (Number(itemNights) === Number(nights)) {
+            packageTitle = pkg.title_fld || pkg.Title || pkg.title || pkg.name || pkg.Name || '';
+            includedAmenities = pkg.includedAmenities || '';
+            break;
+          }
+        }
+      }
+    } catch (pkgErr) {}
+
+    const guest = {
+      name: summaryRow && summaryRow.guestName ? summaryRow.guestName : '',
+      email: summaryRow && summaryRow.guestEmail ? summaryRow.guestEmail : '',
+      phone: summaryRow && summaryRow.guestPhone ? summaryRow.guestPhone : '',
+    };
+
+    const dates = {
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
+      roomCode: bookingsRes.items.map(function (r) { return r.roomCode; }).join(', ')
+    };
+
+    // Fetch table-driven allocation ratio from Settings for the invoice PDF.
+    let accommodationShare = 0.5;
+    try {
+      const settings = await getAllSettings();
+      accommodationShare = Number(settings.accommodationShare || 0.5);
+    } catch (e) {}
+
+    const line_items = [];
+    const display_line_items = [];
+    let subtotal_net = 0;
+    let total_vat = 0;
+    let total_property_fee = 0;
+    let total_acc_vat = 0;
+    let total_pkg_vat = 0;
+
+    for (const row of bookingsRes.items) {
+      const nights = nightsBetween(checkInDate || dates.checkIn, checkOutDate || dates.checkOut);
+      const roomTotal = row.roomTotal || 0;
+      const propertyFee = row.propertyFee || 0;
+      const taxRateAccommodation = 0.10;
+      const taxRateStandard = 0.15;
+
+      const accNet = roomTotal * accommodationShare;
+      const advNet = roomTotal * (1 - accommodationShare);
+      const accVat = accNet * taxRateAccommodation;
+      const pkgVat = advNet * taxRateStandard;
+
+      const accUnitPrice = nights > 0 ? accNet / nights : 0;
+      const advUnitPrice = nights > 0 ? advNet / nights : 0;
+
+      const displayName = getRoomDisplayName(row.roomCode);
+
+      line_items.push({
+        label: displayName + ' — Accommodation',
+        tax_class: 'accommodation',
+        quantity: nights,
+        unit_price: accUnitPrice,
+        net: accNet,
+        vat_rate: taxRateAccommodation,
+        vat: accVat,
+        gross: accNet + accVat
+      });
+
+      line_items.push({
+        label: displayName + ' — Activities & Services',
+        tax_class: 'standard',
+        quantity: nights,
+        unit_price: advUnitPrice,
+        net: advNet,
+        vat_rate: taxRateStandard,
+        vat: pkgVat,
+        gross: advNet + pkgVat
+      });
+
+      display_line_items.push({
+        label: displayName,
+        quantity: nights,
+        unit_price: nights > 0 ? roomTotal / nights : 0,
+        net: roomTotal,
+        vat_rate: 0,
+        vat: accVat + pkgVat,
+        gross: roomTotal + accVat + pkgVat
+      });
+
+      subtotal_net += roomTotal;
+      total_vat += accVat + pkgVat;
+      total_property_fee += propertyFee;
+      total_acc_vat += accVat;
+      total_pkg_vat += pkgVat;
+    }
+
+    const total = subtotal_net + total_property_fee + total_vat;
+
+    const quoteBreakdown = {
+      line_items,
+      display_line_items,
+      subtotal_net: Math.round((subtotal_net + Number.EPSILON) * 100) / 100,
+      total_vat: Math.round((total_vat + Number.EPSILON) * 100) / 100,
+      total: Math.round((total + Number.EPSILON) * 100) / 100,
+      property_fee_rate: subtotal_net > 0 ? total_property_fee / subtotal_net : 0,
+      property_fee: Math.round((total_property_fee + Number.EPSILON) * 100) / 100,
+      currency: 'USD',
+      vat_by_class: {
+        accommodation: Math.round((total_acc_vat + Number.EPSILON) * 100) / 100,
+        standard: Math.round((total_pkg_vat + Number.EPSILON) * 100) / 100
+      },
+      package_title: packageTitle,
+      included_amenities: includedAmenities,
+      check_in: checkInDate,
+      check_out: checkOutDate,
+      accommodationShare: accommodationShare,
+    };
+
+    console.log('>>> issueBookingInvoice calling invoice service with dates:', JSON.stringify({
+      checkIn: dates.checkIn,
+      checkOut: dates.checkOut,
+      guestPresent: !!(guest.name && guest.email),
+      accommodationShare: accommodationShare,
+    }));
+
+    const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, bookingNumber);
+    console.log('>>> issueBookingInvoice full service result keys:', Object.keys(result || {}).join(','));
+    console.log('>>> CALENDAR result from invoice service:', JSON.stringify(
+      result._calendar_debug || result.calendar || result.calendar_error || 'no-calendar-field'
+    ));
+
+    // Return diagnostics in the webMethod response so callers can inspect.
+    const returnPayload = {
+      invoice_number: result.invoice_number,
+      invoice_url: result.invoice_url,
+      total: result.total,
+      emailed: result.emailed,
+      _calendar_debug: result._calendar_debug || null,
+      calendar: result.calendar || null,
+      calendar_error: result.calendar_error || null,
+      service_error: result.error || null,
+    };
+
+    const invoiceUrl = result.invoice_url || '';
+
+    for (const row of bookingsRes.items) {
+      if (!row.invoiceUrl) {
+        row.invoiceUrl = invoiceUrl;
+        await wixData.update(BOOKINGS, row);
+      }
+    }
+
+    try {
+      const summaryRes = await wixData.query(BOOKING_SUMMARIES)
+        .eq('bookingNumber', bookingNumber)
+        .limit(1)
+        .find();
+
+      if (summaryRes.items.length > 0) {
+        const summaryItem = summaryRes.items[0];
+        summaryItem.invoiceUrl = invoiceUrl;
+        await wixData.update(BOOKING_SUMMARIES, summaryItem);
+      }
+    } catch (summaryErr) {
+      console.log('>>> issueBookingInvoice Booking Summary update skipped:', summaryErr.message);
+    }
+
+    return returnPayload;
+  }
+);
+
+export const cancelBooking = webMethod(
+  Permissions.Admin,
+  async (bookingId) => {
+    const b = await wixData.get(BOOKINGS, bookingId);
+    if (!b) throw new Error('No booking ' + bookingId);
+    b.status = 'Cancelled';
+    const updated = await wixData.update(BOOKINGS, b);
+
+    if (b.bookingNumber) {
+      try {
+        await updateBookingSummary(b.bookingNumber);
+      } catch (e) {
+        console.log('>>> SERVER updateBookingSummary ERROR after cancel:', e.message);
+      }
+    }
+
+    return updated;
+  }
+);
+
+export const blockRoom = webMethod(
+  Permissions.Admin,
+  async (roomCode, checkIn, checkOut, quantity, note) => {
+    quantity = quantity || 1;
+    note = note || '';
+    const roomDisplay = getRoomDisplayName(roomCode);
+    if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomDisplay + '\'');
+    if (nightsBetween(checkIn, checkOut) <= 0) throw new Error('checkOut must be after checkIn');
+    if (quantity < 1) throw new Error('quantity must be >= 1');
+
+    let minFree = ROOM_UNITS[roomCode];
+    const rows = await overlappingRows(roomCode, checkIn, checkOut);
+    const nights = nightsBetween(checkIn, checkOut);
+    for (let d = 0; d < nights; d++) {
+      const probe = new Date(checkIn);
+      probe.setDate(probe.getDate() + d);
+      let bookedThatNight = 0;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (new Date(row.checkIn) <= probe && probe < new Date(row.checkOut)) {
+          bookedThatNight += (row.quantity || 1);
+        }
+      }
+      minFree = Math.min(minFree, ROOM_UNITS[roomCode] - bookedThatNight);
+    }
+
+    const actual = Math.min(quantity, minFree);
+    const warnings = [];
+    if (actual < quantity) {
+      warnings.push(
+        roomDisplay + ': requested ' + quantity + ' unit(s) blocked, but only ' + actual + ' available for the full range (' + checkIn + ' to ' + checkOut + '). Reduced to ' + actual + '.'
+      );
+    }
+    if (actual < 1) {
+      throw new Error(
+        'Cannot block ' + roomDisplay + ': all units already booked for the requested period (' + checkIn + ' to ' + checkOut + ').'
+      );
+    }
+
+    const toInsert = {
+      roomCode: roomCode,
+      // checkIn and checkOut intentionally stored only in BookingSummary
+      guests: 1,
+      status: 'blocked',
+      quantity: actual,
+      note: note,
+      bookingNumber: await getNextBookingNumber(),
+    };
+    const inserted = await wixData.insert(BOOKINGS, toInsert);
+
+    // Create/update BookingSummary so overlapping joins find this block
+    try {
+      await updateBookingSummary(inserted.bookingNumber, checkIn, checkOut);
+    } catch (e) {
+      console.log('>>> blockRoom updateBookingSummary ERROR:', e.message);
+    }
+
+    return { booking: inserted, warnings: warnings };
+  }
+);
+
+export const unblock = webMethod(
+  Permissions.Admin,
+  async (bookingId) => {
+    const b = await wixData.get(BOOKINGS, bookingId);
+    if (!b) throw new Error('No booking ' + bookingId);
+    if (b.status !== 'blocked') throw new Error('Booking ' + bookingId + ' is not a block (status=' + b.status + ')');
+    await wixData.remove(BOOKINGS, bookingId);
+    return b;
+  }
+);
+
+export const blockAllRooms = webMethod(
+  Permissions.Admin,
+  async (checkIn, checkOut, note) => {
+    note = note || '';
+    const results = [];
+    const roomCodes = Object.keys(ROOM_UNITS);
+    for (let i = 0; i < roomCodes.length; i++) {
+      const roomCode = roomCodes[i];
+      try {
+        const outcome = await blockRoom(roomCode, checkIn, checkOut, ROOM_UNITS[roomCode], note);
+        results.push({ roomCode: roomCode, booking: outcome.booking, warnings: outcome.warnings });
+      } catch (e) {
+        results.push({ roomCode: roomCode, booking: null, warnings: [e.message] });
+      }
+    }
+    return results;
+  }
+);
+
+export const listBlocks = webMethod(
+  Permissions.Admin,
+  async (roomCode) => {
+    let q = wixData.query(BOOKINGS).eq('status', 'blocked').limit(1000);
+    if (roomCode) q = q.eq('roomCode', roomCode);
+    const res = await q.find();
+    return res.items;
+  }
+);
