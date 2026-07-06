@@ -78,6 +78,7 @@ export const inspectAvailabilityData = webMethod(
         _id: b._id,
         roomCode: b.roomCode,
         status: b.status,
+        statusLower: (b.status||'').toLowerCase().trim(),
         bookingNumber: b.bookingNumber,
         createdDate: b._createdDate,
       }));
@@ -85,7 +86,6 @@ export const inspectAvailabilityData = webMethod(
     const adventureSummaries = summaryRes.items
       .filter(s => {
         const bnMatch = adventureBookings.some(b => String(b.bookingNumber) === String(s.bookingNumber));
-        // Also include any summaries whose checkIn/checkOut overlap the requested range
         const ci = new Date(fromDate);
         const co = new Date(toDate);
         const sCi = s.checkIn ? new Date(s.checkIn) : null;
