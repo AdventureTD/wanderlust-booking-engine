@@ -278,6 +278,7 @@ export const searchAvailability = webMethod(
       error: null,
       requestedNights: rq,
       results: filtered,
+      _ver: 'cancel-only-v2',
     };
   }
 );
