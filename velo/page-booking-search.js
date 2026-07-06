@@ -1,7 +1,7 @@
 import { getActiveMessages } from 'backend/messages';
 import { searchAvailability } from 'backend/search';
 import { getPackageAmenities } from 'backend/packages';
-import { inspectAvailabilityData } from 'backend/diagnostics.web';
+import { inspectAvailabilityData } from 'backend/diagnostics';
 import wixLocation from 'wix-location';
 
 let _selections = [];
