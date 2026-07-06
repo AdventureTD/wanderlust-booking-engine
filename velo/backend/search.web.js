@@ -99,7 +99,6 @@ export const searchAvailability = webMethod(
       priceMap[p.roomCode + '|' + p.nights] = p.baseRate;
     }
 
-    // Collect adventure_suite booking numbers
     const asBookings = [];
     for (const bk of allBookings) {
       if (bk.roomCode === 'adventure_suite') {
@@ -134,7 +133,6 @@ export const searchAvailability = webMethod(
         }
       }
 
-      // Build summaryMap for this room
       const summaryMap = {};
       for (const bk of allBookings) {
         if (bk.bookingNumber && bk.roomCode === code && !summaryMap[bk.bookingNumber]) {
@@ -142,7 +140,6 @@ export const searchAvailability = webMethod(
         }
       }
 
-      // Find overlapping BookingSummary numbers
       const overlapNumbers = [];
       for (const nt of nights) {
         const nx = ad(nt, 1);
@@ -158,7 +155,6 @@ export const searchAvailability = webMethod(
         }
       }
 
-      // Fetch all matching summaries
       let summaryDetails = [];
       if (overlapNumbers.length > 0) {
         const summaryRes = await wixData.query(BOOKING_SUMMARIES)
@@ -318,12 +314,30 @@ export const searchAvailability = webMethod(
       }
     }
 
+    // Raw diagnostic: inspect actual BookingSummary records
+    const rawSummary10 = (await wixData.query(BOOKING_SUMMARIES).limit(10).find()).items;
+    const rawDiag = [];
+    for (const s of rawSummary10) {
+      rawDiag.push({
+        bn: s.bookingNumber,
+        bnType: typeof s.bookingNumber,
+        allFields: Object.keys(s),
+        checkIn: s.checkIn,
+        checkInType: typeof s.checkIn,
+        checkOut: s.checkOut,
+        checkOutType: typeof s.checkOut,
+      });
+    }
+    if (asDebug) {
+      asDebug.rawSummary = rawDiag;
+    }
+
     return {
       ok: true,
       error: null,
       requestedNights: rq,
       results: filtered,
-      _ver: 'cancel-only-v2-diag2',
+      _ver: 'cancel-only-v2-diag3',
       _debug: asDebug,
     };
   }
