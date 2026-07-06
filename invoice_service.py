@@ -158,8 +158,12 @@ def issue_invoice(req: IssueRequest, x_wbe_secret: str = Header(default="")):
             # Don't lose the invoice if email fails; report it clearly.
             result["email_error"] = str(e)
 
-    # Create Google Calendar event (best-effort; never blocks response)
+# Create Google Calendar event (best-effort; never blocks response)
+    _cal_debug = {}
     if req.check_in and req.check_out and guest.name:
+        _cal_debug["triggered"] = True
+        _cal_debug["check_in"] = req.check_in[:10]
+        _cal_debug["check_out"] = req.check_out[:10]
         try:
             cal = create_calendar_event(
                 guest_name=guest.name,
@@ -167,10 +171,43 @@ def issue_invoice(req: IssueRequest, x_wbe_secret: str = Header(default="")):
                 check_out=req.check_out[:10],
             )
             result["calendar"] = cal
+            _cal_debug["response"] = cal
+            _cal_debug["ok"] = cal.get("ok", False)
+            if not cal.get("ok"):
+                _cal_debug["error"] = cal.get("error", "Unknown calendar failure")
         except Exception as e:
             result["calendar_error"] = str(e)
+            _cal_debug["exception"] = str(e)
+    else:
+        _cal_debug["triggered"] = False
+        _cal_debug["reason"] = "Missing check_in/check_out or guest.name"
+        _cal_debug["has_check_in"] = bool(req.check_in)
+        _cal_debug["has_check_out"] = bool(req.check_out)
+        _cal_debug["has_guest_name"] = bool(guest.name)
+    result["_calendar_debug"] = _cal_debug
 
     return result
+
+
+@app.get("/calendar-debug")
+def calendar_debug():
+    """Standalone endpoint to test calendar env vars and connectivity
+    without needing a booking payload."""
+    import os
+    from booking_engine.calendar import CALENDAR_WEB_APP_URL, CALENDAR_SECRET
+    return {
+        "env_vars_present": {
+            "WBE_CALENDAR_WEB_APP_URL": bool(CALENDAR_WEB_APP_URL),
+            "WBE_CALENDAR_SECRET": bool(CALENDAR_SECRET),
+        },
+        "WBE_CALENDAR_WEB_APP_URL_length": len(CALENDAR_WEB_APP_URL or ""),
+        "WBE_CALENDAR_SECRET_length": len(CALENDAR_SECRET or ""),
+        "sample_event_test": create_calendar_event(
+            guest_name="Debug Test",
+            check_in="2099-01-01",
+            check_out="2099-01-02",
+        ),
+    }
 
 
 @app.get("/download/{invoice_number}")
