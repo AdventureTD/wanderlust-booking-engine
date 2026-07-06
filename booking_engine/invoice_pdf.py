@@ -180,21 +180,26 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         ["Services VAT:", f"{_money(svc_amt)} * 15% = {_money(svc_vat)}"],
         ["Total VAT:", _money(inv.total_vat)],
     ]
-    vat_table = Table(vat_rows, colWidths=[45 * mm, 65 * mm])
+    vat_table = Table(vat_rows, colWidths=[42 * mm, 57 * mm])
     vat_table.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("LEFTPADDING", (0, 0), (0, -1), 4),
+        ("RIGHTPADDING", (1, 0), (1, -1), 4),
         ("LINEABOVE", (0, -1), (-1, -1), 1, BRAND_TEAL),
         ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
         ("TEXTCOLOR", (0, -1), (-1, -1), BRAND_TEAL),
-        ("TOPPADDING", (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#cccccc")),
     ]))
 
-    left_inner = Table(
-        [[Paragraph("Dominica VAT Summary:", bold)], [vat_table]],
-        colWidths=[110 * mm],
-    )
+    # Label above the boxed VAT data.
+    elems.append(Paragraph("Dominica VAT Summary:", bold))
+    elems.append(Spacer(1, 1.5 * mm))
+
+    left_inner = Table([[vat_table]], colWidths=[110 * mm])
     left_inner.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
