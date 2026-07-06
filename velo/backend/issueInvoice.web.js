@@ -12,6 +12,7 @@
 import { Permissions, webMethod } from 'wix-web-module';
 import { fetch } from 'wix-fetch';
 import { getSecret } from 'wix-secrets-backend';
+import { getAllSettings } from 'backend/settings.web';
 
 const INVOICE_SERVICE_URL_KEY = 'WBE_INVOICE_SERVICE_URL';
 const SHARED_SECRET_KEY = 'WBE_SHARED_SECRET';
@@ -46,9 +47,18 @@ export const issueInvoice = webMethod(
       throw new Error('Invoice service not configured. Set WBE_INVOICE_SERVICE_URL and WBE_SHARED_SECRET in Secrets Manager.');
     }
 
+    // Fetch table-driven allocation ratios from Wix Settings.
+    const settings = await getAllSettings();
+    const accRatio = Number(settings.taxRate_accommodation || settings.taxRateAccommodation || 0.5);
+    const svcRatio = Number(settings.taxRate_standard || settings.taxRateStandard || 0.5);
+
     const body = {
       guest,
-      quote_breakdown: snakeCaseKeys(quoteBreakdown),
+      quote_breakdown: {
+        ...snakeCaseKeys(quoteBreakdown),
+        tax_rate_accommodation: accRatio,
+        tax_rate_standard: svcRatio,
+      },
       issue_date: new Date().toISOString().slice(0, 10),
       check_in: dates.checkIn,
       check_out: dates.checkOut,

@@ -133,9 +133,11 @@ class Invoice:
         invoice_total = quote_breakdown.get("subtotal_net", 0) + quote_breakdown.get("total_vat", 0)
 
         # Extract table-driven allocation ratios from quote_breakdown (Wix Settings).
-        # Keys match the Wix Settings collection field names.
-        acc_alloc = float(quote_breakdown.get("taxRate_accommodation", 0.5))
-        svc_alloc = float(quote_breakdown.get("taxRate_standard", 0.5))
+        # Keys may arrive as either camelCase (from Settings query) or snake_case (after JS transform).
+        raw_acc = quote_breakdown.get("taxRate_accommodation") or quote_breakdown.get("tax_rate_accommodation", 0.5)
+        raw_svc = quote_breakdown.get("taxRate_standard") or quote_breakdown.get("tax_rate_standard", 0.5)
+        acc_alloc = float(raw_acc) if raw_acc != "" else 0.5
+        svc_alloc = float(raw_svc) if raw_svc != "" else 0.5
 
         return cls(
             invoice_number=invoice_number, issue_date=issue_date, guest=guest,
