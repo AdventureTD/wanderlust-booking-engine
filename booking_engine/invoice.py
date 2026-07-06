@@ -127,10 +127,13 @@ class Invoice:
             for li in quote_breakdown["line_items"]:
                 tax_cls = li.get("tax_class", "standard")
                 raw_vbc[tax_cls] = round(raw_vbc.get(tax_cls, 0.0) + li["vat"], 2)
-        # Invoice total = subtotal_net + total_vat (property fee is shown separately)
-        # Wix may send 'total' as grand total including property fee, so we
-        # recalculate to avoid double-counting.
-        invoice_total = quote_breakdown.get("subtotal_net", 0) + quote_breakdown.get("total_vat", 0)
+        # Invoice total = subtotal_net + total_vat + property_fee
+        # (property fee is shown separately in the PDF but included in total due).
+        invoice_total = (
+            quote_breakdown.get("subtotal_net", 0)
+            + quote_breakdown.get("total_vat", 0)
+            + quote_breakdown.get("property_fee", 0)
+        )
 
         # Extract table-driven allocation ratio from quote_breakdown (Wix Settings).
         # accommodationShare = percentage of subtotal for accommodations.
