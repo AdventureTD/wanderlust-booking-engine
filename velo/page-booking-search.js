@@ -1,7 +1,6 @@
 import { getActiveMessages } from 'backend/messages';
 import { searchAvailability } from 'backend/search';
 import { getPackageAmenities } from 'backend/packages';
-import { inspectAvailabilityData } from 'backend/diagnostics';
 import wixLocation from 'wix-location';
 
 let _selections = [];
@@ -167,15 +166,6 @@ async function searchHandler() {
   try {
     const res = await searchAvailability(ciDate, coDate);
     console.log('>>> [WBE-SEARCH] raw results:', JSON.stringify(res));
-
-    // Diagnostic: inspect raw availability data
-    try {
-      const diag = await inspectAvailabilityData(ciDate, coDate);
-      console.log('>>> [WBE-SEARCH] raw data:', JSON.stringify(diag));
-    } catch (diagErr) {
-      console.log('>>> [WBE-SEARCH] diag error:', diagErr.message || diagErr);
-    }
-
     if (!res.ok) { safeText(res.error); return; }
 
     const rep = tryFind('searchResultsRepeater');
