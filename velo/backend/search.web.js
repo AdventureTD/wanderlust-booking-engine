@@ -64,28 +64,15 @@ export const searchAvailability = webMethod(
     const ci = ds(checkIn);
     const co = ds(checkOut);
     if (co <= ci) {
-      return {
-        ok: false,
-        error: 'Check-out must be after check-in.',
-        requestedNights: 0,
-        results: [],
-      };
+      return { ok: false, error: 'Check-out must be after check-in.', requestedNights: 0, results: [] };
     }
     const rq = nb(ci, co);
     if (rq < MIN_N) {
-      const em = 'Minimum stay is ' + MIN_N + ' nights.';
-      return {
-        ok: false,
-        error: em,
-        requestedNights: rq,
-        results: [],
-      };
+      return { ok: false, error: 'Minimum stay is ' + MIN_N + ' nights.', requestedNights: rq, results: [] };
     }
 
     const nights = [];
-    for (let i = 0; i < rq; i++) {
-      nights.push(ad(ci, i));
-    }
+    for (let i = 0; i < rq; i++) { nights.push(ad(ci, i)); }
 
     const roomRes = await wixData.query(ROOMS).limit(50).find();
     const bookingRes = await wixData.query(BOOKINGS).limit(1000).find();
@@ -99,17 +86,14 @@ export const searchAvailability = webMethod(
       priceMap[p.roomCode + '|' + p.nights] = p.baseRate;
     }
 
-    // ── NEW: fetch all BookingSummary records ONCE and do overlap in JS ──
+    // Fetch all BookingSummary records once; BookingSummary stores dates as text.
     const summaryAllRes = await wixData.query(BOOKING_SUMMARIES).limit(1000).find();
     const allSummaries = summaryAllRes.items;
 
-    // Pre-process summaries: only keep those with valid dates.
-    // Normalize each checkIn/checkOut with ds() for midnight-stripping.
     const normalizedSummaries = [];
     for (const s of allSummaries) {
       const bn = s.bookingNumber != null ? String(s.bookingNumber) : null;
       if (!bn) continue;
-      // Support both string dates and Wix Date objects
       const ciRaw = s.checkIn;
       const coRaw = s.checkOut;
       if (ciRaw == null || coRaw == null) continue;
@@ -117,28 +101,11 @@ export const searchAvailability = webMethod(
         const dsCi = ds(ciRaw);
         const dsCo = ds(coRaw);
         if (isNaN(dsCi.getTime()) || isNaN(dsCo.getTime())) continue;
-        normalizedSummaries.push({
-          bn: bn,
-          dsCi: dsCi,
-          dsCo: dsCo,
-          rawCi: ciRaw,
-          rawCo: coRaw,
-        });
-      } catch (e) {
-        continue;
-      }
-    }
-    // ── end NEW ──
-
-    const asBookings = [];
-    for (const bk of allBookings) {
-      if (bk.roomCode === 'adventure_suite') {
-        asBookings.push({ bookingNumber: String(bk.bookingNumber), status: bk.status });
-      }
+        normalizedSummaries.push({ bn: bn, dsCi: dsCi, dsCo: dsCo });
+      } catch (e) { continue; }
     }
 
     const out = [];
-    let asDebug = null;
 
     for (let r = 0; r < rooms.length; r++) {
       const rm = rooms[r];
@@ -149,166 +116,97 @@ export const searchAvailability = webMethod(
       const baseOcc = rm.baseOccupancy || maxOcc;
 
       const minNights = rm.minNightsAllowed != null ? Number(rm.minNightsAllowed) : null;
-      if (minNights != null && !isNaN(minNights) && rq < minNights) {
-        continue;
-      }
+      if (minNights != null && !isNaN(minNights) && rq < minNights) continue;
 
-      const rBookings = [];
-      for (let b = 0; b < allBookings.length; b++) {
-        if (allBookings[b].roomCode === code) {
-          rBookings.push(allBookings[b]);
+      const rBookings = allBookings.filter(b => b.roomCode === code);
+
+      // Build summaryMap scoped to this room's booking numbers only.
+      const summaryMap = {};
+      for (const bk of rBookings) {
+        if (bk.bookingNumber) summaryMap[String(bk.bookingNumber)] = null;
+      }
+      for (const ns of normalizedSummaries) {
+        if (summaryMap.hasOwnProperty(ns.bn)) {
+          summaryMap[ns.bn] = { dsCi: ns.dsCi, dsCo: ns.dsCo };
         }
       }
 
-      // ── NEW: build per-room summaryMap purely in-memory ──
-      const summaryMap = {};
-      for (const ns of normalizedSummaries) {
-        summaryMap[ns.bn] = { checkIn: ns.rawCi, checkOut: ns.rawCo, dsCi: ns.dsCi, dsCo: ns.dsCo };
-      }
-      // ── end NEW ──
-
       const bpn = [];
-      let night0Diag = [];
       for (let i = 0; i < nights.length; i++) {
         const nt = nights[i];
         const nx = ad(nt, 1);
         let count = 0;
-        for (let b = 0; b < rBookings.length; b++) {
-          const bk = rBookings[b];
-          const bkStatus = (bk.status || '').toLowerCase().trim();
-          if (bkStatus === 'cancelled' || bkStatus === 'canceled') { continue; }
-
-          const ns = summaryMap[String(bk.bookingNumber)];
-          const hasDates = !!(ns && ns.dsCi && ns.dsCo);
-
-          if (code === 'adventure_suite' && i === 0) {
-            night0Diag.push({
-              bkNum: String(bk.bookingNumber),
-              status: bkStatus,
-              hasDates: hasDates,
-              dsCI: hasDates ? ns.dsCi.toISOString() : null,
-              dsCO: hasDates ? ns.dsCo.toISOString() : null,
-              nt: nt.toISOString(),
-              nx: nx.toISOString(),
-              overlap: hasDates ? (ns.dsCi < nx && ns.dsCo > nt) : null,
-            });
-          }
-
-          if (hasDates) {
-            if (ns.dsCi < nx && ns.dsCo > nt) {
-              count += 1;
-            }
+        for (const bk of rBookings) {
+          const s = (bk.status || '').toLowerCase().trim();
+          if (s === 'cancelled' || s === 'canceled') continue;
+          const dates = summaryMap[String(bk.bookingNumber)];
+          if (dates) {
+            if (dates.dsCi < nx && dates.dsCo > nt) { count += 1; }
           }
         }
         bpn.push(count);
       }
 
-      if (code === 'adventure_suite') {
-        asDebug = {
-          requestDates: { checkIn: ci.toISOString(), checkOut: co.toISOString() },
-          allAsBookings: asBookings,
-          night0Diagnosis: night0Diag,
-          bpn: bpn,
-          units: units,
-          maxBooked: Math.max(...bpn),
-        };
-      }
-
       let allAvail = true;
       let maxBooked = 0;
       for (let i = 0; i < bpn.length; i++) {
-        if (bpn[i] > maxBooked) { maxBooked = bpn[i]; }
-        if (bpn[i] >= units) {
-          allAvail = false;
-        }
+        if (bpn[i] > maxBooked) maxBooked = bpn[i];
+        if (bpn[i] >= units) allAvail = false;
       }
       const maxQty = units - maxBooked;
 
       if (allAvail) {
-        const key = code + '|' + rq;
-        const rate = priceMap[key];
-        if (rate === undefined) { continue; }
+        const rate = priceMap[code + '|' + rq];
+        if (rate === undefined) continue;
         out.push({
-          roomCode: code,
-          roomName: name,
-          units: units,
-          occupancy: maxOcc,
-          baseOccupancy: baseOcc,
-          maxQty: maxQty,
-          status: 'full',
+          roomCode: code, roomName: name, units: units,
+          occupancy: maxOcc, baseOccupancy: baseOcc,
+          maxQty: maxQty, status: 'full',
           availableCheckIn: ci.toISOString(),
           availableCheckOut: co.toISOString(),
-          availableNights: rq,
-          baseRate: rate,
+          availableNights: rq, baseRate: rate,
           mainPhoto: imgUrl(rm.mainPhoto),
         });
         continue;
       }
 
-      let bs = null;
-      let bl = 0;
-      let cs = null;
-      let cl = 0;
+      if (maxQty <= 0) continue;
+
+      let bs = null, bl = 0, cs = null, cl = 0;
       for (let i = 0; i < bpn.length; i++) {
         if (bpn[i] < units) {
-          if (cs === null) {
-            cs = i;
-            cl = 1;
-          } else {
-            cl += 1;
-          }
-          if (cl > bl) {
-            bl = cl;
-            bs = cs;
-          }
-        } else {
-          cs = null;
-          cl = 0;
-        }
+          if (cs === null) { cs = i; cl = 1; } else { cl += 1; }
+          if (cl > bl) { bl = cl; bs = cs; }
+        } else { cs = null; cl = 0; }
       }
 
       if (bs !== null && bl >= MIN_N) {
-        const key = code + '|' + bl;
-        const rate = priceMap[key];
-        if (rate === undefined) { continue; }
+        const rate = priceMap[code + '|' + bl];
+        if (rate === undefined) continue;
         let minFreePartial = units;
         for (let i = bs; i < bs + bl; i++) {
           const free = units - bpn[i];
-          if (free < minFreePartial) { minFreePartial = free; }
+          if (free < minFreePartial) minFreePartial = free;
         }
         const aci = nights[bs];
         const aco = ad(nights[bs + bl - 1], 1);
         out.push({
-          roomCode: code,
-          roomName: name,
-          units: units,
-          occupancy: maxOcc,
-          baseOccupancy: baseOcc,
-          maxQty: minFreePartial,
-          status: 'partial',
+          roomCode: code, roomName: name, units: units,
+          occupancy: maxOcc, baseOccupancy: baseOcc,
+          maxQty: minFreePartial, status: 'partial',
           availableCheckIn: aci.toISOString(),
           availableCheckOut: aco.toISOString(),
-          availableNights: bl,
-          baseRate: rate,
+          availableNights: bl, baseRate: rate,
           mainPhoto: imgUrl(rm.mainPhoto),
         });
       }
     }
 
-    const filtered = [];
-    for (let i = 0; i < out.length; i++) {
-      if (out[i].maxQty > 0) {
-        filtered.push(out[i]);
-      }
-    }
+    const filtered = out.filter(r => r.maxQty > 0);
 
     return {
-      ok: true,
-      error: null,
-      requestedNights: rq,
-      results: filtered,
-      _ver: 'cancel-only-v2-diag4',
-      _debug: asDebug,
+      ok: true, error: null, requestedNights: rq, results: filtered,
+      _ver: 'string-date-overlap-fix',
     };
   }
 );
