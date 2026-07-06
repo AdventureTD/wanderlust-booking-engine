@@ -25,7 +25,7 @@ import os
 import tempfile
 from datetime import date
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from starlette.responses import FileResponse
 
@@ -39,6 +39,34 @@ from booking_engine.calendar import create_calendar_event
 SHARED_SECRET = os.environ.get("WBE_SHARED_SECRET", "")
 
 app = FastAPI(title="Wanderlust Invoice Service")
+
+
+def _bg_send_email(to_email, guest_name, invoice_number, pdf_path, total_str):
+    """Background task for Gmail send."""
+    try:
+        gmail_sender.send_invoice_email(
+            to_email=to_email,
+            guest_name=guest_name,
+            invoice_number=invoice_number,
+            pdf_path=pdf_path,
+            total_str=total_str,
+        )
+        print(f"[WBE-BG] Email sent OK to {to_email}")
+    except Exception as e:
+        print(f"[WBE-BG] Email FAILED: {e}")
+
+
+def _bg_calendar_event(guest_name, check_in, check_out):
+    """Background task for Google Calendar event creation."""
+    try:
+        result = create_calendar_event(
+            guest_name=guest_name,
+            check_in=check_in,
+            check_out=check_out,
+        )
+        print(f"[WBE-BG] Calendar result: {result}")
+    except Exception as e:
+        print(f"[WBE-BG] Calendar FAILED: {e}")
 
 
 class GuestIn(BaseModel):
@@ -103,7 +131,7 @@ def recompute(req: RecomputeRequest, x_wbe_secret: str = Header(default="")):
 
 
 @app.post("/issue-invoice")
-def issue_invoice(req: IssueRequest, x_wbe_secret: str = Header(default="")):
+async def issue_invoice(req: IssueRequest, background_tasks: BackgroundTasks, x_wbe_secret: str = Header(default="")):
     if not SHARED_SECRET or x_wbe_secret != SHARED_SECRET:
         raise HTTPException(status_code=401, detail="Bad or missing X-WBE-Secret")
 
@@ -118,8 +146,7 @@ def issue_invoice(req: IssueRequest, x_wbe_secret: str = Header(default="")):
 
     inv = Invoice.from_quote(invoice_number, issue, guest, req.quote_breakdown)
 
-    # Build the reporting record (returned so Velo can log it to the Bookings
-    # collection). check_in/check_out default to issue date if not supplied.
+    # Build the reporting record
     from datetime import date as _date
     ci = _date.fromisoformat(req.check_in[:10]) if req.check_in else issue
     co = _date.fromisoformat(req.check_out[:10]) if req.check_out else issue
@@ -134,7 +161,6 @@ def issue_invoice(req: IssueRequest, x_wbe_secret: str = Header(default="")):
     render_invoice_pdf(inv, pdf_path)
 
     # Build a download URL served by this Render service.
-    # (Google Drive upload skipped — service accounts lack storage quota on free plans.)
     base_url = os.environ.get("RENDER_EXTERNAL_URL", "https://wanderlust-invoice-service.onrender.com")
     invoice_url = f"{base_url}/download/{invoice_number}"
 
@@ -145,46 +171,32 @@ def issue_invoice(req: IssueRequest, x_wbe_secret: str = Header(default="")):
               "issue_date": issue.isoformat(),
               "report_record": report.to_dict()}
 
+    # Schedule Gmail send in background — never block the response.
     if req.send_email:
-        try:
-            sent = gmail_sender.send_invoice_email(
-                to_email=guest.email, guest_name=guest.name,
-                invoice_number=invoice_number, pdf_path=pdf_path,
-                total_str=f"${inv.total:,.2f} {inv.currency}",
-            )
-            result["emailed"] = True
-            result["gmail_message_id"] = sent.get("gmail_message_id")
-        except Exception as e:
-            # Don't lose the invoice if email fails; report it clearly.
-            result["email_error"] = str(e)
-
-# Create Google Calendar event (best-effort; never blocks response)
-    _cal_debug = {}
-    if req.check_in and req.check_out and guest.name:
-        _cal_debug["triggered"] = True
-        _cal_debug["check_in"] = req.check_in[:10]
-        _cal_debug["check_out"] = req.check_out[:10]
-        try:
-            cal = create_calendar_event(
-                guest_name=guest.name,
-                check_in=req.check_in[:10],
-                check_out=req.check_out[:10],
-            )
-            result["calendar"] = cal
-            _cal_debug["response"] = cal
-            _cal_debug["ok"] = cal.get("ok", False)
-            if not cal.get("ok"):
-                _cal_debug["error"] = cal.get("error", "Unknown calendar failure")
-        except Exception as e:
-            result["calendar_error"] = str(e)
-            _cal_debug["exception"] = str(e)
+        background_tasks.add_task(
+            _bg_send_email,
+            to_email=guest.email,
+            guest_name=guest.name,
+            invoice_number=invoice_number,
+            pdf_path=pdf_path,
+            total_str=f"${inv.total:,.2f} {inv.currency}",
+        )
+        result["emailed"] = "scheduled"
     else:
-        _cal_debug["triggered"] = False
-        _cal_debug["reason"] = "Missing check_in/check_out or guest.name"
-        _cal_debug["has_check_in"] = bool(req.check_in)
-        _cal_debug["has_check_out"] = bool(req.check_out)
-        _cal_debug["has_guest_name"] = bool(guest.name)
-    result["_calendar_debug"] = _cal_debug
+        result["emailed"] = False
+
+    # Schedule Google Calendar event creation in background — never block.
+    if req.check_in and req.check_out and guest.name:
+        result["calendar"] = "scheduled"
+        background_tasks.add_task(
+            _bg_calendar_event,
+            guest_name=guest.name,
+            check_in=req.check_in[:10],
+            check_out=req.check_out[:10],
+        )
+    else:
+        result["calendar"] = "skipped"
+        result["calendar_reason"] = "Missing check_in/check_out or guest.name"
 
     return result
 
