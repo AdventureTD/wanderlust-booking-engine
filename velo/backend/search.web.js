@@ -99,6 +99,19 @@ export const searchAvailability = webMethod(
       priceMap[p.roomCode + '|' + p.nights] = p.baseRate;
     }
 
+    // Deep diagnostics: list ALL bookings we know about, not just adventure_suite
+    const diagBookingNumbers = [];
+    for (const bk of allBookings) {
+      if (bk.roomCode === 'adventure_suite') {
+        diagBookingNumbers.push({
+          bookingNumber: bk.bookingNumber,
+          status: bk.status,
+          bkp: typeof bk.bookingNumber,
+        });
+      }
+    }
+    console.log('>>> [SEARCH-DIAG] adventure_suite bookings in Bookings col:', JSON.stringify(diagBookingNumbers));
+
     const out = [];
     for (let r = 0; r < rooms.length; r++) {
       const rm = rooms[r];
@@ -145,12 +158,22 @@ export const searchAvailability = webMethod(
         }
       }
 
+      if (code === 'adventure_suite') {
+        console.log('>>> [SEARCH-DIAG] overlapNumbers found:', JSON.stringify(overlapNumbers));
+      }
+
       // Attach summary dates to each booking row
       if (overlapNumbers.length > 0) {
         const summaryRes = await wixData.query(BOOKING_SUMMARIES)
           .hasSome('bookingNumber', overlapNumbers)
           .limit(1000)
           .find();
+        if (code === 'adventure_suite') {
+          console.log('>>> [SEARCH-DIAG] BookingSummary records returned:', summaryRes.items.length);
+          for (const s of summaryRes.items) {
+            console.log('>>> [SEARCH-DIAG] summary bookingNumber:', s.bookingNumber, 'type:', typeof s.bookingNumber, 'checkIn:', s.checkIn, 'checkOut:', s.checkOut);
+          }
+        }
         for (const s of summaryRes.items) {
           summaryMap[String(s.bookingNumber)] = { checkIn: s.checkIn, checkOut: s.checkOut };
         }
@@ -168,9 +191,16 @@ export const searchAvailability = webMethod(
           if (bkStatus === 'cancelled' || bkStatus === 'canceled') { continue; }
 
           const dates = summaryMap[String(bk.bookingNumber)];
+          if (code === 'adventure_suite' && i === 0) {
+            // Log EVERY booking in rBookings and whether it has dates in summaryMap
+            console.log('>>> [SEARCH-DIAG] night0 bookingNumber:', String(bk.bookingNumber), 'status:', bkStatus, 'hasDates:', !!(dates && dates.checkIn && dates.checkOut));
+          }
           if (dates && dates.checkIn && dates.checkOut) {
             const dsCheckIn = ds(dates.checkIn);
             const dsCheckOut = ds(dates.checkOut);
+            if (code === 'adventure_suite') {
+              console.log('>>> [SEARCH-DIAG] checking overlap:', 'ci:', dsCheckIn.getTime(), '<', nx.getTime(), '&&', 'co:', dsCheckOut.getTime(), '>', nt.getTime(), 'result:', (dsCheckIn < nx && dsCheckOut > nt));
+            }
             if (dsCheckIn < nx && dsCheckOut > nt) {
               count += 1;
             }
@@ -278,7 +308,7 @@ export const searchAvailability = webMethod(
       error: null,
       requestedNights: rq,
       results: filtered,
-      _ver: 'cancel-only-v2',
+      _ver: 'cancel-only-v2-diag1',
     };
   }
 );
