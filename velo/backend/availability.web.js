@@ -19,6 +19,7 @@ import wixData from 'wix-data';
 import { Permissions, webMethod } from 'wix-web-module';
 import { fetch } from 'wix-fetch';
 import { getSecret } from 'wix-secrets-backend';
+import { getAllSettings } from 'backend/settings.web';
 
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
@@ -618,6 +619,13 @@ export const issueBookingInvoice = webMethod(
       roomCode: bookingsRes.items.map(function (r) { return r.roomCode; }).join(', ')
     };
 
+    // Fetch table-driven allocation ratio from Settings for the invoice PDF.
+    let accommodationShare = 0.5;
+    try {
+      const settings = await getAllSettings();
+      accommodationShare = Number(settings.accommodationShare || 0.5);
+    } catch (e) {}
+
     const line_items = [];
     const display_line_items = [];
     let subtotal_net = 0;
@@ -630,7 +638,6 @@ export const issueBookingInvoice = webMethod(
       const nights = nightsBetween(checkInDate || dates.checkIn, checkOutDate || dates.checkOut);
       const roomTotal = row.roomTotal || 0;
       const propertyFee = row.propertyFee || 0;
-      const accommodationShare = 0.5;
       const taxRateAccommodation = 0.10;
       const taxRateStandard = 0.15;
 
@@ -702,10 +709,33 @@ export const issueBookingInvoice = webMethod(
       included_amenities: includedAmenities,
       check_in: checkInDate,
       check_out: checkOutDate,
+      accommodationShare: accommodationShare,
     };
 
+    console.log('>>> issueBookingInvoice calling invoice service with dates:', JSON.stringify({
+      checkIn: dates.checkIn,
+      checkOut: dates.checkOut,
+      guestPresent: !!(guest.name && guest.email),
+      accommodationShare: accommodationShare,
+    }));
+
     const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, bookingNumber);
-    console.log('>>> CALENDAR result from invoice service:', JSON.stringify(result.calendar || result.calendar_error || 'no-calendar-field'));
+    console.log('>>> issueBookingInvoice full service result keys:', Object.keys(result || {}).join(','));
+    console.log('>>> CALENDAR result from invoice service:', JSON.stringify(
+      result._calendar_debug || result.calendar || result.calendar_error || 'no-calendar-field'
+    ));
+
+    // Return diagnostics in the webMethod response so callers can inspect.
+    const returnPayload = {
+      invoice_number: result.invoice_number,
+      invoice_url: result.invoice_url,
+      total: result.total,
+      emailed: result.emailed,
+      _calendar_debug: result._calendar_debug || null,
+      calendar: result.calendar || null,
+      calendar_error: result.calendar_error || null,
+      service_error: result.error || null,
+    };
 
     const invoiceUrl = result.invoice_url || '';
 
@@ -731,7 +761,7 @@ export const issueBookingInvoice = webMethod(
       console.log('>>> issueBookingInvoice Booking Summary update skipped:', summaryErr.message);
     }
 
-    return result;
+    return returnPayload;
   }
 );
 
