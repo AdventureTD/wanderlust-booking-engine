@@ -167,7 +167,42 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     elems.append(tbl)
     elems.append(Spacer(1, 5 * mm))
 
-    # ---- Totals block (right aligned) ----
+    # ---- VAT summary (left) + Totals block (right) ----
+    subtotal = inv.subtotal_net
+    acc_amt = subtotal * inv.accommodation_allocation
+    svc_amt = subtotal * inv.services_allocation
+    acc_vat = acc_amt * 0.10
+    svc_vat = svc_amt * 0.15
+
+    vat_rows = [
+        ["Subtotal:", _money(subtotal)],
+        ["Accommodation VAT:", f"{_money(acc_amt)} * 10% = {_money(acc_vat)}"],
+        ["Services VAT:", f"{_money(svc_amt)} * 15% = {_money(svc_vat)}"],
+        ["Total VAT:", _money(inv.total_vat)],
+    ]
+    vat_table = Table(vat_rows, colWidths=[45 * mm, 65 * mm])
+    vat_table.setStyle(TableStyle([
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("LINEABOVE", (0, -1), (-1, -1), 1, BRAND_TEAL),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("TEXTCOLOR", (0, -1), (-1, -1), BRAND_TEAL),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+
+    left_inner = Table(
+        [[Paragraph("Dominica VAT Summary:", bold)], [vat_table]],
+        colWidths=[110 * mm],
+    )
+    left_inner.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+
     tot_rows = [["Subtotal (net)", _money(inv.subtotal_net)]]
     label_map = {"accommodation": "VAT 10% (Accommodation)",
                  "standard": "VAT 15% (Services)"}
@@ -188,7 +223,14 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         ("TEXTCOLOR", (0, -1), (-1, -1), BRAND_TEAL),
         ("TOPPADDING", (0, 0), (-1, -1), 3),
     ]))
-    elems.append(totals)
+
+    parent = Table([[left_inner, totals]], colWidths=[110 * mm, 70 * mm])
+    parent.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    elems.append(parent)
     elems.append(Spacer(1, 8 * mm))
 
     terms = ParagraphStyle("terms", parent=styles["Normal"], fontSize=9,

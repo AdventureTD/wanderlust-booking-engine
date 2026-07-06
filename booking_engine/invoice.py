@@ -97,6 +97,10 @@ class Invoice:
     included_amenities: str = ""
     check_in: str = ""
     check_out: str = ""
+    # Table-driven allocation ratios from Wix Settings (0.0-1.0).
+    # These split the subtotal between accommodation/services for VAT summary display.
+    accommodation_allocation: float = 0.5
+    services_allocation: float = 0.5
 
     @classmethod
     def from_quote(cls, invoice_number: str, issue_date: date, guest: Guest,
@@ -127,6 +131,12 @@ class Invoice:
         # Wix may send 'total' as grand total including property fee, so we
         # recalculate to avoid double-counting.
         invoice_total = quote_breakdown.get("subtotal_net", 0) + quote_breakdown.get("total_vat", 0)
+
+        # Extract table-driven allocation ratios from quote_breakdown (Wix Settings).
+        # Keys match the Wix Settings collection field names.
+        acc_alloc = float(quote_breakdown.get("taxRate_accommodation", 0.5))
+        svc_alloc = float(quote_breakdown.get("taxRate_standard", 0.5))
+
         return cls(
             invoice_number=invoice_number, issue_date=issue_date, guest=guest,
             lines=lines, subtotal_net=quote_breakdown["subtotal_net"],
@@ -139,4 +149,6 @@ class Invoice:
             included_amenities=quote_breakdown.get("included_amenities", ""),
             check_in=quote_breakdown.get("check_in", ""),
             check_out=quote_breakdown.get("check_out", ""),
+            accommodation_allocation=acc_alloc,
+            services_allocation=svc_alloc,
         )
