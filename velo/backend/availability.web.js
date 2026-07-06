@@ -539,8 +539,7 @@ export const createBooking = webMethod(
       throw new Error('Booking conflict — ' + roomCode + ' was just taken. Please retry.');
     }
 
-    // Update booking summary — pass dates + guest info so the summary row is complete
-    console.log('>>> SERVER calling updateBookingSummary for', inserted.bookingNumber);
+    console.log('>>> calling updateBookingSummary for', inserted.bookingNumber);
     try {
       await updateBookingSummary(inserted.bookingNumber, checkIn, checkOut, {
         guestName: guestName || '',
@@ -548,7 +547,7 @@ export const createBooking = webMethod(
         guestPhone: guestPhone || '',
       });
     } catch (e) {
-      console.log('>>> SERVER updateBookingSummary ERROR:', e.message);
+      console.log('>>> updateBookingSummary ERROR:', e.message);
     }
 
     console.log('>>> SERVER createBooking complete. bookingNumber:', inserted.bookingNumber);
