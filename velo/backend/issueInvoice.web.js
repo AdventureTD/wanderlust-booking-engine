@@ -47,17 +47,17 @@ export const issueInvoice = webMethod(
       throw new Error('Invoice service not configured. Set WBE_INVOICE_SERVICE_URL and WBE_SHARED_SECRET in Secrets Manager.');
     }
 
-    // Fetch table-driven allocation ratios from Wix Settings.
+    // Fetch table-driven allocation ratio from Wix Settings.
+    // accommodationShare = percentage of subtotal allocated to accommodations.
+    // Services amount = subtotal - accommodation amount.
     const settings = await getAllSettings();
-    const accRatio = Number(settings.taxRate_accommodation || settings.taxRateAccommodation || 0.5);
-    const svcRatio = Number(settings.taxRate_standard || settings.taxRateStandard || 0.5);
+    const accShare = Number(settings.accommodationShare || 0.5);
 
     const body = {
       guest,
       quote_breakdown: {
         ...snakeCaseKeys(quoteBreakdown),
-        tax_rate_accommodation: accRatio,
-        tax_rate_standard: svcRatio,
+        accommodation_share: accShare,
       },
       issue_date: new Date().toISOString().slice(0, 10),
       check_in: dates.checkIn,
