@@ -99,20 +99,21 @@ export const searchAvailability = webMethod(
       priceMap[p.roomCode + '|' + p.nights] = p.baseRate;
     }
 
-    // Deep diagnostics: list ALL bookings we know about, not just adventure_suite
-    const diagBookingNumbers = [];
+    // Collect adventure_suite booking numbers
+    const asBookings = [];
     for (const bk of allBookings) {
       if (bk.roomCode === 'adventure_suite') {
-        diagBookingNumbers.push({
+        asBookings.push({
           bookingNumber: bk.bookingNumber,
+          bnString: String(bk.bookingNumber),
           status: bk.status,
-          bkp: typeof bk.bookingNumber,
         });
       }
     }
-    console.log('>>> [SEARCH-DIAG] adventure_suite bookings in Bookings col:', JSON.stringify(diagBookingNumbers));
 
     const out = [];
+    let asDebug = null;
+
     for (let r = 0; r < rooms.length; r++) {
       const rm = rooms[r];
       const code = rm.roomCode;
@@ -121,10 +122,9 @@ export const searchAvailability = webMethod(
       const maxOcc = rm.maxOccupancy || 2;
       const baseOcc = rm.baseOccupancy || maxOcc;
 
-      // Per-room minimum stay check — silently skip rooms below their threshold
       const minNights = rm.minNightsAllowed != null ? Number(rm.minNightsAllowed) : null;
       if (minNights != null && !isNaN(minNights) && rq < minNights) {
-        continue; // room requires longer stay than requested
+        continue;
       }
 
       const rBookings = [];
@@ -134,7 +134,7 @@ export const searchAvailability = webMethod(
         }
       }
 
-      // Build a map of bookingNumber -> BookingSummary dates for overlap checks
+      // Build summaryMap for this room
       const summaryMap = {};
       for (const bk of allBookings) {
         if (bk.bookingNumber && bk.roomCode === code && !summaryMap[bk.bookingNumber]) {
@@ -142,7 +142,7 @@ export const searchAvailability = webMethod(
         }
       }
 
-      // Join: find overlapping BookingSummaries and map their dates to Bookings rows
+      // Find overlapping BookingSummary numbers
       const overlapNumbers = [];
       for (const nt of nights) {
         const nx = ad(nt, 1);
@@ -158,49 +158,57 @@ export const searchAvailability = webMethod(
         }
       }
 
-      if (code === 'adventure_suite') {
-        console.log('>>> [SEARCH-DIAG] overlapNumbers found:', JSON.stringify(overlapNumbers));
-      }
-
-      // Attach summary dates to each booking row
+      // Fetch all matching summaries
+      let summaryDetails = [];
       if (overlapNumbers.length > 0) {
         const summaryRes = await wixData.query(BOOKING_SUMMARIES)
           .hasSome('bookingNumber', overlapNumbers)
           .limit(1000)
           .find();
-        if (code === 'adventure_suite') {
-          console.log('>>> [SEARCH-DIAG] BookingSummary records returned:', summaryRes.items.length);
-          for (const s of summaryRes.items) {
-            console.log('>>> [SEARCH-DIAG] summary bookingNumber:', s.bookingNumber, 'type:', typeof s.bookingNumber, 'checkIn:', s.checkIn, 'checkOut:', s.checkOut);
-          }
-        }
         for (const s of summaryRes.items) {
+          summaryDetails.push({
+            bn: s.bookingNumber,
+            bnStr: String(s.bookingNumber),
+            checkIn: s.checkIn,
+            checkOut: s.checkOut,
+          });
           summaryMap[String(s.bookingNumber)] = { checkIn: s.checkIn, checkOut: s.checkOut };
         }
       }
 
       const bpn = [];
+      let night0Diag = [];
       for (let i = 0; i < nights.length; i++) {
         const nt = nights[i];
         const nx = ad(nt, 1);
         let count = 0;
         for (let b = 0; b < rBookings.length; b++) {
           const bk = rBookings[b];
-          // Exclude cancelled bookings only
           const bkStatus = (bk.status || '').toLowerCase().trim();
           if (bkStatus === 'cancelled' || bkStatus === 'canceled') { continue; }
 
           const dates = summaryMap[String(bk.bookingNumber)];
+          const hasDates = !!(dates && dates.checkIn && dates.checkOut);
+
           if (code === 'adventure_suite' && i === 0) {
-            // Log EVERY booking in rBookings and whether it has dates in summaryMap
-            console.log('>>> [SEARCH-DIAG] night0 bookingNumber:', String(bk.bookingNumber), 'status:', bkStatus, 'hasDates:', !!(dates && dates.checkIn && dates.checkOut));
+            const dsCheckIn = hasDates ? ds(dates.checkIn).toISOString() : null;
+            const dsCheckOut = hasDates ? ds(dates.checkOut).toISOString() : null;
+            const overlapCheck = hasDates ? (ds(dates.checkIn) < nx && ds(dates.checkOut) > nt) : null;
+            night0Diag.push({
+              bkNum: String(bk.bookingNumber),
+              status: bkStatus,
+              hasDates: hasDates,
+              dsCI: dsCheckIn,
+              dsCO: dsCheckOut,
+              nt: nt.toISOString(),
+              nx: nx.toISOString(),
+              overlap: overlapCheck,
+            });
           }
-          if (dates && dates.checkIn && dates.checkOut) {
+
+          if (hasDates) {
             const dsCheckIn = ds(dates.checkIn);
             const dsCheckOut = ds(dates.checkOut);
-            if (code === 'adventure_suite') {
-              console.log('>>> [SEARCH-DIAG] checking overlap:', 'ci:', dsCheckIn.getTime(), '<', nx.getTime(), '&&', 'co:', dsCheckOut.getTime(), '>', nt.getTime(), 'result:', (dsCheckIn < nx && dsCheckOut > nt));
-            }
             if (dsCheckIn < nx && dsCheckOut > nt) {
               count += 1;
             }
@@ -210,7 +218,16 @@ export const searchAvailability = webMethod(
       }
 
       if (code === 'adventure_suite') {
-        console.log('>>> [SEARCH] bpn for adventure_suite:', bpn.join(','), '| units=', units, '| maxBooked=', Math.max(...bpn), '| overlapNumbers=', overlapNumbers.length);
+        asDebug = {
+          requestDates: { checkIn: ci.toISOString(), checkOut: co.toISOString() },
+          allAsBookings: asBookings,
+          overlapNumbers: overlapNumbers,
+          summaryDetails: summaryDetails,
+          night0Diagnosis: night0Diag,
+          bpn: bpn,
+          units: units,
+          maxBooked: Math.max(...bpn),
+        };
       }
 
       let allAvail = true;
@@ -270,7 +287,6 @@ export const searchAvailability = webMethod(
         const key = code + '|' + bl;
         const rate = priceMap[key];
         if (rate === undefined) { continue; }
-        // Calculate min free units across the partial stretch (not entire range)
         let minFreePartial = units;
         for (let i = bs; i < bs + bl; i++) {
           const free = units - bpn[i];
@@ -295,7 +311,6 @@ export const searchAvailability = webMethod(
       }
     }
 
-    // Safety filter: drop any results with maxQty <= 0
     const filtered = [];
     for (let i = 0; i < out.length; i++) {
       if (out[i].maxQty > 0) {
@@ -308,7 +323,8 @@ export const searchAvailability = webMethod(
       error: null,
       requestedNights: rq,
       results: filtered,
-      _ver: 'cancel-only-v2-diag1',
+      _ver: 'cancel-only-v2-diag2',
+      _debug: asDebug,
     };
   }
 );
