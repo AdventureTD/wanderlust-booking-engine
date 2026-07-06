@@ -439,10 +439,21 @@ function wireContinueButton() {
       }
 
       if (sharedBookingNumber) {
-        // Fire-and-forget invoice generation; do NOT block the user.
-        try {
-          issueBookingInvoice(sharedBookingNumber);
-        } catch (e) {}
+        console.log('[WBE-FRONTEND] Starting invoice generation for:', sharedBookingNumber);
+        (async () => {
+          try {
+            const invResult = await issueBookingInvoice(sharedBookingNumber);
+            console.log('[WBE-FRONTEND] Invoice service response:', JSON.stringify(invResult));
+            try {
+              sessionStorage.setItem('_lastInvoiceResult', JSON.stringify(invResult));
+            } catch (e) {}
+          } catch (e) {
+            console.error('[WBE-FRONTEND] Invoice generation failed:', e.message);
+            try {
+              sessionStorage.setItem('_lastInvoiceError', e.message);
+            } catch (e2) {}
+          }
+        })();
       }
 
       safeText('bookingStatus', 'Booking confirmed! Taking you home...');
