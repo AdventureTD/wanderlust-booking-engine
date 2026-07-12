@@ -180,15 +180,19 @@ async function initSummary() {
 }
 
 async function wirePromoCode() {
-  // This runs on group (repeater) load — the input/button are inside the repeater
   const promoInput = (function () { try { return $w('#promoCode'); } catch (e) { return null; } })();
   const promoBtn = (function () { try { return $w('#btnApplyPromo'); } catch (e) { return null; } })();
-  const promoStatus = (function () { try { return $w('#promoStatus'); } catch (e) { return null; } })();
   if (!promoInput || !promoBtn) return;
 
-  promoBtn.onClick(async function () {
+  async function applyPromoCode() {
     const code = (promoInput.value || '').trim();
-    if (!code) return;
+    if (!code) {
+      _promoDiscount = 0;
+      _promoCodeApplied = '';
+      safeText('promoStatus', '');
+      await renderSummary();
+      return;
+    }
 
     try {
       safeText('promoStatus', 'Checking...');
@@ -197,17 +201,38 @@ async function wirePromoCode() {
         _promoDiscount = parseFloat(result.discount) || 0;
         _promoCodeApplied = code;
         safeText('promoStatus', code + ' applied! Discount: ' + ((_promoDiscount * 100).toFixed(0)) + '% off');
-        await renderSummary();
       } else {
         _promoDiscount = 0;
         _promoCodeApplied = '';
         safeText('promoStatus', result && result.reason ? result.reason : 'Invalid or expired promo code.');
-        await renderSummary();
       }
     } catch (e) {
+      _promoDiscount = 0;
+      _promoCodeApplied = '';
       safeText('promoStatus', 'Error: ' + e.message);
     }
-  });
+    await renderSummary();
+  }
+
+  promoBtn.onClick(applyPromoCode);
+
+  if (typeof promoInput.onKeyPress === 'function') {
+    promoInput.onKeyPress(function (event) {
+      if (event && (event.key === 'Enter' || event.keyCode === 13)) {
+        applyPromoCode();
+      }
+    });
+  }
+
+  if (typeof promoInput.onBlur === 'function') {
+    promoInput.onBlur(function () {
+      // Only re-validate on blur if the code differs from what's currently applied
+      const current = (promoInput.value || '').trim();
+      if (current && current !== _promoCodeApplied) {
+        applyPromoCode();
+      }
+    });
+  }
 }
 
 async function renderSummary() {
