@@ -2,12 +2,12 @@
 ## Session checkpoint: 2026-07-12
 
 ### Current Code State
-- **GitHub `main` HEAD:** `9c765b4`
+- **GitHub `main` HEAD:** `598471d`
 - **Render:** Auto-deployed from `main`
 - **Wix Live status:** UNVERIFIED — files pushed to GitHub; copying into Wix Editor + Publish pending
 
 ### Promo Code Feature (NEW)
-- Collection: `Promo Codes` (fields: `title`, `discount`, `startDate`, `endDate`)
+- Collection: `PromoCodes` (no space; fields: `title`, `discount`, `startDate`, `endDate`)
 - Discount applied to subtotal BEFORE VAT and property fee
 - Frontend: guest enters code on Booking Summary page; `validatePromoCode` webMethod checks startDate/endDate inclusive
 - Displays: "Promo Code (CODE): -$XXX.XX (-15%)" 
@@ -15,8 +15,8 @@
 - Booking rows store `promoCode` and `promoDiscount` in Bookings collection
 
 ### Files Modified in Last Session
-- `velo/page-booking-summary.js` — promo input, validatePromoCode import, discount recalculation
-- `velo/backend/availability.web.js` — validatePromoCode webMethod, promo-aware invoice quote building
+- `velo/page-booking-summary.js` — promo input triggers on Enter, blur, and button click
+- `velo/backend/availability.web.js` — validatePromoCode queries `PromoCodes` collection (no space)
 - `booking_engine/invoice.py` — Invoice dataclass gains promo_code, promo_discount_rate, promo_discount_amount
 - `booking_engine/invoice_pdf.py` — promo discount line in totals block
 
