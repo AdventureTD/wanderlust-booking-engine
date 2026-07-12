@@ -182,10 +182,14 @@ async function initSummary() {
 async function wirePromoCode() {
   const promoInput = (function () { try { return $w('#promoCode'); } catch (e) { return null; } })();
   const promoBtn = (function () { try { return $w('#btnApplyPromo'); } catch (e) { return null; } })();
-  if (!promoInput || !promoBtn) return;
 
-  async function applyPromoCode() {
+  console.log('[WBE-PROMO] wirePromoCode found input:', !!promoInput, 'button:', !!promoBtn);
+  if (!promoInput) return;
+
+  async function applyPromoCode(source) {
+    source = source || 'unknown';
     const code = (promoInput.value || '').trim();
+    console.log('[WBE-PROMO] applyPromoCode triggered by', source, 'code=', code);
     if (!code) {
       _promoDiscount = 0;
       _promoCodeApplied = '';
@@ -197,6 +201,7 @@ async function wirePromoCode() {
     try {
       safeText('promoStatus', 'Checking...');
       const result = await validatePromoCode(code);
+      console.log('[WBE-PROMO] validatePromoCode result:', JSON.stringify(result));
       if (result && result.valid) {
         _promoDiscount = parseFloat(result.discount) || 0;
         _promoCodeApplied = code;
@@ -207,30 +212,49 @@ async function wirePromoCode() {
         safeText('promoStatus', result && result.reason ? result.reason : 'Invalid or expired promo code.');
       }
     } catch (e) {
+      console.error('[WBE-PROMO] validatePromoCode error:', e.message);
       _promoDiscount = 0;
       _promoCodeApplied = '';
       safeText('promoStatus', 'Error: ' + e.message);
     }
+    console.log('[WBE-PROMO] calling renderSummary with discount:', _promoDiscount);
     await renderSummary();
   }
 
-  promoBtn.onClick(applyPromoCode);
+  if (promoBtn && typeof promoBtn.onClick === 'function') {
+    promoBtn.onClick(function () { applyPromoCode('click'); });
+  }
 
-  if (typeof promoInput.onKeyPress === 'function') {
-    promoInput.onKeyPress(function (event) {
-      if (event && (event.key === 'Enter' || event.keyCode === 13)) {
-        applyPromoCode();
+  // Try multiple event APIs; Wix sometimes exposes onKeyPress, onKeyDown, or keyPress
+  const bindKey = function (eventName, eventSourceName) {
+    const fn = promoInput[eventName];
+    if (typeof fn === 'function') {
+      fn.call(promoInput, function (event) {
+        console.log('[WBE-PROMO]', eventSourceName, 'fired key=', event && event.key, 'keyCode=', event && event.keyCode);
+        if (event && (event.key === 'Enter' || event.keyCode === 13 || event.which === 13)) {
+          event && event.preventDefault && event.preventDefault();
+          applyPromoCode(eventSourceName);
+        }
+      });
+      console.log('[WBE-PROMO] bound', eventSourceName);
+    }
+  };
+  bindKey('onKeyPress', 'onKeyPress');
+  bindKey('onKeyDown', 'onKeyDown');
+
+  if (typeof promoInput.onBlur === 'function') {
+    promoInput.onBlur(function () {
+      const current = (promoInput.value || '').trim();
+      console.log('[WBE-PROMO] onBlur current=', current, 'applied=', _promoCodeApplied);
+      if (current && current !== _promoCodeApplied) {
+        applyPromoCode('blur');
       }
     });
   }
 
-  if (typeof promoInput.onBlur === 'function') {
-    promoInput.onBlur(function () {
-      // Only re-validate on blur if the code differs from what's currently applied
-      const current = (promoInput.value || '').trim();
-      if (current && current !== _promoCodeApplied) {
-        applyPromoCode();
-      }
+  if (typeof promoInput.onInput === 'function') {
+    promoInput.onInput(function () {
+      console.log('[WBE-PROMO] onInput value=', (promoInput.value || '').trim());
     });
   }
 }
