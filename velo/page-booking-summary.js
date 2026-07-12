@@ -210,8 +210,6 @@ async function wirePromoCode() {
   });
 }
 
-}
-
 async function renderSummary() {
   _renderCount++;
   const rooms = _summaryRooms;
