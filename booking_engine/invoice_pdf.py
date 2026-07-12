@@ -207,7 +207,11 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
     ]))
 
-    tot_rows = [["Subtotal (net)", _money(inv.subtotal_net)]]
+    tot_rows = [["Subtotal (net)", _money(inv.subtotal_net + inv.promo_discount_amount)]]
+    if inv.promo_discount_amount > 0 and inv.promo_code:
+        pct = int(round(inv.promo_discount_rate * 100))
+        tot_rows.append([f"Promo Code ({inv.promo_code}) — {pct}% off", "-" + _money(inv.promo_discount_amount)])
+        tot_rows.append(["Subtotal after discount", _money(inv.subtotal_net)])
     label_map = {"accommodation": "VAT 10% (Accommodation)",
                  "standard": "VAT 15% (Services)"}
     for cls, amt in inv.vat_by_class.items():

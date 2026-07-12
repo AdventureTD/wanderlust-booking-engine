@@ -3,7 +3,7 @@ import wixData from 'wix-data';
 import { getAllSettings } from 'backend/settings';
 import { getRoomNames } from 'backend/rooms';
 import { getPackageAmenities } from 'backend/packages';
-import { createBooking, issueBookingInvoice } from 'backend/availability';
+import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
 const ROOM_DISPLAY_NAMES = {
@@ -107,6 +107,8 @@ let _summarySettings = {};
 let _roomRepReady = false;
 let _renderCount = 0;
 let _roomNames = {};
+let _promoDiscount = 0;   // e.g. 0.15
+let _promoCodeApplied = ''; // e.g. 'SAVE15'
 
 $w.onReady(function () {
   initSummary().catch(function (e) { console.log('>>> init error:', e.message); });
@@ -174,6 +176,40 @@ async function initSummary() {
   initRoomRepeater();
   await renderSummary();
   wireContinueButton();
+  wirePromoCode();
+}
+
+async function wirePromoCode() {
+  // This runs on group (repeater) load — the input/button are inside the repeater
+  const promoInput = (function () { try { return $w('#promoCode'); } catch (e) { return null; } })();
+  const promoBtn = (function () { try { return $w('#btnApplyPromo'); } catch (e) { return null; } })();
+  const promoStatus = (function () { try { return $w('#promoStatus'); } catch (e) { return null; } })();
+  if (!promoInput || !promoBtn) return;
+
+  promoBtn.onClick(async function () {
+    const code = (promoInput.value || '').trim();
+    if (!code) return;
+
+    try {
+      safeText('promoStatus', 'Checking...');
+      const result = await validatePromoCode(code);
+      if (result && result.valid) {
+        _promoDiscount = parseFloat(result.discount) || 0;
+        _promoCodeApplied = code;
+        safeText('promoStatus', code + ' applied! Discount: ' + ((_promoDiscount * 100).toFixed(0)) + '% off');
+        await renderSummary();
+      } else {
+        _promoDiscount = 0;
+        _promoCodeApplied = '';
+        safeText('promoStatus', result && result.reason ? result.reason : 'Invalid or expired promo code.');
+        await renderSummary();
+      }
+    } catch (e) {
+      safeText('promoStatus', 'Error: ' + e.message);
+    }
+  });
+}
+
 }
 
 async function renderSummary() {
@@ -231,16 +267,37 @@ async function renderSummary() {
   const totalVat = vatAccommodation + vatAdventure;
   const grandTotal = subtotalNet + propertyFee + totalVat;
 
+  // Promo discount applied to subtotalNet before taxes and fees
+  const discountAmount = _promoDiscount > 0 ? Math.round(subtotalNet * _promoDiscount * 100) / 100 : 0;
+  const discountedSubtotal = Math.round((subtotalNet - discountAmount) * 100) / 100;
+  const discountedAccNet = discountedSubtotal * accommodationShare;
+  const discountedAdvNet = discountedSubtotal * (1 - accommodationShare);
+  const discountedVatAccommodation = discountedAccNet * taxRateAccommodation;
+  const discountedVatAdventure = discountedAdvNet * taxRateAdventure;
+  const discountedTotalVat = Math.round((discountedVatAccommodation + discountedVatAdventure) * 100) / 100;
+  const discountedPropertyFee = Math.round(discountedSubtotal * propertyFeeRate * 100) / 100;
+  const discountedGrandTotal = Math.round((discountedSubtotal + discountedPropertyFee + discountedTotalVat) * 100) / 100;
+
   safeText('accommodationNamesText', names.join(', '));
   safeText('packageSubTotal', '$' + fmtCurrency(subtotalNet));
-  safeText('subtotalNetText', '$' + fmtCurrency(subtotalNet));
-  safeText('vatAccommodationText', '$' + fmtCurrency(vatAccommodation));
-  safeText('vatAdventureText', '$' + fmtCurrency(vatAdventure));
-  safeText('vatAcc', '$' + fmtCurrency(accNet));
-  safeText('vatSer', '$' + fmtCurrency(advNet));
-  safeText('totalVatText', '$' + fmtCurrency(totalVat));
-  safeText('propertyFeeText', '$' + fmtCurrency(propertyFee));
-  safeText('grandTotalText', '$' + fmtCurrency(grandTotal));
+  safeText('subtotalNetText', '$' + fmtCurrency(discountedSubtotal));
+
+  // Promo display
+  if (_promoDiscount > 0 && _promoCodeApplied) {
+    safeExpand('promoDiscountRow');
+    safeText('promoDiscountText', 'Promo Code (' + _promoCodeApplied + '): -$' + fmtCurrency(discountAmount) + ' (-' + (_promoDiscount * 100) + '%)');
+  } else {
+    safeCollapse('promoDiscountRow');
+    safeText('promoDiscountText', '');
+  }
+
+  safeText('vatAccommodationText', '$' + fmtCurrency(discountedVatAccommodation));
+  safeText('vatAdventureText', '$' + fmtCurrency(discountedVatAdventure));
+  safeText('vatAcc', '$' + fmtCurrency(discountedAccNet));
+  safeText('vatSer', '$' + fmtCurrency(discountedAdvNet));
+  safeText('totalVatText', '$' + fmtCurrency(discountedTotalVat));
+  safeText('propertyFeeText', '$' + fmtCurrency(discountedPropertyFee));
+  safeText('grandTotalText', '$' + fmtCurrency(discountedGrandTotal));
 
   // Update totalNightsDisplay with calculated nights
   if (nights > 0) {
@@ -389,6 +446,8 @@ function wireContinueButton() {
           accomodationVat: r0.accomodationVat || 0,
           packageVat: r0.packageVat || 0,
           grandTotal: ((r0.roomTotal || 0) + (r0.accomodationVat || 0) + (r0.packageVat || 0) + (r0.propertyFee || 0)) || 0,
+          promoCode: _promoCodeApplied,
+          promoDiscount: _promoDiscount,
         };
         const b0 = await createBooking(payload0);
         bookings.push(b0);
@@ -415,6 +474,8 @@ function wireContinueButton() {
             packageVat: r.packageVat || 0,
             grandTotal: ((r.roomTotal || 0) + (r.accomodationVat || 0) + (r.packageVat || 0) + (r.propertyFee || 0)) || 0,
             bookingNumber: sharedBookingNumber,
+            promoCode: _promoCodeApplied,
+            promoDiscount: _promoDiscount,
           };
           restPromises.push(
             createBooking(payload)

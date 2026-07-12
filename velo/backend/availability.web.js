@@ -518,6 +518,8 @@ export const createBooking = webMethod(
       grandTotal: grandTotal || 0,
       bookingNumber: invoiceNumber || '',
       note: saveNote || '',
+      promoCode: booking.promoCode || '',
+      promoDiscount: booking.promoDiscount || 0,
     };
     console.log('>>> SERVER toInsert keys:', Object.keys(toInsert).join(', '));
     console.log('>>> SERVER toInsert financials => roomTotal:', toInsert.roomTotal, '| propertyFee:', toInsert.propertyFee, '| accomodationVat:', toInsert.accomodationVat, '| packageVat:', toInsert.packageVat, '| grandTotal:', toInsert.grandTotal, '| bookingNumber:', toInsert.bookingNumber);
@@ -634,6 +636,11 @@ export const issueBookingInvoice = webMethod(
     let total_acc_vat = 0;
     let total_pkg_vat = 0;
 
+    // Promo code stored on first booking row (all rows in group share same code).
+    const promoDiscount = parseFloat(firstRow.promoDiscount) || 0;
+    const promoCode = firstRow.promoCode || '';
+    const promoDiscountAmount = promoDiscount > 0 ? subtotal_net * promoDiscount : 0;
+
     for (const row of bookingsRes.items) {
       const nights = nightsBetween(checkInDate || dates.checkIn, checkOutDate || dates.checkOut);
       const roomTotal = row.roomTotal || 0;
@@ -690,26 +697,54 @@ export const issueBookingInvoice = webMethod(
       total_pkg_vat += pkgVat;
     }
 
-    const total = subtotal_net + total_property_fee + total_vat;
+    // Apply promo discount to subtotal before taxes and fees
+    const discountAmount = promoDiscount > 0 ? Math.round(subtotal_net * promoDiscount * 100) / 100 : 0;
+    const discountedSubtotal = Math.round((subtotal_net - discountAmount) * 100) / 100;
+    const discountedPropertyFee = Math.round(total_property_fee * (discountedSubtotal / (subtotal_net || 1)) * 100) / 100;
+    const discountRatio = subtotal_net > 0 ? discountedSubtotal / subtotal_net : 1;
+    const discountedTotalVat = Math.round(total_vat * discountRatio * 100) / 100;
+    const discountedAccVat = Math.round(total_acc_vat * discountRatio * 100) / 100;
+    const discountedPkgVat = Math.round(total_pkg_vat * discountRatio * 100) / 100;
+    const discountedTotal = Math.round((discountedSubtotal + discountedPropertyFee + discountedTotalVat) * 100) / 100;
+
+    // Rebuild line_items for discounted amounts
+    const discounted_line_items = [];
+    for (const li of line_items) {
+      const discountedNet = Math.round(li.net * discountRatio * 100) / 100;
+      const discountedVat = Math.round(li.vat * discountRatio * 100) / 100;
+      discounted_line_items.push({
+        label: li.label,
+        tax_class: li.tax_class,
+        quantity: li.quantity,
+        unit_price: li.quantity > 0 ? discountedNet / li.quantity : 0,
+        net: discountedNet,
+        vat_rate: li.vat_rate,
+        vat: discountedVat,
+        gross: discountedNet + discountedVat
+      });
+    }
 
     const quoteBreakdown = {
-      line_items,
+      line_items: discounted_line_items,
       display_line_items,
-      subtotal_net: Math.round((subtotal_net + Number.EPSILON) * 100) / 100,
-      total_vat: Math.round((total_vat + Number.EPSILON) * 100) / 100,
-      total: Math.round((total + Number.EPSILON) * 100) / 100,
-      property_fee_rate: subtotal_net > 0 ? total_property_fee / subtotal_net : 0,
-      property_fee: Math.round((total_property_fee + Number.EPSILON) * 100) / 100,
+      subtotal_net: discountedSubtotal,
+      total_vat: discountedTotalVat,
+      total: discountedTotal,
+      property_fee_rate: discountedSubtotal > 0 ? discountedPropertyFee / discountedSubtotal : 0,
+      property_fee: discountedPropertyFee,
       currency: 'USD',
       vat_by_class: {
-        accommodation: Math.round((total_acc_vat + Number.EPSILON) * 100) / 100,
-        standard: Math.round((total_pkg_vat + Number.EPSILON) * 100) / 100
+        accommodation: discountedAccVat,
+        standard: discountedPkgVat
       },
       package_title: packageTitle,
       included_amenities: includedAmenities,
       check_in: checkInDate,
       check_out: checkOutDate,
       accommodationShare: accommodationShare,
+      promo_code: promoCode,
+      promo_discount_rate: promoDiscount,
+      promo_discount_amount: discountAmount,
     };
 
     console.log('>>> issueBookingInvoice calling invoice service with dates:', JSON.stringify({
@@ -854,6 +889,51 @@ export const unblock = webMethod(
     if (b.status !== 'blocked') throw new Error('Booking ' + bookingId + ' is not a block (status=' + b.status + ')');
     await wixData.remove(BOOKINGS, bookingId);
     return b;
+  }
+);
+
+export const validatePromoCode = webMethod(
+  Permissions.Anyone,
+  async (code) => {
+    if (!code || !code.trim()) {
+      return { valid: false, reason: 'No promo code provided.' };
+    }
+    const now = new Date();
+    try {
+      const res = await wixData.query('Promo Codes').limit(1).find();
+      let found = null;
+      for (const item of res.items) {
+        // Wix Data may return title-fld or title depending on collection field name.
+        const itemTitle = item.title || item.Title || item.title_fld || '';
+        if (String(itemTitle).trim().toUpperCase() === String(code).trim().toUpperCase()) {
+          found = item;
+          break;
+        }
+      }
+      if (!found) {
+        return { valid: false, reason: 'Promo code not found.' };
+      }
+      const startDate = found.startDate ? new Date(found.startDate) : null;
+      const endDate = found.endDate ? new Date(found.endDate) : null;
+      if (startDate && now < startDate) {
+        return { valid: false, reason: 'Promo code is not yet active.' };
+      }
+      if (endDate) {
+        // End date is inclusive; treat midnight of end date as inclusive end of that day.
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (now > endOfDay) {
+          return { valid: false, reason: 'Promo code has expired.' };
+        }
+      }
+      const discount = parseFloat(found.discount) || 0;
+      if (discount <= 0 || discount > 1) {
+        return { valid: false, reason: 'Invalid discount value.' };
+      }
+      return { valid: true, code: code, discount: discount };
+    } catch (e) {
+      return { valid: false, reason: 'Error validating promo code: ' + e.message };
+    }
   }
 );
 
