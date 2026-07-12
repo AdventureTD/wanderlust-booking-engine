@@ -900,7 +900,7 @@ export const validatePromoCode = webMethod(
     }
     const now = new Date();
     try {
-      const res = await wixData.query('Promo Codes').limit(1).find();
+      const res = await wixData.query('PromoCodes').limit(1).find();
       let found = null;
       for (const item of res.items) {
         // Wix Data may return title-fld or title depending on collection field name.
