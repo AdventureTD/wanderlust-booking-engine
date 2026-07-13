@@ -326,7 +326,7 @@ async function renderSummary() {
   const discountedGrandTotal = Math.round((discountedSubtotal + discountedPropertyFee + discountedTotalVat) * 100) / 100;
 
   safeText('accommodationNamesText', names.join(', '));
-  safeText('packageSubTotal', '$' + fmtCurrency(subtotalNet));
+  safeText('packageSubTotal', '$' + fmtCurrency(discountedSubtotal));
   safeText('subtotalNetText', '$' + fmtCurrency(discountedSubtotal));
 
   // Promo display
