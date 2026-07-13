@@ -303,6 +303,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
     let roomCount = 0;
     let status = '';
 
+    let promoDiscount = 0;
     for (const row of res.items) {
       totalRoomTotal += (row.roomTotal || 0);
       totalAccommodationVat += (row.accomodationVat || 0);
@@ -311,7 +312,15 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       roomCount++;
 
       if (!status && row.status) status = row.status;
+      if (!promoDiscount && row.promoDiscount) promoDiscount = parseFloat(row.promoDiscount) || 0;
     }
+
+    // Apply promo discount to stored gross totals so the CMS summary matches the invoice.
+    const discountRatio = promoDiscount > 0 && promoDiscount < 1 ? (1 - promoDiscount) : 1;
+    const discountedRoomTotal = totalRoomTotal * discountRatio;
+    const discountedAccommodationVat = totalAccommodationVat * discountRatio;
+    const discountedPackageVat = totalPackageVat * discountRatio;
+    const discountedPropertyFee = totalPropertyFee * discountRatio;
 
     const summary = {
       bookingNumber,
@@ -321,11 +330,11 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       guestEmail,
       guestPhone,
       roomCount,
-      roomTotal: Math.round((totalRoomTotal + Number.EPSILON) * 100) / 100,
-      accommodationVat: Math.round((totalAccommodationVat + Number.EPSILON) * 100) / 100,
-      packageVat: Math.round((totalPackageVat + Number.EPSILON) * 100) / 100,
-      propertyFee: Math.round((totalPropertyFee + Number.EPSILON) * 100) / 100,
-      grandTotal: Math.round((totalRoomTotal + totalAccommodationVat + totalPackageVat + totalPropertyFee + Number.EPSILON) * 100) / 100,
+      roomTotal: Math.round((discountedRoomTotal + Number.EPSILON) * 100) / 100,
+      accommodationVat: Math.round((discountedAccommodationVat + Number.EPSILON) * 100) / 100,
+      packageVat: Math.round((discountedPackageVat + Number.EPSILON) * 100) / 100,
+      propertyFee: Math.round((discountedPropertyFee + Number.EPSILON) * 100) / 100,
+      grandTotal: Math.round((discountedRoomTotal + discountedAccommodationVat + discountedPackageVat + discountedPropertyFee + Number.EPSILON) * 100) / 100,
       status: status || 'confirmed'
     };
 
