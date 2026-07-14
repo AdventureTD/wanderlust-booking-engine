@@ -37,7 +37,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     styles = getSampleStyleSheet()
     h_biz = ParagraphStyle("biz", parent=styles["Normal"], fontSize=9, leading=12)
     h_title = ParagraphStyle("title", parent=styles["Title"], fontSize=22,
-                             textColor=BRAND_TEAL, alignment=2)  # right
+                             textColor=BRAND_TEAL, alignment=0)  # left
     small = ParagraphStyle("small", parent=styles["Normal"], fontSize=8,
                            textColor=colors.grey)
     bold = ParagraphStyle("bold", parent=styles["Normal"], fontSize=9,
@@ -72,17 +72,11 @@ def render_invoice_pdf(inv, out_path: str) -> str:
             h_biz,
         )
 
-    header = Table(
-        [[logo_cell, Paragraph("INVOICE", h_title)]],
-        colWidths=[95 * mm, 75 * mm],
-    )
-    header.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-    ]))
-    elems.append(header)
-    elems.append(Spacer(1, 6 * mm))
+    # Logo and invoice title, both left-justified
+    elems.append(logo_cell)
+    elems.append(Spacer(1, 2 * mm))
+    elems.append(Paragraph("INVOICE", h_title))
+    elems.append(Spacer(1, 4 * mm))
 
     # ---- Business block + invoice meta ----
     biz_html = (
@@ -98,8 +92,12 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     )
     info = Table([[Paragraph(biz_html, h_biz), Paragraph(meta_html, h_biz)]],
                  colWidths=[110 * mm, 60 * mm])
-    info.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
-                              ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
+    info.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("ALIGN", (0, 0), (0, 0), "LEFT"),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+    ]))
     elems.append(info)
     elems.append(Spacer(1, 5 * mm))
 
@@ -133,11 +131,6 @@ def render_invoice_pdf(inv, out_path: str) -> str:
             elems.append(Paragraph(stay_text, h_biz))
         elif package_text:
             elems.append(Paragraph(package_text, h_biz))
-        # Blank line before Included
-        if inv.included_amenities:
-            elems.append(Spacer(1, 4 * mm))
-            elems.append(Paragraph("<b>Package Details:</b>", h_biz))
-            elems.append(Paragraph(inv.included_amenities, h_biz))
         elems.append(Spacer(1, 5 * mm))
 
     # ---- Line items table ----
@@ -249,6 +242,23 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         "remaining balance will be processed 30 days prior to arrival. You will "
         "receive a payment link by email for the deposit payment within a few days.",
         terms))
+    elems.append(Spacer(1, 5 * mm))
+
+    if inv.included_amenities:
+        elems.append(Paragraph("<b>Package Details:</b>", h_biz))
+        elems.append(Paragraph(inv.included_amenities, h_biz))
+        elems.append(Spacer(1, 5 * mm))
+
+    terms_text = (
+        "<b>Charge will show on your credit card as Caribbean Appalachia, Ltd.</b><br/><br/>"
+        "<b>Cancellation Policy:</b><br/>"
+        "A full refund (minus credit card fees) will be provided for guest cancellations requested 31 days or more before scheduled arrival.<br/>"
+        "Reservation cancellations within 30 days of arrival do not qualify for a refund.<br/><br/>"
+        "<b>Private Group Bookings:</b><br/>"
+        "Cancellations made within 90 days of the scheduled arrival date are not eligible for a refund.<br/><br/>"
+        "Guests can re-schedule their vacation with the full reservation deposit applied to the new reservation. The re-scheduled vacation must occur within two (2) years of the initial arrival day and can be booked for any available dates except December 15th - January 7th when special rates apply."
+    )
+    elems.append(Paragraph(terms_text, terms))
     elems.append(Spacer(1, 5 * mm))
 
     elems.append(Paragraph(
