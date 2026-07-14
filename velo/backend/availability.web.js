@@ -786,7 +786,7 @@ export const issueBookingInvoice = webMethod(
       accommodationShare: accommodationShare,
       promo_code: promoCode,
       promo_discount_rate: promoDiscount,
-      promo_discount_amount: discountAmount,
+      promo_discount_amount: promoDiscountAmount,
     };
 
     console.log('>>> issueBookingInvoice calling invoice service with dates:', JSON.stringify({
