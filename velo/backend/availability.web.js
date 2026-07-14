@@ -720,29 +720,32 @@ export const issueBookingInvoice = webMethod(
       total_pkg_vat += pkgVat;
     }
 
-    // Apply promo discount. If createBooking already wrote discounted values,
-    // the aggregates are already net values, so we just report the discount.
-    let discountAmount = 0;
+    // Promo handling. createBooking now writes discounted room-level financials
+    // (when a promo is used). If the values are already discounted, we just
+    // aggregate them; otherwise we apply the discount to gross aggregates here.
+    let promoDiscountAmount = 0;
     let discountRatio = 1;
     if (promoDiscount > 0) {
       if (alreadyDiscounted) {
+        // subtotal_net/total_vat/total_property_fee are already net values.
+        // Compute the discount amount for display by reversing the discount.
         const grossRatio = 1 - promoDiscount;
         if (grossRatio > 0) {
-          const grossRoomTotal = subtotal_net / grossRatio;
-          discountAmount = Math.round((grossRoomTotal - subtotal_net) * 100) / 100;
-          discountRatio = subtotal_net / grossRoomTotal;
+          const grossSubtotal = subtotal_net / grossRatio;
+          promoDiscountAmount = Math.round((grossSubtotal - subtotal_net) * 100) / 100;
         }
+        discountRatio = 1;
       } else {
-        discountAmount = Math.round(subtotal_net * promoDiscount * 100) / 100;
-        discountRatio = subtotal_net > 0 ? (subtotal_net - discountAmount) / subtotal_net : 1;
+        promoDiscountAmount = Math.round(subtotal_net * promoDiscount * 100) / 100;
+        discountRatio = subtotal_net > 0 ? (subtotal_net - promoDiscountAmount) / subtotal_net : 1;
       }
     }
 
-    const discountedSubtotal = Math.round((subtotal_net - discountAmount) * 100) / 100;
-    const discountedPropertyFee = Math.round(total_property_fee * discountRatio * 100) / 100;
-    const discountedTotalVat = Math.round(total_vat * discountRatio * 100) / 100;
-    const discountedAccVat = Math.round(total_acc_vat * discountRatio * 100) / 100;
-    const discountedPkgVat = Math.round(total_pkg_vat * discountRatio * 100) / 100;
+    const discountedSubtotal = alreadyDiscounted ? subtotal_net : Math.round((subtotal_net - promoDiscountAmount) * 100) / 100;
+    const discountedPropertyFee = alreadyDiscounted ? total_property_fee : Math.round(total_property_fee * discountRatio * 100) / 100;
+    const discountedTotalVat = alreadyDiscounted ? total_vat : Math.round(total_vat * discountRatio * 100) / 100;
+    const discountedAccVat = alreadyDiscounted ? total_acc_vat : Math.round(total_acc_vat * discountRatio * 100) / 100;
+    const discountedPkgVat = alreadyDiscounted ? total_pkg_vat : Math.round(total_pkg_vat * discountRatio * 100) / 100;
     const discountedTotal = Math.round((discountedSubtotal + discountedPropertyFee + discountedTotalVat) * 100) / 100;
 
     // Rebuild line_items for discounted amounts
