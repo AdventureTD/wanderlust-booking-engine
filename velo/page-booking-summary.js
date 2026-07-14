@@ -209,7 +209,17 @@ async function wirePromoCode() {
       } else {
         _promoDiscount = 0;
         _promoCodeApplied = '';
-        safeText('promoStatus', result && result.reason ? result.reason : 'Invalid or expired promo code.');
+        const reason = (result && result.reason) || '';
+        const notExpiredReasons = ['Promo code is not yet active.', 'Promo code has expired.'];
+        if (reason === 'Promo code not found.') {
+          safeText('promoStatus', '');
+          safeText('bookingStatus', 'Promo code is not valid');
+        } else if (notExpiredReasons.indexOf(reason) >= 0) {
+          safeText('promoStatus', '');
+          safeText('bookingStatus', 'Promo code has expired');
+        } else {
+          safeText('promoStatus', reason || 'Invalid or expired promo code.');
+        }
       }
     } catch (e) {
       console.error('[WBE-PROMO] validatePromoCode error:', e.message);
