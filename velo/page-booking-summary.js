@@ -547,20 +547,22 @@ function wireContinueButton() {
       }
 
       if (sharedBookingNumber) {
-        try {
-          safeText('bookingStatus', 'Booking confirmed! Creating invoice...');
-          const invResult = await issueBookingInvoice(sharedBookingNumber);
-          console.log('[WBE-FRONTEND] Invoice service response:', JSON.stringify(invResult));
-          // If calendar creation failed, log but still continue to redirect.
-          if (invResult && invResult._calendar_debug && !invResult._calendar_debug.ok) {
-            console.warn('[WBE-FRONTEND] Calendar event NOT created:', invResult._calendar_debug);
-          }
-        } catch (e) {
-          console.error('[WBE-FRONTEND] Invoice generation failed:', e.message);
-        }
+        safeText('bookingStatus', 'Booking confirmed! Taking you home...');
+        // Start invoice/calendar creation in the background so the redirect is not blocked.
+        issueBookingInvoice(sharedBookingNumber)
+          .then(function (invResult) {
+            console.log('[WBE-FRONTEND] Invoice service response:', JSON.stringify(invResult));
+            if (invResult && invResult._calendar_debug && !invResult._calendar_debug.ok) {
+              console.warn('[WBE-FRONTEND] Calendar event NOT created:', invResult._calendar_debug);
+            }
+          })
+          .catch(function (e) {
+            console.error('[WBE-FRONTEND] Invoice generation failed:', e.message);
+          });
+      } else {
+        safeText('bookingStatus', 'Booking confirmed! Taking you home...');
       }
 
-      safeText('bookingStatus', 'Booking confirmed! Taking you home...');
       wixLocation.to('https://www.wanderlustcaribbean.com');
     } catch (e) {
       safeText('bookingStatus', 'Booking error: ' + e.message);
