@@ -11,7 +11,7 @@
 - Discount applied to subtotal BEFORE VAT and property fee
 - Frontend: guest enters code on Booking Summary page; `validatePromoCode` webMethod checks startDate/endDate inclusive
 - Displays: "Promo Code (CODE): -$XXX.XX (-15%)" 
-- Invoice PDF shows: original subtotal → discount line → discounted subtotal → VAT/fees → TOTAL DUE
+- Invoice PDF shows: original subtotal → discount line → discounted subtotal → VAT/fees → TOTAL DUE; promo label omits code text to prevent overlap
 - **Bookings** rows store discounted `roomTotal`, `accomodationVat`, `packageVat`, `propertyFee`, `grandTotal`; plus `promoCode`, `promoDiscount`, `promoApplied`
 - **BookingSummary** collection tracks `promoCode` and `promoDiscountAmount`
 
