@@ -39,7 +39,7 @@ def create_calendar_event(guest_name: str, check_in: str, check_out: str) -> dic
 
     payload = {
         "secret": CALENDAR_SECRET,
-        "summary": f"Wanderlust: {guest_name}",
+        "summary": f"Wanderlust Caribbean Booking: {guest_name}",
         "description": f"Wanderlust Booking: {guest_name}",
         "startDate": check_in,
         "endDate": check_out,
