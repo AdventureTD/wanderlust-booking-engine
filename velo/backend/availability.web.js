@@ -304,6 +304,9 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
     let status = '';
 
     let promoDiscount = 0;
+    let promoCode = '';
+    let totalDiscountAmount = 0;
+
     for (const row of res.items) {
       totalRoomTotal += (row.roomTotal || 0);
       totalAccommodationVat += (row.accomodationVat || 0);
@@ -312,15 +315,19 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       roomCount++;
 
       if (!status && row.status) status = row.status;
+      if (!promoCode && row.promoCode) promoCode = row.promoCode;
       if (!promoDiscount && row.promoDiscount) promoDiscount = parseFloat(row.promoDiscount) || 0;
     }
 
-    // Apply promo discount to stored gross totals so the CMS summary matches the invoice.
-    const discountRatio = promoDiscount > 0 && promoDiscount < 1 ? (1 - promoDiscount) : 1;
-    const discountedRoomTotal = totalRoomTotal * discountRatio;
-    const discountedAccommodationVat = totalAccommodationVat * discountRatio;
-    const discountedPackageVat = totalPackageVat * discountRatio;
-    const discountedPropertyFee = totalPropertyFee * discountRatio;
+    // Room-level financials are already discounted at write time (createBooking applies promo).
+    // Compute total promo dollar savings by reversing the discount ratio on the aggregated subtotal.
+    if (promoCode && promoDiscount > 0) {
+      const grossRatio = 1 - promoDiscount;
+      if (grossRatio > 0) {
+        const grossRoomTotal = totalRoomTotal / grossRatio;
+        totalDiscountAmount = Math.round((grossRoomTotal - totalRoomTotal) * 100) / 100;
+      }
+    }
 
     const summary = {
       bookingNumber,
@@ -330,11 +337,13 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       guestEmail,
       guestPhone,
       roomCount,
-      roomTotal: Math.round((discountedRoomTotal + Number.EPSILON) * 100) / 100,
-      accommodationVat: Math.round((discountedAccommodationVat + Number.EPSILON) * 100) / 100,
-      packageVat: Math.round((discountedPackageVat + Number.EPSILON) * 100) / 100,
-      propertyFee: Math.round((discountedPropertyFee + Number.EPSILON) * 100) / 100,
-      grandTotal: Math.round((discountedRoomTotal + discountedAccommodationVat + discountedPackageVat + discountedPropertyFee + Number.EPSILON) * 100) / 100,
+      roomTotal: Math.round((totalRoomTotal + Number.EPSILON) * 100) / 100,
+      accommodationVat: Math.round((totalAccommodationVat + Number.EPSILON) * 100) / 100,
+      packageVat: Math.round((totalPackageVat + Number.EPSILON) * 100) / 100,
+      propertyFee: Math.round((totalPropertyFee + Number.EPSILON) * 100) / 100,
+      grandTotal: Math.round((totalRoomTotal + totalAccommodationVat + totalPackageVat + totalPropertyFee + Number.EPSILON) * 100) / 100,
+      promoCode,
+      promoDiscountAmount: totalDiscountAmount,
       status: status || 'confirmed'
     };
 
@@ -513,6 +522,9 @@ export const createBooking = webMethod(
       }
     }
 
+    const promoDiscountRate = parseFloat(booking.promoDiscount) || 0;
+    const discountRatio = promoDiscountRate > 0 && promoDiscountRate < 1 ? (1 - promoDiscountRate) : 1;
+
     const toInsert = {
       roomCode: roomCode,
       // checkIn and checkOut are intentionally stored only in BookingSummary
@@ -520,15 +532,16 @@ export const createBooking = webMethod(
       guests: guests,
       status: booking.status || 'confirmed',
       quantity: 1,
-      roomTotal: roomTotal || 0,
-      propertyFee: propertyFee || 0,
-      accomodationVat: accomodationVat || 0,
-      packageVat: packageVat || 0,
-      grandTotal: grandTotal || 0,
+      roomTotal: Math.round((roomTotal || 0) * discountRatio * 100) / 100,
+      propertyFee: Math.round((propertyFee || 0) * discountRatio * 100) / 100,
+      accomodationVat: Math.round((accomodationVat || 0) * discountRatio * 100) / 100,
+      packageVat: Math.round((packageVat || 0) * discountRatio * 100) / 100,
+      grandTotal: Math.round((grandTotal || 0) * discountRatio * 100) / 100,
       bookingNumber: invoiceNumber || '',
       note: saveNote || '',
       promoCode: booking.promoCode || '',
       promoDiscount: booking.promoDiscount || 0,
+      promoApplied: true,
     };
     console.log('>>> SERVER toInsert keys:', Object.keys(toInsert).join(', '));
     console.log('>>> SERVER toInsert financials => roomTotal:', toInsert.roomTotal, '| propertyFee:', toInsert.propertyFee, '| accomodationVat:', toInsert.accomodationVat, '| packageVat:', toInsert.packageVat, '| grandTotal:', toInsert.grandTotal, '| bookingNumber:', toInsert.bookingNumber);
@@ -648,7 +661,8 @@ export const issueBookingInvoice = webMethod(
     // Promo code stored on first booking row (all rows in group share same code).
     const promoDiscount = parseFloat(firstRow.promoDiscount) || 0;
     const promoCode = firstRow.promoCode || '';
-    const promoDiscountAmount = promoDiscount > 0 ? subtotal_net * promoDiscount : 0;
+    // createBooking now writes discounted room-level financials, so do not double-discount.
+    const alreadyDiscounted = firstRow.promoApplied === true;
 
     for (const row of bookingsRes.items) {
       const nights = nightsBetween(checkInDate || dates.checkIn, checkOutDate || dates.checkOut);
@@ -706,11 +720,26 @@ export const issueBookingInvoice = webMethod(
       total_pkg_vat += pkgVat;
     }
 
-    // Apply promo discount to subtotal before taxes and fees
-    const discountAmount = promoDiscount > 0 ? Math.round(subtotal_net * promoDiscount * 100) / 100 : 0;
+    // Apply promo discount. If createBooking already wrote discounted values,
+    // the aggregates are already net values, so we just report the discount.
+    let discountAmount = 0;
+    let discountRatio = 1;
+    if (promoDiscount > 0) {
+      if (alreadyDiscounted) {
+        const grossRatio = 1 - promoDiscount;
+        if (grossRatio > 0) {
+          const grossRoomTotal = subtotal_net / grossRatio;
+          discountAmount = Math.round((grossRoomTotal - subtotal_net) * 100) / 100;
+          discountRatio = subtotal_net / grossRoomTotal;
+        }
+      } else {
+        discountAmount = Math.round(subtotal_net * promoDiscount * 100) / 100;
+        discountRatio = subtotal_net > 0 ? (subtotal_net - discountAmount) / subtotal_net : 1;
+      }
+    }
+
     const discountedSubtotal = Math.round((subtotal_net - discountAmount) * 100) / 100;
-    const discountedPropertyFee = Math.round(total_property_fee * (discountedSubtotal / (subtotal_net || 1)) * 100) / 100;
-    const discountRatio = subtotal_net > 0 ? discountedSubtotal / subtotal_net : 1;
+    const discountedPropertyFee = Math.round(total_property_fee * discountRatio * 100) / 100;
     const discountedTotalVat = Math.round(total_vat * discountRatio * 100) / 100;
     const discountedAccVat = Math.round(total_acc_vat * discountRatio * 100) / 100;
     const discountedPkgVat = Math.round(total_pkg_vat * discountRatio * 100) / 100;
@@ -719,13 +748,14 @@ export const issueBookingInvoice = webMethod(
     // Rebuild line_items for discounted amounts
     const discounted_line_items = [];
     for (const li of line_items) {
-      const discountedNet = Math.round(li.net * discountRatio * 100) / 100;
-      const discountedVat = Math.round(li.vat * discountRatio * 100) / 100;
+      const discountedNet = alreadyDiscounted ? li.net : Math.round(li.net * discountRatio * 100) / 100;
+      const discountedVat = alreadyDiscounted ? li.vat : Math.round(li.vat * discountRatio * 100) / 100;
+      const finalUnitPrice = li.quantity > 0 ? discountedNet / li.quantity : 0;
       discounted_line_items.push({
         label: li.label,
         tax_class: li.tax_class,
         quantity: li.quantity,
-        unit_price: li.quantity > 0 ? discountedNet / li.quantity : 0,
+        unit_price: finalUnitPrice,
         net: discountedNet,
         vat_rate: li.vat_rate,
         vat: discountedVat,
