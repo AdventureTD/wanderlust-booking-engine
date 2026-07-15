@@ -703,14 +703,20 @@ export const issueBookingInvoice = webMethod(
         gross: advNet + pkgVat
       });
 
+      // The room table in the PDF should show the original gross package total per
+      // room (matching the booking summary page), even when room-level values are
+      // stored with the promo discount already applied.
+      const displayGross = alreadyDiscounted && promoDiscount > 0 && promoDiscount < 1
+        ? roomTotal / (1 - promoDiscount)
+        : roomTotal;
       display_line_items.push({
         label: displayName,
         quantity: nights,
-        unit_price: nights > 0 ? roomTotal / nights : 0,
-        net: roomTotal,
+        unit_price: nights > 0 ? displayGross / nights : 0,
+        net: displayGross,
         vat_rate: 0,
-        vat: accVat + pkgVat,
-        gross: roomTotal + accVat + pkgVat
+        vat: 0,
+        gross: displayGross
       });
 
       subtotal_net += roomTotal;
