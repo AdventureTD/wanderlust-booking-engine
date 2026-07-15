@@ -713,6 +713,7 @@ export const issueBookingInvoice = webMethod(
       display_line_items.push({
         label: displayName,
         quantity: nights,
+        room_quantity: row.quantity || 1,
         unit_price: nights > 0 ? displayGross / nights : 0,
         net: displayGross,
         vat_rate: 0,

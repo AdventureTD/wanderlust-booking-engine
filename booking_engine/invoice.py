@@ -76,6 +76,7 @@ class InvoiceLine:
     vat_rate: float
     vat: float
     gross: float
+    room_quantity: float = 1.0
 
 
 @dataclass
@@ -121,6 +122,7 @@ class Invoice:
                 quantity=li.get("quantity", 1), unit_price=li.get("unit_price", li["net"]),
                 net=li["net"], vat_rate=li["vat_rate"], vat=li["vat"],
                 gross=li["gross"],
+                room_quantity=li.get("room_quantity", li.get("quantity", 1)),
             )
             for li in display_items
         ]
