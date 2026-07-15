@@ -38,6 +38,9 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     h_biz = ParagraphStyle("biz", parent=styles["Normal"], fontSize=9, leading=12)
     h_title = ParagraphStyle("title", parent=styles["Title"], fontSize=22,
                              textColor=BRAND_TEAL, alignment=0)  # left
+    h_guest = ParagraphStyle("guest", parent=styles["Normal"], fontSize=16,
+                             leading=20, fontName="Helvetica-Bold",
+                             textColor=BRAND_TEAL)
     small = ParagraphStyle("small", parent=styles["Normal"], fontSize=8,
                            textColor=colors.grey)
     bold = ParagraphStyle("bold", parent=styles["Normal"], fontSize=9,
@@ -84,18 +87,13 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     # Use the full available width so the right block touches the right margin.
     available_w = letter[0] - doc.leftMargin - doc.rightMargin  # points
     right_col_w = available_w - 88 * mm
-    meta_html = (
-        f"<b>Invoice #:</b> {inv.invoice_number}<br/>"
-        f"<b>Date:</b> {inv.issue_date.isoformat()}<br/>"
-        f"<b>Currency:</b> {inv.currency}"
-    )
     bill_to_html = (
         f"<b>BILL TO</b><br/>{inv.guest.name}<br/>"
         f"{inv.guest.email}<br/>{inv.guest.phone}"
     )
     right_block = Table([
         [Paragraph(biz_html, h_biz)],
-        [Paragraph(meta_html, h_biz)],
+        [Paragraph(" ", h_biz)],
         [Paragraph(bill_to_html, h_biz)],
     ], colWidths=[right_col_w])
     right_block.setStyle(TableStyle([
@@ -105,9 +103,16 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
 
+    meta_html = (
+        f"<b>Invoice #:</b> {inv.invoice_number}<br/>"
+        f"<b>Date:</b> {inv.issue_date.isoformat()}<br/>"
+        f"<b>Currency:</b> {inv.currency}"
+    )
     left_block = Table([
         [logo_cell],
         [Paragraph("INVOICE", h_title)],
+        [Paragraph(inv.guest.name, h_guest)],
+        [Paragraph(meta_html, h_biz)],
     ], colWidths=[88 * mm])
     left_block.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
