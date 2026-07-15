@@ -230,7 +230,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         ("TOPPADDING", (0, 0), (-1, -1), 3),
     ]))
     elems.append(totals)
-    elems.append(Spacer(1, 8 * mm))
+    elems.append(Spacer(1, 4 * mm))
 
     # Dominica VAT summary is rendered at the bottom of the invoice.
 
