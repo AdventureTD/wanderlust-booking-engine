@@ -82,6 +82,9 @@ def render_invoice_pdf(inv, out_path: str) -> str:
 
     # ---- Header: logo (left) + right-aligned stacked block (right) ----
     # Right block contains: business address, invoice #/date, then BILL TO.
+    # Use the full available width so the right block touches the right margin.
+    available_w = letter[0] - doc.leftMargin - doc.rightMargin  # points
+    right_col_w = available_w - 88 * mm
     meta_html = (
         f"<b>Invoice #:</b> {inv.invoice_number}<br/>"
         f"<b>Date:</b> {inv.issue_date.isoformat()}<br/>"
@@ -95,7 +98,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         [Paragraph(biz_html, h_biz)],
         [Paragraph(meta_html, h_biz)],
         [Paragraph(bill_to_html, h_biz)],
-    ], colWidths=[82 * mm])
+    ], colWidths=[right_col_w])
     right_block.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
@@ -103,7 +106,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
 
-    header_table = Table([[logo_cell, right_block]], colWidths=[88 * mm, 82 * mm])
+    header_table = Table([[logo_cell, right_block]], colWidths=[88 * mm, right_col_w])
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
