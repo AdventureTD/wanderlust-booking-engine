@@ -84,9 +84,13 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         )
 
     # ---- Header: logo + INVOICE title (left), address/invoice#/BILL TO (right) ----
-    # Use the full available width so the right block touches the right margin.
+    # Use the full available width. Left column = logo width; right column consumes the rest
+    # so the address/BILL TO stack sits flush against the right margin while remaining
+    # left-justified internally.
     available_w = letter[0] - doc.leftMargin - doc.rightMargin  # points
-    right_col_w = available_w - 88 * mm
+    left_col_w = 70 * mm
+    right_col_w = available_w - left_col_w
+
     bill_to_html = (
         f"<b>BILL TO</b><br/>{inv.guest.name}<br/>"
         f"{inv.guest.email}<br/>{inv.guest.phone}"
@@ -113,14 +117,14 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         [Paragraph("INVOICE", h_title)],
         [Paragraph(inv.guest.name, h_guest)],
         [Paragraph(meta_html, h_biz)],
-    ], colWidths=[88 * mm])
+    ], colWidths=[left_col_w])
     left_block.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
 
-    header_table = Table([[left_block, right_block]], colWidths=[88 * mm, right_col_w])
+    header_table = Table([[left_block, right_block]], colWidths=[left_col_w, right_col_w])
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
