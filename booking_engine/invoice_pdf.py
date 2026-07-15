@@ -90,6 +90,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     # ---- Business block + invoice meta ----
     biz_html = (
         f"<b>{biz['legal_name']}</b><br/>"
+        "Caribbean Appalachia, Ltd.<br/>"
         + "<br/>".join(biz["address_lines"])
         + f"<br/>{biz['phone']}<br/>{biz['email']}<br/>{biz['website']}"
         + f"<br/><b>Tax ID:</b> {biz['tax_id']}"
