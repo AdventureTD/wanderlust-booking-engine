@@ -213,6 +213,14 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     if inv.promo_discount_amount > 0 and inv.promo_code:
         pct = int(round(inv.promo_discount_rate * 100))
         tot_rows.append([f"Promo Code — {pct}% off", "-" + _money(inv.promo_discount_amount)])
+        # full-width separator under promo code row
+        elems.append(Spacer(1, 1 * mm))
+        sep = Table([[""]], colWidths=[180 * mm])
+        sep.setStyle(TableStyle([
+            ("LINEBELOW", (0, 0), (-1, -1), 0.5, BRAND_TEAL),
+        ]))
+        elems.append(sep)
+        elems.append(Spacer(1, 1 * mm))
         tot_rows.append(["Subtotal after discount", _money(inv.subtotal_net)])
     tot_rows.append(["Total VAT", _money(inv.total_vat)])
     if inv.property_fee:
