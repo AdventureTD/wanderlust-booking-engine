@@ -559,21 +559,27 @@ function wireContinueButton() {
       if (sharedBookingNumber) {
         safeText('bookingStatus', 'Booking confirmed! Taking you home...');
         // Start invoice/calendar creation in the background so the redirect is not blocked.
-        issueBookingInvoice(sharedBookingNumber)
+        const invoicePromise = issueBookingInvoice(sharedBookingNumber)
           .then(function (invResult) {
             console.log('[WBE-FRONTEND] Invoice service response:', JSON.stringify(invResult));
             if (invResult && invResult._calendar_debug && !invResult._calendar_debug.ok) {
               console.warn('[WBE-FRONTEND] Calendar event NOT created:', invResult._calendar_debug);
             }
+            return invResult;
           })
           .catch(function (e) {
             console.error('[WBE-FRONTEND] Invoice generation failed:', e.message);
           });
+        // Short delay so the async invoice call can complete before redirecting.
+        Promise.all([invoicePromise, new Promise(function (resolve) { setTimeout(resolve, 2500); })])
+          .finally(function () {
+            console.log('[WBE-FRONTEND] redirecting to home');
+            wixLocation.to('https://www.wanderlustcaribbean.com');
+          });
       } else {
         safeText('bookingStatus', 'Booking confirmed! Taking you home...');
+        wixLocation.to('https://www.wanderlustcaribbean.com');
       }
-
-      wixLocation.to('https://www.wanderlustcaribbean.com');
     } catch (e) {
       safeText('bookingStatus', 'Booking error: ' + e.message);
       safeDisable('btnContinue', false);
