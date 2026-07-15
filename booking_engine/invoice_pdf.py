@@ -68,7 +68,7 @@ def _dominica_vat_summary_elems(inv, h_biz, bold):
 
 def render_invoice_pdf(inv, out_path: str) -> str:
     styles = getSampleStyleSheet()
-    h_biz = ParagraphStyle("biz", parent=styles["Normal"], fontSize=9, leading=12)
+    h_biz = ParagraphStyle("biz", parent=styles["Normal"], fontSize=9, leading=12, alignment=0)
     h_title = ParagraphStyle("title", parent=styles["Title"], fontSize=22,
                              textColor=BRAND_TEAL, alignment=0)  # left
     h_guest = ParagraphStyle("guest", parent=styles["Normal"], fontSize=16,
@@ -256,7 +256,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     elems.append(Paragraph(terms_text, terms))
     elems.append(Spacer(1, 5 * mm))
 
-    elems.append(Spacer(1, 8 * mm))
+    elems.append(Spacer(1, 4 * mm))
     elems.extend(_dominica_vat_summary_elems(inv, h_biz, bold))
     elems.append(Spacer(1, 5 * mm))
 
