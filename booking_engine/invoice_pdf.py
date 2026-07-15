@@ -170,13 +170,42 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     elems.append(tbl)
     elems.append(Spacer(1, 5 * mm))
 
-    # ---- VAT summary (left) + Totals block (right) ----
+    # ---- Financial summary (right-aligned, directly under the table) ----
+    tot_rows = [["Subtotal (net)", _money(inv.subtotal_net + inv.promo_discount_amount)]]
+    if inv.promo_discount_amount > 0 and inv.promo_code:
+        pct = int(round(inv.promo_discount_rate * 100))
+        tot_rows.append([f"Promo Code — {pct}% off", "-" + _money(inv.promo_discount_amount)])
+        tot_rows.append(["Subtotal after discount", _money(inv.subtotal_net)])
+    label_map = {"accommodation": "VAT 10% (Accommodation)",
+                 "standard": "VAT 15% (Services)"}
+    for cls, amt in inv.vat_by_class.items():
+        tot_rows.append([label_map.get(cls, f"VAT ({cls})"), _money(amt)])
+    tot_rows.append(["Total VAT", _money(inv.total_vat)])
+    if inv.property_fee:
+        fee_pct = int(round(inv.property_fee_rate * 100))
+        tot_rows.append([f"Property fee ({fee_pct}%)", _money(inv.property_fee)])
+    tot_rows.append(["TOTAL DUE", _money(inv.total)])
+
+    totals = Table(tot_rows, colWidths=[55 * mm, 25 * mm], hAlign="RIGHT")
+    totals.setStyle(TableStyle([
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("LINEABOVE", (0, -1), (-1, -1), 1, BRAND_TEAL),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("TEXTCOLOR", (0, -1), (-1, -1), BRAND_TEAL),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    elems.append(totals)
+    elems.append(Spacer(1, 8 * mm))
+
+    # ---- Dominica VAT summary (no box) ----
     subtotal = inv.subtotal_net
     acc_amt = subtotal * inv.accommodation_allocation
     svc_amt = subtotal * inv.services_allocation
     acc_vat = acc_amt * 0.10
     svc_vat = svc_amt * 0.15
 
+    elems.append(Paragraph("Dominica VAT Summary:", bold))
     vat_rows = [
         ["Subtotal:", _money(subtotal)],
         ["Accommodation VAT:", f"{_money(acc_amt)} * 10% = {_money(acc_vat)}"],
@@ -195,54 +224,8 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         ("LINEABOVE", (0, -1), (-1, -1), 1, BRAND_TEAL),
         ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
         ("TEXTCOLOR", (0, -1), (-1, -1), BRAND_TEAL),
-        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#cccccc")),
     ]))
-
-    # Label above the boxed VAT data.
-    elems.append(Paragraph("Dominica VAT Summary:", bold))
-    elems.append(Spacer(1, 1.5 * mm))
-
-    left_inner = Table([[vat_table]], colWidths=[110 * mm])
-    left_inner.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ]))
-
-    tot_rows = [["Subtotal (net)", _money(inv.subtotal_net + inv.promo_discount_amount)]]
-    if inv.promo_discount_amount > 0 and inv.promo_code:
-        pct = int(round(inv.promo_discount_rate * 100))
-        tot_rows.append([f"Promo Code — {pct}% off", "-" + _money(inv.promo_discount_amount)])
-        tot_rows.append(["Subtotal after discount", _money(inv.subtotal_net)])
-    label_map = {"accommodation": "VAT 10% (Accommodation)",
-                 "standard": "VAT 15% (Services)"}
-    for cls, amt in inv.vat_by_class.items():
-        tot_rows.append([label_map.get(cls, f"VAT ({cls})"), _money(amt)])
-    tot_rows.append(["Total VAT", _money(inv.total_vat)])
-    if inv.property_fee:
-        fee_pct = int(round(inv.property_fee_rate * 100))
-        tot_rows.append([f"Property fee ({fee_pct}%)", _money(inv.property_fee)])
-    tot_rows.append(["TOTAL DUE", _money(inv.total)])
-
-    totals = Table(tot_rows, colWidths=[40 * mm, 20 * mm], hAlign="RIGHT")
-    totals.setStyle(TableStyle([
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-        ("LINEABOVE", (0, -1), (-1, -1), 1, BRAND_TEAL),
-        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("TEXTCOLOR", (0, -1), (-1, -1), BRAND_TEAL),
-        ("TOPPADDING", (0, 0), (-1, -1), 3),
-    ]))
-
-    parent = Table([[left_inner, totals]], colWidths=[120 * mm, 60 * mm])
-    parent.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-    ]))
-    elems.append(parent)
+    elems.append(vat_table)
     elems.append(Spacer(1, 8 * mm))
 
     terms = ParagraphStyle("terms", parent=styles["Normal"], fontSize=9,
