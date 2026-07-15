@@ -26,7 +26,7 @@ function setRoomQty(roomCode, roomName, baseRate, qty, availableCheckIn, availab
 function updateSelectionPanel() {
   const panel = tryFind('selectionPanel'), container = tryFind('selectedRoomsContainer');
   if (!panel || !container) return;
-  if (_selections.length === 0) { panel.collapse(); container.text = ''; return; }
+  if (_selections.length === 0) { panel.collapse(); try { container.collapse(); } catch (e) {} container.text = ''; return; }
   panel.expand();
   if (typeof container.show === 'function') { try { container.show(); } catch (e) {} }
   if (typeof container.expand === 'function') { try { container.expand(); } catch (e) {} }
@@ -124,6 +124,8 @@ $w.onReady(function () {
 
   const panel = tryFind('selectionPanel');
   if (panel) panel.collapse();
+  const containerStart = tryFind('selectedRoomsContainer');
+  if (containerStart) { try { containerStart.collapse(); } catch (e) {} }
   const repStart = tryFind('searchResultsRepeater');
   if (repStart) { try { repStart.collapse(); } catch (e) {} }
   loadMessages();
@@ -195,6 +197,8 @@ async function searchHandler() {
     if (container) { try { container.show(); } catch (e) {} try { container.expand(); } catch (e) {} }
     const btnContinue = tryFind('btnContinueToSummary');
     if (btnContinue) { try { btnContinue.show(); } catch (e) {} try { btnContinue.expand(); } catch (e) {} }
+
+    updateSelectionPanel();
 
     const repData = [];
     for (let i = 0; i < res.results.length; i++) {
