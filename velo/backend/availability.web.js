@@ -978,7 +978,7 @@ export const validatePromoCode = webMethod(
       }
       const minimumNights = parseInt(found.minimumNights, 10) || 0;
       if (minimumNights > 0 && (totalGuestNights || 0) < minimumNights) {
-        return { valid: false, reason: `Promo code requires a minimum of ${minimumNights} guest nights.` };
+        return { valid: false, reason: `Promo code requires a minimum of ${minimumNights} nights.` };
       }
 
       const discount = parseFloat(found.discount) || 0;

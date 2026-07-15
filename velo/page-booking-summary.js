@@ -201,14 +201,8 @@ async function wirePromoCode() {
     try {
       safeText('promoStatus', 'Checking...');
 
-      // total guest nights = rooms × guests per room × nights
-      const rooms = _summaryRooms || [];
-      const nights = _summaryNights || 0;
-      let totalGuestNights = 0;
-      for (let i = 0; i < rooms.length; i++) {
-        const rr = rooms[i];
-        totalGuestNights += (rr.qty || 1) * (rr.guests || 1) * nights;
-      }
+      // Guest nights are simply the length of the reservation.
+      const totalGuestNights = _summaryNights || 0;
       const result = await validatePromoCode(code, totalGuestNights);
       console.log('[WBE-PROMO] validatePromoCode result:', JSON.stringify(result));
       if (result && result.valid) {
