@@ -216,7 +216,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         tot_rows.append([f"Property fee ({fee_pct}%)", _money(inv.property_fee)])
     tot_rows.append(["TOTAL DUE", _money(inv.total)])
 
-    totals = Table(tot_rows, colWidths=[55 * mm, 25 * mm], hAlign="RIGHT")
+    totals = Table(tot_rows, colWidths=[55 * mm, 55 * mm], hAlign="RIGHT")
     totals.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (1, 0), (1, -1), "RIGHT"),
@@ -241,10 +241,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         terms))
     elems.append(Spacer(1, 5 * mm))
 
-    if inv.included_amenities:
-        elems.append(Paragraph("<b>Package Details:</b>", h_biz))
-        elems.append(Paragraph(inv.included_amenities, h_biz))
-        elems.append(Spacer(1, 5 * mm))
+    # Package Details block removed; included amenities are shown in Package Information.
 
     terms_text = (
         "<b>Charge will show on your credit card as Caribbean Appalachia, Ltd.</b><br/><br/>"
