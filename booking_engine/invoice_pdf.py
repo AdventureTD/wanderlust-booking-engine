@@ -69,6 +69,8 @@ def _dominica_vat_summary_elems(inv, h_biz, bold):
 def render_invoice_pdf(inv, out_path: str) -> str:
     styles = getSampleStyleSheet()
     h_biz = ParagraphStyle("biz", parent=styles["Normal"], fontSize=9, leading=12, alignment=0)
+    p_left = ParagraphStyle("left-para", parent=styles["Normal"], fontSize=10,
+                            leading=13, alignment=0)
     h_title = ParagraphStyle("title", parent=styles["Title"], fontSize=22,
                              textColor=BRAND_TEAL, alignment=0)  # left
     h_guest = ParagraphStyle("guest", parent=styles["Normal"], fontSize=16,
@@ -169,13 +171,14 @@ def render_invoice_pdf(inv, out_path: str) -> str:
 
     # ---- Package info ----
     if inv.package_title or inv.included_amenities or inv.check_in or inv.check_out:
+        elems.append(Spacer(1, 2 * mm))
         elems.append(Paragraph("PACKAGE INFORMATION", bold))
         # Stay and Package on separate lines, left-justified.
         if inv.check_in and inv.check_out:
-            elems.append(Paragraph(f"<b>Stay:</b> {inv.check_in} to {inv.check_out}", h_biz))
+            elems.append(Paragraph(f"<b>Stay:</b> {inv.check_in} to {inv.check_out}", p_left))
         if inv.package_title:
-            elems.append(Paragraph(f"<b>Package:</b> {inv.package_title}", h_biz))
-        elems.append(Spacer(1, 5 * mm))
+            elems.append(Paragraph(f"<b>Package:</b> {inv.package_title}", p_left))
+        elems.append(Spacer(1, 3 * mm))
 
     # ---- Line items table ----
     head = ["Room(s)", "Qty", "Nights", "Package Total"]
@@ -202,7 +205,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
     elems.append(tbl)
-    elems.append(Spacer(1, 5 * mm))
+    elems.append(Spacer(1, 3 * mm))
 
     # ---- Financial summary (right-aligned, directly under the table) ----
     tot_rows = [["Subtotal (net)", _money(inv.subtotal_net + inv.promo_discount_amount)]]
