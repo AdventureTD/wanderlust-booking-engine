@@ -570,8 +570,8 @@ function wireContinueButton() {
           .catch(function (e) {
             console.error('[WBE-FRONTEND] Invoice generation failed:', e.message);
           });
-        // Short delay so the async invoice call can complete before redirecting.
-        Promise.all([invoicePromise, new Promise(function (resolve) { setTimeout(resolve, 2500); })])
+        // Race the invoice call against a short timer — redirect after max 1.5s.
+        Promise.race([invoicePromise, new Promise(function (resolve) { setTimeout(resolve, 1500); })])
           .finally(function () {
             console.log('[WBE-FRONTEND] redirecting to home');
             wixLocation.to('https://www.wanderlustcaribbean.com');
