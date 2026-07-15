@@ -88,7 +88,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     # so the address/BILL TO stack sits flush against the right margin while remaining
     # left-justified internally.
     available_w = letter[0] - doc.leftMargin - doc.rightMargin  # points
-    left_col_w = 70 * mm
+    left_col_w = 100 * mm
     right_col_w = available_w - left_col_w
 
     bill_to_html = (
@@ -102,7 +102,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     ], colWidths=[right_col_w])
     right_block.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
@@ -127,6 +127,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     header_table = Table([[left_block, right_block]], colWidths=[left_col_w, right_col_w])
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
