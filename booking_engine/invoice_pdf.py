@@ -249,11 +249,8 @@ def render_invoice_pdf(inv, out_path: str) -> str:
 
     terms_text = (
         "<b>Charge will show on your credit card as Caribbean Appalachia, Ltd.</b><br/><br/>"
-        "<b>Cancellation Policy:</b><br/>"
-        "A full refund (minus credit card fees) will be provided for guest cancellations requested 31 days or more before scheduled arrival.<br/>"
-        "Reservation cancellations within 30 days of arrival do not qualify for a refund.<br/><br/>"
-        "<b>Private Group Bookings:</b><br/>"
-        "Cancellations made within 90 days of the scheduled arrival date are not eligible for a refund.<br/><br/>"
+        "<b>Cancellation Policy:</b> A full refund (minus credit card fees) will be provided for guest cancellations requested 31 days or more before scheduled arrival. Reservation cancellations within 30 days of arrival do not qualify for a refund.<br/><br/>"
+        "<b>Private Group Bookings:</b> Cancellations made within 90 days of the scheduled arrival date are not eligible for a refund.<br/><br/>"
         "Guests can re-schedule their vacation with the full reservation deposit applied to the new reservation. The re-scheduled vacation must occur within two (2) years of the initial arrival day and can be booked for any available dates except December 15th - January 7th when special rates apply."
     )
     elems.append(Paragraph(terms_text, terms))
