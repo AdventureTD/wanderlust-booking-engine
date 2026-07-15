@@ -49,6 +49,14 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     biz = inv.business
     elems = []
 
+    # ---- Business block + invoice meta ----
+    biz_html = (
+        f"<b>{biz['legal_name']}</b><br/>"
+        + "<br/>".join(biz["address_lines"])
+        + f"<br/>{biz['phone']}<br/>{biz['email']}<br/>{biz['website']}"
+        + f"<br/><b>Tax ID:</b> {biz['tax_id']}"
+    )
+
     # ---- Header: logo (left) + INVOICE title (right) ----
     logo_cell = None
     logo_path = biz.get("logo_path") or ""
@@ -92,14 +100,6 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     elems.append(Spacer(1, 2 * mm))
     elems.append(Paragraph("INVOICE", h_title))
     elems.append(Spacer(1, 4 * mm))
-
-    # ---- Business block + invoice meta ----
-    biz_html = (
-        f"<b>{biz['legal_name']}</b><br/>"
-        + "<br/>".join(biz["address_lines"])
-        + f"<br/>{biz['phone']}<br/>{biz['email']}<br/>{biz['website']}"
-        + f"<br/><b>Tax ID:</b> {biz['tax_id']}"
-    )
     meta_html = (
         f"<b>Invoice #:</b> {inv.invoice_number}<br/>"
         f"<b>Date:</b> {inv.issue_date.isoformat()}<br/>"

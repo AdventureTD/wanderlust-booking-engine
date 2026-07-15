@@ -2,24 +2,17 @@
 ## Session checkpoint: 2026-07-12
 
 ### Current Code State
-- **GitHub `main` HEAD:** `06b7e6e`
-- **Render:** Auto-deployed from `main`
-- **Wix Live status:** UNVERIFIED — files pushed to GitHub; copying into Wix Editor + Publish pending
+- **GitHub `main` HEAD:** `5a9a277`
+- **Render:** Auto-deployed from `main` (deploy in progress)
+- **Wix Live status:** Python-only fix, no Velo copy needed this time
 
 ### Promo Code Feature (NEW)
-- Collection: `PromoCodes` (no space; fields: `title`, `discount`, `startDate`, `endDate`)
-- Discount applied to subtotal BEFORE VAT and property fee
-- Frontend: guest enters code on Booking Summary page; `validatePromoCode` webMethod checks startDate/endDate inclusive
-- Displays: "Promo Code (CODE): -$XXX.XX (-15%)" 
-- Invoice PDF shows: original subtotal → discount line → discounted subtotal → VAT/fees → TOTAL DUE; promo label omits code text to prevent overlap
-- **Bookings** rows store discounted `roomTotal`, `accomodationVat`, `packageVat`, `propertyFee`, `grandTotal`; plus `promoCode`, `promoDiscount`, `promoApplied`
-- **BookingSummary** collection tracks `promoCode` and `promoDiscountAmount`
+### Latest Fix
+- **Invoice creation stopped** because `booking_engine/invoice_pdf.py` used `biz_html` before it was defined (NameError on Render).
+- Fix pushed in `5a9a277`; local PDF generation verified.
 
 ### Files Modified in Last Session
-- `velo/page-booking-summary.js` — promo input triggers on Enter, blur, and button click; discounted subtotal shown in `packageSubTotal`
-- `velo/backend/availability.web.js` — validatePromoCode queries `PromoCodes`; createBooking writes discounted room totals; updateBookingSummary writes promo tracking fields
-- `booking_engine/invoice.py` — Invoice dataclass gains promo_code, promo_discount_rate, promo_discount_amount
-- `booking_engine/invoice_pdf.py` — promo discount line in totals block
+- `booking_engine/invoice_pdf.py` — moved `biz_html` definition before header table construction
 
 ### Critical Recalls
 - BookingSummary `status` = `"In Process"` (with space, capital I and P)
