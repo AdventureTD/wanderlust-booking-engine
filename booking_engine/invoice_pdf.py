@@ -46,7 +46,7 @@ def _dominica_vat_summary_elems(inv, h_biz, bold):
         ["Accommodation VAT:", f"{_money(acc_amt)} * 10% = {_money(acc_vat)}"],
         ["Services VAT:", f"{_money(svc_amt)} * 15% = {_money(svc_vat)}"],
         ["Total VAT:", _money(inv.total_vat)],
-    ], colWidths=[42 * mm, 57 * mm])
+    ], colWidths=[42 * mm, 57 * mm], hAlign="LEFT")
     vat_table.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (0, 0), (-1, -1), "LEFT"),
@@ -80,7 +80,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
                           leading=12, fontName="Helvetica-Bold")
 
     doc = SimpleDocTemplate(out_path, pagesize=letter,
-                            topMargin=18 * mm, bottomMargin=18 * mm,
+                            topMargin=9 * mm, bottomMargin=18 * mm,
                             leftMargin=18 * mm, rightMargin=18 * mm)
     biz = inv.business
     elems = []
