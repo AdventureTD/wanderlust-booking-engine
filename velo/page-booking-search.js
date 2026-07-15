@@ -26,14 +26,17 @@ function setRoomQty(roomCode, roomName, baseRate, qty, availableCheckIn, availab
 function updateSelectionPanel() {
   const panel = tryFind('selectionPanel'), container = tryFind('selectedRoomsContainer');
   const btnContinue = tryFind('btnContinueToSummary');
+  const box3 = tryFind('box3');
   if (!panel || !container) return;
   if (_selections.length === 0) {
     panel.collapse();
     try { container.collapse(); } catch (e) {}
     if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
+    if (box3) { try { box3.collapse(); } catch (e) {} }
     container.text = '';
     return;
   }
+  if (box3) { try { box3.show(); } catch (e) {} try { box3.expand(); } catch (e) {} }
   panel.expand();
   if (typeof container.show === 'function') { try { container.show(); } catch (e) {} }
   if (typeof container.expand === 'function') { try { container.expand(); } catch (e) {} }
@@ -138,6 +141,8 @@ $w.onReady(function () {
   if (repStart) { try { repStart.collapse(); } catch (e) {} }
   const btnStart = tryFind('btnContinueToSummary');
   if (btnStart) { try { btnStart.collapse(); } catch (e) {} }
+  const boxStart = tryFind('box3');
+  if (boxStart) { try { boxStart.collapse(); } catch (e) {} }
   loadMessages();
 });
 
@@ -198,9 +203,6 @@ async function searchHandler() {
       if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
       return;
     }
-
-    const box3 = tryFind('box3');
-    if (box3) { try { box3.show(); } catch (e) {} try { box3.expand(); } catch (e) {} }
 
     updateSelectionPanel();
 
