@@ -25,11 +25,19 @@ function setRoomQty(roomCode, roomName, baseRate, qty, availableCheckIn, availab
 
 function updateSelectionPanel() {
   const panel = tryFind('selectionPanel'), container = tryFind('selectedRoomsContainer');
+  const btnContinue = tryFind('btnContinueToSummary');
   if (!panel || !container) return;
-  if (_selections.length === 0) { panel.collapse(); try { container.collapse(); } catch (e) {} container.text = ''; return; }
+  if (_selections.length === 0) {
+    panel.collapse();
+    try { container.collapse(); } catch (e) {}
+    if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
+    container.text = '';
+    return;
+  }
   panel.expand();
   if (typeof container.show === 'function') { try { container.show(); } catch (e) {} }
   if (typeof container.expand === 'function') { try { container.expand(); } catch (e) {} }
+  if (btnContinue) { try { btnContinue.show(); } catch (e) {} try { btnContinue.expand(); } catch (e) {} }
   let total = 0, lines = [];
   for (let i = 0; i < _selections.length; i++) {
     const s = _selections[i];
@@ -128,6 +136,8 @@ $w.onReady(function () {
   if (containerStart) { try { containerStart.collapse(); } catch (e) {} }
   const repStart = tryFind('searchResultsRepeater');
   if (repStart) { try { repStart.collapse(); } catch (e) {} }
+  const btnStart = tryFind('btnContinueToSummary');
+  if (btnStart) { try { btnStart.collapse(); } catch (e) {} }
   loadMessages();
 });
 
@@ -191,12 +201,6 @@ async function searchHandler() {
 
     const box3 = tryFind('box3');
     if (box3) { try { box3.show(); } catch (e) {} try { box3.expand(); } catch (e) {} }
-    const selPanel = tryFind('selectionPanel');
-    if (selPanel) { try { selPanel.show(); } catch (e) {} try { selPanel.expand(); } catch (e) {} }
-    const container = tryFind('selectedRoomsContainer');
-    if (container) { try { container.show(); } catch (e) {} try { container.expand(); } catch (e) {} }
-    const btnContinue = tryFind('btnContinueToSummary');
-    if (btnContinue) { try { btnContinue.show(); } catch (e) {} try { btnContinue.expand(); } catch (e) {} }
 
     updateSelectionPanel();
 
