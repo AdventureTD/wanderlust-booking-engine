@@ -82,7 +82,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
                           leading=12, fontName="Helvetica-Bold")
 
     doc = SimpleDocTemplate(out_path, pagesize=letter,
-                            topMargin=4.5 * mm, bottomMargin=18 * mm,
+                            topMargin=2 * mm, bottomMargin=18 * mm,
                             leftMargin=18 * mm, rightMargin=18 * mm)
     biz = inv.business
     elems = []
