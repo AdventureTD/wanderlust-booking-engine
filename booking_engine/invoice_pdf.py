@@ -80,8 +80,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
             h_biz,
         )
 
-    # ---- Header: logo (left) + right-aligned stacked block (right) ----
-    # Right block contains: business address, invoice #/date, then BILL TO.
+    # ---- Header: logo + INVOICE title (left), address/invoice#/BILL TO (right) ----
     # Use the full available width so the right block touches the right margin.
     available_w = letter[0] - doc.leftMargin - doc.rightMargin  # points
     right_col_w = available_w - 88 * mm
@@ -106,15 +105,23 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
 
-    header_table = Table([[logo_cell, right_block]], colWidths=[88 * mm, right_col_w])
+    left_block = Table([
+        [logo_cell],
+        [Paragraph("INVOICE", h_title)],
+    ], colWidths=[88 * mm])
+    left_block.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+
+    header_table = Table([[left_block, right_block]], colWidths=[88 * mm, right_col_w])
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
     elems.append(header_table)
-    elems.append(Spacer(1, 4 * mm))
-    elems.append(Paragraph("INVOICE", h_title))
     elems.append(Spacer(1, 8 * mm))
 
     # ---- Package info ----
