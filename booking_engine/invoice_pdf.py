@@ -72,8 +72,23 @@ def render_invoice_pdf(inv, out_path: str) -> str:
             h_biz,
         )
 
-    # Logo and invoice title, both left-justified
-    elems.append(logo_cell)
+    # Header: logo (upper left) with INVOICE immediately below it; address goes upper right.
+    right_col = Table([
+        [Paragraph(biz_html, h_biz)]
+    ], colWidths=[82 * mm])
+    right_col.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    header_table = Table([[logo_cell, right_col]], colWidths=[88 * mm, 82 * mm])
+    header_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    elems.append(header_table)
     elems.append(Spacer(1, 2 * mm))
     elems.append(Paragraph("INVOICE", h_title))
     elems.append(Spacer(1, 4 * mm))
@@ -90,15 +105,16 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         f"<b>Date:</b> {inv.issue_date.isoformat()}<br/>"
         f"<b>Currency:</b> {inv.currency}"
     )
-    info = Table([[Paragraph(biz_html, h_biz), Paragraph(meta_html, h_biz)]],
-                 colWidths=[110 * mm, 60 * mm])
-    info.setStyle(TableStyle([
+    # Invoice meta remains right-aligned below the address.
+    meta_para = Paragraph(meta_html, h_biz)
+    meta_row = Table([[meta_para]], colWidths=[170 * mm])
+    meta_row.setStyle(TableStyle([
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("ALIGN", (0, 0), (0, 0), "LEFT"),
-        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
-    elems.append(info)
+    elems.append(meta_row)
     elems.append(Spacer(1, 5 * mm))
 
     # ---- Bill to ----
