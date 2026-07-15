@@ -102,6 +102,17 @@ $w.onReady(function () {
   const rep = tryFind('searchResultsRepeater');
   if (rep && typeof rep.onItemReady === 'function') {
     rep.onItemReady(($item, itemData) => {
+      if ((itemData.maxQty || 0) <= 0 || itemData.status === 'unavailable') {
+        safeItem($item, '#roomName', 'text', (itemData.roomName || itemData.roomCode || '') + ' — Not available for these dates');
+        safeItem($item, '#roomPrice', 'text', '');
+        safeItem($item, '#roomAvailability', 'text', '');
+        safeItem($item, '#numRooms', 'text', '');
+        safeItem($item, '#occupancy', 'text', '');
+        safeItem($item, '#defaultOccupancy', 'text', '');
+        const dd = safeItem($item, '#roomQtyDropdown', null, null);
+        if (dd) { dd.options = [{ label: '0', value: '0' }]; dd.value = '0'; try { dd.disable(); } catch (e) {} }
+        return;
+      }
       safeItem($item, '#roomName', 'text', itemData.roomName || itemData.roomCode || '');
       safeItem($item, '#roomPrice', 'text', '$' + (itemData.baseRate || 0) + ' / night (' + itemData.availableNights + ' nights)');
       safeItem($item, '#roomAvailability', 'text',
@@ -207,17 +218,19 @@ async function searchHandler() {
     updateSelectionPanel();
 
     const repData = [];
+    const availableData = [];
     for (let i = 0; i < res.results.length; i++) {
       const item = res.results[i];
-      if ((item.maxQty || 0) <= 0) continue;
       item._id = 'room_' + i;
       repData.push(item);
+      if ((item.maxQty || 0) > 0 && item.status !== 'unavailable') availableData.push(item);
     }
-    if (repData.length === 0) {
-      rep.data = [];
+    if (availableData.length === 0) {
+      rep.data = repData;
       safeText('No rooms are available for the dates entered.');
       clearSelections(true);
-      try { rep.collapse(); } catch (e) {}
+      updateSelectionPanel();
+      try { rep.expand(); } catch (e) {}
       const box3 = tryFind('box3');
       if (box3) { try { box3.collapse(); } catch (e) {} }
       const selPanel = tryFind('selectionPanel');

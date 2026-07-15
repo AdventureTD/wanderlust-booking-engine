@@ -116,7 +116,17 @@ export const searchAvailability = webMethod(
       const baseOcc = rm.baseOccupancy || maxOcc;
 
       const minNights = rm.minNightsAllowed != null ? Number(rm.minNightsAllowed) : null;
-      if (minNights != null && !isNaN(minNights) && rq < minNights) continue;
+      if (minNights != null && !isNaN(minNights) && rq < minNights) {
+        out.push({
+          roomCode: code, roomName: name, units: units,
+          occupancy: maxOcc, baseOccupancy: baseOcc,
+          maxQty: 0, status: 'unavailable',
+          availableCheckIn: '', availableCheckOut: '',
+          availableNights: 0, baseRate: 0,
+          mainPhoto: imgUrl(rm.mainPhoto),
+        });
+        continue;
+      }
 
       const rBookings = allBookings.filter(b => b.roomCode === code);
 
@@ -157,7 +167,17 @@ export const searchAvailability = webMethod(
 
       if (allAvail) {
         const rate = priceMap[code + '|' + rq];
-        if (rate === undefined) continue;
+        if (rate === undefined) {
+          out.push({
+            roomCode: code, roomName: name, units: units,
+            occupancy: maxOcc, baseOccupancy: baseOcc,
+            maxQty: 0, status: 'unavailable',
+            availableCheckIn: '', availableCheckOut: '',
+            availableNights: 0, baseRate: 0,
+            mainPhoto: imgUrl(rm.mainPhoto),
+          });
+          continue;
+        }
         out.push({
           roomCode: code, roomName: name, units: units,
           occupancy: maxOcc, baseOccupancy: baseOcc,
@@ -170,7 +190,17 @@ export const searchAvailability = webMethod(
         continue;
       }
 
-      if (maxQty <= 0) continue;
+      if (maxQty <= 0) {
+        out.push({
+          roomCode: code, roomName: name, units: units,
+          occupancy: maxOcc, baseOccupancy: baseOcc,
+          maxQty: 0, status: 'unavailable',
+          availableCheckIn: '', availableCheckOut: '',
+          availableNights: 0, baseRate: 0,
+          mainPhoto: imgUrl(rm.mainPhoto),
+        });
+        continue;
+      }
 
       let bs = null, bl = 0, cs = null, cl = 0;
       for (let i = 0; i < bpn.length; i++) {
@@ -182,7 +212,17 @@ export const searchAvailability = webMethod(
 
       if (bs !== null && bl >= MIN_N) {
         const rate = priceMap[code + '|' + bl];
-        if (rate === undefined) continue;
+        if (rate === undefined) {
+          out.push({
+            roomCode: code, roomName: name, units: units,
+            occupancy: maxOcc, baseOccupancy: baseOcc,
+            maxQty: 0, status: 'unavailable',
+            availableCheckIn: '', availableCheckOut: '',
+            availableNights: 0, baseRate: 0,
+            mainPhoto: imgUrl(rm.mainPhoto),
+          });
+          continue;
+        }
         let minFreePartial = units;
         for (let i = bs; i < bs + bl; i++) {
           const free = units - bpn[i];
