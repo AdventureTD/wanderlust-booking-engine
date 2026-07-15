@@ -495,6 +495,7 @@ export const createBooking = webMethod(
     let saveNote = note;
     const bookingNumber = booking.bookingNumber;
     const quantity = Math.max(1, parseInt(booking.quantity || 1, 10) || 1);
+    console.log('>>> SERVER received quantity raw:', booking.quantity, 'parsed:', quantity);
 
     console.log('>>> SERVER roomCode:', roomCode, 'checkIn:', checkIn, 'checkOut:', checkOut, 'guests:', guests);
     const roomDisplay = getRoomDisplayName(roomCode);

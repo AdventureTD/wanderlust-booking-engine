@@ -507,6 +507,7 @@ function wireContinueButton() {
           promoCode: _promoCodeApplied,
           promoDiscount: _promoDiscount,
         };
+        console.log('[WBE-FRONTEND] first payload quantity:', payload0.quantity);
         const b0 = await createBooking(payload0);
         bookings.push(b0);
         if (b0.bookingNumber) sharedBookingNumber = b0.bookingNumber;
@@ -536,6 +537,7 @@ function wireContinueButton() {
             promoCode: _promoCodeApplied,
             promoDiscount: _promoDiscount,
           };
+          console.log('[WBE-FRONTEND] payload quantity for', r.roomCode, ':', payload.quantity);
           restPromises.push(
             createBooking(payload)
               .then(function (b) { return { ok: true, b: b }; })
