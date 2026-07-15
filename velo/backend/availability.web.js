@@ -944,7 +944,7 @@ export const unblock = webMethod(
 
 export const validatePromoCode = webMethod(
   Permissions.Anyone,
-  async (code) => {
+  async (code, totalGuestNights) => {
     if (!code || !code.trim()) {
       return { valid: false, reason: 'No promo code provided.' };
     }
@@ -976,6 +976,11 @@ export const validatePromoCode = webMethod(
           return { valid: false, reason: 'Promo code has expired.' };
         }
       }
+      const minimumNights = parseInt(found.minimumNights, 10) || 0;
+      if (minimumNights > 0 && (totalGuestNights || 0) < minimumNights) {
+        return { valid: false, reason: `Promo code requires a minimum of ${minimumNights} guest nights.` };
+      }
+
       const discount = parseFloat(found.discount) || 0;
       if (discount <= 0 || discount > 1) {
         return { valid: false, reason: 'Invalid discount value.' };
