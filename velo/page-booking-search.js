@@ -124,6 +124,8 @@ $w.onReady(function () {
 
   const panel = tryFind('selectionPanel');
   if (panel) panel.collapse();
+  const repStart = tryFind('searchResultsRepeater');
+  if (repStart) { try { repStart.collapse(); } catch (e) {} }
   loadMessages();
 });
 
@@ -197,9 +199,26 @@ async function searchHandler() {
     const repData = [];
     for (let i = 0; i < res.results.length; i++) {
       const item = res.results[i];
+      if ((item.maxQty || 0) <= 0) continue;
       item._id = 'room_' + i;
       repData.push(item);
     }
+    if (repData.length === 0) {
+      rep.data = [];
+      safeText('No rooms are available for the dates entered.');
+      clearSelections(true);
+      try { rep.collapse(); } catch (e) {}
+      const box3 = tryFind('box3');
+      if (box3) { try { box3.collapse(); } catch (e) {} }
+      const selPanel = tryFind('selectionPanel');
+      if (selPanel) { try { selPanel.collapse(); } catch (e) {} }
+      const container = tryFind('selectedRoomsContainer');
+      if (container) { try { container.collapse(); } catch (e) {} }
+      const btnContinue = tryFind('btnContinueToSummary');
+      if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
+      return;
+    }
+    if (rep) { try { rep.show(); } catch (e) {} try { rep.expand(); } catch (e) {} }
     rep.data = repData;
     loadPackageInfo(res.requestedNights);
     safeText('Found ' + res.results.length + ' result' + (res.results.length === 1 ? '' : 's') + ' for ' + res.requestedNights + ' nights.');
