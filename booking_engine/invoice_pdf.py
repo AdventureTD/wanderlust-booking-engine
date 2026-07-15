@@ -33,6 +33,39 @@ def _money(x, currency="USD"):
     return f"${x:,.2f}"
 
 
+def _dominica_vat_summary_elems(inv, h_biz, bold):
+    """Build left-justified Dominica VAT summary elements for placement at the bottom."""
+    subtotal = inv.subtotal_net
+    acc_amt = subtotal * inv.accommodation_allocation
+    svc_amt = subtotal * inv.services_allocation
+    acc_vat = acc_amt * 0.10
+    svc_vat = svc_amt * 0.15
+
+    vat_table = Table([
+        ["Subtotal:", _money(subtotal)],
+        ["Accommodation VAT:", f"{_money(acc_amt)} * 10% = {_money(acc_vat)}"],
+        ["Services VAT:", f"{_money(svc_amt)} * 15% = {_money(svc_vat)}"],
+        ["Total VAT:", _money(inv.total_vat)],
+    ], colWidths=[42 * mm, 57 * mm])
+    vat_table.setStyle(TableStyle([
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("LINEABOVE", (0, -1), (-1, -1), 1, BRAND_TEAL),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("TEXTCOLOR", (0, -1), (-1, -1), BRAND_TEAL),
+    ]))
+    return [
+        Paragraph("Dominica VAT Summary:", bold),
+        Spacer(1, 1.5 * mm),
+        vat_table,
+    ]
+
+
 def render_invoice_pdf(inv, out_path: str) -> str:
     styles = getSampleStyleSheet()
     h_biz = ParagraphStyle("biz", parent=styles["Normal"], fontSize=9, leading=12)
@@ -194,35 +227,8 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     elems.append(totals)
     elems.append(Spacer(1, 8 * mm))
 
-    # ---- Dominica VAT summary (no box) ----
-    subtotal = inv.subtotal_net
-    acc_amt = subtotal * inv.accommodation_allocation
-    svc_amt = subtotal * inv.services_allocation
-    acc_vat = acc_amt * 0.10
-    svc_vat = svc_amt * 0.15
+    # Dominica VAT summary is rendered at the bottom of the invoice.
 
-    elems.append(Paragraph("Dominica VAT Summary:", bold))
-    vat_rows = [
-        ["Subtotal:", _money(subtotal)],
-        ["Accommodation VAT:", f"{_money(acc_amt)} * 10% = {_money(acc_vat)}"],
-        ["Services VAT:", f"{_money(svc_amt)} * 15% = {_money(svc_vat)}"],
-        ["Total VAT:", _money(inv.total_vat)],
-    ]
-    vat_table = Table(vat_rows, colWidths=[42 * mm, 57 * mm])
-    vat_table.setStyle(TableStyle([
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-        ("LEFTPADDING", (0, 0), (0, -1), 4),
-        ("RIGHTPADDING", (1, 0), (1, -1), 4),
-        ("LINEABOVE", (0, -1), (-1, -1), 1, BRAND_TEAL),
-        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("TEXTCOLOR", (0, -1), (-1, -1), BRAND_TEAL),
-    ]))
-    elems.append(vat_table)
-    elems.append(Spacer(1, 8 * mm))
 
     terms = ParagraphStyle("terms", parent=styles["Normal"], fontSize=9,
                            leading=13, textColor=colors.HexColor("#333333"),
@@ -249,6 +255,10 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         "Guests can re-schedule their vacation with the full reservation deposit applied to the new reservation. The re-scheduled vacation must occur within two (2) years of the initial arrival day and can be booked for any available dates except December 15th - January 7th when special rates apply."
     )
     elems.append(Paragraph(terms_text, terms))
+    elems.append(Spacer(1, 5 * mm))
+
+    elems.append(Spacer(1, 8 * mm))
+    elems.extend(_dominica_vat_summary_elems(inv, h_biz, bold))
     elems.append(Spacer(1, 5 * mm))
 
     elems.append(Paragraph(
