@@ -88,7 +88,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     # so the address/BILL TO stack sits flush against the right margin while remaining
     # left-justified internally.
     available_w = letter[0] - doc.leftMargin - doc.rightMargin  # points
-    left_col_w = 100 * mm
+    left_col_w = 120 * mm
     right_col_w = available_w - left_col_w
 
     bill_to_html = (
