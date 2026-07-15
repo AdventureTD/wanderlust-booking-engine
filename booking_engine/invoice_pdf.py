@@ -216,10 +216,11 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         tot_rows.append([f"Property fee ({fee_pct}%)", _money(inv.property_fee)])
     tot_rows.append(["TOTAL DUE", _money(inv.total)])
 
-    totals = Table(tot_rows, colWidths=[55 * mm, 55 * mm], hAlign="RIGHT")
+    totals = Table(tot_rows, colWidths=[125 * mm, 55 * mm])
     totals.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("RIGHTPADDING", (1, 0), (1, -1), 6),
         ("LINEABOVE", (0, -1), (-1, -1), 1, BRAND_TEAL),
         ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
         ("TEXTCOLOR", (0, -1), (-1, -1), BRAND_TEAL),
