@@ -136,26 +136,11 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     # ---- Package info ----
     if inv.package_title or inv.included_amenities or inv.check_in or inv.check_out:
         elems.append(Paragraph("PACKAGE INFORMATION", bold))
-        # Stay and Package on the same line
-        stay_text = ""
+        # Stay and Package on separate lines, left-justified.
         if inv.check_in and inv.check_out:
-            stay_text = f"<b>Stay:</b> {inv.check_in} to {inv.check_out}"
-        package_text = ""
+            elems.append(Paragraph(f"<b>Stay:</b> {inv.check_in} to {inv.check_out}", h_biz))
         if inv.package_title:
-            package_text = f"<b>Package:</b> {inv.package_title}"
-        if stay_text and package_text:
-            pkg_row = Table(
-                [[Paragraph(stay_text, h_biz), Paragraph(package_text, h_biz)]],
-                colWidths=[90 * mm, 85 * mm]
-            )
-            pkg_row.setStyle(TableStyle([( "VALIGN", (0, 0), (-1, -1), "TOP" ),
-                                          ( "LEFTPADDING", (0, 0), (-1, -1), 0 ),
-                                          ( "RIGHTPADDING", (0, 0), (-1, -1), 0 ),]))
-            elems.append(pkg_row)
-        elif stay_text:
-            elems.append(Paragraph(stay_text, h_biz))
-        elif package_text:
-            elems.append(Paragraph(package_text, h_biz))
+            elems.append(Paragraph(f"<b>Package:</b> {inv.package_title}", h_biz))
         elems.append(Spacer(1, 5 * mm))
 
     # ---- Line items table ----
