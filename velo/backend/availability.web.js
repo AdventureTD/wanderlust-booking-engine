@@ -494,6 +494,7 @@ export const createBooking = webMethod(
     const note = booking.note;
     let saveNote = note;
     const bookingNumber = booking.bookingNumber;
+    const quantity = Math.max(1, parseInt(booking.quantity || 1, 10) || 1);
 
     console.log('>>> SERVER roomCode:', roomCode, 'checkIn:', checkIn, 'checkOut:', checkOut, 'guests:', guests);
     const roomDisplay = getRoomDisplayName(roomCode);
@@ -506,9 +507,9 @@ export const createBooking = webMethod(
       throw new Error(roomDisplay + ' sleeps ' + ROOM_MAX_OCCUPANCY[roomCode] + '; requested ' + guests);
     }
 
-    const available = await isAvailable(roomCode, checkIn, checkOut);
-    if (!available) {
-      throw new Error('No ' + roomDisplay + ' available for ' + checkIn + ' to ' + checkOut);
+    const currentlyBooked = await overlappingCount(roomCode, checkIn, checkOut);
+    if (currentlyBooked + quantity > ROOM_UNITS[roomCode]) {
+      throw new Error('Only ' + (ROOM_UNITS[roomCode] - currentlyBooked) + ' ' + roomDisplay + '(s) available for ' + checkIn + ' to ' + checkOut);
     }
 
     // Generate booking number if not provided
@@ -531,7 +532,7 @@ export const createBooking = webMethod(
       // to maintain single source of truth for booking dates.
       guests: guests,
       status: booking.status || 'confirmed',
-      quantity: 1,
+      quantity: quantity,
       roomTotal: Math.round((roomTotal || 0) * discountRatio * 100) / 100,
       propertyFee: Math.round((propertyFee || 0) * discountRatio * 100) / 100,
       accomodationVat: Math.round((accomodationVat || 0) * discountRatio * 100) / 100,
