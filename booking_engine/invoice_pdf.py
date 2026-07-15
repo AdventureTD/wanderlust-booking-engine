@@ -80,49 +80,39 @@ def render_invoice_pdf(inv, out_path: str) -> str:
             h_biz,
         )
 
-    # Header: logo (upper left) with INVOICE immediately below it; address goes upper right.
-    right_col = Table([
-        [Paragraph(biz_html, h_biz)]
+    # ---- Header: logo (left) + right-aligned stacked block (right) ----
+    # Right block contains: business address, invoice #/date, then BILL TO.
+    meta_html = (
+        f"<b>Invoice #:</b> {inv.invoice_number}<br/>"
+        f"<b>Date:</b> {inv.issue_date.isoformat()}<br/>"
+        f"<b>Currency:</b> {inv.currency}"
+    )
+    bill_to_html = (
+        f"<b>BILL TO</b><br/>{inv.guest.name}<br/>"
+        f"{inv.guest.email}<br/>{inv.guest.phone}"
+    )
+    right_block = Table([
+        [Paragraph(biz_html, h_biz)],
+        [Paragraph(meta_html, h_biz)],
+        [Paragraph(bill_to_html, h_biz)],
     ], colWidths=[82 * mm])
-    right_col.setStyle(TableStyle([
+    right_block.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
-    header_table = Table([[logo_cell, right_col]], colWidths=[88 * mm, 82 * mm])
+
+    header_table = Table([[logo_cell, right_block]], colWidths=[88 * mm, 82 * mm])
     header_table.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
     ]))
     elems.append(header_table)
-    elems.append(Spacer(1, 2 * mm))
-    elems.append(Paragraph("INVOICE", h_title))
     elems.append(Spacer(1, 4 * mm))
-    meta_html = (
-        f"<b>Invoice #:</b> {inv.invoice_number}<br/>"
-        f"<b>Date:</b> {inv.issue_date.isoformat()}<br/>"
-        f"<b>Currency:</b> {inv.currency}"
-    )
-    # Invoice meta remains right-aligned below the address.
-    meta_para = Paragraph(meta_html, h_biz)
-    meta_row = Table([[meta_para]], colWidths=[170 * mm])
-    meta_row.setStyle(TableStyle([
-        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-    ]))
-    elems.append(meta_row)
-    elems.append(Spacer(1, 5 * mm))
-
-    # ---- Bill to ----
-    g = inv.guest
-    elems.append(Paragraph("BILL TO", bold))
-    elems.append(Paragraph(
-        f"{g.name}<br/>{g.email}<br/>{g.phone}", h_biz))
-    elems.append(Spacer(1, 5 * mm))
+    elems.append(Paragraph("INVOICE", h_title))
+    elems.append(Spacer(1, 8 * mm))
 
     # ---- Package info ----
     if inv.package_title or inv.included_amenities or inv.check_in or inv.check_out:
