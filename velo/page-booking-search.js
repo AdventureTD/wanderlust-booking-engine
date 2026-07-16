@@ -10,15 +10,24 @@ function clearSelections(silent) {
   if (!silent) updateSelectionPanel();
 }
 
-function setRoomQty(roomCode, roomName, baseRate, qty, availableCheckIn, availableCheckOut) {
+function setRoomSelection(roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut) {
   let next = [], found = false;
   for (let i = 0; i < _selections.length; i++) {
     if (_selections[i].roomCode === roomCode) {
       found = true;
-      if (qty > 0) next.push({ roomCode, roomName, baseRate, qty, availableCheckIn, availableCheckOut });
+      if (qty > 0) next.push({ roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut });
     } else next.push(_selections[i]);
   }
-  if (!found && qty > 0) next.push({ roomCode, roomName, baseRate, qty, availableCheckIn, availableCheckOut });
+  if (!found && qty > 0) next.push({ roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut });
+  _selections = next;
+  updateSelectionPanel();
+}
+
+function removeRoomSelection(roomCode) {
+  const next = [];
+  for (let i = 0; i < _selections.length; i++) {
+    if (_selections[i].roomCode !== roomCode) next.push(_selections[i]);
+  }
   _selections = next;
   updateSelectionPanel();
 }
@@ -41,13 +50,16 @@ function updateSelectionPanel() {
   if (typeof container.show === 'function') { try { container.show(); } catch (e) {} }
   if (typeof container.expand === 'function') { try { container.expand(); } catch (e) {} }
   if (btnContinue) { try { btnContinue.show(); } catch (e) {} try { btnContinue.expand(); } catch (e) {} }
-  let total = 0, lines = [];
+  let total = 0, totalGuests = 0, lines = [];
   for (let i = 0; i < _selections.length; i++) {
     const s = _selections[i];
-    lines.push((s.roomName || s.roomCode) + ' (Qty: ' + s.qty + ')');
+    const guests = (s.numGuests || 1) * s.qty;
+    lines.push((s.roomName || s.roomCode) + ' (Qty: ' + s.qty + ', Guests: ' + guests + ')');
     total += s.qty;
+    totalGuests += guests;
   }
   lines.push('Total rooms: ' + total);
+  lines.push('Total guests: ' + totalGuests);
   container.text = lines.join('\n');
   console.log('>>> selection panel updated:', container.text);
 }
@@ -80,7 +92,7 @@ $w.onReady(function () {
       const parts = [], first = _selections[0];
       for (let i = 0; i < _selections.length; i++) {
         const s = _selections[i];
-        parts.push(s.roomCode + ':' + s.qty + ':' + (s.baseRate || 0));
+        parts.push(s.roomCode + ':' + s.qty + ':' + (s.numGuests || 1));
       }
       try {
         sessionStorage.setItem('_wbe_rc', parts.join(','));
@@ -111,10 +123,12 @@ $w.onReady(function () {
         safeItem($item, '#defaultOccupancy', 'text', '');
         const dd = safeItem($item, '#roomQtyDropdown', null, null);
         if (dd) { dd.options = [{ label: '0', value: '0' }]; dd.value = '0'; try { dd.disable(); } catch (e) {} }
+        const guestDdUnavail = safeItem($item, '#numberOfGuests', null, null);
+        if (guestDdUnavail) { guestDdUnavail.options = []; try { guestDdUnavail.disable(); } catch (e) {} }
         return;
       }
       safeItem($item, '#roomName', 'text', itemData.roomName || itemData.roomCode || '');
-      safeItem($item, '#roomPrice', 'text', '$' + (itemData.baseRate || 0) + ' / night (' + itemData.availableNights + ' nights)');
+      safeItem($item, '#roomPrice', 'text', '');
       safeItem($item, '#roomAvailability', 'text',
         itemData.status === 'full' ? 'Available for your full ' + itemData.availableNights + ' nights'
         : 'Available for ' + itemData.availableNights + ' nights (partial)');
@@ -122,6 +136,28 @@ $w.onReady(function () {
       safeItem($item, '#occupancy', 'text', String(itemData.occupancy || 2));
       safeItem($item, '#defaultOccupancy', 'text', String(itemData.baseOccupancy || itemData.occupancy || 2));
       if (itemData.mainPhoto) try { $item('#roomThumb').src = itemData.mainPhoto; } catch (e) {}
+
+      const baseOcc = Number(itemData.baseOccupancy || itemData.occupancy || 2);
+      const maxOcc = Number(itemData.occupancy || baseOcc);
+      const guestOpts = [];
+      for (let g = baseOcc; g <= maxOcc; g++) guestOpts.push({ label: String(g), value: String(g) });
+      let selectedGuests = baseOcc;
+      const guestDd = safeItem($item, '#numberOfGuests', null, null);
+      if (guestDd) {
+        guestDd.options = guestOpts;
+        guestDd.value = String(baseOcc);
+        if (typeof guestDd.onChange === 'function') {
+          guestDd.onChange((event) => {
+            selectedGuests = parseInt(event.target.value || String(baseOcc), 10);
+            const qtyDd = safeItem($item, '#roomQtyDropdown', null, null);
+            const qty = qtyDd ? parseInt(qtyDd.value || '0', 10) : 0;
+            if (qty > 0) {
+              setRoomSelection(itemData.roomCode, itemData.roomName || itemData.roomCode, qty, selectedGuests, itemData.availableCheckIn, itemData.availableCheckOut);
+            }
+          });
+        }
+      }
+
       const dd = safeItem($item, '#roomQtyDropdown', null, null);
       if (dd && typeof dd.onChange === 'function') {
         const maxQty = typeof itemData.maxQty === 'number' ? itemData.maxQty : 1;
@@ -138,7 +174,12 @@ $w.onReady(function () {
         }
         dd.onChange((event) => {
           const qty = parseInt(event.target.value || '1', 10);
-          setRoomQty(itemData.roomCode, itemData.roomName || itemData.roomCode, itemData.baseRate || 0, qty, itemData.availableCheckIn, itemData.availableCheckOut);
+          const numGuests = typeof selectedGuests === 'number' ? selectedGuests : baseOcc;
+          if (qty > 0) {
+            setRoomSelection(itemData.roomCode, itemData.roomName || itemData.roomCode, qty, numGuests, itemData.availableCheckIn, itemData.availableCheckOut);
+          } else {
+            removeRoomSelection(itemData.roomCode);
+          }
         });
       }
     });
