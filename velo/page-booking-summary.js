@@ -444,16 +444,18 @@ function initRoomRepeater() {
   _roomRepReady = true;
 
   rep.onItemReady(($item, itemData) => {
+    console.log('[WBE-SUMMARY-REP]', itemData.roomCode, 'additionalFee=', itemData.additionalFee, 'roomFee raw=', itemData.roomFee);
     safeItem($item, '#roomNameText', 'text', itemData.roomName || itemData.roomCode || '');
     safeItem($item, '#qtyRooms', 'text', String(itemData.qty || 1));
     safeItem($item, '#roomPriceText', 'text', '$' + fmtCurrency(itemData.baseRate || 0) + ' / person / night');
     const feeEl = safeItem($item, '#additionalFee', null, null);
     if (feeEl) {
-      if ((itemData.additionalFee || 0) > 0) {
-        safeItem($item, '#additionalFee', 'text', '$' + fmtCurrency(itemData.additionalFee) + ' room fee');
-      } else {
-        safeItem($item, '#additionalFee', 'text', '');
-      }
+      const feeText = (itemData.additionalFee || 0) > 0 ? '$' + fmtCurrency(itemData.additionalFee) + ' room fee' : '';
+      try {
+        if (typeof feeEl.text === 'string' || typeof feeEl.text === 'function') feeEl.text = feeText;
+        else if (typeof feeEl.label === 'string' || typeof feeEl.label === 'function') feeEl.label = feeText;
+        else if (typeof feeEl.value === 'string' || typeof feeEl.value === 'function') feeEl.value = feeText;
+      } catch (e) {}
     }
 
     const dd = safeItem($item, '#guestsDropdown', null, null);
