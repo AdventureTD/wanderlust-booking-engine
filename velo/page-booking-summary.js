@@ -4,10 +4,13 @@ async function fetchRoomFees(roomCodes) {
   try {
     console.log('[WBE] fetching roomFees for:', roomCodes);
     const res = await wixData.query('Rooms').hasSome('roomCode', roomCodes).limit(50).find();
-    console.log('[WBE] Rooms query result count:', res.items.length, 'items:', JSON.stringify(res.items.map(r => ({ code: r.roomCode, name: r.name, fee: r.roomFee }))));
+    console.log('[WBE] rooms returned:', res.items.length);
     for (const room of res.items) {
       const rc = (room.roomCode || '').trim();
-      feeMap[rc] = Number(room.roomFee) || 0;
+      const roomFeeVal = room.roomFee != null ? room.roomFee : (room['Room Fee'] != null ? room['Room Fee'] : (room.roomfee != null ? room.roomfee : (room.RoomFee != null ? room.RoomFee : 0)));
+      const fee = Number(roomFeeVal) || 0;
+      feeMap[rc] = fee;
+      console.log('[WBE] fee for', rc, 'raw=', room.roomFee, 'variants=', { 'Room Fee': room['Room Fee'], roomfee: room.roomfee, RoomFee: room.RoomFee }, 'result=', fee);
     }
   } catch (e) {
     console.log('[WBE] fetchRoomFees error:', e.message, e.stack);
