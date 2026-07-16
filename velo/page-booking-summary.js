@@ -473,7 +473,7 @@ function initRoomRepeater() {
     safeItem($item, '#roomPriceText', 'text', '$' + fmtCurrency(itemData.baseRate || 0) + ' / person / night');
     const feeEl = safeItem($item, '#additionalFee', null, null);
     if (feeEl) {
-      const feeText = (itemData.additionalFee || 0) > 0 ? '$' + fmtCurrency(itemData.additionalFee) + ' room fee' : '';
+      const feeText = (itemData.additionalFee || 0) > 0 ? '$' + fmtCurrency(itemData.additionalFee) : '';
       try {
         if (typeof feeEl.text === 'string' || typeof feeEl.text === 'function') feeEl.text = feeText;
         else if (typeof feeEl.label === 'string' || typeof feeEl.label === 'function') feeEl.label = feeText;
