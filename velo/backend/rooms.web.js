@@ -67,7 +67,12 @@ export const getRoomNames = webMethod(
     const res = await wixData.query(ROOMS).limit(50).find();
     const map = {};
     for (const room of res.items) {
-      map[room.roomCode] = room.name || room.roomCode;
+      map[room.roomCode] = {
+        name: room.name || room.roomCode,
+        roomFee: Number(room.roomFee) || 0,
+        occupancy: Number(room.maxOccupancy) || 2,
+        baseOccupancy: Number(room.baseOccupancy) || 2,
+      };
     }
     return map;
   }

@@ -313,13 +313,18 @@ async function renderSummary() {
   let totalRoomFee = 0;
   for (let i = 0; i < rooms.length; i++) {
     const r = rooms[i];
-    const displayName = _roomNames[r.roomCode] && _roomNames[r.roomCode] !== r.roomCode ? _roomNames[r.roomCode] : getRoomDisplayName(r.roomCode);
+    const roomMeta = _roomNames[r.roomCode]; const displayName = roomMeta && roomMeta.name ? roomMeta.name : (typeof roomMeta === 'string' && roomMeta !== r.roomCode ? roomMeta : getRoomDisplayName(r.roomCode));
     names.push(displayName + ' x' + r.qty);
     const rate = packageBaseRate;
     const numGuests = Math.max(1, parseInt(r.numGuests, 10) || 1);
-    const additionalFee = r.roomFee > 0 ? Math.round(r.roomFee * nights * 100) / 100 : 0;
+    let roomFee = Number(r.roomFee) || 0;
+    if (!roomFee && roomMeta && typeof roomMeta === 'object' && (roomMeta.roomFee || 0) > 0) {
+      roomFee = Number(roomMeta.roomFee);
+    }
+    const additionalFee = roomFee > 0 ? Math.round(roomFee * nights * 100) / 100 : 0;
     totalRoomFee += additionalFee;
     const roomTotal = rate * numGuests * r.qty * nights + additionalFee;
+    r.roomFee = roomFee;
     subtotalNet += roomTotal;
     propertyFee += roomTotal * propertyFeeRate;
 
