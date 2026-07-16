@@ -383,16 +383,17 @@ async function renderSummary() {
   const totalVat = vatAccommodation + vatAdventure;
   const grandTotal = subtotalNet + propertyFee + totalVat;
 
-  // Promo discount applied to subtotalNet before taxes and fees
-  const discountAmount = _promoDiscount > 0 ? Math.round(subtotalNet * _promoDiscount * 100) / 100 : 0;
-  const discountedSubtotal = Math.round((subtotalNet - discountAmount) * 100) / 100;
+  // packageTotal is the pre-discount package amount; packageSubTotal subtracts the promo discount.
+  const promoAmount = _promoDiscount > 0 ? -Math.round(packageTotal * _promoDiscount * 100) / 100 : 0;
+  const discountedSubtotal = Math.round((packageTotal + promoAmount) * 100) / 100; // = packageTotal - |promoAmount|
+  const totalRoomFeeForDisplay = subtotalNet - packageTotal;
   const discountedAccNet = discountedSubtotal * accommodationShare;
   const discountedAdvNet = discountedSubtotal * (1 - accommodationShare);
   const discountedVatAccommodation = discountedAccNet * taxRateAccommodation;
   const discountedVatAdventure = discountedAdvNet * taxRateAdventure;
   const discountedTotalVat = Math.round((discountedVatAccommodation + discountedVatAdventure) * 100) / 100;
   const discountedPropertyFee = Math.round(discountedSubtotal * propertyFeeRate * 100) / 100;
-  const discountedGrandTotal = Math.round((discountedSubtotal + discountedPropertyFee + discountedTotalVat) * 100) / 100;
+  const discountedGrandTotal = Math.round((discountedSubtotal + discountedPropertyFee + discountedTotalVat + totalRoomFeeForDisplay) * 100) / 100;
 
   safeText('accommodationNamesText', names.join(', '));
   safeText('packageSubTotal', '$' + fmtCurrency(discountedSubtotal));
@@ -401,9 +402,11 @@ async function renderSummary() {
   // Promo display
   if (_promoDiscount > 0 && _promoCodeApplied) {
     safeExpand('promoDiscountRow');
-    safeText('promoDiscountText', 'Promo Code (' + _promoCodeApplied + '): -$' + fmtCurrency(discountAmount) + ' (-' + (_promoDiscount * 100) + '%)');
+    safeText('promoAmount', '$' + fmtCurrency(promoAmount));
+    safeText('promoDiscountText', 'Promo Code (' + _promoCodeApplied + '): ' + fmtCurrency(promoAmount) + ' (-' + (_promoDiscount * 100) + '%)');
   } else {
     safeCollapse('promoDiscountRow');
+    safeText('promoAmount', '$' + fmtCurrency(0));
     safeText('promoDiscountText', '');
   }
 
