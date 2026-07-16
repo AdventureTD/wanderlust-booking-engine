@@ -38,7 +38,7 @@ case-sensitive).
 | mainPhoto       | Image    | Single hero/thumbnail image for list views |
 
 **NOTE (2026-06-03): `baseRate` has been REMOVED from this collection.** Per-night
-rates now live in the `RoomPricing` collection (below) and vary by length of stay.
+rates now live in the `Packages.baseRate` collection (below) and vary by length of stay.
 
 Seed with these CONFIRMED values (owner 2026-06-01):
 | roomCode              | name                  | units | baseOccupancy | maxOccupancy | extraGuestFee |
@@ -47,7 +47,7 @@ Seed with these CONFIRMED values (owner 2026-06-01):
 | penthouse_apartment   | Penthouse Apartment   | 1     | 2             | 2            | 0             |
 | two_bedroom_apartment | Two-Bedroom Apartment | 1     | 3             | 4            | 396           |
 
-### Collection: `RoomPricing`  [NEW — 2026-06-03]
+### Collection: `Packages.baseRate`  [NEW — 2026-06-03]
 Per-night Adventure Package rates that vary by length of stay.
 | Field     | Type   | Notes                                                |
 |-----------|--------|------------------------------------------------------|
@@ -101,7 +101,7 @@ A booking for fewer than the base occupancy is rejected.
 
 NOTE (2026-06-03): the old **Packages** collection (Sampler/Explorer/Wanderluster)
 has been REMOVED. The Adventure Package is now a single all-in per-night rate
-in the RoomPricing collection. A la carte extras remain.
+in the Packages.baseRate collection. A la carte extras remain.
 
 ### Collection: `Settings`
 Editable business settings (key/value) the admin can change without code.
@@ -152,7 +152,7 @@ Example: a Dec 13–17 stay with a "High Season" rule starting Dec 15 prices
 Leave `SeasonalRates` empty and every night just uses the room's baseRate.
 
 ### Collection permissions [IMPORTANT]
-- `Rooms`, `RoomPricing`, `AlaCarte`: **Read = Anyone** (so the booking page can
+- `Rooms`, `Packages.baseRate`, `AlaCarte`: **Read = Anyone** (so the booking page can
   show them); Write = Admin only.
 - `Bookings`: Read = Admin (privacy!); the backend web module inserts on the
   guest's behalf, so guests never get direct write access to the raw collection.
@@ -176,7 +176,7 @@ server and are callable from page code via `import`.
 
 ---
 
-## STEP 3 — Seed Rooms/RoomPricing/AlaCarte with REAL data [YOU]
+## STEP 3 — Seed Rooms/Packages.baseRate/AlaCarte with REAL data [YOU]
 Fill the collections with your confirmed prices, occupancy, photos, and
 descriptions. (The code ships with PLACEHOLDER prices — do not go live until
 these are your real numbers.) Also tell me whether your prices INCLUDE VAT or

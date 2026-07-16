@@ -20,8 +20,8 @@ Full field lists are in `velo/SETUP_GUIDE.md`, `REPORTING.md`, `PAYMENTS.md`,
 `INVOICES.md`, `ROOM_PHOTOS.md`. Collections to create:
 - [ ] `Rooms` (incl. baseOccupancy, maxOccupancy,
       extraGuestFee, photoGallery, mainPhoto) — seed the 3 rooms.
-      NOTE: baseRate is NO LONGER on Rooms (moved to RoomPricing).
-- [ ] `RoomPricing` (roomCode, nights, baseRate) — seed 21 rows
+      NOTE: baseRate is NO LONGER on Rooms (moved to Packages).
+- [ ] `Packages` (roomCode, nights, baseRate) — seed 21 rows
       (3 rooms × 7 night counts 4–10). Read=Anyone, Write=Admin.
 - [ ] `Bookings` (availability/booking rows; incl. `quantity` default 1, `note`,
       `status` now supports `blocked`)

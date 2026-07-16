@@ -8,7 +8,7 @@ NOT built yet — that decision is pending owner input (see below).
 ## Status (2026-06-03)
 - [x] Room catalog & inventory (Adventure Suite x3, Penthouse x1, Two-Bedroom x1)
 - [x] **Room Pricing by length of stay** — per-night rate varies by nights booked
-      (RoomPricing collection: roomCode + nights → baseRate)
+      (Packages.baseRate collection: roomCode + nights → baseRate)
 - [x] Availability engine — prevents overbooking per unit count; same-day turnover OK
 - [x] Pricing engine — dual VAT (10% accommodation / 15% everything else)
 - [x] A la carte add-ons (whale watching, canyoning, private chef, airport transfer)
@@ -25,7 +25,7 @@ placeholders. They MUST be replaced with owner-confirmed values before this
 quotes a real guest.
 
 ## How the money works
-- Per-night base rate is looked up from the **RoomPricing** collection by
+- Per-night base rate is looked up from the **Packages.baseRate** collection by
   room code + number of nights booked (rates vary by length of stay).
 - Accommodation (room nights) → 10% VAT
 - A la carte extras → 15% VAT
@@ -60,20 +60,20 @@ most control with the least fighting against Wix's limits.
 ```
 booking_engine/
   rooms.py         room types, unit counts, descriptions, photos
-  room_pricing.py  per-night rates by room + nights (RoomPricing lookup)
+  Packages collection  per-night rates by room + nights (Packages.baseRate lookup)
   catalog.py       a la carte items, tax classes + VAT rates
   availability.py  Calendar + Booking; overbooking prevention
   pricing.py       Quote builder + dual-VAT math + itemized breakdown
-  package_pricing.py  Adventure Package model (50/50 split, property fee)
+  Packages collection  Adventure Package model (50/50 split, property fee)
   search.py        guest availability search (filters by rate availability)
 tests/
-  test_room_pricing.py   10 tests for RoomPricing lookup
-  test_package_pricing.py 22 tests for package pricing + property fee
+  test_Packages collection   10 tests for Packages.baseRate lookup
+  test_Packages collection 22 tests for package pricing + property fee
   test_search.py          10 tests for search + rate filtering
   test_engine.py          11 tests for core availability + pricing
   (+ 6 more test files: occupancy, rates, payments, reservation, report, seasonal)
 velo/backend/
-  roomPricing.web.js   rate lookup from RoomPricing collection  [NEW]
+  roomPricing.web.js   rate lookup from Packages.baseRate collection  [NEW]
   packagePricing.web.js  Adventure Package pricing (mirrors Python)
   search.web.js        availability search (mirrors Python)
   rooms.web.js         room media/photos

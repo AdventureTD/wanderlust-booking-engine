@@ -12,7 +12,7 @@ set_tax_rate() for tests.
 
 RETIRED (2026-06-03): the old Packages catalog (Sampler/Explorer/Wanderluster)
 has been REMOVED. The new pricing model uses a single all-in Adventure Package
-rate per night (see package_pricing.py). The 15% "standard" tax class is still
+rate per night (see Packages collection / backend/packages.web.js). The 15% "standard" tax class is still
 used for the adventure portion of the 50/50 split AND for a la carte extras.
 
 A la carte extras remain — guests can add them to a booking. Each item carries

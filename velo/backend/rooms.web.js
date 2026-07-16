@@ -11,7 +11,7 @@
  * field for list/thumbnail views.
  *
  * NOTE (2026-06-03): baseRate has been REMOVED from the Rooms collection.
- * Per-night rates now live in the RoomPricing collection and vary by length
+ * Room metadata only.
  * of stay. Use roomPricing.web.js → getBaseRate(roomCode, nights) to look up.
  */
 

@@ -4,11 +4,11 @@
 + extra-guest pricing model.**
 
 **UPDATED 2026-06-03: per-night base rate now varies by length of stay** (moved
-from the Rooms collection to a new RoomPricing collection).
+from the Rooms collection to a new Packages.baseRate collection).
 
 ## The model
 Each room type has an **Adventure Package** price per night that **varies by
-the number of nights booked**. Rates are stored in the **RoomPricing**
+the number of nights booked**. Rates are stored in the **Packages.baseRate**
 collection, keyed by `(roomCode, nights)`.
 
 | Room                  | Night count example | Adventure Package / night |
@@ -23,7 +23,7 @@ nights might be $750/night. Add or remove rows to control which stay lengths
 are bookable.
 
 **Exact match rule:** if a guest searches for a stay length that has no row in
-RoomPricing for a room, that room does NOT appear in search results. This is
+Packages.baseRate for a room, that room does NOT appear in search results. This is
 intentional — the owner controls which stay lengths are bookable.
 
 For a stay:
@@ -47,7 +47,7 @@ grand_total = total_package_price + VAT(accommodation) + VAT(adventure)
 
 ## Where the price shows (Room Detail page — after guest selects a room)
 
-The baseRate in RoomPricing is the **all-in price** (room + adventure package
+The baseRate in Packages.baseRate is the **all-in price** (room + adventure package
 combined). When a guest selects a room, the page shows the pricing breakdown
 from top to bottom:
 
@@ -63,16 +63,16 @@ from top to bottom:
    (e.g. "$4,653.00").
 
 ## Code
-- Python (reference, tested): `booking_engine/room_pricing.py` → rate lookup;
-  `booking_engine/package_pricing.py` → `quote_package(room_code, nights)`.
+- Python (reference, tested): `booking_engine/Packages collection` → rate lookup;
+  `booking_engine/Packages collection` → `quote_package(room_code, nights)`.
   10 room-pricing tests + 22 package-pricing tests.
 - Velo (mirror, verified to match): `velo/backend/roomPricing.web.js` →
   `getBaseRate(roomCode, nights)`; `velo/backend/packagePricing.web.js` →
   `quotePackage(roomCode, nights)`.
-- Per-night price lives in the `RoomPricing` collection (editable in the Wix
+- Per-night price lives in the `Packages.baseRate` collection (editable in the Wix
   Content Manager), keyed by `roomCode` + `nights`.
 
-## Wix RoomPricing collection — NEW (replaces baseRate on Rooms)
+## Wix Packages.baseRate collection — NEW (replaces baseRate on Rooms)
 | Field     | Type   | Notes                                                    |
 |-----------|--------|----------------------------------------------------------|
 | roomCode  | Text   | which room type this rate applies to                     |
@@ -109,7 +109,7 @@ at a certain stay length: delete that row. To support longer stays: add rows.
 
 ## Wix Rooms collection — REMOVED field
 `packagePricePerNight` is NO LONGER on the Rooms collection. The `baseRate`
-field is also removed. Per-night rates now live in RoomPricing (above).
+field is also removed. Per-night rates now live in Packages.baseRate (above).
 
 ## What this RETIRED (no longer used for new pricing)
 - The separate **Packages** (Sampler/Explorer/Wanderluster) as add-ons and the
