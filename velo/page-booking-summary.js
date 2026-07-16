@@ -154,9 +154,15 @@ async function initSummary() {
     const parts = rcParam.split(',');
     for (let i = 0; i < parts.length; i++) {
       const s = parts[i].split(':');
-      if (s.length >= 3) rooms.push({ roomCode: s[0], qty: parseInt(s[1], 10) || 1, numGuests: parseInt(s[2], 10) || 1 });
-      else if (s.length === 2) rooms.push({ roomCode: s[0], qty: parseInt(s[1], 10) || 1, numGuests: 1 });
-      else if (parts[i]) rooms.push({ roomCode: parts[i], qty: 1, numGuests: 1 });
+      const occMap = {
+        adventure_suite: { occupancy: 2, baseOccupancy: 2 },
+        penthouse_apartment: { occupancy: 2, baseOccupancy: 2 },
+        two_bedroom_apartment: { occupancy: 4, baseOccupancy: 3 },
+      };
+      const occ = occMap[(s[0] || '').trim()] || { occupancy: 2, baseOccupancy: 2 };
+      if (s.length >= 3) rooms.push({ roomCode: s[0], qty: parseInt(s[1], 10) || 1, numGuests: parseInt(s[2], 10) || 1, occupancy: occ.occupancy, baseOccupancy: occ.baseOccupancy });
+      else if (s.length === 2) rooms.push({ roomCode: s[0], qty: parseInt(s[1], 10) || 1, numGuests: 1, occupancy: occ.occupancy, baseOccupancy: occ.baseOccupancy });
+      else if (parts[i]) rooms.push({ roomCode: parts[i], qty: 1, numGuests: 1, occupancy: occ.occupancy, baseOccupancy: occ.baseOccupancy });
     }
   }
 
@@ -320,7 +326,12 @@ async function renderSummary() {
     r.packageVat = advNet * taxRateAdventure;
     r.propertyFee = roomTotal * propertyFeeRate;
 
-    repData.push({ _id: 'sum_' + i + '_' + _renderCount, roomCode: r.roomCode, roomName: displayName, qty: r.qty, guests: numGuests, baseRate: rate, roomTotal: roomTotal });
+    repData.push({
+      _id: 'sum_' + i + '_' + _renderCount,
+      roomCode: r.roomCode, roomName: displayName, qty: r.qty, guests: numGuests,
+      baseRate: rate, roomTotal: roomTotal,
+      occupancy: r.occupancy || 2, baseOccupancy: r.baseOccupancy || 2,
+    });
   }
 
   const accNet = subtotalNet * accommodationShare;
@@ -426,19 +437,17 @@ function initRoomRepeater() {
   rep.onItemReady(($item, itemData) => {
     safeItem($item, '#roomNameText', 'text', itemData.roomName || itemData.roomCode || '');
     safeItem($item, '#qtyRooms', 'text', String(itemData.qty || 1));
-    safeItem($item, '#roomPriceText', 'text', '$' + (itemData.baseRate || 0) + ' / night (' + _summaryNights + ' nights)');
+    safeItem($item, '#roomPriceText', 'text', '$' + fmtCurrency(itemData.baseRate || 0) + ' / person / night');
 
     const dd = safeItem($item, '#guestsDropdown', null, null);
     if (dd && typeof dd.onChange === 'function') {
       const rc = itemData.roomCode;
-      let opts = [];
-      if (rc === 'two_bedroom_apartment') {
-        opts = [{ label: '3', value: '3' }, { label: '4', value: '4' }];
-      } else {
-        opts = [{ label: '2', value: '2' }];
-      }
+      const baseOcc = Number(itemData.baseOccupancy) || 2;
+      const maxOcc = Number(itemData.occupancy) || baseOcc;
+      const opts = [];
+      for (let g = baseOcc; g <= maxOcc; g++) opts.push({ label: String(g), value: String(g) });
       dd.options = opts;
-      const defaultVal = rc === 'two_bedroom_apartment' ? '3' : '2';
+      const defaultVal = String(Math.max(baseOcc, Math.min(itemData.guests || baseOcc, maxOcc)));
       try { dd.required = false; } catch (e) {}
       setTimeout(() => {
         dd.value = defaultVal;
@@ -446,7 +455,14 @@ function initRoomRepeater() {
         try { dd.resetValidityIndication(); } catch (e) {}
         _guestCounts[rc] = parseInt(defaultVal, 10);
       }, 300);
-      dd.onChange(function (ev) { _guestCounts[rc] = parseInt(ev.target.value, 10) || parseInt(defaultVal, 10); });
+      dd.onChange(function (ev) {
+        const newGuests = parseInt(ev.target.value, 10) || parseInt(defaultVal, 10);
+        _guestCounts[rc] = newGuests;
+        for (let i = 0; i < _summaryRooms.length; i++) {
+          if (_summaryRooms[i].roomCode === rc) _summaryRooms[i].numGuests = newGuests;
+        }
+        renderSummary();
+      });
     }
 
     safeItem($item, '#roomTotalText', 'text', '$' + fmtCurrency(itemData.roomTotal || 0));
