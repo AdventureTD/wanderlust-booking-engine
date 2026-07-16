@@ -5,7 +5,6 @@ import { ROOM_UNITS } from 'backend/wbeConfig';
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
 const ROOMS = 'Rooms';
-const ROOM_PRICING = 'RoomPricing';
 const MIN_N = 4;
 const DAY = 86400000;
 
@@ -76,16 +75,9 @@ export const searchAvailability = webMethod(
 
     const roomRes = await wixData.query(ROOMS).limit(50).find();
     const bookingRes = await wixData.query(BOOKINGS).limit(1000).find();
-    const pricingRes = await wixData.query(ROOM_PRICING).limit(1000).find();
 
     const rooms = roomRes.items;
     const allBookings = bookingRes.items;
-    const priceMap = {};
-    for (let i = 0; i < pricingRes.items.length; i++) {
-      const p = pricingRes.items[i];
-      priceMap[p.roomCode + '|' + p.nights] = p.baseRate;
-    }
-
     // Fetch all BookingSummary records once; BookingSummary stores dates as text.
     const summaryAllRes = await wixData.query(BOOKING_SUMMARIES).limit(1000).find();
     const allSummaries = summaryAllRes.items;
@@ -236,7 +228,7 @@ export const searchAvailability = webMethod(
           maxQty: minFreePartial, status: 'partial',
           availableCheckIn: aci.toISOString(),
           availableCheckOut: aco.toISOString(),
-          availableNights: bl, baseRate: rate,
+          availableNights: bl, baseRate: 0,
           mainPhoto: imgUrl(rm.mainPhoto),
         });
       }
