@@ -119,6 +119,22 @@ function snakeCaseKeys(obj) {
   return obj;
 }
 
+/* ---------- package pricing helpers ---------- */
+async function getPackageRateForNights(nights) {
+  const n = Number(nights);
+  if (!n || n <= 0) return 0;
+  try {
+    const res = await wixData.query('Packages').limit(100).find();
+    for (const item of res.items) {
+      const itemNights = item.numberOfNights || item.NumberOfNights || item.numberofnights || 0;
+      if (Number(itemNights) === n) {
+        return Number(item.baseRate) || 0;
+      }
+    }
+  } catch (e) {}
+  return 0;
+}
+
 /* ---------- invoice service call (inlined from issueInvoice.web.js) ---------- */
 async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoiceNumber) {
   const serviceUrl = await getSecret(INVOICE_SERVICE_URL_KEY);
@@ -526,6 +542,17 @@ export const createBooking = webMethod(
     const promoDiscountRate = parseFloat(booking.promoDiscount) || 0;
     const discountRatio = promoDiscountRate > 0 && promoDiscountRate < 1 ? (1 - promoDiscountRate) : 1;
 
+    const nights = nightsBetween(checkIn, checkOut);
+    const packageBaseRate = await getPackageRateForNights(nights);
+    let computedRoomTotal = packageBaseRate * guests * nights;
+    if (Number(booking.roomTotal) > 0) {
+      computedRoomTotal = Number(booking.roomTotal);
+    }
+    const computedPropertyFee = Math.round(computedRoomTotal * 0.05 * 100) / 100;
+    const computedAccVat = Math.round(computedRoomTotal * 0.5 * 0.10 * 100) / 100;
+    const computedPkgVat = Math.round(computedRoomTotal * 0.5 * 0.15 * 100) / 100;
+    const computedGrandTotal = Math.round((computedRoomTotal + computedPropertyFee + computedAccVat + computedPkgVat) * 100) / 100;
+
     const toInsert = {
       roomCode: roomCode,
       // checkIn and checkOut are intentionally stored only in BookingSummary
@@ -533,11 +560,11 @@ export const createBooking = webMethod(
       guests: guests,
       status: booking.status || 'confirmed',
       quantity: quantity,
-      roomTotal: Math.round((roomTotal || 0) * discountRatio * 100) / 100,
-      propertyFee: Math.round((propertyFee || 0) * discountRatio * 100) / 100,
-      accomodationVat: Math.round((accomodationVat || 0) * discountRatio * 100) / 100,
-      packageVat: Math.round((packageVat || 0) * discountRatio * 100) / 100,
-      grandTotal: Math.round((grandTotal || 0) * discountRatio * 100) / 100,
+      roomTotal: Math.round(computedRoomTotal * discountRatio * 100) / 100,
+      propertyFee: Math.round(computedPropertyFee * discountRatio * 100) / 100,
+      accomodationVat: Math.round(computedAccVat * discountRatio * 100) / 100,
+      packageVat: Math.round(computedPkgVat * discountRatio * 100) / 100,
+      grandTotal: Math.round(computedGrandTotal * discountRatio * 100) / 100,
       bookingNumber: invoiceNumber || '',
       note: saveNote || '',
       promoCode: booking.promoCode || '',

@@ -2,7 +2,7 @@ import wixLocation from 'wix-location';
 import wixData from 'wix-data';
 import { getAllSettings } from 'backend/settings';
 import { getRoomNames } from 'backend/rooms';
-import { getPackageAmenities } from 'backend/packages';
+import { getPackageAmenities, getPackageBaseRate } from 'backend/packages';
 import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
@@ -137,7 +137,7 @@ async function initSummary() {
   }
 
   if (!rcParam && isPreviewMode()) {
-    rcParam = 'adventure_suite:2:792,two_bedroom_apartment:3:1188';
+    rcParam = 'adventure_suite:2:2,two_bedroom_apartment:3:4';
     cis = '2026-06-07';
     cos = '2026-06-12';
   }
@@ -154,9 +154,9 @@ async function initSummary() {
     const parts = rcParam.split(',');
     for (let i = 0; i < parts.length; i++) {
       const s = parts[i].split(':');
-      if (s.length >= 3) rooms.push({ roomCode: s[0], qty: parseInt(s[1], 10) || 1, baseRate: parseInt(s[2], 10) || 0 });
-      else if (s.length === 2) rooms.push({ roomCode: s[0], qty: parseInt(s[1], 10) || 1, baseRate: 0 });
-      else if (parts[i]) rooms.push({ roomCode: parts[i], qty: 1, baseRate: 0 });
+      if (s.length >= 3) rooms.push({ roomCode: s[0], qty: parseInt(s[1], 10) || 1, numGuests: parseInt(s[2], 10) || 1 });
+      else if (s.length === 2) rooms.push({ roomCode: s[0], qty: parseInt(s[1], 10) || 1, numGuests: 1 });
+      else if (parts[i]) rooms.push({ roomCode: parts[i], qty: 1, numGuests: 1 });
     }
   }
 
@@ -301,12 +301,15 @@ async function renderSummary() {
   const names = [], repData = [];
   let subtotalNet = 0, propertyFee = 0;
 
+  const packageBaseRate = await getPackageBaseRate(nights);
+
   for (let i = 0; i < rooms.length; i++) {
     const r = rooms[i];
     const displayName = _roomNames[r.roomCode] && _roomNames[r.roomCode] !== r.roomCode ? _roomNames[r.roomCode] : getRoomDisplayName(r.roomCode);
     names.push(displayName + ' x' + r.qty);
-    const rate = r.baseRate || (r.roomCode === 'adventure_suite' ? 792 : r.roomCode === 'penthouse_apartment' ? 930 : r.roomCode === 'two_bedroom_apartment' ? 1188 : 0);
-    const roomTotal = rate * r.qty * nights;
+    const rate = packageBaseRate;
+    const numGuests = Math.max(1, parseInt(r.numGuests, 10) || 1);
+    const roomTotal = rate * numGuests * r.qty * nights;
     subtotalNet += roomTotal;
     propertyFee += roomTotal * propertyFeeRate;
 
@@ -317,7 +320,7 @@ async function renderSummary() {
     r.packageVat = advNet * taxRateAdventure;
     r.propertyFee = roomTotal * propertyFeeRate;
 
-    repData.push({ _id: 'sum_' + i + '_' + _renderCount, roomCode: r.roomCode, roomName: displayName, qty: r.qty, baseRate: rate, roomTotal: roomTotal });
+    repData.push({ _id: 'sum_' + i + '_' + _renderCount, roomCode: r.roomCode, roomName: displayName, qty: r.qty, guests: numGuests, baseRate: rate, roomTotal: roomTotal });
   }
 
   const accNet = subtotalNet * accommodationShare;
@@ -497,7 +500,7 @@ function wireContinueButton() {
           checkIn: ci,
           checkOut: _summaryCos,
           quantity: r0.qty || 1,
-          guests: _guestCounts[r0.roomCode] || r0.qty || 1,
+          guests: r0.numGuests || r0.qty || 1,
           status: 'confirmed',
           guestName: name,
           guestEmail: email,
@@ -525,7 +528,7 @@ function wireContinueButton() {
             checkIn: ci,
             checkOut: _summaryCos,
             quantity: r.qty || 1,
-            guests: _guestCounts[r.roomCode] || r.qty || 1,
+            guests: r.numGuests || r.qty || 1,
             status: 'confirmed',
             guestName: name,
             guestEmail: email,

@@ -10,6 +10,24 @@ import { Permissions, webMethod } from 'wix-web-module';
  *   numberOfNights, NumberOfNights, numberofnights
  *   title, title_fld, Title, name, Name
  */
+export const getPackageBaseRate = webMethod(
+  Permissions.Anyone,
+  async (nights) => {
+    const n = Number(nights);
+    if (!n || n <= 0) return 0;
+    try {
+      const res = await wixData.query('Packages').limit(100).find();
+      for (const item of res.items) {
+        const itemNights = item.numberOfNights || item.NumberOfNights || item.numberofnights || 0;
+        if (Number(itemNights) === n) {
+          return Number(item.baseRate) || 0;
+        }
+      }
+    } catch (e) { return 0; }
+    return 0;
+  }
+);
+
 export const getPackageAmenities = webMethod(
   Permissions.Anyone,
   async (nights) => {
