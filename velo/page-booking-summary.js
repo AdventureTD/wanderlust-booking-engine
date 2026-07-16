@@ -1,3 +1,17 @@
+async function fetchRoomFees(roomCodes) {
+  const feeMap = {};
+  if (!Array.isArray(roomCodes) || roomCodes.length === 0) return feeMap;
+  try {
+    const res = await wixData.query('Rooms').hasSome('roomCode', roomCodes).limit(50).find();
+    for (const room of res.items) {
+      feeMap[(room.roomCode || '').trim()] = Number(room.roomFee) || 0;
+    }
+  } catch (e) {
+    console.log('[WBE] fetchRoomFees error:', e.message);
+  }
+  return feeMap;
+}
+
 import wixLocation from 'wix-location';
 import wixData from 'wix-data';
 import { getAllSettings } from 'backend/settings';
@@ -171,6 +185,15 @@ async function initSummary() {
   let roomNames = {};
   try { settings = await getAllSettings(); } catch (e) {}
   try { roomNames = await getRoomNames(); } catch (e) {}
+
+  const feeMap = await fetchRoomFees(rooms.map(r => r.roomCode));
+  for (let i = 0; i < rooms.length; i++) {
+    const rc = rooms[i].roomCode;
+    if (!(rooms[i].roomFee > 0) && feeMap[rc] > 0) {
+      rooms[i].roomFee = feeMap[rc];
+    }
+  }
+  console.log('[WBE] roomFee map from Rooms collection:', feeMap);
 
   _summaryRooms = rooms;
   _summaryNights = nights;
