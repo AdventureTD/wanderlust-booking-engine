@@ -2,18 +2,13 @@ async function fetchRoomFees(roomCodes) {
   const feeMap = {};
   if (!Array.isArray(roomCodes) || roomCodes.length === 0) return feeMap;
   try {
-    console.log('[WBE] fetching roomFees for:', roomCodes);
     const res = await wixData.query('Rooms').hasSome('roomCode', roomCodes).limit(50).find();
-    console.log('[WBE] rooms returned:', res.items.length);
     for (const room of res.items) {
       const rc = (room.roomCode || '').trim();
-      const roomFeeVal = room.roomFee != null ? room.roomFee : (room['Room Fee'] != null ? room['Room Fee'] : (room.roomfee != null ? room.roomfee : (room.RoomFee != null ? room.RoomFee : 0)));
-      const fee = Number(roomFeeVal) || 0;
-      feeMap[rc] = fee;
-      console.log('[WBE] fee for', rc, 'raw=', room.roomFee, 'variants=', { 'Room Fee': room['Room Fee'], roomfee: room.roomfee, RoomFee: room.RoomFee }, 'result=', fee);
+      feeMap[rc] = Number(room.roomFee) || 0;
     }
   } catch (e) {
-    console.log('[WBE] fetchRoomFees error:', e.message, e.stack);
+    console.log('[WBE] fetchRoomFees error:', e.message);
   }
   return feeMap;
 }
@@ -473,7 +468,6 @@ function initRoomRepeater() {
   _roomRepReady = true;
 
   rep.onItemReady(($item, itemData) => {
-    console.log('[WBE-SUMMARY-REP]', itemData.roomCode, 'additionalFee=', itemData.additionalFee, 'roomFee raw=', itemData.roomFee);
     safeItem($item, '#roomNameText', 'text', itemData.roomName || itemData.roomCode || '');
     safeItem($item, '#qtyRooms', 'text', String(itemData.qty || 1));
     safeItem($item, '#roomPriceText', 'text', '$' + fmtCurrency(itemData.baseRate || 0) + ' / person / night');
