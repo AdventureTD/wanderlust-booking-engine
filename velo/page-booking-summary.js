@@ -331,8 +331,11 @@ async function renderSummary() {
 
   const names = [], repData = [];
   let subtotalNet = 0, propertyFee = 0;
+  let totalGuests = 0;
 
   const packageBaseRate = await getPackageBaseRate(nights);
+  const packageCost = Math.round(packageBaseRate * nights * 100) / 100;
+  safeText('packageCost', '$' + fmtCurrency(packageCost));
 
   let totalRoomFee = 0;
   for (let i = 0; i < rooms.length; i++) {
@@ -341,6 +344,8 @@ async function renderSummary() {
     names.push(displayName + ' x' + r.qty);
     const rate = packageBaseRate;
     const numGuests = Math.max(1, parseInt(r.numGuests, 10) || 1);
+    const lineGuests = numGuests * r.qty;
+    totalGuests += lineGuests;
     let roomFee = Number(r.roomFee) || 0;
     if (!roomFee && roomMeta && typeof roomMeta === 'object' && (roomMeta.roomFee || 0) > 0) {
       roomFee = Number(roomMeta.roomFee);
@@ -366,6 +371,10 @@ async function renderSummary() {
       occupancy: r.occupancy || 2, baseOccupancy: r.baseOccupancy || 2,
     });
   }
+
+  safeText('totalGuests', String(totalGuests));
+  const packageTotal = Math.round(packageCost * totalGuests * 100) / 100;
+  safeText('packageTotal', '$' + fmtCurrency(packageTotal));
 
   const accNet = subtotalNet * accommodationShare;
   const advNet = subtotalNet * (1 - accommodationShare);
