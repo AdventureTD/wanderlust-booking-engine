@@ -2,12 +2,15 @@ async function fetchRoomFees(roomCodes) {
   const feeMap = {};
   if (!Array.isArray(roomCodes) || roomCodes.length === 0) return feeMap;
   try {
+    console.log('[WBE] fetching roomFees for:', roomCodes);
     const res = await wixData.query('Rooms').hasSome('roomCode', roomCodes).limit(50).find();
+    console.log('[WBE] Rooms query result count:', res.items.length, 'items:', JSON.stringify(res.items.map(r => ({ code: r.roomCode, name: r.name, fee: r.roomFee }))));
     for (const room of res.items) {
-      feeMap[(room.roomCode || '').trim()] = Number(room.roomFee) || 0;
+      const rc = (room.roomCode || '').trim();
+      feeMap[rc] = Number(room.roomFee) || 0;
     }
   } catch (e) {
-    console.log('[WBE] fetchRoomFees error:', e.message);
+    console.log('[WBE] fetchRoomFees error:', e.message, e.stack);
   }
   return feeMap;
 }
