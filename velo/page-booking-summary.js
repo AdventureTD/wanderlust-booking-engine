@@ -137,7 +137,7 @@ async function initSummary() {
   }
 
   if (!rcParam && isPreviewMode()) {
-    rcParam = 'adventure_suite:2:2,two_bedroom_apartment:3:4';
+    rcParam = 'adventure_suite:2:2:0,two_bedroom_apartment:3:4:0';
     cis = '2026-06-07';
     cos = '2026-06-12';
   }
@@ -160,9 +160,10 @@ async function initSummary() {
         two_bedroom_apartment: { occupancy: 4, baseOccupancy: 3 },
       };
       const occ = occMap[(s[0] || '').trim()] || { occupancy: 2, baseOccupancy: 2 };
-      if (s.length >= 3) rooms.push({ roomCode: s[0], qty: parseInt(s[1], 10) || 1, numGuests: parseInt(s[2], 10) || 1, occupancy: occ.occupancy, baseOccupancy: occ.baseOccupancy });
-      else if (s.length === 2) rooms.push({ roomCode: s[0], qty: parseInt(s[1], 10) || 1, numGuests: 1, occupancy: occ.occupancy, baseOccupancy: occ.baseOccupancy });
-      else if (parts[i]) rooms.push({ roomCode: parts[i], qty: 1, numGuests: 1, occupancy: occ.occupancy, baseOccupancy: occ.baseOccupancy });
+      if (s.length >= 4) rooms.push({ roomCode: s[0], qty: parseInt(s[1], 10) || 1, numGuests: parseInt(s[2], 10) || 1, roomFee: parseFloat(s[3]) || 0, occupancy: occ.occupancy, baseOccupancy: occ.baseOccupancy });
+      else if (s.length === 3) rooms.push({ roomCode: s[0], qty: parseInt(s[1], 10) || 1, numGuests: parseInt(s[2], 10) || 1, roomFee: 0, occupancy: occ.occupancy, baseOccupancy: occ.baseOccupancy });
+      else if (s.length === 2) rooms.push({ roomCode: s[0], qty: parseInt(s[1], 10) || 1, numGuests: 1, roomFee: 0, occupancy: occ.occupancy, baseOccupancy: occ.baseOccupancy });
+      else if (parts[i]) rooms.push({ roomCode: parts[i], qty: 1, numGuests: 1, roomFee: 0, occupancy: occ.occupancy, baseOccupancy: occ.baseOccupancy });
     }
   }
 
@@ -309,13 +310,16 @@ async function renderSummary() {
 
   const packageBaseRate = await getPackageBaseRate(nights);
 
+  let totalRoomFee = 0;
   for (let i = 0; i < rooms.length; i++) {
     const r = rooms[i];
     const displayName = _roomNames[r.roomCode] && _roomNames[r.roomCode] !== r.roomCode ? _roomNames[r.roomCode] : getRoomDisplayName(r.roomCode);
     names.push(displayName + ' x' + r.qty);
     const rate = packageBaseRate;
     const numGuests = Math.max(1, parseInt(r.numGuests, 10) || 1);
-    const roomTotal = rate * numGuests * r.qty * nights;
+    const additionalFee = r.roomFee > 0 ? Math.round(r.roomFee * nights * 100) / 100 : 0;
+    totalRoomFee += additionalFee;
+    const roomTotal = rate * numGuests * r.qty * nights + additionalFee;
     subtotalNet += roomTotal;
     propertyFee += roomTotal * propertyFeeRate;
 
@@ -329,7 +333,7 @@ async function renderSummary() {
     repData.push({
       _id: 'sum_' + i + '_' + _renderCount,
       roomCode: r.roomCode, roomName: displayName, qty: r.qty, guests: numGuests,
-      baseRate: rate, roomTotal: roomTotal,
+      baseRate: rate, roomTotal: roomTotal, additionalFee: additionalFee,
       occupancy: r.occupancy || 2, baseOccupancy: r.baseOccupancy || 2,
     });
   }
@@ -438,6 +442,14 @@ function initRoomRepeater() {
     safeItem($item, '#roomNameText', 'text', itemData.roomName || itemData.roomCode || '');
     safeItem($item, '#qtyRooms', 'text', String(itemData.qty || 1));
     safeItem($item, '#roomPriceText', 'text', '$' + fmtCurrency(itemData.baseRate || 0) + ' / person / night');
+    const feeEl = safeItem($item, '#additionalFee', null, null);
+    if (feeEl) {
+      if ((itemData.additionalFee || 0) > 0) {
+        safeItem($item, '#additionalFee', 'text', '$' + fmtCurrency(itemData.additionalFee) + ' room fee');
+      } else {
+        safeItem($item, '#additionalFee', 'text', '');
+      }
+    }
 
     const dd = safeItem($item, '#guestsDropdown', null, null);
     if (dd && typeof dd.onChange === 'function') {
@@ -517,6 +529,7 @@ function wireContinueButton() {
           checkOut: _summaryCos,
           quantity: r0.qty || 1,
           guests: r0.numGuests || r0.qty || 1,
+          roomFee: r0.roomFee || 0,
           status: 'confirmed',
           guestName: name,
           guestEmail: email,
@@ -545,6 +558,7 @@ function wireContinueButton() {
             checkOut: _summaryCos,
             quantity: r.qty || 1,
             guests: r.numGuests || r.qty || 1,
+            roomFee: r.roomFee || 0,
             status: 'confirmed',
             guestName: name,
             guestEmail: email,

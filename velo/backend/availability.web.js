@@ -544,7 +544,8 @@ export const createBooking = webMethod(
 
     const nights = nightsBetween(checkIn, checkOut);
     const packageBaseRate = await getPackageRateForNights(nights);
-    let computedRoomTotal = packageBaseRate * guests * nights;
+    const roomFee = Number(booking.roomFee) || 0;
+    let computedRoomTotal = packageBaseRate * guests * nights + roomFee * nights;
     if (Number(booking.roomTotal) > 0) {
       computedRoomTotal = Number(booking.roomTotal);
     }
@@ -560,6 +561,7 @@ export const createBooking = webMethod(
       guests: guests,
       status: booking.status || 'confirmed',
       quantity: quantity,
+      roomFee: roomFee,
       roomTotal: Math.round(computedRoomTotal * discountRatio * 100) / 100,
       propertyFee: Math.round(computedPropertyFee * discountRatio * 100) / 100,
       accomodationVat: Math.round(computedAccVat * discountRatio * 100) / 100,

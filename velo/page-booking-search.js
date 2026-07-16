@@ -10,12 +10,12 @@ function clearSelections(silent) {
   if (!silent) updateSelectionPanel();
 }
 
-function setRoomSelection(roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut) {
+function setRoomSelection(roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut, roomFee) {
   let next = [], found = false;
   for (let i = 0; i < _selections.length; i++) {
     if (_selections[i].roomCode === roomCode) {
       found = true;
-      if (qty > 0) next.push({ roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut });
+      if (qty > 0) next.push({ roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut, roomFee: roomFee || 0 });
     } else next.push(_selections[i]);
   }
   if (!found && qty > 0) next.push({ roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut });
@@ -92,7 +92,7 @@ $w.onReady(function () {
       const parts = [], first = _selections[0];
       for (let i = 0; i < _selections.length; i++) {
         const s = _selections[i];
-        parts.push(s.roomCode + ':' + s.qty + ':' + (s.numGuests || 1));
+        parts.push(s.roomCode + ':' + s.qty + ':' + (s.numGuests || 1) + ':' + (s.roomFee || 0));
       }
       try {
         sessionStorage.setItem('_wbe_rc', parts.join(','));
@@ -152,7 +152,7 @@ $w.onReady(function () {
             const qtyDd = safeItem($item, '#roomQtyDropdown', null, null);
             const qty = qtyDd ? parseInt(qtyDd.value || '0', 10) : 0;
             if (qty > 0) {
-              setRoomSelection(itemData.roomCode, itemData.roomName || itemData.roomCode, qty, selectedGuests, itemData.availableCheckIn, itemData.availableCheckOut);
+              setRoomSelection(itemData.roomCode, itemData.roomName || itemData.roomCode, qty, selectedGuests, itemData.availableCheckIn, itemData.availableCheckOut, itemData.roomFee || 0);
             }
           });
         }
@@ -176,7 +176,7 @@ $w.onReady(function () {
           const qty = parseInt(event.target.value || '1', 10);
           const numGuests = typeof selectedGuests === 'number' ? selectedGuests : baseOcc;
           if (qty > 0) {
-            setRoomSelection(itemData.roomCode, itemData.roomName || itemData.roomCode, qty, numGuests, itemData.availableCheckIn, itemData.availableCheckOut);
+            setRoomSelection(itemData.roomCode, itemData.roomName || itemData.roomCode, qty, numGuests, itemData.availableCheckIn, itemData.availableCheckOut, itemData.roomFee || 0);
           } else {
             removeRoomSelection(itemData.roomCode);
           }
