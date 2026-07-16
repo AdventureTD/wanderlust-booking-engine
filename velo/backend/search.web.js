@@ -158,25 +158,13 @@ export const searchAvailability = webMethod(
       const maxQty = units - maxBooked;
 
       if (allAvail) {
-        const rate = priceMap[code + '|' + rq];
-        if (rate === undefined) {
-          out.push({
-            roomCode: code, roomName: name, units: units,
-            occupancy: maxOcc, baseOccupancy: baseOcc,
-            maxQty: 0, status: 'unavailable',
-            availableCheckIn: '', availableCheckOut: '',
-            availableNights: 0, baseRate: 0,
-            mainPhoto: imgUrl(rm.mainPhoto),
-          });
-          continue;
-        }
         out.push({
           roomCode: code, roomName: name, units: units,
           occupancy: maxOcc, baseOccupancy: baseOcc,
           maxQty: maxQty, status: 'full',
           availableCheckIn: ci.toISOString(),
           availableCheckOut: co.toISOString(),
-          availableNights: rq, baseRate: rate,
+          availableNights: rq,
           mainPhoto: imgUrl(rm.mainPhoto),
         });
         continue;
@@ -203,18 +191,6 @@ export const searchAvailability = webMethod(
       }
 
       if (bs !== null && bl >= MIN_N) {
-        const rate = priceMap[code + '|' + bl];
-        if (rate === undefined) {
-          out.push({
-            roomCode: code, roomName: name, units: units,
-            occupancy: maxOcc, baseOccupancy: baseOcc,
-            maxQty: 0, status: 'unavailable',
-            availableCheckIn: '', availableCheckOut: '',
-            availableNights: 0, baseRate: 0,
-            mainPhoto: imgUrl(rm.mainPhoto),
-          });
-          continue;
-        }
         let minFreePartial = units;
         for (let i = bs; i < bs + bl; i++) {
           const free = units - bpn[i];
@@ -228,7 +204,7 @@ export const searchAvailability = webMethod(
           maxQty: minFreePartial, status: 'partial',
           availableCheckIn: aci.toISOString(),
           availableCheckOut: aco.toISOString(),
-          availableNights: bl, baseRate: 0,
+          availableNights: bl,
           mainPhoto: imgUrl(rm.mainPhoto),
         });
       }
