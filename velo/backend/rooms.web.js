@@ -22,7 +22,6 @@ const ROOMS = 'Rooms';
 
 // Normalize a room row into what the page needs (details + photos).
 // NOTE: baseRate is NOT included — it now varies by stay length and must be
-// looked up from the RoomPricing collection separately.
 function roomToView(room) {
   const gallery = Array.isArray(room.photoGallery) ? room.photoGallery : [];
   return {
