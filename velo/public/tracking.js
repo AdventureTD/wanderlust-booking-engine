@@ -80,11 +80,17 @@ export function pushDataLayer(payload) {
 
 // Fires when a visitor begins the booking funnel.
 export function trackBeginBooking(details) {
-  pushDataLayer({
+  const d = details || {};
+  const payload = {
     event: 'begin_booking',
-    currency: details && details.currency ? details.currency : 'USD',
-    value: details && details.value ? details.value : undefined
-  });
+    currency: d.currency || 'USD'
+  };
+  if (d.value) { payload.value = d.value; }
+  if (d.checkIn) { payload.check_in = d.checkIn; }
+  if (d.checkOut) { payload.check_out = d.checkOut; }
+  if (d.nights) { payload.nights = d.nights; }
+  if (d.guests) { payload.guests = d.guests; }
+  pushDataLayer(payload);
 }
 
 // Fires on confirmed booking (client-side signal).

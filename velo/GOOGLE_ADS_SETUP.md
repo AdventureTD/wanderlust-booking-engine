@@ -14,6 +14,7 @@ This guide wires the Wanderlust booking engine to send confirmed bookings and ca
 - Fires a client-side `purchase` event after `#btnContinue` confirms the booking on `/booking-summary`.
 - Sends a server-side conversion to the Data Manager API for Google Ads.
 - Sends a **RETRACTION** adjustment when an admin cancels the booking, so the conversion value is reversed.
+- Enables GA4-based remarketing: the `begin_booking` event can be used to build a Google Ads audience of people who started but did not complete a booking.
 
 ---
 
@@ -210,6 +211,21 @@ When an admin cancels a booking through the admin console or console code, the s
 ---
 
 ## Troubleshooting
+
+### Setting up the remarketing audience (GA4 → Google Ads)
+
+The integration fires a `begin_booking` event when a visitor clicks `#btnSearchRooms`. This event is your remarketing trigger.
+
+1. In **Google Analytics**, go to **Admin → Events → All events**.
+2. Find `begin_booking` and toggle it to **Mark as key event**.
+3. In **Google Ads**, go to **Tools & Settings → Data manager → Google Analytics 4** and confirm your GA4 property is linked.
+4. Go to **Tools & Settings → Shared library → Audience manager**.
+5. Click **+ New audience → Website visitors**.
+6. Choose **Visitors who did certain actions**.
+7. Select `begin_booking` as the event.
+8. Optionally add a filter: **exclude** users who triggered `purchase` so the audience only contains people who started but did not book.
+9. Name it `Begin Booking - No Purchase` and save.
+10. Create or edit a **Display campaign** and add this audience under **Targeting → Audiences**.
 
 ### Conversion upload fails with OAuth error
 - Verify the service account `client_email` matches the Wix secret.

@@ -83,7 +83,20 @@ $w.onReady(function () {
   captureClickIds();
   if (tryFind('btnSearchRooms')) {
     $w('#btnSearchRooms').onClick(function () {
-      trackBeginBooking();
+      const ciEl = tryFind('datePickerCheckIn');
+      const coEl = tryFind('datePickerCheckOut');
+      const ci = ciEl && ciEl.value ? new Date(ciEl.value) : null;
+      const co = coEl && coEl.value ? new Date(coEl.value) : null;
+      let nights = 0;
+      if (ci && co && co > ci) {
+        nights = Math.round((co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24));
+      }
+      trackBeginBooking({
+        checkIn: ci ? (ci.getMonth() + 1) + '/' + ci.getDate() + '/' + ci.getFullYear() : undefined,
+        checkOut: co ? (co.getMonth() + 1) + '/' + co.getDate() + '/' + co.getFullYear() : undefined,
+        nights: nights || undefined,
+        value: 0
+      });
       searchHandler();
     });
   }
