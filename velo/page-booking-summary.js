@@ -19,6 +19,8 @@ import { getAllSettings } from 'backend/settings';
 import { getRoomNames } from 'backend/rooms';
 import { getPackageAmenities, getPackageBaseRate } from 'backend/packages';
 import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
+import { trackPurchase, getStoredClickIds, clearClickIds } from 'public/tracking';
+import { recordBookingConversion } from 'backend/googleAdsConversions';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
 const ROOM_DISPLAY_NAMES = {
@@ -562,6 +564,13 @@ function wireContinueButton() {
     const bookings = [], errors = [];
     let sharedBookingNumber = '';
 
+    const att = getStoredClickIds() || {};
+    const clickIds = {
+      gclid: att.gclid || '',
+      gbraid: att.gbraid || '',
+      wbraid: att.wbraid || ''
+    };
+
     try {
       // Phase 1: book first room to get shared booking number
       if (rooms.length > 0) {
@@ -584,6 +593,9 @@ function wireContinueButton() {
           grandTotal: ((r0.roomTotal || 0) + (r0.accomodationVat || 0) + (r0.packageVat || 0) + (r0.propertyFee || 0)) || 0,
           promoCode: _promoCodeApplied,
           promoDiscount: _promoDiscount,
+          gclid: clickIds.gclid,
+          gbraid: clickIds.gbraid,
+          wbraid: clickIds.wbraid,
         };
         const b0 = await createBooking(payload0);
         bookings.push(b0);
@@ -614,6 +626,9 @@ function wireContinueButton() {
             bookingNumber: sharedBookingNumber,
             promoCode: _promoCodeApplied,
             promoDiscount: _promoDiscount,
+            gclid: clickIds.gclid,
+            gbraid: clickIds.gbraid,
+            wbraid: clickIds.wbraid,
           };
           restPromises.push(
             createBooking(payload)
@@ -639,6 +654,37 @@ function wireContinueButton() {
 
       if (sharedBookingNumber) {
         safeText('bookingStatus', 'Booking confirmed! Taking you home...');
+
+        const grandTotalText = safeTextRead('grandTotalText').replace(/[^0-9.]/g, '') || '0';
+        const grandTotal = parseFloat(grandTotalText) || 0;
+
+        trackPurchase({
+          transactionId: sharedBookingNumber,
+          value: grandTotal,
+          currency: 'USD'
+        });
+
+        recordBookingConversion({
+          transactionId: sharedBookingNumber,
+          value: grandTotal,
+          currency: 'USD',
+          gclid: clickIds.gclid,
+          gbraid: clickIds.gbraid,
+          wbraid: clickIds.wbraid,
+          email: email,
+          phone: phone,
+          firstName: name.split(' ')[0],
+          lastName: name.split(' ').slice(1).join(' '),
+          conversionTime: new Date().toISOString()
+        })
+        .then(function (convResult) {
+          console.log('[WBE-GOOGLE] conversion upload result:', JSON.stringify(convResult));
+          if (convResult && convResult.ok) { clearClickIds(); }
+        })
+        .catch(function (convErr) {
+          console.error('[WBE-GOOGLE] conversion upload error:', convErr && convErr.message || convErr);
+        });
+
         // Start invoice/calendar creation in the background so the redirect is not blocked.
         const invoicePromise = issueBookingInvoice(sharedBookingNumber)
           .then(function (invResult) {

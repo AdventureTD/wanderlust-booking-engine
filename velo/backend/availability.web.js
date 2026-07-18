@@ -1,32 +1,16 @@
-/*
- * Wanderlust Booking Engine — Velo backend: availability, booking, blocking, and invoice generation.
- * File location in Wix Editor: backend/availability.web.js
- *
- * Uses Wix Data (wix-data) to query the Bookings collection. Mirrors the tested
- * Python availability engine. The half-open interval rule is identical:
- *   a booking occupies nights [checkIn, checkOut)
- *   two bookings conflict iff  a.checkIn < b.checkOut && b.checkIn < a.checkOut
- *   => same-day turnover (checkout == next checkin) is allowed.
- *
- * .web.js = Velo web module: these exported functions are callable from the
- * frontend but EXECUTE ON THE SERVER, so guests cannot tamper with availability.
- *
- * Completely self-contained — no imports of custom backend modules.
- * Only built-in Wix modules: wix-data, wix-web-module, wix-fetch, wix-secrets-backend.
- */
 
 import wixData from 'wix-data';
 import { Permissions, webMethod } from 'wix-web-module';
 import { fetch } from 'wix-fetch';
 import { getSecret } from 'wix-secrets-backend';
 import { getAllSettings } from 'backend/settings.web';
+import { adjustBookingConversion } from 'backend/googleAdsConversions';
 
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
 const INVOICE_SERVICE_URL_KEY = 'WBE_INVOICE_SERVICE_URL';
 const SHARED_SECRET_KEY = 'WBE_SHARED_SECRET';
 
-/* ---------- room config (inlined from wbeConfig.js) ---------- */
 const ROOM_UNITS = {
   adventure_suite: 3,
   penthouse_apartment: 1,
@@ -55,7 +39,6 @@ function getRoomDisplayName(roomCode) {
   return ROOM_DISPLAY_NAMES[roomCode] || (roomCode || '').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
 }
 
-/* ---------- helpers ---------- */
 async function getNextBookingNumber() {
   const PREFIX = 'WBE-INV-';
   const PAD = 4;
@@ -119,7 +102,6 @@ function snakeCaseKeys(obj) {
   return obj;
 }
 
-/* ---------- package pricing helpers ---------- */
 async function getPackageRateForNights(nights) {
   const n = Number(nights);
   if (!n || n <= 0) return 0;
@@ -135,7 +117,6 @@ async function getPackageRateForNights(nights) {
   return 0;
 }
 
-/* ---------- invoice service call (inlined from issueInvoice.web.js) ---------- */
 async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoiceNumber) {
   const serviceUrl = await getSecret(INVOICE_SERVICE_URL_KEY);
   const secret = await getSecret(SHARED_SECRET_KEY);
@@ -173,7 +154,6 @@ async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoice
   return res.json();
 }
 
-/* ---------- quote breakdown (inlined from invoice.web.js) ---------- */
 function buildQuoteBreakdown(booking) {
   const nights = nightsBetween(booking.checkIn, booking.checkOut);
   const roomTotal = booking.roomTotal || 0;
@@ -253,7 +233,6 @@ async function generateAndStoreInvoice(bookingId) {
     throw new Error('Invoice generation failed: ' + e.message);
   }
 
-  // Store invoice number in bookingNumber field (minimal update pattern)
   const updateObj = {
     _id: booking._id,
     bookingNumber: result.invoice_number
@@ -272,8 +251,7 @@ async function generateAndStoreInvoice(bookingId) {
   };
 }
 
-/* ---------- availability helpers ---------- */
-async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optGuest) {
+async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optGuest, optAttribution) {
   if (!bookingNumber) {
     console.log('>>> updateBookingSummary SKIPPED — no bookingNumber');
     return;
@@ -281,7 +259,6 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
   console.log('>>> updateBookingSummary START for', bookingNumber);
 
   try {
-    // Try to read existing summary first (for dates during cancel, invoice, etc.)
     let checkIn = checkInArg || null;
     let checkOut = checkOutArg || null;
 
@@ -335,8 +312,6 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       if (!promoDiscount && row.promoDiscount) promoDiscount = parseFloat(row.promoDiscount) || 0;
     }
 
-    // Room-level financials are already discounted at write time (createBooking applies promo).
-    // Compute total promo dollar savings by reversing the discount ratio on the aggregated subtotal.
     if (promoCode && promoDiscount > 0) {
       const grossRatio = 1 - promoDiscount;
       if (grossRatio > 0) {
@@ -344,6 +319,11 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
         totalDiscountAmount = Math.round((grossRoomTotal - totalRoomTotal) * 100) / 100;
       }
     }
+
+    const att = optAttribution || {};
+    const anyGclid = att.gclid || '';
+    const anyGbraid = att.gbraid || '';
+    const anyWbraid = att.wbraid || '';
 
     const summary = {
       bookingNumber,
@@ -360,7 +340,10 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       grandTotal: Math.round((totalRoomTotal + totalAccommodationVat + totalPackageVat + totalPropertyFee + Number.EPSILON) * 100) / 100,
       promoCode,
       promoDiscountAmount: totalDiscountAmount,
-      status: status || 'confirmed'
+      status: status || 'confirmed',
+      gclid: anyGclid,
+      gbraid: anyGbraid,
+      wbraid: anyWbraid
     };
 
     console.log('>>> updateBookingSummary computed:', JSON.stringify(summary).substring(0,200));
@@ -372,8 +355,12 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
 
     if (existing.items.length > 0) {
       summary._id = existing.items[0]._id;
-      // Preserve existing bookingDate when updating so the original creation date stays
       summary.bookingDate = existing.items[0].bookingDate || new Date();
+      const existingAtt = existing.items[0];
+      if (!summary.gclid && existingAtt.gclid) summary.gclid = existingAtt.gclid;
+      if (!summary.gbraid && existingAtt.gbraid) summary.gbraid = existingAtt.gbraid;
+      if (!summary.wbraid && existingAtt.wbraid) summary.wbraid = existingAtt.wbraid;
+      if (existingAtt.googleConversionUploaded) summary.googleConversionUploaded = existingAtt.googleConversionUploaded;
       console.log('>>> updateBookingSummary UPDATING row', existing.items[0]._id);
       await wixData.update(BOOKING_SUMMARIES, summary);
       console.log('>>> updateBookingSummary UPDATE complete');
@@ -392,7 +379,6 @@ async function overlappingCount(roomCode, checkIn, checkOut) {
   let total = 0;
   const seenIds = [];
 
-  // Primary: join via BookingSummary (new canonical path)
   const summaryRes = await wixData.query(BOOKING_SUMMARIES)
     .lt('checkIn', new Date(checkOut))
     .gt('checkOut', new Date(checkIn))
@@ -427,7 +413,6 @@ async function overlappingRows(roomCode, checkIn, checkOut) {
   const seenIds = [];
   const summaryDateMap = {}; // bookingNumber -> {checkIn, checkOut}
 
-  // Primary: join via BookingSummary
   const summaryRes = await wixData.query(BOOKING_SUMMARIES)
     .lt('checkIn', new Date(checkOut))
     .gt('checkOut', new Date(checkIn))
@@ -467,7 +452,6 @@ async function overlappingRows(roomCode, checkIn, checkOut) {
   return rows;
 }
 
-/* ---------- exported methods ---------- */
 export const isAvailable = webMethod(
   Permissions.Anyone,
   async (roomCode, checkIn, checkOut) => {
@@ -528,7 +512,6 @@ export const createBooking = webMethod(
       throw new Error('Only ' + (ROOM_UNITS[roomCode] - currentlyBooked) + ' ' + roomDisplay + '(s) available for ' + checkIn + ' to ' + checkOut);
     }
 
-    // Generate booking number if not provided
     let invoiceNumber = bookingNumber || '';
     if (!invoiceNumber) {
       try {
@@ -556,8 +539,6 @@ export const createBooking = webMethod(
 
     const toInsert = {
       roomCode: roomCode,
-      // checkIn and checkOut are intentionally stored only in BookingSummary
-      // to maintain single source of truth for booking dates.
       guests: guests,
       status: booking.status || 'confirmed',
       quantity: quantity,
@@ -572,6 +553,9 @@ export const createBooking = webMethod(
       promoCode: booking.promoCode || '',
       promoDiscount: booking.promoDiscount || 0,
       promoApplied: true,
+      gclid: booking.gclid || '',
+      gbraid: booking.gbraid || '',
+      wbraid: booking.wbraid || '',
     };
     console.log('>>> SERVER toInsert keys:', Object.keys(toInsert).join(', '));
     console.log('>>> SERVER toInsert financials => roomTotal:', toInsert.roomTotal, '| propertyFee:', toInsert.propertyFee, '| accomodationVat:', toInsert.accomodationVat, '| packageVat:', toInsert.packageVat, '| grandTotal:', toInsert.grandTotal, '| bookingNumber:', toInsert.bookingNumber);
@@ -586,20 +570,22 @@ export const createBooking = webMethod(
       console.log('>>> SERVER verify-db ERROR:', ve.message);
     }
 
-    // Post-insert safety re-check (race-condition guard).
     const countNow = await overlappingCount(roomCode, checkIn, checkOut);
     if (countNow > ROOM_UNITS[roomCode]) {
       await wixData.remove(BOOKINGS, inserted._id);
       throw new Error('Booking conflict — ' + roomCode + ' was just taken. Please retry.');
     }
 
-    // Update booking summary — pass dates + guest info so the summary row is complete
     console.log('>>> SERVER calling updateBookingSummary for', inserted.bookingNumber);
     try {
       await updateBookingSummary(inserted.bookingNumber, checkIn, checkOut, {
         guestName: guestName || '',
         guestEmail: guestEmail || '',
         guestPhone: guestPhone || '',
+      }, {
+        gclid: booking.gclid || inserted.gclid || '',
+        gbraid: booking.gbraid || inserted.gbraid || '',
+        wbraid: booking.wbraid || inserted.wbraid || '',
       });
     } catch (e) {
       console.log('>>> SERVER updateBookingSummary ERROR:', e.message);
@@ -626,7 +612,6 @@ export const issueBookingInvoice = webMethod(
 
     const firstRow = bookingsRes.items[0];
 
-    // Read dates from BookingSummary (single source of truth)
     let checkInDate = '', checkOutDate = '';
     let summaryRow = null;
     try {
@@ -643,7 +628,6 @@ export const issueBookingInvoice = webMethod(
       console.log('>>> issueBookingInvoice BookingSummary read ERROR:', summaryErr.message);
     }
 
-    // Look up package title & amenities from Packages collection by nights
     let packageTitle = '';
     let includedAmenities = '';
     try {
@@ -673,7 +657,6 @@ export const issueBookingInvoice = webMethod(
       roomCode: bookingsRes.items.map(function (r) { return r.roomCode; }).join(', ')
     };
 
-    // Fetch table-driven allocation ratio from Settings for the invoice PDF.
     let accommodationShare = 0.5;
     try {
       const settings = await getAllSettings();
@@ -688,10 +671,8 @@ export const issueBookingInvoice = webMethod(
     let total_acc_vat = 0;
     let total_pkg_vat = 0;
 
-    // Promo code stored on first booking row (all rows in group share same code).
     const promoDiscount = parseFloat(firstRow.promoDiscount) || 0;
     const promoCode = firstRow.promoCode || '';
-    // createBooking now writes discounted room-level financials, so do not double-discount.
     const alreadyDiscounted = firstRow.promoApplied === true;
 
     for (const row of bookingsRes.items) {
@@ -733,9 +714,6 @@ export const issueBookingInvoice = webMethod(
         gross: advNet + pkgVat
       });
 
-      // The room table in the PDF should show the original gross package total per
-      // room (matching the booking summary page), even when room-level values are
-      // stored with the promo discount already applied.
       const displayGross = alreadyDiscounted && promoDiscount > 0 && promoDiscount < 1
         ? roomTotal / (1 - promoDiscount)
         : roomTotal;
@@ -757,15 +735,10 @@ export const issueBookingInvoice = webMethod(
       total_pkg_vat += pkgVat;
     }
 
-    // Promo handling. createBooking now writes discounted room-level financials
-    // (when a promo is used). If the values are already discounted, we just
-    // aggregate them; otherwise we apply the discount to gross aggregates here.
     let promoDiscountAmount = 0;
     let discountRatio = 1;
     if (promoDiscount > 0) {
       if (alreadyDiscounted) {
-        // subtotal_net/total_vat/total_property_fee are already net values.
-        // Compute the discount amount for display by reversing the discount.
         const grossRatio = 1 - promoDiscount;
         if (grossRatio > 0) {
           const grossSubtotal = subtotal_net / grossRatio;
@@ -785,7 +758,6 @@ export const issueBookingInvoice = webMethod(
     const discountedPkgVat = alreadyDiscounted ? total_pkg_vat : Math.round(total_pkg_vat * discountRatio * 100) / 100;
     const discountedTotal = Math.round((discountedSubtotal + discountedPropertyFee + discountedTotalVat) * 100) / 100;
 
-    // Rebuild line_items for discounted amounts
     const discounted_line_items = [];
     for (const li of line_items) {
       const discountedNet = alreadyDiscounted ? li.net : Math.round(li.net * discountRatio * 100) / 100;
@@ -839,7 +811,6 @@ export const issueBookingInvoice = webMethod(
       result._calendar_debug || result.calendar || result.calendar_error || 'no-calendar-field'
     ));
 
-    // Return diagnostics in the webMethod response so callers can inspect.
     const returnPayload = {
       invoice_number: result.invoice_number,
       invoice_url: result.invoice_url,
@@ -893,6 +864,37 @@ export const cancelBooking = webMethod(
       } catch (e) {
         console.log('>>> SERVER updateBookingSummary ERROR after cancel:', e.message);
       }
+
+      try {
+        const summaryRes = await wixData.query(BOOKING_SUMMARIES)
+          .eq('bookingNumber', b.bookingNumber)
+          .limit(1)
+          .find();
+        if (summaryRes.items.length > 0) {
+          const summary = summaryRes.items[0];
+          if (summary.googleConversionUploaded !== true) {
+            const adjResult = await adjustBookingConversion({
+              transactionId: b.bookingNumber,
+              gclid: summary.gclid || '',
+              gbraid: summary.gbraid || '',
+              wbraid: summary.wbraid || '',
+              email: summary.guestEmail || '',
+              phone: summary.guestPhone || '',
+              originalConversionTime: summary.bookingDate || new Date().toISOString(),
+              adjustmentType: 'RETRACTION',
+              currency: 'USD'
+            });
+            console.log('>>> SERVER cancelBooking adjustment result:', JSON.stringify(adjResult).substring(0, 300));
+            if (adjResult && adjResult.ok) {
+              summary.googleConversionUploaded = true;
+              summary.status = 'In Process';
+              await wixData.update(BOOKING_SUMMARIES, summary);
+            }
+          }
+        }
+      } catch (adjErr) {
+        console.log('>>> SERVER cancelBooking adjustment ERROR:', adjErr.message);
+      }
     }
 
     return updated;
@@ -940,7 +942,6 @@ export const blockRoom = webMethod(
 
     const toInsert = {
       roomCode: roomCode,
-      // checkIn and checkOut intentionally stored only in BookingSummary
       guests: 1,
       status: 'blocked',
       quantity: actual,
@@ -949,7 +950,6 @@ export const blockRoom = webMethod(
     };
     const inserted = await wixData.insert(BOOKINGS, toInsert);
 
-    // Create/update BookingSummary so overlapping joins find this block
     try {
       await updateBookingSummary(inserted.bookingNumber, checkIn, checkOut);
     } catch (e) {
@@ -982,7 +982,6 @@ export const validatePromoCode = webMethod(
       const res = await wixData.query('PromoCodes').limit(1).find();
       let found = null;
       for (const item of res.items) {
-        // Wix Data may return title-fld or title depending on collection field name.
         const itemTitle = item.title || item.Title || item.title_fld || '';
         if (String(itemTitle).trim().toUpperCase() === String(code).trim().toUpperCase()) {
           found = item;
@@ -998,7 +997,6 @@ export const validatePromoCode = webMethod(
         return { valid: false, reason: 'Promo code is not yet active.' };
       }
       if (endDate) {
-        // End date is inclusive; treat midnight of end date as inclusive end of that day.
         const endOfDay = new Date(endDate);
         endOfDay.setHours(23, 59, 59, 999);
         if (now > endOfDay) {

@@ -1,6 +1,7 @@
 import { getActiveMessages } from 'backend/messages';
 import { searchAvailability } from 'backend/search';
 import { getPackageAmenities } from 'backend/packages';
+import { trackBeginBooking, captureClickIds } from 'public/tracking';
 import wixLocation from 'wix-location';
 
 let _selections = [];
@@ -79,7 +80,13 @@ function safeItem($item, selector, action, val) {
 function tryFind(id) { try { return $w('#' + id); } catch (e) { return null; } }
 
 $w.onReady(function () {
-  if (tryFind('btnSearchRooms')) $w('#btnSearchRooms').onClick(searchHandler);
+  captureClickIds();
+  if (tryFind('btnSearchRooms')) {
+    $w('#btnSearchRooms').onClick(function () {
+      trackBeginBooking();
+      searchHandler();
+    });
+  }
   if (tryFind('btnContinueToSummary')) {
     const btn = $w('#btnContinueToSummary');
     if (typeof btn.link === 'string') btn.link = '';
