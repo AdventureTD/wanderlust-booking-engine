@@ -20,7 +20,7 @@ import { getRoomNames } from 'backend/rooms';
 import { getPackageAmenities, getPackageBaseRate } from 'backend/packages';
 import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
 import { trackPurchase, getStoredClickIds, clearClickIds } from 'public/tracking';
-import { recordBookingConversion } from 'backend/googleAdsConversions';
+import { recordBookingConversion } from 'backend/googleAdsConversions.web';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
 const ROOM_DISPLAY_NAMES = {

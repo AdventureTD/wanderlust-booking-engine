@@ -1,7 +1,7 @@
 import { Permissions, webMethod } from 'wix-web-module';
 import { getSecret } from 'wix-secrets-backend';
-import { uploadClickConversions, uploadConversionAdjustments } from 'backend/dataManagerClient';
-import { buildUserIdentifiers } from 'backend/hashUtils';
+import { uploadClickConversions, uploadConversionAdjustments } from 'backend/dataManagerClient.web';
+import { buildUserIdentifiers } from 'backend/hashUtils.web';
 
 export const recordBookingConversion = webMethod(
   Permissions.Anyone,
