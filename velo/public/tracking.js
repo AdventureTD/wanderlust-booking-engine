@@ -73,6 +73,7 @@ export function pushDataLayer(payload) {
     if (typeof window === 'undefined') { return; }
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push(payload);
+    console.log('[WBE-GTAG] dataLayer.push', payload.event || payload);
   } catch (err) {
     console.error('pushDataLayer failed:', err && err.message || err);
   }
