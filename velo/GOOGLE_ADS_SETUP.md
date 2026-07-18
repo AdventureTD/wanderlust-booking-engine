@@ -1,6 +1,8 @@
 # Wanderlust Google Ads Server-Side Conversion Setup
 
-This guide wires the Wanderlust booking engine to send confirmed bookings and cancellations to the Google Ads API. It covers the Google Cloud project, service account, Google Ads account setup, Wix Secrets, and live testing.
+This guide wires the Wanderlust booking engine to send confirmed bookings and cancellations to Google Ads. It covers the Google Cloud project, service account, Google Ads account setup, Wix Secrets, and live testing.
+
+> Important timing note: as of June 15, 2026 the Google Ads API stopped accepting **new adopters** for offline conversion imports, and the Data Manager API is now the primary path for server-side uploads. This account has no prior offline-conversion import history, so legacy `UploadClickConversions` would return `CUSTOMER_NOT_ALLOWLISTED_FOR_THIS_FEATURE`. Therefore the backend upload in this integration uses the **Data Manager API**, not the older Google Ads API offline-import endpoint. The client-side Google tag, GA4 events, and Consent Mode pieces are unaffected.
 
 ---
 
@@ -9,8 +11,9 @@ This guide wires the Wanderlust booking engine to send confirmed bookings and ca
 - Captures Google click IDs (`gclid`, `gbraid`, `wbraid`) when a visitor lands on the site.
 - Persists those IDs across pages in browser storage.
 - Fires a client-side `begin_booking` event when the visitor clicks `#btnSearchRooms` on `/wanderlust-booking`.
-- Fires a client-side `purchase` event and a server-side Google Ads conversion when `#btnContinue` confirms the booking on `/booking-summary`.
-- Sends a Google Ads **RETRACTION** adjustment when an admin cancels the booking, so the conversion value is reversed.
+- Fires a client-side `purchase` event after `#btnContinue` confirms the booking on `/booking-summary`.
+- Sends a server-side conversion to the Data Manager API for Google Ads.
+- Sends a **RETRACTION** adjustment when an admin cancels the booking, so the conversion value is reversed.
 
 ---
 
@@ -22,12 +25,22 @@ This guide wires the Wanderlust booking engine to send confirmed bookings and ca
 
 ---
 
-## Step 2: Enable the Google Ads API
+## Step 2: Enable APIs in Google Cloud
 
+Enable **both** APIs so the service account can request tokens and send server-side conversion data.
+
+### Google Ads API
 1. In Cloud Console, open **APIs & Services → Library**.
 2. Search for **Google Ads API**.
 3. Click it, then click **Enable**.
 4. Wait for the confirmation checkmark.
+
+### Data Manager API
+1. In the Library, search for **Data Manager API**.
+2. Click it, then click **Enable**.
+3. Wait for the confirmation checkmark.
+
+> The Google Ads API is still enabled because the service-account token scope used by the Data Manager API depends on it in some Google Cloud project setups. Enabling both avoids OAuth scope errors.
 
 ---
 
@@ -154,6 +167,8 @@ Add these fields:
 
 ## Step 11: Copy Velo files into Wix Editor
 
+> Note: backend helper files now have the `.web.js` extension because the Data Manager upload lives in a Velo web module.
+
 | Source file | Paste destination |
 |---|---|
 | `velo/masterPage.js` | Site tab → Master Page |
@@ -162,8 +177,8 @@ Add these fields:
 | `velo/page-booking-summary.js` | `/booking-summary` page code |
 | `velo/backend/availability.web.js` | Backend / Web modules |
 | `velo/backend/googleAdsConversions.web.js` | Backend / Web modules |
-| `velo/backend/dataManagerClient.js` | Backend / Web modules |
-| `velo/backend/hashUtils.js` | Backend / Web modules |
+| `velo/backend/dataManagerClient.web.js` | Backend / Web modules |
+| `velo/backend/hashUtils.web.js` | Backend / Web modules |
 
 ---
 
@@ -198,9 +213,13 @@ When an admin cancels a booking through the admin console or console code, the s
 
 ### Conversion upload fails with OAuth error
 - Verify the service account `client_email` matches the Wix secret.
-- Verify the private key is the full string including `-----BEGIN PRIVATE KEY-----` and `-----END PRIVATE KEY-----`.
-- Verify the Google Ads API is enabled in Google Cloud.
+- Verify the private key is the full string including `[REDACTED PRIVATE KEY]`.
+- Verify both the **Google Ads API** and the **Data Manager API** are enabled in Google Cloud.
 - Verify the service account is invited as a user in Google Ads.
+- If the error says `invalid_scope`, confirm you enabled the **Data Manager API** and wait a few minutes for the scope to propagate.
+
+### "CUSTOMER_NOT_ALLOWLISTED_FOR_THIS_FEATURE"
+This error appears only if the backend accidentally calls the legacy Google Ads `UploadClickConversions` path. Make sure you are using the files from this repo that call the Data Manager API (`datamanager.googleapis.com`).
 
 ### Google Ads shows no conversions
 - Confirm the conversion action accepts **offline** or **API** conversions.

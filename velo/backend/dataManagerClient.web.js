@@ -2,19 +2,14 @@ import { getSecret } from 'wix-secrets-backend';
 import { fetch } from 'wix-fetch';
 import crypto from 'crypto';
 
-const SCOPE = 'https://www.googleapis.com/auth/adwords';
+const DATA_MANAGER_SCOPE = 'https://www.googleapis.com/auth/datamanager';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const API_VERSION = 'v18';
-const BASE_URL = 'https://googleads.googleapis.com/' + API_VERSION + '/customers';
+const DATA_MANAGER_API_BASE = 'https://datamanager.googleapis.com/v1';
 
 let cachedToken = null;
 
 function base64url(input) {
   return Buffer.from(input).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-}
-
-async function safeSecret(name) {
-  try { return await getSecret(name); } catch (e) { return null; }
 }
 
 export async function getAccessToken() {
@@ -30,7 +25,7 @@ export async function getAccessToken() {
   const header = { alg: 'RS256', typ: 'JWT' };
   const claim = {
     iss: clientEmail,
-    scope: SCOPE,
+    scope: DATA_MANAGER_SCOPE,
     aud: TOKEN_URL,
     iat: now,
     exp: now + 3600
@@ -60,40 +55,40 @@ export async function getAccessToken() {
   return cachedToken.token;
 }
 
-async function call(method, customerId, path, payload) {
+export async function ingestEvent(payload) {
   const token = await getAccessToken();
-  const loginCustomerId = await safeSecret('GOOGLE_ADS_LOGIN_CUSTOMER_ID');
-  const url = BASE_URL + '/' + customerId + '/' + path;
+  const customerId = await getSecret('GOOGLE_ADS_CUSTOMER_ID');
+  const url = DATA_MANAGER_API_BASE + '/customers/' + customerId + '/events:ingest';
 
-  const headers = {
-    Authorization: 'Bearer ' + token,
-    'Content-Type': 'application/json'
+  const body = {
+    parent: 'customers/' + customerId,
+    eventPayloads: [{
+      event: {
+        eventData: payload,
+        conversion: {
+          conversionActionId: payload.conversionActionId,
+          conversionDateTime: payload.conversionDateTime,
+          conversionValue: payload.conversionValue,
+          currencyCode: payload.currencyCode,
+          gclid: payload.gclid,
+          gbraid: payload.gbraid,
+          wbraid: payload.wbraid,
+          userIdentifiers: payload.userIdentifiers || []
+        }
+      }
+    }]
   };
-  if (loginCustomerId) { headers['login-customer-id'] = loginCustomerId; }
 
   const res = await fetch(url, {
-    method: method,
-    headers: headers,
-    body: JSON.stringify(payload)
+    method: 'post',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + token
+    },
+    body: JSON.stringify(body)
   });
 
   const text = await res.text();
-  if (!res.ok) { throw new Error('Google Ads API call failed (' + res.status + '): ' + text); }
+  if (!res.ok) { throw new Error('Data Manager API call failed (' + res.status + '): ' + text); }
   return text ? JSON.parse(text) : { ok: true };
-}
-
-export async function uploadClickConversions(customerId, conversions) {
-  return call('post', customerId, 'conversions:uploadClickConversions', {
-    customer_id: customerId,
-    conversions: conversions,
-    partial_failure: true
-  });
-}
-
-export async function uploadConversionAdjustments(customerId, adjustments) {
-  return call('post', customerId, 'conversionAdjustments:upload', {
-    customer_id: customerId,
-    conversion_adjustments: adjustments,
-    partial_failure: true
-  });
 }
