@@ -83,6 +83,7 @@ $w.onReady(function () {
   captureClickIds();
   if (tryFind('btnSearchRooms')) {
     $w('#btnSearchRooms').onClick(function () {
+      console.log('>>> btnSearchRooms clicked');
       const ciEl = tryFind('datePickerCheckIn');
       const coEl = tryFind('datePickerCheckOut');
       const ci = ciEl && ciEl.value ? new Date(ciEl.value) : null;
