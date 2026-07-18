@@ -72,6 +72,11 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
   const customerId = await getSecret('GOOGLE_ADS_CUSTOMER_ID');
   const conversionActionId = await getSecret('GOOGLE_ADS_CONVERSION_ACTION_ID');
 
+  const userIdentifiers = buildUserIdentifiers({
+    email: booking.email,
+    phone: booking.phone
+  });
+
   return {
     conversionActionId: 'customers/' + customerId + '/conversionActions/' + conversionActionId,
     conversionDateTime: toGoogleDateTime(booking.originalEvent && booking.originalEvent.conversionTime),
@@ -83,7 +88,7 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
     wbraid: booking.wbraid || undefined,
     transactionId: booking.transactionId,
     adjustmentType,
-    userIdentifiers: []
+    userIdentifiers
   };
 }
 

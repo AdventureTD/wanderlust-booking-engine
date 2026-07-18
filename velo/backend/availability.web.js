@@ -873,17 +873,17 @@ export const cancelBooking = webMethod(
         if (summaryRes.items.length > 0) {
           const summary = summaryRes.items[0];
           if (summary.googleConversionUploaded !== true) {
-            const adjResult = await adjustBookingConversion({
-              transactionId: b.bookingNumber,
-              gclid: summary.gclid || '',
-              gbraid: summary.gbraid || '',
-              wbraid: summary.wbraid || '',
-              email: summary.guestEmail || '',
-              phone: summary.guestPhone || '',
-              originalConversionTime: summary.bookingDate || new Date().toISOString(),
-              adjustmentType: 'RETRACTION',
-              currency: 'USD'
-            });
+              const adjResult = await adjustBookingConversion({
+                transactionId: b.bookingNumber,
+                gclid: summary.gclid || '',
+                gbraid: summary.gbraid || '',
+                wbraid: summary.wbraid || '',
+                email: summary.guestEmail || '',
+                phone: summary.guestPhone || '',
+                originalEvent: { conversionTime: summary.bookingDate || new Date().toISOString() },
+                adjustmentType: 'RETRACTION',
+                currency: 'USD'
+              });
             console.log('>>> SERVER cancelBooking adjustment result:', JSON.stringify(adjResult).substring(0, 300));
             if (adjResult && adjResult.ok) {
               summary.googleConversionUploaded = true;
