@@ -58,13 +58,13 @@ async function buildIngestPayload(booking) {
   });
 
   const event = {
-    transactionId: booking.transactionId,
-    eventTimestamp: toGoogleTimestamp(booking.conversionTime),
-    eventName: 'purchase',
-    conversionValue: Number(booking.value || 0),
+    transaction_id: booking.transactionId,
+    event_timestamp: toGoogleTimestamp(booking.conversionTime),
+    event_name: 'purchase',
+    conversion_value: Number(booking.value || 0),
     currency: booking.currency || 'USD',
-    eventSource: 'WEB',
-    adIdentifiers: {
+    event_source: 'WEB',
+    ad_identifiers: {
       gclid: booking.gclid || undefined,
       gbraid: booking.gbraid || undefined,
       wbraid: booking.wbraid || undefined
@@ -72,16 +72,16 @@ async function buildIngestPayload(booking) {
   };
 
   if (userIds.length > 0) {
-    event.userData = { userIdentifiers: userIds };
+    event.user_data = { user_identifiers: userIds };
   }
 
   return {
     destinations: [{
-      operatingAccount: {
-        accountType: 'GOOGLE_ADS_CUSTOMER',
-        id: customerId
+      operating_account: {
+        account_type: 'GOOGLE_ADS',
+        account_id: customerId
       },
-      productDestinationId: conversionActionId
+      product_destination_id: conversionActionId
     }],
     events: [event]
   };
@@ -97,13 +97,13 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
   });
 
   const event = {
-    transactionId: booking.transactionId,
-    eventTimestamp: toGoogleTimestamp(booking.originalEvent && booking.originalEvent.conversionTime),
-    eventName: 'purchase_adjustment',
-    conversionValue: adjustmentType === 'RETRACTION' ? 0 : Number(booking.value || 0),
+    transaction_id: booking.transactionId,
+    event_timestamp: toGoogleTimestamp(booking.originalEvent && booking.originalEvent.conversionTime),
+    event_name: adjustmentType === 'RETRACTION' ? 'purchase_retraction' : 'purchase_adjustment',
+    conversion_value: adjustmentType === 'RETRACTION' ? 0 : Number(booking.value || 0),
     currency: booking.currency || 'USD',
-    eventSource: 'WEB',
-    adIdentifiers: {
+    event_source: 'WEB',
+    ad_identifiers: {
       gclid: booking.gclid || undefined,
       gbraid: booking.gbraid || undefined,
       wbraid: booking.wbraid || undefined
@@ -111,16 +111,16 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
   };
 
   if (userIds.length > 0) {
-    event.userData = { userIdentifiers: userIds };
+    event.user_data = { user_identifiers: userIds };
   }
 
   return {
     destinations: [{
-      operatingAccount: {
-        accountType: 'GOOGLE_ADS_CUSTOMER',
-        id: customerId
+      operating_account: {
+        account_type: 'GOOGLE_ADS',
+        account_id: customerId
       },
-      productDestinationId: conversionActionId
+      product_destination_id: conversionActionId
     }],
     events: [event]
   };
