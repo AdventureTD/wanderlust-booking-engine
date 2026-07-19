@@ -59,6 +59,8 @@ export async function ingestEvent(payload) {
   const token = await getAccessToken();
 
   console.log('[WBE-DM] sending payload:', JSON.stringify(payload));
+  console.log('[WBE-DM] destinations count:', (payload.destinations || []).length);
+  console.log('[WBE-DM] events count:', (payload.events || []).length);
 
   const res = await fetch(ENDPOINT, {
     method: 'post',
