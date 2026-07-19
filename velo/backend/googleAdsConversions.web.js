@@ -47,7 +47,7 @@ async function buildIngestPayload(booking) {
   const customerId = await getSecret('GOOGLE_ADS_CUSTOMER_ID');
   const conversionActionId = await getSecret('GOOGLE_ADS_CONVERSION_ACTION_ID');
 
-  const userIdentifiers = buildUserIdentifiers({
+  const userIds = buildUserIdentifiers({
     email: booking.email,
     phone: booking.phone,
     firstName: booking.firstName,
@@ -57,22 +57,33 @@ async function buildIngestPayload(booking) {
     dialingCode: booking.dialingCode
   });
 
-  const conversion = {
-    conversionAction: 'customers/' + customerId + '/conversionActions/' + conversionActionId,
-    conversionDateTime: toGoogleDateTime(booking.conversionTime),
-    currencyCode: booking.currency || 'USD',
-    conversionValue: Number(booking.value || 0),
-    orderId: booking.transactionId,
+  const event = {
     transactionId: booking.transactionId,
-    gclid: booking.gclid || undefined,
-    gbraid: booking.gbraid || undefined,
-    wbraid: booking.wbraid || undefined,
-    userIdentifiers: userIdentifiers
+    eventTimestamp: toGoogleTimestamp(booking.conversionTime),
+    eventName: 'purchase',
+    conversionValue: Number(booking.value || 0),
+    currency: booking.currency || 'USD',
+    eventSource: 'WEB',
+    adIdentifiers: {
+      gclid: booking.gclid || undefined,
+      gbraid: booking.gbraid || undefined,
+      wbraid: booking.wbraid || undefined
+    }
   };
 
+  if (userIds.length > 0) {
+    event.userData = { userIdentifiers: userIds };
+  }
+
   return {
-    customerId: customerId,
-    conversions: [conversion]
+    destinations: [{
+      operatingAccount: {
+        accountType: 'GOOGLE_ADS_CUSTOMER',
+        id: customerId
+      },
+      productDestinationId: conversionActionId
+    }],
+    events: [event]
   };
 }
 
@@ -80,29 +91,38 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
   const customerId = await getSecret('GOOGLE_ADS_CUSTOMER_ID');
   const conversionActionId = await getSecret('GOOGLE_ADS_CONVERSION_ACTION_ID');
 
-  const userIdentifiers = buildUserIdentifiers({
+  const userIds = buildUserIdentifiers({
     email: booking.email,
     phone: booking.phone
   });
 
-  const conversionAdjustment = {
-    conversionAction: 'customers/' + customerId + '/conversionActions/' + conversionActionId,
-    conversionDateTime: toGoogleDateTime(booking.originalEvent && booking.originalEvent.conversionTime),
-    adjustmentDateTime: toGoogleDateTime(booking.conversionTime),
-    currencyCode: booking.currency || 'USD',
-    conversionValue: adjustmentType === 'RETRACTION' ? 0 : Number(booking.value || 0),
-    orderId: booking.transactionId,
+  const event = {
     transactionId: booking.transactionId,
-    gclid: booking.gclid || undefined,
-    gbraid: booking.gbraid || undefined,
-    wbraid: booking.wbraid || undefined,
-    adjustmentType: adjustmentType,
-    userIdentifiers: userIdentifiers
+    eventTimestamp: toGoogleTimestamp(booking.originalEvent && booking.originalEvent.conversionTime),
+    eventName: 'purchase_adjustment',
+    conversionValue: adjustmentType === 'RETRACTION' ? 0 : Number(booking.value || 0),
+    currency: booking.currency || 'USD',
+    eventSource: 'WEB',
+    adIdentifiers: {
+      gclid: booking.gclid || undefined,
+      gbraid: booking.gbraid || undefined,
+      wbraid: booking.wbraid || undefined
+    }
   };
 
+  if (userIds.length > 0) {
+    event.userData = { userIdentifiers: userIds };
+  }
+
   return {
-    customerId: customerId,
-    conversionAdjustments: [conversionAdjustment]
+    destinations: [{
+      operatingAccount: {
+        accountType: 'GOOGLE_ADS_CUSTOMER',
+        id: customerId
+      },
+      productDestinationId: conversionActionId
+    }],
+    events: [event]
   };
 }
 
@@ -116,13 +136,7 @@ function validateBooking(b) {
   }
 }
 
-function toGoogleDateTime(iso) {
+function toGoogleTimestamp(iso) {
   const d = iso ? new Date(iso) : new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  const off = -d.getTimezoneOffset();
-  const sign = off >= 0 ? '+' : '-';
-  const oh = pad(Math.floor(Math.abs(off) / 60));
-  const om = pad(Math.abs(off) % 60);
-  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' +
-         pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + sign + oh + ':' + om;
+  return d.toISOString();
 }

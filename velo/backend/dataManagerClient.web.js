@@ -57,30 +57,8 @@ export async function getAccessToken() {
 
 export async function ingestEvent(payload) {
   const token = await getAccessToken();
-  const customerId = await getSecret('GOOGLE_ADS_CUSTOMER_ID');
-  const conversionActionId = await getSecret('GOOGLE_ADS_CONVERSION_ACTION_ID');
 
-  const envelope = {
-    parent: 'customers/' + customerId,
-    eventPayloads: [{
-      event: {
-        eventData: {
-          conversionAction: 'customers/' + customerId + '/conversionActions/' + conversionActionId,
-          conversionDateTime: payload.conversionDateTime,
-          conversionValue: Number(payload.conversionValue || 0),
-          currencyCode: payload.currencyCode || 'USD',
-          orderId: payload.orderId,
-          transactionId: payload.transactionId || payload.orderId,
-          gclid: payload.gclid || undefined,
-          gbraid: payload.gbraid || undefined,
-          wbraid: payload.wbraid || undefined
-        },
-        userIdentifiers: payload.userIdentifiers || []
-      }
-    }]
-  };
-
-  console.log('[WBE-DM] sending payload:', JSON.stringify(envelope));
+  console.log('[WBE-DM] sending payload:', JSON.stringify(payload));
 
   const res = await fetch(ENDPOINT, {
     method: 'post',
@@ -88,7 +66,7 @@ export async function ingestEvent(payload) {
       'Content-Type': 'application/json',
       Authorization: 'Bearer ' + token
     },
-    body: JSON.stringify(envelope)
+    body: JSON.stringify(payload)
   });
 
   const text = await res.text();
