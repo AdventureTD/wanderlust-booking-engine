@@ -33,16 +33,20 @@ function parseUrlParams(url) {
 // Reads click IDs from URL query and stores them (first-touch wins).
 export function captureClickIds() {
   try {
-    let query = wixLocationFrontend.query || {};
-    console.log('[WBE-TRACKING] wixLocationFrontend.query:', JSON.stringify(query));
-    console.log('[WBE-TRACKING] wixLocationFrontend.url:', wixLocationFrontend.url);
+    // Wix's location API strips ad-click parameters from the URL in some cases,
+    // so read the real browser URL first and use Wix data only as fallback.
+    const rawBrowserUrl = (typeof window !== 'undefined' && window.location && window.location.href) || '';
+    let query = parseUrlParams(rawBrowserUrl);
+    console.log('[WBE-TRACKING] raw browser URL:', rawBrowserUrl);
+    console.log('[WBE-TRACKING] parsed from window.location:', JSON.stringify(query));
 
-    // Fallback: parse the raw URL because Wix does not always expose ad params in query object.
+    // Fallback to Wix APIs if window.location is unavailable.
     if (!query.gclid && !query.gbraid && !query.wbraid) {
-      const rawParams = parseUrlParams(wixLocationFrontend.url);
-      console.log('[WBE-TRACKING] raw URL params:', JSON.stringify(rawParams));
-      if (rawParams.gclid || rawParams.gbraid || rawParams.wbraid) {
-        query = rawParams;
+      query = wixLocationFrontend.query || {};
+      console.log('[WBE-TRACKING] wixLocationFrontend.query:', JSON.stringify(query));
+      if (!query.gclid && !query.gbraid && !query.wbraid) {
+        query = parseUrlParams(wixLocationFrontend.url);
+        console.log('[WBE-TRACKING] parsed from wixLocationFrontend.url:', JSON.stringify(query));
       }
     }
 
