@@ -44,20 +44,20 @@ function buildUserIdentifiers(pii) {
   pii = pii || {};
 
   const hashedEmail = hashEmail(pii.email);
-  if (hashedEmail) { identifiers.push({ hashed_email: hashedEmail }); }
+  if (hashedEmail) { identifiers.push({ emailAddress: hashedEmail }); }
 
   const hashedPhone = hashPhone(pii.phone, pii.dialingCode);
-  if (hashedPhone) { identifiers.push({ hashed_phone_number: hashedPhone }); }
+  if (hashedPhone) { identifiers.push({ phoneNumber: hashedPhone }); }
 
   const hashedFirst = hashName(pii.firstName);
   const hashedLast = hashName(pii.lastName);
   if (hashedFirst || hashedLast || pii.postalCode || pii.countryCode) {
     identifiers.push({
-      address_info: {
-        hashed_first_name: hashedFirst,
-        hashed_last_name: hashedLast,
-        postal_code: pii.postalCode || undefined,
-        country_code: pii.countryCode || undefined
+      address: {
+        givenName: hashedFirst,
+        familyName: hashedLast,
+        postalCode: pii.postalCode || undefined,
+        regionCode: pii.countryCode || undefined
       }
     });
   }
@@ -155,6 +155,7 @@ async function buildIngestPayload(booking) {
       },
       product_destination_id: conversionActionId
     }],
+    encoding: 'HEX',
     events: [event]
   };
 }
@@ -198,6 +199,7 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
       },
       product_destination_id: conversionActionId
     }],
+    encoding: 'HEX',
     events: [event]
   };
 }
