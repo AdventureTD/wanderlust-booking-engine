@@ -17,6 +17,38 @@
   gtag('config', 'G-MKGG3X1WP9');
   gtag('config', 'AW-788746633');
 
+  // Capture Google Ads click IDs before Wix's client-side router strips them.
+  (function () {
+    function parseParams(url) {
+      const out = {};
+      const idx = (url || '').indexOf('?');
+      if (idx === -1) return out;
+      const qs = url.substring(idx + 1);
+      const pairs = qs.split('&');
+      for (let i = 0; i < pairs.length; i++) {
+        const pair = pairs[i];
+        const eq = pair.indexOf('=');
+        if (eq === -1) { out[decodeURIComponent(pair)] = ''; continue; }
+        out[decodeURIComponent(pair.substring(0, eq))] = decodeURIComponent(pair.substring(eq + 1));
+      }
+      return out;
+    }
+
+    const params = parseParams(window.location.href);
+    if (params.gclid || params.gbraid || params.wbraid) {
+      try {
+        const record = {
+          gclid: params.gclid || '',
+          gbraid: params.gbraid || '',
+          wbraid: params.wbraid || '',
+          landingUrl: window.location.href,
+          capturedAt: new Date().toISOString()
+        };
+        localStorage.setItem('wl_click_attribution', JSON.stringify(record));
+      } catch (e) {}
+    }
+  })();
+
   // Helper to grant consent when the visitor accepts cookies.
   function grantConsent() {
     gtag('consent', 'update', {
