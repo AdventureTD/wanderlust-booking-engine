@@ -13,7 +13,9 @@ export const recordBookingConversion = webMethod(
       return { ok: true, transactionId: booking.transactionId, response };
     } catch (err) {
       console.error('[WBE-GOOGLE] recordBookingConversion error:', err);
-      return { ok: false, error: String(err && err.message || err) };
+      let debugPayload = null;
+      try { debugPayload = await buildIngestPayload(booking); } catch (buildErr) {}
+      return { ok: false, error: String(err && err.message || err), debugPayload };
     }
   }
 );
