@@ -111,13 +111,17 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
     event_name: adjustmentType === 'RETRACTION' ? 'purchase_retraction' : 'purchase_adjustment',
     conversion_value: adjustmentType === 'RETRACTION' ? 0 : Number(booking.value || 0),
     currency: booking.currency || 'USD',
-    event_source: 'WEB',
-    ad_identifiers: stripEmpty({
-      gclid: booking.gclid,
-      gbraid: booking.gbraid,
-      wbraid: booking.wbraid
-    })
+    event_source: 'WEB'
   };
+
+  const adjAdIds = stripEmpty({
+    gclid: booking.gclid,
+    gbraid: booking.gbraid,
+    wbraid: booking.wbraid
+  });
+  if (Object.keys(adjAdIds).length > 0) {
+    event.ad_identifiers = adjAdIds;
+  }
 
   if (userIds.length > 0) {
     event.user_data = { user_identifiers: userIds };
@@ -156,5 +160,7 @@ function validateBooking(b) {
 
 function toGoogleTimestamp(iso) {
   const d = iso ? new Date(iso) : new Date();
-  return d.toISOString();
+  const seconds = Math.floor(d.getTime() / 1000);
+  const nanos = (d.getTime() % 1000) * 1000000;
+  return { seconds: String(seconds), nanos: nanos };
 }
