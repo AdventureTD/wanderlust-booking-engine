@@ -2,7 +2,7 @@ import { Permissions, webMethod } from 'wix-web-module';
 import { getSecret } from 'wix-secrets-backend';
 import { ingestEvent } from 'backend/dataManagerClient.web';
 import crypto from 'crypto';
-// v2026-07-19-force-rebuild
+// v2026-07-19-force-rebuild-02
 
 /* inlined from hashUtils.web.js to avoid stale module cache */
 function sha256Hex(value) {
@@ -61,7 +61,7 @@ function buildUserIdentifiers(pii) {
       }
     });
   }
-  console.log('[WBE-GOOGLE-INLINE] identifiers built:', identifiers.length, JSON.stringify(identifiers));
+  console.log('[WBE-GOOGLE-INLINE] identifiers built v3:', identifiers.length, JSON.stringify(identifiers));
   return identifiers;
 }
 
@@ -109,7 +109,7 @@ export const adjustBookingConversion = webMethod(
 );
 
 async function buildIngestPayload(booking) {
-  console.log('[WBE-GOOGLE] buildIngestPayload input v2:', JSON.stringify(booking));
+  console.log('[WBE-GOOGLE] buildIngestPayload input v3:', JSON.stringify(booking));
   const customerId = await getSecret('GOOGLE_ADS_CUSTOMER_ID');
   const conversionActionId = await getSecret('GOOGLE_ADS_CONVERSION_ACTION_ID');
 
