@@ -29,4 +29,30 @@
 
   // Listen for a custom event from your cookie banner (optional).
   document.addEventListener('wbeConsentGranted', grantConsent);
+
+  // Flush events staged by Velo public/tracking.js into dataLayer.
+  (function() {
+    function flushQueue() {
+      try {
+        var raw = localStorage.getItem('wbe_dataLayer_queue');
+        if (raw) {
+          var queue = JSON.parse(raw);
+          for (var i = 0; i < queue.length; i++) {
+            window.dataLayer.push(queue[i]);
+          }
+          localStorage.removeItem('wbe_dataLayer_queue');
+        }
+      } catch (e) {}
+    }
+
+    flushQueue();
+
+    var originalSetItem = localStorage.setItem;
+    localStorage.setItem = function(key, value) {
+      originalSetItem.apply(this, arguments);
+      if (key === 'wbe_dataLayer_queue') {
+        flushQueue();
+      }
+    };
+  })();
 </script>

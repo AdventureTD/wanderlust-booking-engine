@@ -67,16 +67,27 @@ export function clearClickIds() {
   try { local.removeItem(STORAGE_KEY); } catch (err) { /* noop */ }
 }
 
+const DATALAYER_QUEUE_KEY = 'wbe_dataLayer_queue';
+
+function pushToQueue(payload) {
+  try {
+    const raw = local.getItem(DATALAYER_QUEUE_KEY);
+    const queue = raw ? JSON.parse(raw) : [];
+    queue.push(payload);
+    local.setItem(DATALAYER_QUEUE_KEY, JSON.stringify(queue));
+    console.log('[WBE-GTAG] queued event:', payload.event || payload);
+    return true;
+  } catch (err) {
+    console.error('[WBE-GTAG] queue push failed:', err && err.message || err);
+    return false;
+  }
+}
+
 // Push an event onto window.dataLayer for the Google tag to pick up.
 export function pushDataLayer(payload) {
-  try {
-    if (typeof window === 'undefined') { return; }
-    window.dataLayer = window.dataLayer || [];
-    window.dataLayer.push(payload);
-    console.log('[WBE-GTAG] dataLayer.push', payload.event || payload);
-  } catch (err) {
-    console.error('pushDataLayer failed:', err && err.message || err);
-  }
+  // Wix Velo page/public modules do not have access to window, so we stage events
+  // in localStorage and the custom-code script in the page head flushes them.
+  pushToQueue(payload);
 }
 
 // Fires when a visitor begins the booking funnel.
