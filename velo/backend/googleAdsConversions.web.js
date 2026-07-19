@@ -61,7 +61,6 @@ function buildUserIdentifiers(pii) {
       }
     });
   }
-  console.log('[WBE-GOOGLE-INLINE] identifiers built v3:', identifiers.length, JSON.stringify(identifiers));
   return identifiers;
 }
 
@@ -109,7 +108,6 @@ export const adjustBookingConversion = webMethod(
 );
 
 async function buildIngestPayload(booking) {
-  console.log('[WBE-GOOGLE] buildIngestPayload input v3:', JSON.stringify(booking));
   const customerId = await getSecret('GOOGLE_ADS_CUSTOMER_ID');
   const conversionActionId = await getSecret('GOOGLE_ADS_CONVERSION_ACTION_ID');
 
@@ -142,7 +140,6 @@ async function buildIngestPayload(booking) {
     event.ad_identifiers = adIds;
   }
 
-  console.log('[WBE-GOOGLE] user identifiers built:', userIds.length, JSON.stringify(userIds));
   if (userIds.length > 0) {
     event.user_data = { user_identifiers: userIds };
   }
