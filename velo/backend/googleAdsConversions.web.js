@@ -64,11 +64,11 @@ async function buildIngestPayload(booking) {
     conversion_value: Number(booking.value || 0),
     currency: booking.currency || 'USD',
     event_source: 'WEB',
-    ad_identifiers: {
-      gclid: booking.gclid || undefined,
-      gbraid: booking.gbraid || undefined,
-      wbraid: booking.wbraid || undefined
-    }
+    ad_identifiers: stripUndefined({
+      gclid: booking.gclid,
+      gbraid: booking.gbraid,
+      wbraid: booking.wbraid
+    })
   };
 
   if (userIds.length > 0) {
@@ -103,11 +103,11 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
     conversion_value: adjustmentType === 'RETRACTION' ? 0 : Number(booking.value || 0),
     currency: booking.currency || 'USD',
     event_source: 'WEB',
-    ad_identifiers: {
-      gclid: booking.gclid || undefined,
-      gbraid: booking.gbraid || undefined,
-      wbraid: booking.wbraid || undefined
-    }
+    ad_identifiers: stripUndefined({
+      gclid: booking.gclid,
+      gbraid: booking.gbraid,
+      wbraid: booking.wbraid
+    })
   };
 
   if (userIds.length > 0) {
@@ -124,6 +124,14 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
     }],
     events: [event]
   };
+}
+
+function stripUndefined(obj) {
+  const out = {};
+  Object.keys(obj).forEach(function (k) {
+    if (obj[k] !== undefined && obj[k] !== null) { out[k] = obj[k]; }
+  });
+  return out;
 }
 
 function validateBooking(b) {

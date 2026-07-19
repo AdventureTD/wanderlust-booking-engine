@@ -39,20 +39,20 @@ export function buildUserIdentifiers(pii) {
   pii = pii || {};
 
   const hashedEmail = hashEmail(pii.email);
-  if (hashedEmail) { identifiers.push({ hashedEmail: hashedEmail }); }
+  if (hashedEmail) { identifiers.push({ hashed_email: hashedEmail }); }
 
   const hashedPhone = hashPhone(pii.phone, pii.dialingCode);
-  if (hashedPhone) { identifiers.push({ hashedPhoneNumber: hashedPhone }); }
+  if (hashedPhone) { identifiers.push({ hashed_phone_number: hashedPhone }); }
 
   const hashedFirst = hashName(pii.firstName);
   const hashedLast = hashName(pii.lastName);
   if (hashedFirst || hashedLast || pii.postalCode || pii.countryCode) {
     identifiers.push({
-      addressInfo: {
-        hashedFirstName: hashedFirst,
-        hashedLastName: hashedLast,
-        postalCode: pii.postalCode || undefined,
-        countryCode: pii.countryCode || undefined
+      address_info: {
+        hashed_first_name: hashedFirst,
+        hashed_last_name: hashedLast,
+        postal_code: pii.postalCode || undefined,
+        country_code: pii.countryCode || undefined
       }
     });
   }
