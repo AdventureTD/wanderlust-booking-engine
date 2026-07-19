@@ -57,19 +57,24 @@ async function buildIngestPayload(booking) {
     dialingCode: booking.dialingCode
   });
 
+  const adIds = stripUndefined({
+    gclid: booking.gclid,
+    gbraid: booking.gbraid,
+    wbraid: booking.wbraid
+  });
+
   const event = {
     transaction_id: booking.transactionId,
     event_timestamp: toGoogleTimestamp(booking.conversionTime),
     event_name: 'purchase',
     conversion_value: Number(booking.value || 0),
     currency: booking.currency || 'USD',
-    event_source: 'WEB',
-    ad_identifiers: stripUndefined({
-      gclid: booking.gclid,
-      gbraid: booking.gbraid,
-      wbraid: booking.wbraid
-    })
+    event_source: 'WEB'
   };
+
+  if (Object.keys(adIds).length > 0) {
+    event.ad_identifiers = adIds;
+  }
 
   if (userIds.length > 0) {
     event.user_data = { user_identifiers: userIds };
