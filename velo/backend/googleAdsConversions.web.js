@@ -46,6 +46,7 @@ export const adjustBookingConversion = webMethod(
 );
 
 async function buildIngestPayload(booking) {
+  console.log('[WBE-GOOGLE] buildIngestPayload input:', JSON.stringify(booking));
   const customerId = await getSecret('GOOGLE_ADS_CUSTOMER_ID');
   const conversionActionId = await getSecret('GOOGLE_ADS_CONVERSION_ACTION_ID');
 
@@ -59,7 +60,7 @@ async function buildIngestPayload(booking) {
     dialingCode: booking.dialingCode
   });
 
-  const adIds = stripUndefined({
+  const adIds = stripEmpty({
     gclid: booking.gclid,
     gbraid: booking.gbraid,
     wbraid: booking.wbraid
@@ -78,6 +79,7 @@ async function buildIngestPayload(booking) {
     event.ad_identifiers = adIds;
   }
 
+  console.log('[WBE-GOOGLE] user identifiers built:', userIds.length, JSON.stringify(userIds));
   if (userIds.length > 0) {
     event.user_data = { user_identifiers: userIds };
   }
@@ -110,7 +112,7 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
     conversion_value: adjustmentType === 'RETRACTION' ? 0 : Number(booking.value || 0),
     currency: booking.currency || 'USD',
     event_source: 'WEB',
-    ad_identifiers: stripUndefined({
+    ad_identifiers: stripEmpty({
       gclid: booking.gclid,
       gbraid: booking.gbraid,
       wbraid: booking.wbraid
@@ -133,10 +135,11 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
   };
 }
 
-function stripUndefined(obj) {
+function stripEmpty(obj) {
   const out = {};
   Object.keys(obj).forEach(function (k) {
-    if (obj[k] !== undefined && obj[k] !== null) { out[k] = obj[k]; }
+    const v = obj[k];
+    if (v !== undefined && v !== null && String(v).trim() !== '') { out[k] = v; }
   });
   return out;
 }
