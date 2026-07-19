@@ -98,6 +98,14 @@ $w.onReady(function () {
         nights: nights || undefined,
         value: 0
       });
+
+      try {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({ event: 'begin_booking_direct', test: true });
+        console.log('>>> DIRECT dataLayer pushed. dataLayer length:', window.dataLayer.length);
+      } catch (err2) {
+        console.error('>>> DIRECT dataLayer push error:', err2);
+      }
       searchHandler();
     });
   }
