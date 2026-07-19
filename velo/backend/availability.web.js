@@ -361,6 +361,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       if (!summary.gbraid && existingAtt.gbraid) summary.gbraid = existingAtt.gbraid;
       if (!summary.wbraid && existingAtt.wbraid) summary.wbraid = existingAtt.wbraid;
       if (existingAtt.googleConversionUploaded) summary.googleConversionUploaded = existingAtt.googleConversionUploaded;
+      if (existingAtt.googleConversionRetracted) summary.googleConversionRetracted = existingAtt.googleConversionRetracted;
       console.log('>>> updateBookingSummary UPDATING row', existing.items[0]._id);
       await wixData.update(BOOKING_SUMMARIES, summary);
       console.log('>>> updateBookingSummary UPDATE complete');
@@ -872,21 +873,21 @@ export const cancelBooking = webMethod(
           .find();
         if (summaryRes.items.length > 0) {
           const summary = summaryRes.items[0];
-          if (summary.googleConversionUploaded !== true) {
-              const adjResult = await adjustBookingConversion({
-                transactionId: b.bookingNumber,
-                gclid: summary.gclid || '',
-                gbraid: summary.gbraid || '',
-                wbraid: summary.wbraid || '',
-                email: summary.guestEmail || '',
-                phone: summary.guestPhone || '',
-                originalEvent: { conversionTime: summary.bookingDate || new Date().toISOString() },
-                adjustmentType: 'RETRACTION',
-                currency: 'USD'
-              });
+          if (summary.googleConversionUploaded === true && summary.googleConversionRetracted !== true) {
+            const adjResult = await adjustBookingConversion({
+              transactionId: b.bookingNumber,
+              gclid: summary.gclid || '',
+              gbraid: summary.gbraid || '',
+              wbraid: summary.wbraid || '',
+              email: summary.guestEmail || '',
+              phone: summary.guestPhone || '',
+              originalEvent: { conversionTime: summary.bookingDate || new Date().toISOString() },
+              adjustmentType: 'RETRACTION',
+              currency: 'USD'
+            });
             console.log('>>> SERVER cancelBooking adjustment result:', JSON.stringify(adjResult).substring(0, 300));
             if (adjResult && adjResult.ok) {
-              summary.googleConversionUploaded = true;
+              summary.googleConversionRetracted = true;
               summary.status = 'In Process';
               await wixData.update(BOOKING_SUMMARIES, summary);
             }

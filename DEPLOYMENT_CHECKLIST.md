@@ -26,6 +26,7 @@ Full field lists are in `velo/SETUP_GUIDE.md`, `REPORTING.md`, `PAYMENTS.md`,
 - [ ] `Bookings` (availability/booking rows; incl. `quantity` default 1, `note`,
       `status` now supports `blocked`)
 - [ ] `BookingReports` (reporting rows + payment cache + currentInvoice pointer)
+- [ ] `BookingSummary` (for Google Ads attribution: `gclid`, `gbraid`, `wbraid`, `googleConversionUploaded`, `googleConversionRetracted`)
 - [ ] `Payments`
 - [ ] `Invoices`
 - [ ] `Settings` — seed three rows:
@@ -98,6 +99,8 @@ Follow `INVOICING_EMAIL.md`:
       block is reduced or refused, never overriding the guest.
 - [ ] Admin: run report, record a payment, cancel/edit, change split + property fee %.
 - [ ] Confirm a quote shows the property fee BELOW the VAT lines (booking screen + invoice).
+- [ ] Google Ads: book via a live ad click (so a real `gclid`/`gbraid`/`wbraid` is captured). Confirm `BookingSummary.googleConversionUploaded` becomes `true`.
+- [ ] Cancel that booking in the admin console and confirm `BookingSummary.googleConversionRetracted` becomes `true` and the retraction request is logged.
 - [ ] Logged-out / as a visitor: confirm the admin page is NOT reachable.
 - [ ] Confirm the daily status job advances Confirmed→In-House→Checked-Out.
 - [ ] Confirm Blocked bookings are excluded from revenue reports.

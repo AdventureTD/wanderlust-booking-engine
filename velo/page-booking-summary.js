@@ -658,6 +658,8 @@ function wireContinueButton() {
         const grandTotalText = safeTextRead('grandTotalText').replace(/[^0-9.]/g, '') || '0';
         const grandTotal = parseFloat(grandTotalText) || 0;
 
+        console.log('[WBE-FRONTEND] stored click attribution:', JSON.stringify(clickIds));
+
         trackPurchase({
           transactionId: sharedBookingNumber,
           value: grandTotal,
@@ -682,7 +684,27 @@ function wireContinueButton() {
         recordBookingConversion(googlePayload)
         .then(function (convResult) {
           console.log('[WBE-GOOGLE] conversion upload result:', JSON.stringify(convResult));
-          if (convResult && convResult.ok) { clearClickIds(); }
+          if (convResult && convResult.ok) {
+            clearClickIds();
+            try {
+              wixData.query('BookingSummary')
+                .eq('bookingNumber', sharedBookingNumber)
+                .limit(1)
+                .find()
+                .then(function (summaryRes) {
+                  if (summaryRes.items.length > 0) {
+                    const summary = summaryRes.items[0];
+                    summary.googleConversionUploaded = true;
+                    return wixData.update('BookingSummary', summary);
+                  }
+                  return null;
+                })
+                .then(function () { console.log('[WBE-GOOGLE] marked BookingSummary.googleConversionUploaded=true'); })
+                .catch(function (markErr) { console.error('[WBE-GOOGLE] failed to mark conversion uploaded:', markErr && markErr.message || markErr); });
+            } catch (markErr) {
+              console.error('[WBE-GOOGLE] failed to mark conversion uploaded:', markErr && markErr.message || markErr);
+            }
+          }
         })
         .catch(function (convErr) {
           console.error('[WBE-GOOGLE] conversion upload error:', convErr && convErr.message || convErr);

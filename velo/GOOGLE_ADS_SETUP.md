@@ -148,6 +148,7 @@ Add these fields:
 - `gbraid` (Text)
 - `wbraid` (Text)
 - `googleConversionUploaded` (Boolean)
+- `googleConversionRetracted` (Boolean)
 
 ---
 
@@ -186,16 +187,15 @@ Add these fields:
 ## Step 12: Test on the live site
 
 1. Publish the site.
-2. Visit the booking search page with a test `gclid`:
-   ```
-   https://www.wanderlustcaribbean.com/wanderlust-booking?gclid=test123
-   ```
-3. Search dates, choose rooms, and complete the booking.
+2. Run a real Google ad (Search/Display) and click it so Google appends a genuine `gclid`/`gbraid`/`wbraid` to the landing URL. The click IDs are captured site-wide by `masterPage.js`, so the landing page can be any published Wix page.
+3. Navigate to the booking search page (`/wanderlust-booking`), search dates, choose rooms, and complete the booking.
 4. Open the browser console and look for:
    - `begin_booking` dataLayer event when you click search.
    - `purchase` dataLayer event after booking confirmation.
-   - `[WBE-GOOGLE] conversion upload result:` message after the server upload completes.
-5. In Google Ads, go to **Tools & Settings → Conversions → Summary**. The offline conversion can take several hours to appear.
+   - `[WBE-FRONTEND] stored click attribution:` showing the captured `gclid`/`gbraid`/`wbraid`.
+   - `[WBE-GOOGLE] conversion upload result:` after the server upload completes.
+5. In the Wix CMS, open the `BookingSummary` row for the booking and confirm `googleConversionUploaded` is now `true`.
+6. In Google Ads, go to **Tools & Settings → Conversions → Summary**. The conversion can take several hours to appear.
 
 ---
 
@@ -205,8 +205,8 @@ When an admin cancels a booking through the admin console or console code, the s
 
 1. Updates the `Bookings` row status to `Cancelled`.
 2. Calls `updateBookingSummary`.
-3. Calls `adjustBookingConversion` with `adjustmentType: 'RETRACTION'` using the click IDs stored on the `BookingSummary` row.
-4. Updates `BookingSummary.googleConversionUploaded` to `true` and `status` to `In Process` so the retraction is not sent twice.
+3. If `BookingSummary.googleConversionUploaded` is `true` and `BookingSummary.googleConversionRetracted` is not yet `true`, calls `adjustBookingConversion` with `adjustmentType: 'RETRACTION'` using the click IDs stored on the `BookingSummary` row.
+4. On success, sets `BookingSummary.googleConversionRetracted` to `true` and `status` to `In Process` so the retraction is not sent twice.
 
 ---
 

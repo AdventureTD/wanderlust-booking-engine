@@ -1,9 +1,9 @@
 # Wanderlust Booking Engine
 
-Adventure-travel booking system for Wanderlust Caribbean. This repo currently
-contains the **tested core engine** (rooms, availability/calendar, dual-VAT
-pricing, a la carte extras). The Wix integration layer is intentionally
-NOT built yet — that decision is pending owner input (see below).
+Adventure-travel booking system for Wanderlust Caribbean. This repo contains
+a **tested core engine** plus a **Wix Velo integration layer** (`velo/`) for
+pages, backend modules, and Google Ads server-side conversion tracking. The
+Python core runs availability, dual-VAT pricing, invoicing, and reporting logic.
 
 ## Status (2026-06-03)
 - [x] Room catalog & inventory (Adventure Suite x3, Penthouse x1, Two-Bedroom x1)
