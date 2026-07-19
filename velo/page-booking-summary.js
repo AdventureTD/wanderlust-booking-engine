@@ -664,7 +664,7 @@ function wireContinueButton() {
           currency: 'USD'
         });
 
-        recordBookingConversion({
+        const googlePayload = {
           transactionId: sharedBookingNumber,
           value: grandTotal,
           currency: 'USD',
@@ -676,7 +676,10 @@ function wireContinueButton() {
           firstName: name.split(' ')[0],
           lastName: name.split(' ').slice(1).join(' '),
           conversionTime: new Date().toISOString()
-        })
+        };
+        console.log('[WBE-FRONTEND] calling recordBookingConversion with:', JSON.stringify(googlePayload));
+
+        recordBookingConversion(googlePayload)
         .then(function (convResult) {
           console.log('[WBE-GOOGLE] conversion upload result:', JSON.stringify(convResult));
           if (convResult && convResult.ok) { clearClickIds(); }
