@@ -35,6 +35,7 @@ export function hashName(name) {
 }
 
 export function buildUserIdentifiers(pii) {
+  console.log('[WBE-HASH] buildUserIdentifiers called with:', JSON.stringify(pii));
   const identifiers = [];
   pii = pii || {};
 
@@ -46,6 +47,7 @@ export function buildUserIdentifiers(pii) {
 
   const hashedFirst = hashName(pii.firstName);
   const hashedLast = hashName(pii.lastName);
+  console.log('[WBE-HASH] identifiers count before address:', identifiers.length);
   if (hashedFirst || hashedLast || pii.postalCode || pii.countryCode) {
     identifiers.push({
       address_info: {
@@ -56,5 +58,6 @@ export function buildUserIdentifiers(pii) {
       }
     });
   }
+  console.log('[WBE-HASH] identifiers result:', JSON.stringify(identifiers));
   return identifiers;
 }
