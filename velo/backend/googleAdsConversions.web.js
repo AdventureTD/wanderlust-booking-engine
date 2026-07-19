@@ -51,7 +51,7 @@ function buildUserIdentifiers(pii) {
 
   const hashedFirst = hashName(pii.firstName);
   const hashedLast = hashName(pii.lastName);
-  if (hashedFirst || hashedLast || pii.postalCode || pii.countryCode) {
+  if (hashedFirst && hashedLast && pii.postalCode && pii.countryCode) {
     identifiers.push({
       address: {
         givenName: hashedFirst,
