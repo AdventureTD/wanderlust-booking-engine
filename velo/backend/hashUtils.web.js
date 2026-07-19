@@ -35,7 +35,7 @@ export function hashName(name) {
 }
 
 export function buildUserIdentifiers(pii) {
-  console.log('[WBE-HASH] buildUserIdentifiers called with:', JSON.stringify(pii));
+  console.log('[WBE-HASH] buildUserIdentifiers called v2:', JSON.stringify(pii));
   const identifiers = [];
   pii = pii || {};
 
@@ -58,6 +58,6 @@ export function buildUserIdentifiers(pii) {
       }
     });
   }
-  console.log('[WBE-HASH] identifiers result:', JSON.stringify(identifiers));
+  console.log('[WBE-HASH] identifiers result v2:', JSON.stringify(identifiers));
   return identifiers;
 }

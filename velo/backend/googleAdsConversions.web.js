@@ -2,6 +2,7 @@ import { Permissions, webMethod } from 'wix-web-module';
 import { getSecret } from 'wix-secrets-backend';
 import { ingestEvent } from 'backend/dataManagerClient.web';
 import { buildUserIdentifiers } from 'backend/hashUtils.web';
+// v2026-07-19-force-rebuild
 
 export const recordBookingConversion = webMethod(
   Permissions.Anyone,
@@ -46,7 +47,7 @@ export const adjustBookingConversion = webMethod(
 );
 
 async function buildIngestPayload(booking) {
-  console.log('[WBE-GOOGLE] buildIngestPayload input:', JSON.stringify(booking));
+  console.log('[WBE-GOOGLE] buildIngestPayload input v2:', JSON.stringify(booking));
   const customerId = await getSecret('GOOGLE_ADS_CUSTOMER_ID');
   const conversionActionId = await getSecret('GOOGLE_ADS_CONVERSION_ACTION_ID');
 
