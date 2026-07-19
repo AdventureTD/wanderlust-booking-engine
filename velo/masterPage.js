@@ -5,5 +5,7 @@
 import { captureClickIds } from 'public/tracking';
 
 $w.onReady(function () {
-  captureClickIds();
+  console.log('[WBE-MASTER] captureClickIds started');
+  const ids = captureClickIds();
+  console.log('[WBE-MASTER] captureClickIds result:', JSON.stringify(ids));
 });

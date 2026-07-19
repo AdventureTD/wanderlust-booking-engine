@@ -10,15 +10,49 @@ const STORAGE_KEY = 'wl_click_attribution';
 const CLICK_PARAMS = ['gclid', 'gbraid', 'wbraid'];
 const ATTRIBUTION_WINDOW_DAYS = 90;
 
+function parseUrlParams(url) {
+  try {
+    const out = {};
+    const idx = (url || '').indexOf('?');
+    if (idx === -1) { return out; }
+    const qs = url.substring(idx + 1);
+    const pairs = qs.split('&');
+    for (let i = 0; i < pairs.length; i++) {
+      const pair = pairs[i];
+      const eq = pair.indexOf('=');
+      const key = eq === -1 ? pair : decodeURIComponent(pair.substring(0, eq));
+      const value = eq === -1 ? '' : decodeURIComponent(pair.substring(eq + 1));
+      out[key] = value;
+    }
+    return out;
+  } catch (e) {
+    return {};
+  }
+}
+
 // Reads click IDs from URL query and stores them (first-touch wins).
 export function captureClickIds() {
   try {
-    const query = wixLocationFrontend.query || {};
+    let query = wixLocationFrontend.query || {};
+    console.log('[WBE-TRACKING] wixLocationFrontend.query:', JSON.stringify(query));
+    console.log('[WBE-TRACKING] wixLocationFrontend.url:', wixLocationFrontend.url);
+
+    // Fallback: parse the raw URL because Wix does not always expose ad params in query object.
+    if (!query.gclid && !query.gbraid && !query.wbraid) {
+      const rawParams = parseUrlParams(wixLocationFrontend.url);
+      console.log('[WBE-TRACKING] raw URL params:', JSON.stringify(rawParams));
+      if (rawParams.gclid || rawParams.gbraid || rawParams.wbraid) {
+        query = rawParams;
+      }
+    }
+
     const found = {};
     for (let i = 0; i < CLICK_PARAMS.length; i++) {
       const p = CLICK_PARAMS[i];
       if (query[p]) { found[p] = query[p]; }
     }
+
+    console.log('[WBE-TRACKING] parsed click IDs:', JSON.stringify(found));
 
     if (Object.keys(found).length === 0) { return getStoredClickIds(); }
 
