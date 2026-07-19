@@ -20,12 +20,14 @@ export const recordBookingConversion = webMethod(
 
 export const adjustBookingConversion = webMethod(
   Permissions.Admin,
-  async ({ transactionId, gclid, gbraid, wbraid, adjustmentType, newValue, currency, adjustmentTime, originalEvent }) => {
+  async ({ transactionId, gclid, gbraid, wbraid, adjustmentType, newValue, currency, adjustmentTime, originalEvent, email, phone }) => {
     try {
       if (!transactionId) { throw new Error('transactionId required for adjustment'); }
       const payload = await buildAdjustmentPayload({
         transactionId,
         gclid, gbraid, wbraid,
+        email,
+        phone,
         value: newValue,
         currency: currency || 'USD',
         conversionTime: adjustmentTime || new Date().toISOString(),
@@ -55,16 +57,22 @@ async function buildIngestPayload(booking) {
     dialingCode: booking.dialingCode
   });
 
-  return {
-    conversionActionId: 'customers/' + customerId + '/conversionActions/' + conversionActionId,
+  const conversion = {
+    conversionAction: 'customers/' + customerId + '/conversionActions/' + conversionActionId,
     conversionDateTime: toGoogleDateTime(booking.conversionTime),
     currencyCode: booking.currency || 'USD',
     conversionValue: Number(booking.value || 0),
+    orderId: booking.transactionId,
+    transactionId: booking.transactionId,
     gclid: booking.gclid || undefined,
     gbraid: booking.gbraid || undefined,
     wbraid: booking.wbraid || undefined,
-    transactionId: booking.transactionId,
-    userIdentifiers
+    userIdentifiers: userIdentifiers
+  };
+
+  return {
+    customerId: customerId,
+    conversions: [conversion]
   };
 }
 
@@ -77,18 +85,24 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
     phone: booking.phone
   });
 
-  return {
-    conversionActionId: 'customers/' + customerId + '/conversionActions/' + conversionActionId,
+  const conversionAdjustment = {
+    conversionAction: 'customers/' + customerId + '/conversionActions/' + conversionActionId,
     conversionDateTime: toGoogleDateTime(booking.originalEvent && booking.originalEvent.conversionTime),
     adjustmentDateTime: toGoogleDateTime(booking.conversionTime),
     currencyCode: booking.currency || 'USD',
     conversionValue: adjustmentType === 'RETRACTION' ? 0 : Number(booking.value || 0),
+    orderId: booking.transactionId,
+    transactionId: booking.transactionId,
     gclid: booking.gclid || undefined,
     gbraid: booking.gbraid || undefined,
     wbraid: booking.wbraid || undefined,
-    transactionId: booking.transactionId,
-    adjustmentType,
-    userIdentifiers
+    adjustmentType: adjustmentType,
+    userIdentifiers: userIdentifiers
+  };
+
+  return {
+    customerId: customerId,
+    conversionAdjustments: [conversionAdjustment]
   };
 }
 

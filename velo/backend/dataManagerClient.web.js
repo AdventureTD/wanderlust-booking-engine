@@ -4,7 +4,7 @@ import crypto from 'crypto';
 
 const DATA_MANAGER_SCOPE = 'https://www.googleapis.com/auth/datamanager';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const DATA_MANAGER_API_BASE = 'https://datamanager.googleapis.com/v1';
+const ENDPOINT = 'https://datamanager.googleapis.com/v1/events:ingest';
 
 let cachedToken = null;
 
@@ -57,35 +57,14 @@ export async function getAccessToken() {
 
 export async function ingestEvent(payload) {
   const token = await getAccessToken();
-  const customerId = await getSecret('GOOGLE_ADS_CUSTOMER_ID');
-  const url = DATA_MANAGER_API_BASE + '/customers/' + customerId + '/events:ingest';
 
-  const body = {
-    parent: 'customers/' + customerId,
-    eventPayloads: [{
-      event: {
-        eventData: payload,
-        conversion: {
-          conversionActionId: payload.conversionActionId,
-          conversionDateTime: payload.conversionDateTime,
-          conversionValue: payload.conversionValue,
-          currencyCode: payload.currencyCode,
-          gclid: payload.gclid,
-          gbraid: payload.gbraid,
-          wbraid: payload.wbraid,
-          userIdentifiers: payload.userIdentifiers || []
-        }
-      }
-    }]
-  };
-
-  const res = await fetch(url, {
+  const res = await fetch(ENDPOINT, {
     method: 'post',
     headers: {
       'Content-Type': 'application/json',
       Authorization: 'Bearer ' + token
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(payload)
   });
 
   const text = await res.text();
