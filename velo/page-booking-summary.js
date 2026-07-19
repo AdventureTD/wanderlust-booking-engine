@@ -147,9 +147,9 @@ async function initSummary() {
 
   if (!rcParam) {
     try {
-      rcParam = sessionStorage.getItem('_wbe_rc') || localStorage.getItem('_wbe_rc');
-      cis = cis || sessionStorage.getItem('_wbe_ci') || localStorage.getItem('_wbe_ci');
-      cos = cos || sessionStorage.getItem('_wbe_co') || localStorage.getItem('_wbe_co');
+      rcParam = localStorage.getItem('_wbe_rc');
+      cis = cis || localStorage.getItem('_wbe_ci');
+      cos = cos || localStorage.getItem('_wbe_co');
     } catch (e) {}
   }
 

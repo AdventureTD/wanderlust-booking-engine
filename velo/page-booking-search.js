@@ -116,9 +116,6 @@ $w.onReady(function () {
         parts.push(s.roomCode + ':' + s.qty + ':' + (s.numGuests || 1) + ':' + (s.roomFee || 0));
       }
       try {
-        sessionStorage.setItem('_wbe_rc', parts.join(','));
-        sessionStorage.setItem('_wbe_ci', first.availableCheckIn || '');
-        sessionStorage.setItem('_wbe_co', first.availableCheckOut || '');
         localStorage.setItem('_wbe_rc', parts.join(','));
         localStorage.setItem('_wbe_ci', first.availableCheckIn || '');
         localStorage.setItem('_wbe_co', first.availableCheckOut || '');
