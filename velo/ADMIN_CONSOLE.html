@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<title>Wanderlust Admin Console — Setup Guide</title>
+<style>
+  body { font-family:'Segoe UI',Arial,sans-serif; max-width:860px; margin:24px auto;
+         color:#2c343d; font-size:13px; line-height:1.55; }
+  h1 { font-size:20px; border-bottom:2px solid #3c4650; padding-bottom:6px; }
+  h2 { font-size:15px; margin-top:22px; color:#1f3a5f; border-bottom:1px solid #cfd6dd; padding-bottom:3px; }
+  table { border-collapse:collapse; width:100%; margin:8px 0 14px; }
+  th, td { border:1px solid #b8c0c8; padding:5px 8px; text-align:left; vertical-align:top; }
+  th { background:#e9edf1; }
+  code { background:#eef1f4; padding:1px 5px; border-radius:3px; color:#8a6400; font-size:12px; }
+  blockquote { border-left:3px solid #c9d6e4; margin:10px 0; padding:6px 12px; background:#f6f9fc; color:#55606b; }
+  @media print { body { margin:0; } }
+</style></head><body>
+<h1>Wanderlust Admin Console — Setup Guide</h1>
+<p>The admin console is a member-restricted page (<code>/admin-bookings</code>) for managing</p>
+<p>reservations and recording off-site payments/refunds.</p>
+<h2>What it does</h2>
+<ul>
+<li><b>List all bookings</b> — search by guest name, email, or booking number; filter</li>
+</ul>
+<p>  by status and check-in date range; sort by check-in (asc/desc).</p>
+<ul>
+<li><b>Edit a booking</b> — guest info, dates (with an automatic availability</li>
+</ul>
+<p>  re-check before saving), guest count, grand total, promo code, status.</p>
+<ul>
+<li><b>Cancel a booking</b> — one click (plus a reason field). The system:</li>
+</ul>
+<p>  1. Sets all <code>Bookings</code> rows for that booking number to <code>Cancelled</code></p>
+<p>     (frees the room nights immediately).</p>
+<p>  2. Sets <code>BookingSummary.status = 'Cancelled'</code>.</p>
+<p>  3. Sends a cancellation email from info@wanderlustcaribbean.com to the guest</p>
+<p>     (cc info@) via the Render invoice service.</p>
+<p>  4. If a Google Ads conversion was uploaded for this booking and not yet</p>
+<p>     retracted, sends a RETRACTION to the Data Manager API and sets</p>
+<p>     <code>BookingSummary.googleConversionRetracted = true</code>.</p>
+<ul>
+<li><b>Payments & refunds</b> — record off-site payments (positive amounts) and</li>
+</ul>
+<p>  partial refunds (stored as negative amounts) in <code>BookingPayments</code>, linked by</p>
+<p>  <code>bookingNumber</code>. Shows invoice total, total paid, total refunded, and</p>
+<p>  balance. Overpayment/over-refund produces a warning but is allowed.</p>
+<h2>Files</h2>
+<table><tr><th>File</th><th>Where it goes in Wix</th></tr></table>
+<p>|---|---|</p>
+<table><tr><th><code>velo/backend/adminConsole.web.js</code></th><th>Backend / Web modules</th></tr><tr><td><code>velo/page-admin-bookings.js</code></td><td>Page code for <code>/admin-bookings</code></td></tr></table>
+<p>Plus, on the Render invoice service (already deployed):</p>
+<ul>
+<li><code>booking_engine/gmail_sender.py</code> — added <code>send_cancellation_email</code></li>
+<li><code>invoice_service.py</code> — added <code>POST /send-cancellation-email</code></li>
+</ul>
+<p>Deploy the updated service to Render (push to the repo Render watches, or</p>
+<p>manual deploy). No new env vars — it reuses <code>WBE_SHARED_SECRET</code> and the</p>
+<p>existing Gmail token.</p>
+<h2>CMS: BookingPayments fields</h2>
+<p>Add to the <code>BookingPayments</code> collection:</p>
+<table><tr><th>Field</th><th>Type</th><th>Notes</th></tr></table>
+<p>|---|---|---|</p>
+<table><tr><th><code>paymentId</code></th><th>Text</th><th>exists — auto <code>P-0001</code>, <code>P-0002</code>, ...</th></tr><tr><td><code>bookingNumber</code></td><td>Text</td><td>exists</td></tr><tr><td><code>datePaid</code></td><td>Date</td><td>exists</td></tr><tr><td><code>paymentAmount</code></td><td>Number</td><td>exists — negative = refund</td></tr><tr><td><code>paymentType</code></td><td>Text</td><td><b>new</b> — <code>payment</code> or <code>refund</code></td></tr><tr><td><code>paymentMethod</code></td><td>Text</td><td><b>new</b> — bank/cash/check/card-offsite/other</td></tr><tr><td><code>note</code></td><td>Text</td><td><b>new</b> — free text</td></tr></table>
+<h2>CMS: BookingSummary (no changes)</h2>
+<p>Cancel flow uses the existing <code>status</code>, <code>googleConversionUploaded</code>,</p>
+<p><code>googleConversionRetracted</code> fields.</p>
+<h2>Page elements (IDs the code expects)</h2>
+<p>### Filters / list</p>
+<table><tr><th>ID</th><th>Element</th><th>Notes</th></tr></table>
+<p>|---|---|---|</p>
+<table><tr><th><code>searchGuestInput</code></th><th>Text Input</th><th>search name/email/booking#</th></tr><tr><td><code>btnSearch</code></td><td>Button</td><td>triggers refresh</td></tr><tr><td><code>dateFrom</code>, <code>dateTo</code></td><td>Date Picker</td><td>optional check-in range</td></tr><tr><td><code>statusDropdown</code></td><td>Dropdown</td><td>options: <code>All</code>, <code>confirmed</code>, <code>In Process</code>, <code>Cancelled</code> (values must match your BookingSummary.status values)</td></tr><tr><td><code>sortDropdown</code></td><td>Dropdown</td><td>options with values: <code>checkIn</code> (asc), <code>checkIn_desc</code></td></tr><tr><td><code>listStatusText</code></td><td>Text</td><td>shows "N booking(s)" / errors</td></tr><tr><td><code>bookingsRepeater</code></td><td>Repeater</td><td>one item per booking</td></tr></table>
+<p>Inside <code>bookingsRepeater</code> item:</p>
+<table><tr><th>ID</th><th>Element</th></tr></table>
+<p>|---|---|</p>
+<table><tr><th><code>rowBookingNumber</code></th><th>Text</th></tr><tr><td><code>rowGuestName</code></td><td>Text</td></tr><tr><td><code>rowDates</code></td><td>Text</td></tr><tr><td><code>rowTotal</code></td><td>Text</td></tr><tr><td><code>rowStatus</code></td><td>Text</td></tr><tr><td><code>btnViewBooking</code></td><td>Button — opens detail panel</td></tr></table>
+<p>### Detail panel</p>
+<table><tr><th>ID</th><th>Element</th></tr></table>
+<p>|---|---|</p>
+<table><tr><th><code>detailPanel</code></th><th>Container/Box — starts collapsed</th></tr><tr><td><code>detailTitle</code></td><td>Text</td></tr><tr><td><code>btnCloseDetail</code></td><td>Button</td></tr><tr><td><code>detailStatusText</code></td><td>Text</td></tr></table>
+<p><b>Details tab:</b> <code>inputGuestName</code>, <code>inputGuestEmail</code>, <code>inputGuestPhone</code>,</p>
+<p><code>inputNumGuests</code> (Text Inputs); <code>dateCheckIn</code>, <code>dateCheckOut</code> (Date Pickers);</p>
+<p><code>inputGrandTotal</code>, <code>inputPromoCode</code> (Text Inputs); <code>editStatusDropdown</code></p>
+<p>(Dropdown); <code>btnSaveChanges</code> (Button); <code>saveStatusText</code> (Text).</p>
+<p><b>Payments tab:</b> <code>invoiceTotalText</code>, <code>totalPaidText</code>, <code>totalRefundedText</code>,</p>
+<p><code>balanceText</code> (Texts); <code>paymentsRepeater</code> (Repeater) with item elements</p>
+<p><code>payRowId</code>, <code>payRowDate</code>, <code>payRowAmount</code>, <code>payRowMethod</code>, <code>payRowNote</code>;</p>
+<p>payment form: <code>inputPayAmount</code>, <code>datePaid</code> (Date Picker), <code>payMethodDropdown</code>,</p>
+<p><code>inputPayNote</code>, <code>btnRecordPayment</code>;</p>
+<p>refund form: <code>inputRefundAmount</code>, <code>dateRefund</code>, <code>refundMethodDropdown</code>,</p>
+<p><code>inputRefundNote</code>, <code>btnRecordRefund</code>; <code>paymentStatusText</code> (Text).</p>
+<p><b>Danger zone:</b> <code>cancelBalanceText</code> (Text — shows paid/refunded/balance),</p>
+<p><code>inputCancelReason</code> (Text Input), <code>btnCancelBooking</code> (Button),</p>
+<p><code>cancelStatusText</code> (Text).</p>
+<blockquote>Tabs can be real Wix tabs or three collapsible sections — the code only</blockquote>
+<blockquote>touches the element IDs above, so layout is up to you.</blockquote>
+<h2>Access control (Wix Members)</h2>
+<ol>
+<li>In the Wix Editor, open the <code>/admin-bookings</code> page settings.</li>
+<li>Set <b>Permissions → Members only</b>.</li>
+<li>In <b>Members Area → Roles</b>, create a role named <b>Administrator</b> and</li>
+</ol>
+<p>   assign your own member account to it.</p>
+<ol>
+<li>The backend web methods use <code>Permissions.Admin</code> (Wix built-in admin</li>
+</ol>
+<p>   privileges) plus an explicit role check matching any role title containing</p>
+<p>   "admin".</p>
+<h2>Deploy checklist</h2>
+<ol>
+<li>Push/pull this repo — Render redeploys <code>invoice_service.py</code> automatically</li>
+</ol>
+<p>   (check Render logs for the new <code>/send-cancellation-email</code> route).</p>
+<ol>
+<li>In Wix: add the CMS fields, create the page, paste the two code files,</li>
+</ol>
+<p>   add the elements, restrict the page to the Administrator role.</p>
+<ol>
+<li>Publish.</li>
+<li>Test: open <code>/admin-bookings</code>, pick a test booking, record a small payment,</li>
+</ol>
+<p>   then a small refund, then cancel a throwaway booking and confirm:</p>
+<p>   - Bookings rows show <code>Cancelled</code> (rooms freed).</p>
+<p>   - Cancellation email arrives (guest + info@).</p>
+<p>   - <code>BookingSummary.googleConversionRetracted = true</code> (if it was uploaded).</p>
+</body></html>
