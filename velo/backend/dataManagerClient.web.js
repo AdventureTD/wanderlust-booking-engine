@@ -72,6 +72,8 @@ export async function ingestEvent(payload) {
   });
 
   const text = await res.text();
+  console.log('[WBE-DM] response status:', res.status);
+  console.log('[WBE-DM] response body:', text);
   if (!res.ok) { throw new Error('Data Manager API call failed (' + res.status + '): ' + text); }
   return text ? JSON.parse(text) : { ok: true };
 }

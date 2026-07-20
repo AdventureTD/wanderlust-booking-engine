@@ -1,6 +1,7 @@
 import { Permissions, webMethod } from 'wix-web-module';
 import { getSecret } from 'wix-secrets-backend';
 import { ingestEvent } from 'backend/dataManagerClient.web';
+import wixData from 'wix-data';
 import crypto from 'crypto';
 // v2026-07-19-force-rebuild-02
 
@@ -71,13 +72,58 @@ export const recordBookingConversion = webMethod(
     try {
       validateBooking(booking);
       const payload = await buildIngestPayload(booking);
+      console.log('[WBE-GOOGLE] built payload for transaction:', booking.transactionId);
       const response = await ingestEvent(payload);
+      console.log('[WBE-GOOGLE] ingestEvent raw response:', JSON.stringify(response));
+      if (!response || response.ok === false || (response.errors && response.errors.length > 0)) {
+        throw new Error('Data Manager returned error: ' + JSON.stringify(response));
+      }
       return { ok: true, transactionId: booking.transactionId, response };
     } catch (err) {
       console.error('[WBE-GOOGLE] recordBookingConversion error:', err);
       let debugPayload = null;
       try { debugPayload = await buildIngestPayload(booking); } catch (buildErr) {}
       return { ok: false, error: String(err && err.message || err), debugPayload };
+    }
+  }
+);
+
+export const retryBookingConversion = webMethod(
+  Permissions.Admin,
+  async (bookingNumber) => {
+    try {
+      const summaryRes = await wixData.query('BookingSummary')
+        .eq('bookingNumber', bookingNumber)
+        .limit(1)
+        .find();
+      if (!summaryRes.items.length) { throw new Error('BookingSummary not found for ' + bookingNumber); }
+      const summary = summaryRes.items[0];
+      const booking = {
+        transactionId: bookingNumber,
+        value: summary.grandTotal,
+        currency: 'USD',
+        gclid: summary.gclid,
+        gbraid: summary.gbraid,
+        wbraid: summary.wbraid,
+        email: summary.guestEmail,
+        phone: summary.guestPhone,
+        firstName: summary.guestName,
+        lastName: '',
+        conversionTime: summary.bookingDate || new Date().toISOString()
+      };
+      validateBooking(booking);
+      const payload = await buildIngestPayload(booking);
+      console.log('[WBE-GOOGLE] retry payload for', bookingNumber, JSON.stringify(payload));
+      const response = await ingestEvent(payload);
+      if (!response || response.ok === false || (response.errors && response.errors.length > 0)) {
+        throw new Error('Data Manager returned error: ' + JSON.stringify(response));
+      }
+      summary.googleConversionUploaded = true;
+      await wixData.update('BookingSummary', summary);
+      return { ok: true, transactionId: bookingNumber, response };
+    } catch (err) {
+      console.error('[WBE-GOOGLE] retryBookingConversion error:', err);
+      return { ok: false, error: String(err && err.message || err) };
     }
   }
 );
@@ -99,6 +145,7 @@ export const adjustBookingConversion = webMethod(
       }, adjustmentType || 'RETRACTION');
 
       const response = await ingestEvent(payload);
+      console.log('[WBE-GOOGLE] adjustment ingestEvent raw response:', JSON.stringify(response));
       return { ok: true, transactionId, adjustmentType, response };
     } catch (err) {
       console.error('[WBE-GOOGLE] adjustBookingConversion error:', err);
