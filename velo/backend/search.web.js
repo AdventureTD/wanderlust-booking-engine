@@ -223,3 +223,46 @@ export const searchAvailability = webMethod(
     };
   }
 );
+
+function fmtShort(d) {
+  return (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
+}
+
+// Scans up to 30 days past checkOut for windows of the same night count
+// with at least one room fully available. Returns up to 3 suggestions.
+export const suggestAlternateDates = webMethod(
+  Permissions.Anyone,
+  async (checkIn, checkOut) => {
+    const ci = ds(checkIn);
+    const co = ds(checkOut);
+    if (co <= ci) { return { ok: true, nights: 0, suggestions: [] }; }
+
+    const nights = nb(ci, co);
+    if (nights < MIN_N) { return { ok: true, nights: nights, suggestions: [] }; }
+
+    const suggestions = [];
+    const maxStartOffset = 30;
+
+    for (let offset = 1; offset <= maxStartOffset && suggestions.length < 3; offset++) {
+      const newCi = ad(ci, offset);
+      const newCo = ad(newCi, nights);
+      try {
+        const res = await searchAvailability(newCi, newCo);
+        if (res && res.ok && res.results) {
+          const hasFull = res.results.some(function (r) { return r.status === 'full'; });
+          if (hasFull) {
+            suggestions.push({
+              checkIn: newCi.toISOString(),
+              checkOut: newCo.toISOString(),
+              checkInLabel: fmtShort(newCi),
+              checkOutLabel: fmtShort(newCo),
+              label: fmtShort(newCi) + ' – ' + fmtShort(newCo),
+            });
+          }
+        }
+      } catch (e) { /* skip this candidate */ }
+    }
+
+    return { ok: true, nights: nights, suggestions: suggestions };
+  }
+);

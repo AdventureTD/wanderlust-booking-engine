@@ -483,7 +483,17 @@ function initRoomRepeater() {
   rep.onItemReady(($item, itemData) => {
     safeItem($item, '#roomNameText', 'text', itemData.roomName || itemData.roomCode || '');
     safeItem($item, '#qtyRooms', 'text', String(itemData.qty || 1));
-    safeItem($item, '#numberOfGuests', 'text', String(itemData.guests || itemData.numGuests || 1));
+
+    const guestCount = itemData.guests || itemData.numGuests || 1;
+    const guestEl = safeItem($item, '#numberOfGuests', null, null);
+    if (guestEl) {
+      try { guestEl.text = String(guestCount); } catch (e) {}
+      try { guestEl.value = String(guestCount); } catch (e) {}
+      console.log('[WBE-SUMMARY] set #numberOfGuests:', guestCount, 'for', itemData.roomCode);
+    } else {
+      console.warn('[WBE-SUMMARY] #numberOfGuests element not found for', itemData.roomCode);
+    }
+
     safeItem($item, '#roomPriceText', 'text', '$' + fmtCurrency(itemData.baseRate || 0) + ' / person / night');
     const feeEl = safeItem($item, '#additionalFee', null, null);
     if (feeEl) {

@@ -1,5 +1,5 @@
 import { getActiveMessages } from 'backend/messages';
-import { searchAvailability } from 'backend/search';
+import { searchAvailability, suggestAlternateDates } from 'backend/search';
 import { getPackageAmenities } from 'backend/packages';
 import { trackBeginBooking, captureClickIds } from 'public/tracking';
 import wixLocation from 'wix-location';
@@ -261,7 +261,6 @@ async function searchHandler() {
     if (!rep) { safeText('Found ' + res.results.length + ' result(s) but no repeater to display them.'); return; }
     if (res.results.length === 0) {
       rep.data = [];
-      safeText('No rooms are available for the dates entered.');
       clearSelections(true);
       const box3 = tryFind('box3');
       if (box3) { try { box3.collapse(); } catch (e) {} }
@@ -271,8 +270,11 @@ async function searchHandler() {
       if (container) { try { container.collapse(); } catch (e) {} }
       const btnContinue = tryFind('btnContinueToSummary');
       if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
+      safeText('No rooms are available for the dates entered. Checking nearby dates...');
+      showAlternateDates(ciDate, coDate);
       return;
     }
+    hideAlternateDates();
 
     updateSelectionPanel();
 
@@ -286,7 +288,6 @@ async function searchHandler() {
     }
     if (availableData.length === 0) {
       rep.data = repData;
-      safeText('No rooms are available for the dates entered.');
       clearSelections(true);
       updateSelectionPanel();
       try { rep.expand(); } catch (e) {}
@@ -298,6 +299,8 @@ async function searchHandler() {
       if (container) { try { container.collapse(); } catch (e) {} }
       const btnContinue = tryFind('btnContinueToSummary');
       if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
+      safeText('No rooms are available for the dates entered. Checking nearby dates...');
+      showAlternateDates(ciDate, coDate);
       return;
     }
     if (rep) { try { rep.show(); } catch (e) {} try { rep.expand(); } catch (e) {} }
@@ -357,5 +360,55 @@ function safeText(txt) {
     el.text = txt;
     console.log('>>> safeText:', txt);
   } catch (e) { console.log('>>> safeText error:', e.message); }
+}
+
+async function showAlternateDates(ciDate, coDate) {
+  try {
+    const res = await suggestAlternateDates(ciDate, coDate);
+    const sug = (res && res.suggestions) || [];
+    const rep = tryFind('altDatesRepeater');
+    if (!rep) {
+      safeText('No rooms available. Try different dates.');
+      return;
+    }
+    if (sug.length === 0) {
+      safeText('No availability found within 30 days. Please contact us or try a shorter stay.');
+      try { rep.collapse(); } catch (e) {}
+      const lbl0 = tryFind('altDatesLabel');
+      if (lbl0) { try { lbl0.collapse(); } catch (e) {} }
+      return;
+    }
+    safeText('No rooms for those dates. Available alternatives:');
+    const lbl = tryFind('altDatesLabel');
+    if (lbl) { try { lbl.text = 'Try these dates:'; lbl.expand(); } catch (e) {} }
+    rep.onItemReady(($item, itemData) => {
+      try { $item('#altDateButton').label = itemData.label; } catch (e) {}
+      try {
+        $item('#altDateButton').onClick(function () {
+          onPickAlternate(itemData);
+        });
+      } catch (e) {}
+    });
+    rep.data = sug;
+    try { rep.expand(); } catch (e) {}
+  } catch (e) {
+    console.error('>>> showAlternateDates error:', e && e.message || e);
+    safeText('No rooms are available for the dates entered.');
+  }
+}
+
+function hideAlternateDates() {
+  const rep = tryFind('altDatesRepeater');
+  if (rep) { try { rep.data = []; rep.collapse(); } catch (e) {} }
+  const lbl = tryFind('altDatesLabel');
+  if (lbl) { try { lbl.collapse(); } catch (e) {} }
+}
+
+function onPickAlternate(itemData) {
+  const ciEl = tryFind('datePickerCheckIn');
+  const coEl = tryFind('datePickerCheckOut');
+  try { if (ciEl) ciEl.value = new Date(itemData.checkIn); } catch (e) {}
+  try { if (coEl) coEl.value = new Date(itemData.checkOut); } catch (e) {}
+  searchHandler();
 }
 
