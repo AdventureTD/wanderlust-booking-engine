@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wanderlust Admin Console — Wireframe</title>
+<style>
+  :root { --line:#9aa3ad; --fill:#e9edf1; --dark:#3c4650; --accent:#c9d6e4; }
+  * { box-sizing:border-box; }
+  body { font-family:'Segoe UI',Arial,sans-serif; background:#fff; color:var(--dark);
+         margin:24px auto; max-width:1180px; font-size:12px; }
+  h1 { font-size:16px; letter-spacing:.5px; margin:0 0 4px; }
+  .sub { color:#7a838d; margin-bottom:14px; }
+  .panel { border:1.5px solid var(--line); border-radius:4px; padding:10px 12px; margin-bottom:12px; background:#fff; }
+  .panel-title { font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.6px;
+                 color:#6b7480; margin-bottom:8px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .field { border:1px solid var(--line); background:var(--fill); border-radius:3px;
+           padding:6px 8px; color:#8a929c; min-width:120px; }
+  .field b { color:var(--dark); font-weight:600; }
+  .field .id { color:#a58a00; font-size:10px; }
+  .btn { border:1.5px solid var(--dark); border-radius:3px; padding:6px 12px;
+         display:inline-block; background:#fff; font-weight:600; }
+  .btn.danger { border-color:#b04a4a; color:#b04a4a; }
+  .layout { display:flex; gap:12px; align-items:flex-start; }
+  .list { flex:1.2; } .detail { flex:1; border-width:2px; }
+  .booking-row { border:1px solid var(--line); border-radius:3px; padding:8px 10px; margin-bottom:8px; background:#fbfcfd; }
+  .booking-row .top { display:flex; justify-content:space-between; font-weight:600; }
+  .booking-row .meta { color:#7a838d; margin-top:3px; }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:4px; }
+  .dot.ok { background:#4a9e5c; } .dot.cxl { background:#b04a4a; }
+  .tabs { display:flex; gap:0; border-bottom:2px solid var(--line); margin-bottom:10px; }
+  .tab { padding:6px 12px; border:1px solid var(--line); border-bottom:none; background:var(--fill); margin-right:4px; border-radius:4px 4px 0 0; color:#6b7480; }
+  .tab.active { background:#fff; color:var(--dark); font-weight:600; position:relative; top:2px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .totals { display:flex; gap:14px; background:var(--accent); padding:8px 10px; border-radius:3px; margin-bottom:8px; font-weight:600; }
+  table.pay { width:100%; border-collapse:collapse; margin-bottom:10px; }
+  table.pay td, table.pay th { border:1px solid var(--line); padding:4px 6px; text-align:left; font-size:11px; }
+  table.pay th { background:var(--fill); }
+  .neg { color:#b04a4a; }
+  .note { background:#fdf6e3; border:1px solid #e3d9b8; padding:8px 10px; border-radius:3px; color:#7a6a2f; margin-bottom:8px; }
+  .legend { margin-top:18px; border-top:1px dashed var(--line); padding-top:10px; color:#7a838d; }
+  .legend code { background:var(--fill); padding:1px 5px; border-radius:3px; color:#a58a00; }
+  @media print { body { margin:0; } }
+</style>
+</head>
+<body>
+
+<h1>WANDERLUST ADMIN — Reservations &amp; Payments</h1>
+<div class="sub">Wireframe for <b>/admin-bookings</b> (member-restricted, Administrator role) · element IDs in <span style="color:#a58a00">gold</span> · print with Ctrl+P</div>
+
+<div class="panel">
+  <div class="panel-title">Filters</div>
+  <div class="row">
+    <div class="field" style="flex:1;min-width:220px">🔍 search name / email / booking# <span class="id">#searchGuestInput</span></div>
+    <div class="field">From: <b>__ /__ /____</b> <span class="id">#dateFrom</span></div>
+    <div class="field">To: <b>__ /__ /____</b> <span class="id">#dateTo</span></div>
+    <div class="field">Status: <b>All ▾</b> <span class="id">#statusDropdown</span></div>
+    <div class="field">Sort: <b>Check-in ▲ ▾</b> <span class="id">#sortDropdown</span></div>
+    <div class="btn">Search <span class="id">#btnSearch</span></div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <div class="panel list">
+    <div class="panel-title">Bookings — <span id="">listStatusText</span> “2 booking(s)”</div>
+
+    <div class="booking-row">
+      <div class="top"><span>WBE-INV-0006 · Tom Decherd</span><span>$6,514.20</span></div>
+      <div class="meta">Aug 1 – Aug 8, 2026 (7 nts) · Adventure Suite ×2 · tomdecherd@hotmail.com</div>
+      <div class="meta"><span class="dot ok"></span>Confirmed &nbsp; Paid: $3,000.00 / $6,514.20 &nbsp; <b>[ View ▸ ]</b></div>
+    </div>
+
+    <div class="booking-row">
+      <div class="top"><span>WBE-INV-0007 · Jane Smith</span><span>$5,900.00</span></div>
+      <div class="meta">Sep 5 – Sep 12, 2026 (7 nts) · Penthouse ×1 · jane@example.com</div>
+      <div class="meta"><span class="dot cxl"></span>Cancelled &nbsp; Paid: $0.00 / $5,900.00 &nbsp; <b>[ View ▸ ]</b></div>
+    </div>
+
+    <div class="meta" style="color:#9aa3ad">Repeater: <code style="color:#a58a00">#bookingsRepeater</code> · item: <code style="color:#a58a00">#rowBookingNumber #rowGuestName #rowDates #rowTotal #rowStatus #btnViewBooking</code></div>
+  </div>
+
+  <div class="panel detail">
+    <div class="panel-title">Detail Panel <span class="id">#detailPanel</span> &nbsp;—&nbsp; Booking WBE-INV-0006 &nbsp; [Close ✕ <span class="id">#btnCloseDetail</span>]</div>
+
+    <div class="tabs">
+      <div class="tab active">Details</div><div class="tab">Payments</div><div class="tab">Danger Zone</div>
+    </div>
+
+    <div class="grid2">
+      <div class="field">Guest name <span class="id">#inputGuestName</span></div>
+      <div class="field">Email <span class="id">#inputGuestEmail</span></div>
+      <div class="field">Phone <span class="id">#inputGuestPhone</span></div>
+      <div class="field">Guests <span class="id">#inputNumGuests</span></div>
+      <div class="field">Check-in <span class="id">#dateCheckIn</span></div>
+      <div class="field">Check-out <span class="id">#dateCheckOut</span></div>
+      <div class="field">Grand total <span class="id">#inputGrandTotal</span></div>
+      <div class="field">Promo code <span class="id">#inputPromoCode</span></div>
+      <div class="field">Status ▾ <span class="id">#editStatusDropdown</span></div>
+    </div>
+    <div style="margin-top:10px">
+      <div class="btn">Save Changes <span class="id">#btnSaveChanges</span></div>
+      <span style="color:#7a838d"> — re-checks availability when dates change · <span class="id">#saveStatusText</span></span>
+    </div>
+
+    <hr style="border:none;border-top:1px dashed var(--line);margin:14px 0">
+
+    <div class="totals">
+      <span>Invoice: <b>$6,514.20</b></span><span>Paid: <b>$3,000.00</b></span>
+      <span>Refunded: <b>$500.00</b></span><span>Balance: <b>$4,014.20</b></span>
+    </div>
+    <table class="pay">
+      <tr><th>ID</th><th>Date</th><th>Amount</th><th>Method</th><th>Note</th></tr>
+      <tr><td>P-0001</td><td>Jul 20</td><td>+$3,000.00</td><td>Bank transfer</td><td>Deposit</td></tr>
+      <tr><td>P-0002</td><td>Aug 01</td><td class="neg">−$500.00</td><td>Cash</td><td>Refund — early cxl</td></tr>
+    </table>
+    <div class="row">
+      <div class="field">Amount <span class="id">#inputPayAmount</span></div>
+      <div class="field">Date <span class="id">#datePaid</span></div>
+      <div class="field">Method ▾ <span class="id">#payMethodDropdown</span></div>
+      <div class="field">Note <span class="id">#inputPayNote</span></div>
+      <div class="btn">Record Payment <span class="id">#btnRecordPayment</span></div>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <div class="field">Amount <span class="id">#inputRefundAmount</span></div>
+      <div class="field">Date <span class="id">#dateRefund</span></div>
+      <div class="field">Method ▾ <span class="id">#refundMethodDropdown</span></div>
+      <div class="field">Note <span class="id">#inputRefundNote</span></div>
+      <div class="btn">Record Refund <span class="id">#btnRecordRefund</span></div>
+    </div>
+
+    <hr style="border:none;border-top:1px dashed var(--line);margin:14px 0">
+
+    <div class="note">⚠ Cancelling frees the room nights, emails the guest from info@, and retracts the Google Ads conversion if one was uploaded.</div>
+    <div class="meta" style="margin-bottom:6px">Balance reminder: <b>$4,014.20</b> outstanding <span class="id">#cancelBalanceText</span></div>
+    <div class="row">
+      <div class="field" style="flex:1">Cancellation reason <span class="id">#inputCancelReason</span></div>
+      <div class="btn danger">Cancel Booking <span class="id">#btnCancelBooking</span></div>
+    </div>
+    <div style="margin-top:6px;color:#7a838d"><span class="id">#cancelStatusText</span> — shows each step: rooms freed ✓ · email sent ✓ · ads retracted ✓</div>
+  </div>
+
+</div>
+
+<div class="legend">
+  <b>Data model:</b> <code>BookingSummary</code> 1 ─── ∞ <code>Bookings</code> (one row per room, linked by <code>bookingNumber</code>;
+  cancel sets every room row to <code>Cancelled</code>) · <code>BookingSummary</code> 1 ─── ∞ <code>BookingPayments</code>
+  (payments positive, refunds negative; balance = grand − paid + refunded; warn-but-allow on overpayment/over-refund).
+</div>
+
+</body>
+</html>
