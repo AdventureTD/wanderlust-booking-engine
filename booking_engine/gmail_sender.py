@@ -81,6 +81,52 @@ def _gmail_service():
     return build("gmail", "v1", credentials=creds)
 
 
+def build_cancellation_email(to_email: str, guest_name: str, booking_number: str,
+                             check_in: str, check_out: str, rooms_desc: str,
+                             reason: str = "") -> EmailMessage:
+    """Assemble a plain-text cancellation email. No network — pure build."""
+    msg = EmailMessage()
+    msg["From"] = f"Wanderlust Caribbean <{SENDER}>"
+    msg["To"] = to_email
+    msg["Cc"] = BCC_COPY
+    msg["Subject"] = f"Wanderlust Caribbean — Booking {booking_number} Cancelled"
+
+    reason_block = f"Reason: {reason}\n\n" if reason else ""
+    body = (
+        f"Dear {guest_name},\n\n"
+        f"Your booking {booking_number} with Wanderlust Caribbean has been cancelled.\n\n"
+        f"Original stay: {check_in} to {check_out}\n"
+        f"Rooms: {rooms_desc}\n\n"
+        f"{reason_block}"
+        "If you have already made a payment and are due a refund under our "
+        "cancellation policy, we will process it separately and confirm by email.\n\n"
+        "We're sorry to miss you this time — we hope to host you on the Nature "
+        "Island another day.\n"
+        "Come as guests, leave as friends.\n\n"
+        "Wanderlust Caribbean\n"
+        "Pt. Dubique, Calibishie, Dominica\n"
+        "980-934-1813 | info@wanderlustcaribbean.com\n"
+        "wanderlustcaribbean.com\n"
+    )
+    msg.set_content(body)
+    return msg
+
+
+def send_cancellation_email(to_email: str, guest_name: str, booking_number: str,
+                            check_in: str, check_out: str, rooms_desc: str,
+                            reason: str = "") -> dict:
+    """Build + send the cancellation email via Gmail API."""
+    msg = build_cancellation_email(to_email, guest_name, booking_number,
+                                   check_in, check_out, rooms_desc, reason)
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+    service = _gmail_service()
+    sent = service.users().messages().send(
+        userId="me", body={"raw": raw}).execute()
+    return {"gmail_message_id": sent.get("id"),
+            "to": to_email, "cc": BCC_COPY,
+            "booking_number": booking_number}
+
+
 def send_invoice_email(to_email: str, guest_name: str, invoice_number: str,
                        pdf_path: str, total_str: str) -> dict:
     """Build + send the invoice email via Gmail API. Returns the Gmail response."""

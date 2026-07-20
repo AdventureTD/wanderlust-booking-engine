@@ -91,6 +91,38 @@ def health():
     return {"status": "ok"}
 
 
+class CancellationEmailRequest(BaseModel):
+    guest_name: str
+    guest_email: str
+    booking_number: str
+    check_in: str
+    check_out: str
+    rooms_desc: str
+    reason: str = ""
+
+
+@app.post("/send-cancellation-email")
+def send_cancellation_email(req: CancellationEmailRequest,
+                            x_wbe_secret: str = Header(default="")):
+    """Send a booking-cancellation email from info@ via Gmail API."""
+    if not SHARED_SECRET or x_wbe_secret != SHARED_SECRET:
+        raise HTTPException(status_code=401, detail="Bad or missing X-WBE-Secret")
+    try:
+        result = gmail_sender.send_cancellation_email(
+            to_email=req.guest_email,
+            guest_name=req.guest_name,
+            booking_number=req.booking_number,
+            check_in=req.check_in,
+            check_out=req.check_out,
+            rooms_desc=req.rooms_desc,
+            reason=req.reason,
+        )
+        return {"ok": True, **result}
+    except Exception as e:
+        print(f"[WBE] Cancellation email FAILED for {req.booking_number}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 class RecomputeRequest(BaseModel):
     """Recompute totals for an edited reservation. The caller (Velo) sends the
     full current quote_breakdown (rebuilt from the edited rooms/packages via
