@@ -115,7 +115,6 @@ function safeItem($item, selector, action, val) {
   } catch (e) { return null; }
 }
 
-let _guestCounts = {};
 let _summaryRooms = [];
 let _summaryNights = 7;
 let _summaryCis = '';
@@ -204,7 +203,6 @@ async function initSummary() {
   _summaryCos = cos;
   _summarySettings = settings;
   _roomNames = roomNames;
-  _guestCounts = {};
 
   initRoomRepeater();
   await renderSummary();
@@ -485,6 +483,7 @@ function initRoomRepeater() {
   rep.onItemReady(($item, itemData) => {
     safeItem($item, '#roomNameText', 'text', itemData.roomName || itemData.roomCode || '');
     safeItem($item, '#qtyRooms', 'text', String(itemData.qty || 1));
+    safeItem($item, '#numberOfGuests', 'text', String(itemData.guests || itemData.numGuests || 1));
     safeItem($item, '#roomPriceText', 'text', '$' + fmtCurrency(itemData.baseRate || 0) + ' / person / night');
     const feeEl = safeItem($item, '#additionalFee', null, null);
     if (feeEl) {
@@ -496,38 +495,11 @@ function initRoomRepeater() {
       } catch (e) {}
     }
 
-    const dd = safeItem($item, '#guestsDropdown', null, null);
-    if (dd && typeof dd.onChange === 'function') {
-      const rc = itemData.roomCode;
-      const baseOcc = Number(itemData.baseOccupancy) || 2;
-      const maxOcc = Number(itemData.occupancy) || baseOcc;
-      const opts = [];
-      for (let g = baseOcc; g <= maxOcc; g++) opts.push({ label: String(g), value: String(g) });
-      dd.options = opts;
-      const defaultVal = String(Math.max(baseOcc, Math.min(itemData.guests || baseOcc, maxOcc)));
-      try { dd.required = false; } catch (e) {}
-      setTimeout(() => {
-        dd.value = defaultVal;
-        try { dd.valid = true; } catch (e) {}
-        try { dd.resetValidityIndication(); } catch (e) {}
-        _guestCounts[rc] = parseInt(defaultVal, 10);
-      }, 300);
-      dd.onChange(function (ev) {
-        const newGuests = parseInt(ev.target.value, 10) || parseInt(defaultVal, 10);
-        _guestCounts[rc] = newGuests;
-        for (let i = 0; i < _summaryRooms.length; i++) {
-          if (_summaryRooms[i].roomCode === rc) _summaryRooms[i].numGuests = newGuests;
-        }
-        renderSummary();
-      });
-    }
-
     safeItem($item, '#roomTotalText', 'text', '$' + fmtCurrency(itemData.roomTotal || 0));
     const rmBtn = safeItem($item, '#removeBtn', null, null);
     if (rmBtn && typeof rmBtn.onClick === 'function') {
       rmBtn.onClick(() => {
         _summaryRooms = _summaryRooms.filter(r => r.roomCode !== itemData.roomCode);
-        delete _guestCounts[itemData.roomCode];
         renderSummary();
       });
     }
@@ -739,14 +711,6 @@ function wireContinueButton() {
       safeDisable('btnContinue', false);
     }
   });
-}
-
-function getGuestCount(idx) {
-  const rep = (function () { try { return $w('#summaryRoomsRepeater'); } catch (e) { return null; } })();
-  if (!rep || !rep.data) return null;
-  const item = rep.data[idx];
-  if (!item) return null;
-  return _guestCounts[item.roomCode] || item.qty || null;
 }
 
 function normalizePhone(raw) {
