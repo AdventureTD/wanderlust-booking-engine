@@ -81,6 +81,10 @@ function tryFind(id) { try { return $w('#' + id); } catch (e) { return null; } }
 
 $w.onReady(function () {
   captureClickIds();
+  const shouldAutoSearch = applyUrlDatesIfPresent();
+  if (shouldAutoSearch) {
+    setTimeout(function () { searchHandler(); }, 400);
+  }
   if (tryFind('btnSearchRooms')) {
     $w('#btnSearchRooms').onClick(function () {
       console.log('>>> btnSearchRooms clicked');
@@ -366,49 +370,49 @@ async function showAlternateDates(ciDate, coDate) {
   try {
     const res = await suggestAlternateDates(ciDate, coDate);
     const sug = (res && res.suggestions) || [];
-    const rep = tryFind('altDatesRepeater');
-    if (!rep) {
-      safeText('No rooms available. Try different dates.');
-      return;
-    }
+    const el = tryFind('statusText');
+    if (!el) return;
+
     if (sug.length === 0) {
-      safeText('No availability found within 30 days. Please contact us or try a shorter stay.');
-      try { rep.collapse(); } catch (e) {}
-      const lbl0 = tryFind('altDatesLabel');
-      if (lbl0) { try { lbl0.collapse(); } catch (e) {} }
+      el.html = '<span>No rooms available within 30 days of your dates. Please contact us or try a shorter stay.</span>';
+      if (typeof el.expand === 'function') el.expand();
+      if (typeof el.show === 'function') el.show();
       return;
     }
-    safeText('No rooms for those dates. Available alternatives:');
-    const lbl = tryFind('altDatesLabel');
-    if (lbl) { try { lbl.text = 'Try these dates:'; lbl.expand(); } catch (e) {} }
-    rep.onItemReady(($item, itemData) => {
-      try { $item('#altDateButton').label = itemData.label; } catch (e) {}
-      try {
-        $item('#altDateButton').onClick(function () {
-          onPickAlternate(itemData);
-        });
-      } catch (e) {}
-    });
-    rep.data = sug;
-    try { rep.expand(); } catch (e) {}
+
+    const links = sug.map(function (s) {
+      const url = buildAltUrl(s.checkIn, s.checkOut);
+      return '<a href="' + url + '">' + s.label + '</a>';
+    }).join(' &middot; ');
+    el.html = '<span>No rooms for those dates. Try: ' + links + '</span>';
+    if (typeof el.expand === 'function') el.expand();
+    if (typeof el.show === 'function') el.show();
   } catch (e) {
     console.error('>>> showAlternateDates error:', e && e.message || e);
     safeText('No rooms are available for the dates entered.');
   }
 }
 
-function hideAlternateDates() {
-  const rep = tryFind('altDatesRepeater');
-  if (rep) { try { rep.data = []; rep.collapse(); } catch (e) {} }
-  const lbl = tryFind('altDatesLabel');
-  if (lbl) { try { lbl.collapse(); } catch (e) {} }
+function buildAltUrl(checkInIso, checkOutIso) {
+  const ci = new Date(checkInIso);
+  const co = new Date(checkOutIso);
+  const fmt = function (d) {
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  };
+  return '/wanderlust-booking?ci=' + fmt(ci) + '&co=' + fmt(co) + '&auto=1';
 }
 
-function onPickAlternate(itemData) {
-  const ciEl = tryFind('datePickerCheckIn');
-  const coEl = tryFind('datePickerCheckOut');
-  try { if (ciEl) ciEl.value = new Date(itemData.checkIn); } catch (e) {}
-  try { if (coEl) coEl.value = new Date(itemData.checkOut); } catch (e) {}
-  searchHandler();
+function hideAlternateDates() {}
+
+function applyUrlDatesIfPresent() {
+  try {
+    const q = wixLocation.query || {};
+    if (!q.ci || !q.co) return false;
+    const ciEl = tryFind('datePickerCheckIn');
+    const coEl = tryFind('datePickerCheckOut');
+    if (ciEl) ciEl.value = new Date(q.ci + 'T00:00:00');
+    if (coEl) coEl.value = new Date(q.co + 'T00:00:00');
+    return q.auto === '1';
+  } catch (e) { return false; }
 }
 
