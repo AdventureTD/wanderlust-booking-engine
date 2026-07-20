@@ -1,68 +1,17 @@
 import { Permissions, webMethod } from 'wix-web-module';
 import { getSecret } from 'wix-secrets-backend';
 import { ingestEvent } from 'backend/dataManagerClient.web';
+import { buildUserIdentifiers } from 'backend/hashUtils.web';
 import wixData from 'wix-data';
-import crypto from 'crypto';
-// v2026-07-19-force-rebuild-02
+// v2026-07-20-hashutils-import
 
-/* inlined from hashUtils.web.js to avoid stale module cache */
-function sha256Hex(value) {
-  return crypto.createHash('sha256').update(value, 'utf8').digest('hex');
-}
-
-function hashEmail(email) {
-  if (!email) { return undefined; }
-  let e = String(email).trim().toLowerCase();
-  const parts = e.split('@');
-  const user = parts[0];
-  const domain = parts[1];
-  if (domain === 'gmail.com' || domain === 'googlemail.com') {
-    const cleanUser = user.split('+')[0].replace(/\./g, '');
-    e = cleanUser + '@gmail.com';
-  }
-  return sha256Hex(e);
-}
-
-function hashPhone(phone, defaultCountryCode) {
-  if (!phone) { return undefined; }
-  let p = String(phone).replace(/[^\d+]/g, '');
-  if (!p.startsWith('+')) {
-    const cc = defaultCountryCode ? String(defaultCountryCode).replace(/\D/g, '') : '';
-    p = '+' + cc + p;
-  }
-  return sha256Hex(p);
-}
-
-function hashName(name) {
-  if (!name) { return undefined; }
-  const n = String(name).trim().toLowerCase().replace(/[^a-z]/g, '');
-  if (!n) { return undefined; }
-  return sha256Hex(n);
-}
-
-function buildUserIdentifiers(pii) {
-  const identifiers = [];
-  pii = pii || {};
-
-  const hashedEmail = hashEmail(pii.email);
-  if (hashedEmail) { identifiers.push({ emailAddress: hashedEmail }); }
-
-  const hashedPhone = hashPhone(pii.phone, pii.dialingCode);
-  if (hashedPhone) { identifiers.push({ phoneNumber: hashedPhone }); }
-
-  const hashedFirst = hashName(pii.firstName);
-  const hashedLast = hashName(pii.lastName);
-  if (hashedFirst && hashedLast && pii.postalCode && pii.countryCode) {
-    identifiers.push({
-      address: {
-        givenName: hashedFirst,
-        familyName: hashedLast,
-        postalCode: pii.postalCode || undefined,
-        regionCode: pii.countryCode || undefined
-      }
-    });
-  }
-  return identifiers;
+function stripEmpty(obj) {
+  const out = {};
+  Object.keys(obj).forEach(function (k) {
+    const v = obj[k];
+    if (v !== undefined && v !== null && String(v).trim() !== '') { out[k] = v; }
+  });
+  return out;
 }
 
 

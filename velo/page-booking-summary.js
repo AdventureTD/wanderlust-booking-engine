@@ -551,7 +551,8 @@ function wireContinueButton() {
   btn.onClick(async function () {
     const name = safeVal('inputGuestName').trim();
     const email = safeVal('inputGuestEmail').trim();
-    const phone = safeVal('inputGuestPhone').trim();
+    const phone = normalizePhone(safeVal('inputGuestPhone'));
+    const dialingCode = safeVal('inputDialingCode').replace(/\D/g, '') || '1';
 
     if (!name) { safeText('bookingStatus', 'Please enter your full name.'); return; }
     if (!email || email.indexOf('@') < 0) { safeText('bookingStatus', 'Please enter a valid email address.'); return; }
@@ -675,6 +676,7 @@ function wireContinueButton() {
           wbraid: clickIds.wbraid,
           email: email,
           phone: phone,
+          dialingCode: dialingCode,
           firstName: name.split(' ')[0],
           lastName: name.split(' ').slice(1).join(' '),
           conversionTime: new Date().toISOString()
@@ -745,4 +747,13 @@ function getGuestCount(idx) {
   const item = rep.data[idx];
   if (!item) return null;
   return _guestCounts[item.roomCode] || item.qty || null;
+}
+
+function normalizePhone(raw) {
+  if (!raw) { return ''; }
+  let digits = String(raw).replace(/[^\d+]/g, '');
+  if (digits.startsWith('+')) { return digits; }
+  if (digits.length === 11 && digits.charAt(0) === '1') { return '+' + digits; }
+  if (digits.length === 10) { return '+1' + digits; }
+  return digits;
 }
