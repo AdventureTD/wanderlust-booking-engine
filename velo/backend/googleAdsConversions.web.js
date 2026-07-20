@@ -197,15 +197,6 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
   };
 }
 
-function stripEmpty(obj) {
-  const out = {};
-  Object.keys(obj).forEach(function (k) {
-    const v = obj[k];
-    if (v !== undefined && v !== null && String(v).trim() !== '') { out[k] = v; }
-  });
-  return out;
-}
-
 function validateBooking(b) {
   if (!b) { throw new Error('booking payload missing'); }
   if (!b.transactionId) { throw new Error('transactionId is required'); }
