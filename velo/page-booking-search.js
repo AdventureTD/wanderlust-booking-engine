@@ -87,7 +87,7 @@ $w.onReady(function () {
     setTimeout(function () { searchHandler(); }, 400);
   }
   if (tryFind('btnSearchRooms')) {
-    $w('#btnSearchRooms').onClick(function () {
+    $w('#btnSearchRooms').onClick(async function () {
       console.log('>>> btnSearchRooms clicked');
       const ciEl = tryFind('datePickerCheckIn');
       const coEl = tryFind('datePickerCheckOut');
@@ -97,12 +97,14 @@ $w.onReady(function () {
       if (ci && co && co > ci) {
         nights = Math.round((co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24));
       }
-      ensureBaseRate(nights); // async; uses cached value on later searches
+      const estValue = await ensureBaseRate(nights).then(function () {
+        return estimateSearchValue(nights);
+      });
       trackBeginBooking({
         checkIn: ci ? (ci.getMonth() + 1) + '/' + ci.getDate() + '/' + ci.getFullYear() : undefined,
         checkOut: co ? (co.getMonth() + 1) + '/' + co.getDate() + '/' + co.getFullYear() : undefined,
         nights: nights || undefined,
-        value: estimateSearchValue(nights)
+        value: estValue
       });
       searchHandler();
     });
