@@ -188,10 +188,21 @@
   // Receive GA4/Ads events from Velo page code via the wbeEventBridge HTML
   // iframe on the Master Page (Velo localStorage is partitioned; postMessage
   // through the iframe is the reliable cross-context channel).
+  // Plain-object dataLayer pushes are inert to raw gtag — translate them into
+  // real gtag('event', ...) calls so GA4 actually receives the hits.
   window.addEventListener('message', function (event) {
     var d = event && event.data;
     if (d && d.source === 'wbe-event-bridge' && d.payload) {
-      window.dataLayer.push(d.payload);
+      var p = d.payload;
+      if (p.event) {
+        var name = p.event;
+        var params = {};
+        Object.keys(p).forEach(function (k) {
+          if (k !== 'event') { params[k] = p[k]; }
+        });
+        gtag('event', name, params);
+        console.log('[WBE-GTAG] gtag event sent:', name, JSON.stringify(params));
+      }
     }
   });
 </script>
