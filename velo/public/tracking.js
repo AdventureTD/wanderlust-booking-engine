@@ -143,6 +143,30 @@ export function trackBeginBooking(details) {
   pushDataLayer(payload);
 }
 
+// Fires when the booking search page loads — top-of-funnel audience pool.
+export function trackViewBookingSearch() {
+  pushDataLayer({ event: 'view_booking_search' });
+}
+
+// Fires once per room shown in search results — room-level interest signal.
+export function trackRoomView(details) {
+  const d = details || {};
+  const payload = { event: 'room_view' };
+  if (d.roomCode) { payload.room_code = d.roomCode; }
+  if (d.nights) { payload.nights = d.nights; }
+  pushDataLayer(payload);
+}
+
+// Fires when a search returns zero availability — high-intent visitor who hit
+// a wall; prime audience for "dates freed up" remarketing.
+export function trackSearchNoResults(details) {
+  const d = details || {};
+  const payload = { event: 'search_no_results' };
+  if (d.nights) { payload.nights = d.nights; }
+  if (d.checkIn) { payload.check_in = d.checkIn; }
+  pushDataLayer(payload);
+}
+
 // Fires on confirmed booking (client-side signal).
 export function trackPurchase(booking) {
   const payload = {

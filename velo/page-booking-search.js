@@ -1,7 +1,7 @@
 import { getActiveMessages } from 'backend/messages';
 import { searchAvailability, suggestAlternateDates } from 'backend/search';
-import { getPackageAmenities } from 'backend/packages';
-import { trackBeginBooking, captureClickIds } from 'public/tracking';
+import { getPackageAmenities, getPackageBaseRate } from 'backend/packages';
+import { trackBeginBooking, captureClickIds, trackViewBookingSearch, trackRoomView, trackSearchNoResults } from 'public/tracking';
 import wixLocation from 'wix-location';
 
 let _selections = [];
@@ -81,6 +81,7 @@ function tryFind(id) { try { return $w('#' + id); } catch (e) { return null; } }
 
 $w.onReady(function () {
   captureClickIds();
+  trackViewBookingSearch();
   const shouldAutoSearch = applyUrlDatesIfPresent();
   if (shouldAutoSearch) {
     setTimeout(function () { searchHandler(); }, 400);
@@ -96,11 +97,12 @@ $w.onReady(function () {
       if (ci && co && co > ci) {
         nights = Math.round((co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24));
       }
+      ensureBaseRate(nights); // async; uses cached value on later searches
       trackBeginBooking({
         checkIn: ci ? (ci.getMonth() + 1) + '/' + ci.getDate() + '/' + ci.getFullYear() : undefined,
         checkOut: co ? (co.getMonth() + 1) + '/' + co.getDate() + '/' + co.getFullYear() : undefined,
         nights: nights || undefined,
-        value: 0
+        value: estimateSearchValue(nights)
       });
       searchHandler();
     });
@@ -230,6 +232,21 @@ async function loadMessages() {
   } catch (e) {}
 }
 
+// Value estimate for audience tiering: 2 guests at the per-person package rate.
+// Fetched once and cached; returns 0 when unknown (Google ignores 0-value events
+// for value-based audiences but still counts them for membership).
+let _cachedBaseRate = 0;
+
+async function ensureBaseRate(nights) {
+  if (_cachedBaseRate || !nights) return;
+  try { _cachedBaseRate = Number(await getPackageBaseRate(nights)) || 0; } catch (e) {}
+}
+
+function estimateSearchValue(nights) {
+  if (!nights || !_cachedBaseRate) return 0;
+  return Math.round(_cachedBaseRate * nights * 2 * 100) / 100;
+}
+
 async function searchHandler() {
   const gallery = tryFind('hotelRoomPhotos');
   if (gallery && typeof gallery.collapse === 'function') gallery.collapse();
@@ -275,6 +292,7 @@ async function searchHandler() {
       const btnContinue = tryFind('btnContinueToSummary');
       if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
       safeText('No rooms are available for the dates entered. Checking nearby dates...');
+      trackSearchNoResults({ nights: res.requestedNights, checkIn: ciDate ? ciDate.toISOString().slice(0, 10) : undefined });
       showAlternateDates(ciDate, coDate);
       return;
     }
@@ -289,6 +307,7 @@ async function searchHandler() {
       item._id = 'room_' + i;
       repData.push(item);
       if ((item.maxQty || 0) > 0 && item.status !== 'unavailable') availableData.push(item);
+      trackRoomView({ roomCode: item.roomCode, nights: res.requestedNights });
     }
     if (availableData.length === 0) {
       rep.data = repData;
@@ -304,6 +323,7 @@ async function searchHandler() {
       const btnContinue = tryFind('btnContinueToSummary');
       if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
       safeText('No rooms are available for the dates entered. Checking nearby dates...');
+      trackSearchNoResults({ nights: res.requestedNights, checkIn: ciDate ? ciDate.toISOString().slice(0, 10) : undefined });
       showAlternateDates(ciDate, coDate);
       return;
     }
