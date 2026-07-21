@@ -49,30 +49,42 @@
     }
   })();
 
-  // Helper to grant consent when the visitor accepts cookies.
-  var _consentGranted = false;
-  function grantConsent() {
-    if (_consentGranted) { return; }
-    _consentGranted = true;
-    gtag('consent', 'update', {
-      ad_storage: 'granted',
-      analytics_storage: 'granted',
-      ad_user_data: 'granted',
-      ad_personalization: 'granted'
-    });
-    console.log('[WBE-CONSENT] Google consent upgraded to granted');
+  // Grant consent per-category: the Wix banner's analytics/advertising toggles
+  // map to their matching Google Consent Mode signals. A blanket grant would
+  // unlock ad cookies for analytics-only visitors — this keeps it precise.
+  // grantConsent() with no args = full grant (legacy callers).
+  var _granted = { analytics: false, advertising: false };
+  function grantConsent(analytics, advertising) {
+    if (analytics === undefined) { analytics = true; advertising = true; }
+    var update = {};
+    if (analytics && !_granted.analytics) {
+      update.analytics_storage = 'granted';
+      _granted.analytics = true;
+    }
+    if (advertising && !_granted.advertising) {
+      update.ad_storage = 'granted';
+      update.ad_user_data = 'granted';
+      update.ad_personalization = 'granted';
+      _granted.advertising = true;
+    }
+    if (Object.keys(update).length > 0) {
+      gtag('consent', 'update', update);
+      console.log('[WBE-CONSENT] Google consent updated:', JSON.stringify(update));
+    }
   }
 
   // Path 1: custom event (works if dispatched from a non-sandboxed context).
-  document.addEventListener('wbeConsentGranted', grantConsent);
+  document.addEventListener('wbeConsentGranted', function () { grantConsent(); });
 
-  // Path 2 (primary): the Velo master page postMessages {type:'wbeConsentGranted'}
-  // when the Wix banner reports advertising/analytics consent. window is shared
+  // Path 2 (primary): the Velo master page postMessages {type:'wbeConsentGranted',
+  // analytics, advertising} when the Wix banner reports consent. window is shared
   // between the Velo worker and this head script (localStorage is NOT — Velo's
   // storage is partitioned), so this is the reliable cross-context channel.
   window.addEventListener('message', function (event) {
     var d = event && event.data;
-    if (d && d.type === 'wbeConsentGranted') { grantConsent(); }
+    if (d && d.type === 'wbeConsentGranted') {
+      grantConsent(d.analytics, d.advertising);
+    }
   });
 
   // Flush events staged by Velo public/tracking.js into dataLayer.

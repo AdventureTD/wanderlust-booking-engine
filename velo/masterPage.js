@@ -12,17 +12,22 @@ import { consentPolicy } from 'wix-window-frontend';
 // wix-storage-frontend 'local' is partitioned from the page's localStorage, and
 // DOM event dispatch is sandboxed — so we postMessage the page's window, which
 // IS shared between the Velo worker and the head custom code.
-function fireConsentGranted() {
+function fireConsentGranted(policy) {
   try {
     if (typeof window !== 'undefined' && window.postMessage) {
-      const msg = { type: 'wbeConsentGranted', at: new Date().toISOString() };
+      const msg = {
+        type: 'wbeConsentGranted',
+        at: new Date().toISOString(),
+        analytics: !!(policy && policy.analytics),
+        advertising: !!(policy && policy.advertising),
+      };
       // Broadcast a few times so the head script receives it even if its
       // message listener wasn't attached yet when we first fire.
       window.postMessage(msg, '*');
       setTimeout(function () { window.postMessage(msg, '*'); }, 500);
       setTimeout(function () { window.postMessage(msg, '*'); }, 1500);
       setTimeout(function () { window.postMessage(msg, '*'); }, 3000);
-      console.log('[WBE-CONSENT] posted wbeConsentGranted to window');
+      console.log('[WBE-CONSENT] posted wbeConsentGranted to window:', JSON.stringify(msg));
     } else {
       console.error('[WBE-CONSENT] window.postMessage unavailable');
     }
@@ -42,7 +47,7 @@ async function initConsentBridge() {
     const current = await consentPolicy.getCurrentConsentPolicy();
     console.log('[WBE-CONSENT] current policy:', JSON.stringify(current && current.policy));
     if (policyAllowsAds(current && current.policy)) {
-      fireConsentGranted();
+      fireConsentGranted(current.policy);
       return;
     }
 
@@ -51,7 +56,7 @@ async function initConsentBridge() {
       consentPolicy.onConsentPolicyChanged(function (event) {
         const p = event && (event.policy || (event.detail && event.detail.policy));
         console.log('[WBE-CONSENT] policy changed:', JSON.stringify(p));
-        if (policyAllowsAds(p)) fireConsentGranted();
+        if (policyAllowsAds(p)) fireConsentGranted(p);
       });
     }
   } catch (e) {
