@@ -105,27 +105,26 @@ export function clearClickIds() {
   try { local.removeItem(STORAGE_KEY); } catch (err) { /* noop */ }
 }
 
-const DATALAYER_QUEUE_KEY = 'wbe_dataLayer_queue';
-
-function pushToQueue(payload) {
-  try {
-    const raw = local.getItem(DATALAYER_QUEUE_KEY);
-    const queue = raw ? JSON.parse(raw) : [];
-    queue.push(payload);
-    local.setItem(DATALAYER_QUEUE_KEY, JSON.stringify(queue));
-    console.log('[WBE-GTAG] queued event:', payload.event || payload);
-    return true;
-  } catch (err) {
-    console.error('[WBE-GTAG] queue push failed:', err && err.message || err);
-    return false;
-  }
-}
-
 // Push an event onto window.dataLayer for the Google tag to pick up.
+// Velo's localStorage is partitioned from the page (proved null from console),
+// so events go through the hidden wbeEventBridge HTML iframe on the Master
+// Page: Velo -> iframe.postMessage -> parent window -> head snippet -> dataLayer.
+// Public modules can't use the $w global, so page code injects it once.
+let _$w = null;
+export function initTracking(w) { _$w = w; }
+
 export function pushDataLayer(payload) {
-  // Wix Velo page/public modules do not have access to window, so we stage events
-  // in localStorage and the custom-code script in the page head flushes them.
-  pushToQueue(payload);
+  try {
+    if (!_$w) {
+      console.warn('[WBE-GTAG] initTracking($w) not called; dropping event:', payload.event || payload);
+      return;
+    }
+    const bridge = _$w('#wbeEventBridge');
+    bridge.postMessage({ type: 'wbe-datalayer-event', payload: payload });
+    console.log('[WBE-GTAG] sent event to bridge:', payload.event || payload);
+  } catch (err) {
+    console.error('[WBE-GTAG] bridge send failed:', err && err.message || err);
+  }
 }
 
 // Fires when a visitor begins the booking funnel.

@@ -6,7 +6,7 @@
 // 'wbeConsentGranted' DOM event that custom-code/google-tag-and-consent.html
 // listens for, upgrading consent from denied → granted (enables remarketing).
 
-import { captureClickIds } from 'public/tracking';
+import { captureClickIds, initTracking } from 'public/tracking';
 import { consentPolicy } from 'wix-window-frontend';
 
 // Velo's worker sandbox blocks every bridge to the page context (DOM events,
@@ -39,6 +39,7 @@ async function initConsentBridge() {
 }
 
 $w.onReady(function () {
+  initTracking($w);
   console.log('[WBE-MASTER] captureClickIds started');
   const ids = captureClickIds();
   console.log('[WBE-MASTER] captureClickIds result:', JSON.stringify(ids));

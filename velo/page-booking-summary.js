@@ -19,7 +19,7 @@ import { getAllSettings } from 'backend/settings';
 import { getRoomNames } from 'backend/rooms';
 import { getPackageAmenities, getPackageBaseRate } from 'backend/packages';
 import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
-import { trackPurchase, getStoredClickIds, clearClickIds } from 'public/tracking';
+import { trackPurchase, getStoredClickIds, clearClickIds, initTracking } from 'public/tracking';
 import { recordBookingConversion } from 'backend/googleAdsConversions.web';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
@@ -127,6 +127,7 @@ let _promoDiscount = 0;   // e.g. 0.15
 let _promoCodeApplied = ''; // e.g. 'SAVE15'
 
 $w.onReady(function () {
+  initTracking($w);
   initSummary().catch(function (e) { console.log('>>> init error:', e.message); });
 });
 

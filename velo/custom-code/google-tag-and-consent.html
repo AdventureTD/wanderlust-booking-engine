@@ -185,34 +185,13 @@
     }
   })();
 
-  // Flush events staged by Velo public/tracking.js into dataLayer.
-  (function() {
-    function flushQueue() {
-      try {
-        var raw = localStorage.getItem('wbe_dataLayer_queue');
-        if (raw) {
-          var queue = JSON.parse(raw);
-          for (var i = 0; i < queue.length; i++) {
-            window.dataLayer.push(queue[i]);
-          }
-          localStorage.removeItem('wbe_dataLayer_queue');
-        }
-      } catch (e) {}
+  // Receive GA4/Ads events from Velo page code via the wbeEventBridge HTML
+  // iframe on the Master Page (Velo localStorage is partitioned; postMessage
+  // through the iframe is the reliable cross-context channel).
+  window.addEventListener('message', function (event) {
+    var d = event && event.data;
+    if (d && d.source === 'wbe-event-bridge' && d.payload) {
+      window.dataLayer.push(d.payload);
     }
-
-    flushQueue();
-
-    var originalSetItem = localStorage.setItem;
-    localStorage.setItem = function(key, value) {
-      originalSetItem.apply(this, arguments);
-      if (key === 'wbe_dataLayer_queue') {
-        flushQueue();
-      }
-    };
-
-    // Wix uses client-side routing: no page reload between pages, and Velo
-    // writes the queue from its worker context (which the setItem patch above
-    // cannot see). Poll as the reliable cross-context flush path.
-    setInterval(flushQueue, 500);
-  })();
+  });
 </script>

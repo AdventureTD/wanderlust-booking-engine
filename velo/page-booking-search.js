@@ -1,7 +1,7 @@
 import { getActiveMessages } from 'backend/messages';
 import { searchAvailability, suggestAlternateDates } from 'backend/search';
 import { getPackageAmenities, getPackageBaseRate } from 'backend/packages';
-import { trackBeginBooking, captureClickIds, trackViewBookingSearch, trackRoomView, trackSearchNoResults } from 'public/tracking';
+import { trackBeginBooking, captureClickIds, trackViewBookingSearch, trackRoomView, trackSearchNoResults, initTracking } from 'public/tracking';
 import wixLocation from 'wix-location';
 
 let _selections = [];
@@ -80,6 +80,7 @@ function safeItem($item, selector, action, val) {
 function tryFind(id) { try { return $w('#' + id); } catch (e) { return null; } }
 
 $w.onReady(function () {
+  initTracking($w);
   captureClickIds();
   trackViewBookingSearch();
   const shouldAutoSearch = applyUrlDatesIfPresent();
