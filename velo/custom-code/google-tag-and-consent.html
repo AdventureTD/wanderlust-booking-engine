@@ -73,19 +73,52 @@
     }
   }
 
-  // Path 1: custom event (works if dispatched from a non-sandboxed context).
+  // Path 1: custom event (kept for any future non-sandboxed dispatcher).
   document.addEventListener('wbeConsentGranted', function () { grantConsent(); });
 
-  // Path 2 (primary): the Velo master page postMessages {type:'wbeConsentGranted',
-  // analytics, advertising} when the Wix banner reports consent. window is shared
-  // between the Velo worker and this head script (localStorage is NOT — Velo's
-  // storage is partitioned), so this is the reliable cross-context channel.
-  window.addEventListener('message', function (event) {
-    var d = event && event.data;
-    if (d && d.type === 'wbeConsentGranted') {
-      grantConsent(d.analytics, d.advertising);
-    }
-  });
+  // Path 2 (primary): the site's CMP pushes consent_status events into THIS
+  // dataLayer (e.g. {action:'onAcceptAllServices', type:'EXPLICIT'}). Wrap
+  // dataLayer.push to catch them the moment they arrive — no Velo bridge
+  // needed (worker sandbox blocks events, partitions storage, hides window).
+  (function () {
+    var originalPush = window.dataLayer.push.bind(window.dataLayer);
+    window.dataLayer.push = function () {
+      for (var i = 0; i < arguments.length; i++) {
+        var item = arguments[i];
+        try {
+          // CMP explicit-accept signal (Usercentrics-style on Wix)
+          if (item && item.event === 'consent_status' &&
+              (item.type === 'EXPLICIT' || /accept/i.test(String(item.action || '')))) {
+            grantConsent();
+          }
+        } catch (e) {}
+      }
+      return originalPush.apply(null, arguments);
+    };
+    // Also sweep anything already queued before this script ran.
+    try {
+      for (var j = 0; j < window.dataLayer.length; j++) {
+        var it = window.dataLayer[j];
+        if (it && it.event === 'consent_status' &&
+            (it.type === 'EXPLICIT' || /accept/i.test(String(it.action || '')))) {
+          grantConsent();
+        }
+      }
+    } catch (e) {}
+  })();
+
+  // Path 3 (returning visitors): log the CMP's IMPLICIT load-time consent_status
+  // so we can map ucCategory precisely. Explicit accepts are covered by Path 2.
+  (function () {
+    try {
+      for (var j = 0; j < window.dataLayer.length; j++) {
+        var it = window.dataLayer[j];
+        if (it && it.event === 'consent_status') {
+          console.log('[WBE-CONSENT] existing consent_status:', JSON.stringify({ action: it.action, type: it.type, ucCategory: it.ucCategory }));
+        }
+      }
+    } catch (e) {}
+  })();
 
   // Flush events staged by Velo public/tracking.js into dataLayer.
   (function() {
