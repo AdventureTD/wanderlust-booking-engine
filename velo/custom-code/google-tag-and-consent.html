@@ -76,48 +76,100 @@
   // Path 1: custom event (kept for any future non-sandboxed dispatcher).
   document.addEventListener('wbeConsentGranted', function () { grantConsent(); });
 
-  // Path 2 (primary): the site's CMP pushes consent_status events into THIS
-  // dataLayer (e.g. {action:'onAcceptAllServices', type:'EXPLICIT'}). Wrap
-  // dataLayer.push to catch them the moment they arrive — no Velo bridge
-  // needed (worker sandbox blocks events, partitions storage, hides window).
+  // Path 2 (primary): our own consent banner below. Choice persists in the
+  // PAGE's localStorage (wbe_consent_choice: 'granted' | 'denied'), which is
+  // readable here — unlike Velo's partitioned storage. On load, a stored
+  // 'granted' re-grants silently; a stored 'denied' keeps defaults; no stored
+  // choice shows the banner.
   (function () {
-    var originalPush = window.dataLayer.push.bind(window.dataLayer);
-    window.dataLayer.push = function () {
-      for (var i = 0; i < arguments.length; i++) {
-        var item = arguments[i];
-        try {
-          // CMP explicit-accept signal (Usercentrics-style on Wix)
-          if (item && item.event === 'consent_status' &&
-              (item.type === 'EXPLICIT' || /accept/i.test(String(item.action || '')))) {
-            grantConsent();
-          }
-        } catch (e) {}
-      }
-      return originalPush.apply(null, arguments);
-    };
-    // Also sweep anything already queued before this script ran.
-    try {
-      for (var j = 0; j < window.dataLayer.length; j++) {
-        var it = window.dataLayer[j];
-        if (it && it.event === 'consent_status' &&
-            (it.type === 'EXPLICIT' || /accept/i.test(String(it.action || '')))) {
-          grantConsent();
-        }
-      }
-    } catch (e) {}
-  })();
+    var CHOICE_KEY = 'wbe_consent_choice';
+    var PRIVACY_URL = '/privacy-policy';
 
-  // Path 3 (returning visitors): log the CMP's IMPLICIT load-time consent_status
-  // so we can map ucCategory precisely. Explicit accepts are covered by Path 2.
-  (function () {
-    try {
-      for (var j = 0; j < window.dataLayer.length; j++) {
-        var it = window.dataLayer[j];
-        if (it && it.event === 'consent_status') {
-          console.log('[WBE-CONSENT] existing consent_status:', JSON.stringify({ action: it.action, type: it.type, ucCategory: it.ucCategory }));
-        }
+    function getChoice() {
+      try { return localStorage.getItem(CHOICE_KEY); } catch (e) { return null; }
+    }
+    function setChoice(v) {
+      try { localStorage.setItem(CHOICE_KEY, v); } catch (e) {}
+    }
+
+    function hideBanner() {
+      var el = document.getElementById('wbe-consent-banner');
+      if (el && el.parentNode) { el.parentNode.removeChild(el); }
+    }
+
+    function acceptAll() {
+      setChoice('granted');
+      grantConsent();
+      hideBanner();
+      console.log('[WBE-CONSENT] visitor accepted all');
+    }
+
+    function denyAll() {
+      setChoice('denied');
+      hideBanner();
+      console.log('[WBE-CONSENT] visitor denied; defaults remain');
+    }
+
+    function showBanner() {
+      if (document.getElementById('wbe-consent-banner')) { return; }
+      var bar = document.createElement('div');
+      bar.id = 'wbe-consent-banner';
+      bar.setAttribute('role', 'dialog');
+      bar.setAttribute('aria-label', 'Cookie consent');
+      bar.style.cssText =
+        'position:fixed;left:0;right:0;bottom:0;z-index:2147483000;' +
+        'background:#12312a;color:#f3ede0;font-family:inherit;font-size:14px;' +
+        'padding:14px 18px;display:flex;flex-wrap:wrap;align-items:center;' +
+        'gap:12px;box-shadow:0 -2px 12px rgba(0,0,0,.35);';
+
+      var text = document.createElement('div');
+      text.style.cssText = 'flex:1 1 320px;min-width:260px;line-height:1.45;';
+      text.innerHTML =
+        'We use cookies to improve your experience and to show you relevant ' +
+        'ads about Wanderlust Caribbean. ' +
+        '<a href="' + PRIVACY_URL + '" style="color:#d9b95c;text-decoration:underline;">Privacy Policy</a>';
+      bar.appendChild(text);
+
+      var btns = document.createElement('div');
+      btns.style.cssText = 'display:flex;gap:10px;flex:0 0 auto;';
+
+      var deny = document.createElement('button');
+      deny.type = 'button';
+      deny.textContent = 'Deny';
+      deny.style.cssText =
+        'padding:9px 18px;border:1px solid #d9b95c;background:transparent;' +
+        'color:#d9b95c;cursor:pointer;border-radius:4px;font-size:14px;';
+      deny.addEventListener('click', denyAll);
+      btns.appendChild(deny);
+
+      var accept = document.createElement('button');
+      accept.type = 'button';
+      accept.textContent = 'Accept All';
+      accept.style.cssText =
+        'padding:9px 18px;border:none;background:#d9b95c;color:#12312a;' +
+        'cursor:pointer;border-radius:4px;font-size:14px;font-weight:600;';
+      accept.addEventListener('click', acceptAll);
+      btns.appendChild(accept);
+
+      bar.appendChild(btns);
+      document.body.appendChild(bar);
+    }
+
+    function initBanner() {
+      var choice = getChoice();
+      if (choice === 'granted') {
+        grantConsent();
+        return;
       }
-    } catch (e) {}
+      if (choice === 'denied') { return; }
+      showBanner();
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initBanner);
+    } else {
+      initBanner();
+    }
   })();
 
   // Flush events staged by Velo public/tracking.js into dataLayer.
