@@ -209,5 +209,10 @@
         flushQueue();
       }
     };
+
+    // Wix uses client-side routing: no page reload between pages, and Velo
+    // writes the queue from its worker context (which the setItem patch above
+    // cannot see). Poll as the reliable cross-context flush path.
+    setInterval(flushQueue, 500);
   })();
 </script>
