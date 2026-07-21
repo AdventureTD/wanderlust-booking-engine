@@ -66,25 +66,14 @@
   // Path 1: custom event (works if dispatched from a non-sandboxed context).
   document.addEventListener('wbeConsentGranted', grantConsent);
 
-  // Path 2 (primary): Velo master page flags localStorage when the Wix banner
-  // reports advertising/analytics consent. The flag is written from the Velo
-  // worker context, so setItem patching and the storage event won't see it on
-  // this tab — poll instead: now, on an interval for 60s, and on visibility change.
-  (function () {
-    var KEY = 'wbe_consent_granted';
-    function checkFlag() {
-      try { if (localStorage.getItem(KEY)) { grantConsent(); } } catch (e) {}
-    }
-    checkFlag();
-    var checks = 0;
-    var timer = setInterval(function () {
-      checks++;
-      checkFlag();
-      if (_consentGranted || checks > 120) { clearInterval(timer); }
-    }, 500);
-    document.addEventListener('visibilitychange', checkFlag);
-    window.addEventListener('focus', checkFlag);
-  })();
+  // Path 2 (primary): the Velo master page postMessages {type:'wbeConsentGranted'}
+  // when the Wix banner reports advertising/analytics consent. window is shared
+  // between the Velo worker and this head script (localStorage is NOT — Velo's
+  // storage is partitioned), so this is the reliable cross-context channel.
+  window.addEventListener('message', function (event) {
+    var d = event && event.data;
+    if (d && d.type === 'wbeConsentGranted') { grantConsent(); }
+  });
 
   // Flush events staged by Velo public/tracking.js into dataLayer.
   (function() {

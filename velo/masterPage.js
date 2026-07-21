@@ -8,18 +8,26 @@
 
 import { captureClickIds } from 'public/tracking';
 import { consentPolicy } from 'wix-window-frontend';
-import { local } from 'wix-storage-frontend';
 
-const CONSENT_FLAG = 'wbe_consent_granted';
-
-// Velo's sandbox blocks DOM event dispatch, so we flag localStorage instead;
-// the head custom code watches this key and upgrades Google Consent Mode.
+// wix-storage-frontend 'local' is partitioned from the page's localStorage, and
+// DOM event dispatch is sandboxed — so we postMessage the page's window, which
+// IS shared between the Velo worker and the head custom code.
 function fireConsentGranted() {
   try {
-    local.setItem(CONSENT_FLAG, new Date().toISOString());
-    console.log('[WBE-CONSENT] consent flag set (wbe_consent_granted)');
+    if (typeof window !== 'undefined' && window.postMessage) {
+      const msg = { type: 'wbeConsentGranted', at: new Date().toISOString() };
+      // Broadcast a few times so the head script receives it even if its
+      // message listener wasn't attached yet when we first fire.
+      window.postMessage(msg, '*');
+      setTimeout(function () { window.postMessage(msg, '*'); }, 500);
+      setTimeout(function () { window.postMessage(msg, '*'); }, 1500);
+      setTimeout(function () { window.postMessage(msg, '*'); }, 3000);
+      console.log('[WBE-CONSENT] posted wbeConsentGranted to window');
+    } else {
+      console.error('[WBE-CONSENT] window.postMessage unavailable');
+    }
   } catch (e) {
-    console.error('[WBE-CONSENT] flag write failed:', e && e.message || e);
+    console.error('[WBE-CONSENT] postMessage failed:', e && e.message || e);
   }
 }
 
