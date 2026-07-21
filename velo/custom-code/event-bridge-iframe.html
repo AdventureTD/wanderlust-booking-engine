@@ -3,7 +3,12 @@
      Receives postMessage events from Velo page code, relays them up to the
      parent window where the head snippet pushes them into window.dataLayer. -->
 <html>
-<head><meta charset="utf-8"></head>
+<head><meta charset="utf-8">
+<style>
+  /* Keep the bridge invisible: zero-size, nothing rendered. Scripts still run. */
+  html, body { margin: 0; padding: 0; width: 0; height: 0; overflow: hidden; visibility: hidden; }
+</style>
+</head>
 <body>
 <script>
   window.onmessage = function (event) {
