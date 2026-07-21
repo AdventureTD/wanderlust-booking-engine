@@ -82,8 +82,21 @@
   // 'granted' re-grants silently; a stored 'denied' keeps defaults; no stored
   // choice shows the banner.
   (function () {
+    // Master switch for the consent banner. Set false to hide the banner.
+    // With the banner hidden you must also pick what consent defaults to:
+    //   GRANT_ALL_WITHOUT_BANNER false  -> strict: everything stays denied
+    //                                     (no GA4, no remarketing; EU-safe)
+    //   GRANT_ALL_WITHOUT_BANNER true   -> track everyone silently (US-tolerant,
+    //                                     NOT recommended if you get EU/UK traffic)
+    var BANNER_ENABLED = true;
+    var GRANT_ALL_WITHOUT_BANNER = false;
     var CHOICE_KEY = 'wbe_consent_choice';
-    var PRIVACY_URL = '/privacy-policy';
+    var PRIVACY_URL = 'https://www.wanderlustcaribbean.com/policies';
+
+    if (!BANNER_ENABLED) {
+      if (GRANT_ALL_WITHOUT_BANNER) { grantConsent(); }
+      return;
+    }
 
     function getChoice() {
       try { return localStorage.getItem(CHOICE_KEY); } catch (e) { return null; }
