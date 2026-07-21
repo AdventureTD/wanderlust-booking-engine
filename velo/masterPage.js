@@ -8,15 +8,18 @@
 
 import { captureClickIds } from 'public/tracking';
 import { consentPolicy } from 'wix-window-frontend';
+import { local } from 'wix-storage-frontend';
 
+const CONSENT_FLAG = 'wbe_consent_granted';
+
+// Velo's sandbox blocks DOM event dispatch, so we flag localStorage instead;
+// the head custom code watches this key and upgrades Google Consent Mode.
 function fireConsentGranted() {
   try {
-    if (typeof document !== 'undefined' && document.dispatchEvent) {
-      document.dispatchEvent(new Event('wbeConsentGranted'));
-      console.log('[WBE-CONSENT] fired wbeConsentGranted');
-    }
+    local.setItem(CONSENT_FLAG, new Date().toISOString());
+    console.log('[WBE-CONSENT] consent flag set (wbe_consent_granted)');
   } catch (e) {
-    console.error('[WBE-CONSENT] dispatch failed:', e && e.message || e);
+    console.error('[WBE-CONSENT] flag write failed:', e && e.message || e);
   }
 }
 

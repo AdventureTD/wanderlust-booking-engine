@@ -50,17 +50,41 @@
   })();
 
   // Helper to grant consent when the visitor accepts cookies.
+  var _consentGranted = false;
   function grantConsent() {
+    if (_consentGranted) { return; }
+    _consentGranted = true;
     gtag('consent', 'update', {
       ad_storage: 'granted',
       analytics_storage: 'granted',
       ad_user_data: 'granted',
       ad_personalization: 'granted'
     });
+    console.log('[WBE-CONSENT] Google consent upgraded to granted');
   }
 
-  // Listen for a custom event from your cookie banner (optional).
+  // Path 1: custom event (works if dispatched from a non-sandboxed context).
   document.addEventListener('wbeConsentGranted', grantConsent);
+
+  // Path 2 (primary): Velo master page flags localStorage when the Wix banner
+  // reports advertising/analytics consent. The flag is written from the Velo
+  // worker context, so setItem patching and the storage event won't see it on
+  // this tab — poll instead: now, on an interval for 60s, and on visibility change.
+  (function () {
+    var KEY = 'wbe_consent_granted';
+    function checkFlag() {
+      try { if (localStorage.getItem(KEY)) { grantConsent(); } } catch (e) {}
+    }
+    checkFlag();
+    var checks = 0;
+    var timer = setInterval(function () {
+      checks++;
+      checkFlag();
+      if (_consentGranted || checks > 120) { clearInterval(timer); }
+    }, 500);
+    document.addEventListener('visibilitychange', checkFlag);
+    window.addEventListener('focus', checkFlag);
+  })();
 
   // Flush events staged by Velo public/tracking.js into dataLayer.
   (function() {
