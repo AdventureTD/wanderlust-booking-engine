@@ -248,9 +248,11 @@ async function wirePromoCode() {
         if (result.description) {
           safeText('promoDescription', result.description);
           safeExpand('promoDescription');
+          try { $w('#promoDescription').show(); } catch (e) {}
         } else {
-          safeCollapse('promoDescription');
           safeText('promoDescription', '');
+          safeCollapse('promoDescription');
+          try { $w('#promoDescription').hide(); } catch (e) {}
         }
       } else {
         _promoDiscount = 0;
