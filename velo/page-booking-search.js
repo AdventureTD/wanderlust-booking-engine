@@ -74,22 +74,34 @@ function updateSelectionPanel() {
   }
 
   // Compute total Penthouse Apartment additional fee if selected.
+  const hasPenthouseSelected = _selections.some((s) => s.roomCode === 'penthouse_apartment');
   const penthouseFeeEl = tryFind('penthouseFee');
   if (penthouseFeeEl) {
     let penthouseTotal = 0;
-    for (let i = 0; i < _selections.length; i++) {
-      const s = _selections[i];
-      if (s.roomCode === 'penthouse_apartment') {
-        penthouseTotal += (Number(s.roomFee) || 0) * s.qty;
+    if (hasPenthouseSelected) {
+      for (let i = 0; i < _selections.length; i++) {
+        const s = _selections[i];
+        if (s.roomCode === 'penthouse_apartment') {
+          penthouseTotal += (Number(s.roomFee) || 0) * s.qty;
+        }
       }
     }
-    const hasPenthouse = penthouseTotal > 0;
-    if (_summaryNights > 0 && hasPenthouse) {
+        if (_summaryNights > 0 && hasPenthouseSelected) {
       const totalPenthouseFee = penthouseTotal * _summaryNights;
       penthouseFeeEl.text = '$' + totalPenthouseFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       try { penthouseFeeEl.show(); } catch (e) {}
     } else {
       try { penthouseFeeEl.hide(); } catch (e) {}
+    }
+  }
+
+  // Show/hide Penthouse label text based on selection.
+  const penthouseTextEl = tryFind('penthouseText');
+  if (penthouseTextEl) {
+    if (hasPenthouseSelected) {
+      try { penthouseTextEl.show(); } catch (e) {}
+    } else {
+      try { penthouseTextEl.hide(); } catch (e) {}
     }
   }
 
