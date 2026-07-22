@@ -241,9 +241,18 @@ async function wirePromoCode() {
         _promoDiscount = parseFloat(result.discount) || 0;
         _promoCodeApplied = code;
         safeText('promoStatus', code + ' applied! Discount: ' + ((_promoDiscount * 100).toFixed(0)) + '% off');
+        if (result.description) {
+          safeText('promoDescription', result.description);
+          safeExpand('promoDescription');
+        } else {
+          safeCollapse('promoDescription');
+          safeText('promoDescription', '');
+        }
       } else {
         _promoDiscount = 0;
         _promoCodeApplied = '';
+        safeText('promoDescription', '');
+        safeCollapse('promoDescription');
         const reason = (result && result.reason) || '';
         const notExpiredReasons = ['Promo code is not yet active.', 'Promo code has expired.'];
         if (reason === 'Promo code not found.') {

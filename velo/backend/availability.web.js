@@ -1013,7 +1013,8 @@ export const validatePromoCode = webMethod(
       if (discount <= 0 || discount > 1) {
         return { valid: false, reason: 'Invalid discount value.' };
       }
-      return { valid: true, code: code, discount: discount };
+      const description = found.description || '';
+      return { valid: true, code: code, discount: discount, description: description };
     } catch (e) {
       return { valid: false, reason: 'Error validating promo code: ' + e.message };
     }
