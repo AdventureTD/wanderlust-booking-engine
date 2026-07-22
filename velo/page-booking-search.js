@@ -184,11 +184,11 @@ $w.onReady(function () {
         return;
       }
       safeItem($item, '#roomName', 'text', itemData.roomName || itemData.roomCode || '');
+      safeItem($item, '#numRooms', 'text', String(itemData.maxQty || itemData.units || 1));
       safeItem($item, '#roomPrice', 'text', '');
       safeItem($item, '#roomAvailability', 'text',
         itemData.status === 'full' ? 'Available for your full ' + itemData.availableNights + ' nights'
         : 'Available for ' + itemData.availableNights + ' nights (partial)');
-      safeItem($item, '#numRooms', 'text', String(itemData.units || 1));
       safeItem($item, '#occupancy', 'text', String(itemData.occupancy || 2));
       safeItem($item, '#defaultOccupancy', 'text', String(itemData.baseOccupancy || itemData.occupancy || 2));
       if (itemData.mainPhoto) try { $item('#roomThumb').src = itemData.mainPhoto; } catch (e) {}
