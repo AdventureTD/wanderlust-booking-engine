@@ -206,6 +206,9 @@ async function initSummary() {
   _roomNames = roomNames;
 
   initRoomRepeater();
+  safeCollapse('promoAmount');
+  safeCollapse('promoDiscountRow');
+  safeCollapse('promoDescription');
   await renderSummary();
   wireContinueButton();
   wirePromoCode();
