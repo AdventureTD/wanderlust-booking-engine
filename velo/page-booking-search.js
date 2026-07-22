@@ -32,20 +32,6 @@ function removeRoomSelection(roomCode) {
   _selections = next;
   updateSelectionPanel();
 }
-
-function toggleVectorArt() {
-  const v = (function () { try { return $w('#vectorImage2'); } catch (e) { return null; } })();
-  if (!v) { return; }
-  const hasRooms = _selections.length > 0;
-  if (hasRooms) {
-    try { v.show(); } catch (e) {}
-    try { v.expand(); } catch (e) {}
-  } else {
-    try { v.hide(); } catch (e) {}
-    try { v.collapse(); } catch (e) {}
-  }
-}
-
 function updateSelectionPanel() {
 
   const panel = tryFind('selectionPanel'), container = tryFind('selectedRoomsContainer');
@@ -77,7 +63,6 @@ function updateSelectionPanel() {
   lines.push('Total guests: ' + totalGuests);
   container.text = lines.join('\n');
   console.log('>>> selection panel updated:', container.text);
-  toggleVectorArt();
 }
 
 function safeItem($item, selector, action, val) {
@@ -208,6 +193,11 @@ $w.onReady(function () {
       safeItem($item, '#defaultOccupancy', 'text', String(itemData.baseOccupancy || itemData.occupancy || 2));
       if (itemData.mainPhoto) try { $item('#roomThumb').src = itemData.mainPhoto; } catch (e) {}
 
+      try {
+        const rowVectorInit = $item('#vectorImage2');
+        if (rowVectorInit) { rowVectorInit.hide(); rowVectorInit.collapse(); }
+      } catch (e) {}
+
       const baseOcc = Number(itemData.baseOccupancy || itemData.occupancy || 2);
       const maxOcc = Number(itemData.occupancy || baseOcc);
       const guestOpts = [];
@@ -246,18 +236,24 @@ $w.onReady(function () {
         dd.onChange((event) => {
           const qty = parseInt(event.target.value || '1', 10);
           const numGuests = typeof selectedGuests === 'number' ? selectedGuests : baseOcc;
+          const rowVector = safeItem($item, '#vectorImage2', null, null);
           if (qty > 0) {
             setRoomSelection(itemData.roomCode, itemData.roomName || itemData.roomCode, qty, numGuests, itemData.availableCheckIn, itemData.availableCheckOut, itemData.roomFee || 0);
+            if (rowVector) {
+              try { rowVector.show(); } catch (e) {}
+              try { rowVector.expand(); } catch (e) {}
+            }
           } else {
             removeRoomSelection(itemData.roomCode);
+            if (rowVector) {
+              try { rowVector.hide(); } catch (e) {}
+              try { rowVector.collapse(); } catch (e) {}
+            }
           }
         });
       }
     });
   }
-
-  const vectorStart = tryFind('vectorImage2');
-  if (vectorStart) { try { vectorStart.hide(); } catch (e) {} try { vectorStart.collapse(); } catch (e) {} }
 
   const panel = tryFind('selectionPanel');
   if (panel) panel.collapse();
