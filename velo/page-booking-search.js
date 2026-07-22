@@ -1,6 +1,6 @@
 import { getActiveMessages } from 'backend/messages';
 import { searchAvailability, suggestAlternateDates } from 'backend/search';
-import { getPackageAmenities, getPackageBaseRate } from 'backend/packages';
+import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights } from 'backend/packages';
 import { trackBeginBooking, captureClickIds, trackViewBookingSearch, trackRoomView, trackSearchNoResults, initTracking } from 'public/tracking';
 import wixLocation from 'wix-location';
 
@@ -98,6 +98,34 @@ $w.onReady(function () {
       if (ci && co && co > ci) {
         nights = Math.round((co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24));
       }
+
+      // Populate packageContainer with title, nights, and specialty tours before search.
+      if (nights > 0) {
+        try {
+          const pkgDetails = await getPackageDetailsByNights(nights);
+          const pkgName2 = tryFind('packageName2');
+          const nightsTextEl = tryFind('nightsText');
+          const specialtyToursEl = tryFind('specialtyTours');
+          const pkgContainer = tryFind('packageContainer');
+
+          if (pkgName2) { pkgName2.text = pkgDetails.title || ''; }
+          if (nightsTextEl) { nightsTextEl.text = String(nights) + ' night' + (nights === 1 ? '' : 's'); }
+          if (specialtyToursEl) { specialtyToursEl.text = pkgDetails.specialtyTours || ''; }
+
+          if (pkgContainer) {
+            if (pkgDetails.title || pkgDetails.specialtyTours) {
+              try { pkgContainer.show(); } catch (e) {}
+              try { pkgContainer.expand(); } catch (e) {}
+              console.log('>>> packageContainer expanded');
+            } else {
+              try { pkgContainer.collapse(); } catch (e) {}
+            }
+          }
+        } catch (pkgErr) {
+          console.log('>>> package details lookup error:', pkgErr && pkgErr.message || pkgErr);
+        }
+      }
+
       const estValue = await ensureBaseRate(nights).then(function () {
         return estimateSearchValue(nights);
       });
@@ -110,6 +138,7 @@ $w.onReady(function () {
       searchHandler();
     });
   }
+
   if (tryFind('btnContinueToSummary')) {
     const btn = $w('#btnContinueToSummary');
     if (typeof btn.link === 'string') btn.link = '';

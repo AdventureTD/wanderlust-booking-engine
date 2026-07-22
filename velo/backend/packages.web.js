@@ -57,3 +57,31 @@ export const getPackageAmenities = webMethod(
     return { title: '', includedAmenities: '' };
   }
 );
+
+export const getPackageDetailsByNights = webMethod(
+  Permissions.Anyone,
+  async (nights) => {
+    const n = Number(nights);
+    if (!n || n <= 0) {
+      return { title: '', includedAmenities: '', specialtyTours: '' };
+    }
+
+    const res = await wixData.query('Packages').limit(100).find();
+    if (!res || !res.items || res.items.length === 0) {
+      return { title: '', includedAmenities: '', specialtyTours: '' };
+    }
+
+    for (let i = 0; i < res.items.length; i++) {
+      const item = res.items[i];
+      const itemNights = item.numberOfNights || item.NumberOfNights || item.numberofnights || 0;
+      if (Number(itemNights) === n) {
+        const title = item.title || item.title_fld || item.Title || item.name || item.Name || '';
+        const included = item.includedAmenities || item.IncludedAmenities || '';
+        const specialtyTours = item.specialtyTours || item.SpecialtyTours || item.specialtytours || '';
+        return { title, includedAmenities: included, specialtyTours };
+      }
+    }
+
+    return { title: '', includedAmenities: '', specialtyTours: '' };
+  }
+);
