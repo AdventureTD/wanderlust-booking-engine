@@ -35,15 +35,16 @@ function removeRoomSelection(roomCode) {
   updateSelectionPanel();
 }
 function updateSelectionPanel() {
-
   const panel = tryFind('selectionPanel'), container = tryFind('selectedRoomsContainer');
   const btnContinue = tryFind('btnContinueToSummary');
+  const btnSummary = tryFind('btnSummary');
   const box3 = tryFind('box3');
   if (!panel || !container) return;
   if (_selections.length === 0) {
     panel.collapse();
     try { container.collapse(); } catch (e) {}
     if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
+    if (btnSummary) { try { btnSummary.collapse(); } catch (e) {} }
     if (box3) { try { box3.collapse(); } catch (e) {} }
     container.text = '';
     return;
@@ -53,6 +54,7 @@ function updateSelectionPanel() {
   if (typeof container.show === 'function') { try { container.show(); } catch (e) {} }
   if (typeof container.expand === 'function') { try { container.expand(); } catch (e) {} }
   if (btnContinue) { try { btnContinue.show(); } catch (e) {} try { btnContinue.expand(); } catch (e) {} }
+  if (btnSummary) { try { btnSummary.show(); } catch (e) {} try { btnSummary.expand(); } catch (e) {} }
   let total = 0, totalGuests = 0, lines = [];
   for (let i = 0; i < _selections.length; i++) {
     const s = _selections[i];
@@ -324,6 +326,8 @@ $w.onReady(function () {
   if (repStart) { try { repStart.collapse(); } catch (e) {} }
   const btnStart = tryFind('btnContinueToSummary');
   if (btnStart) { try { btnStart.collapse(); } catch (e) {} }
+  const btnSummaryStart = tryFind('btnSummary');
+  if (btnSummaryStart) { try { btnSummaryStart.collapse(); } catch (e) {} }
   const boxStart = tryFind('box3');
   if (boxStart) { try { boxStart.collapse(); } catch (e) {} }
   loadMessages();
