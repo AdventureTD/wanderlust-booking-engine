@@ -38,14 +38,12 @@ function removeRoomSelection(roomCode) {
 }
 function updateSelectionPanel() {
   const panel = tryFind('selectionPanel'), container = tryFind('selectedRoomsContainer');
-  const btnContinue = tryFind('btnContinueToSummary');
   const btnSummary = tryFind('btnSummary');
   const box3 = tryFind('box3');
   if (!panel || !container) return;
   if (_selections.length === 0) {
     panel.collapse();
     try { container.hide(); } catch (e) {}
-    if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
     if (btnSummary) { try { btnSummary.collapse(); } catch (e) {} }
     if (box3) { try { box3.collapse(); } catch (e) {} }
     container.text = '';
@@ -54,7 +52,6 @@ function updateSelectionPanel() {
   if (box3) { try { box3.show(); } catch (e) {} try { box3.expand(); } catch (e) {} }
   panel.expand();
   if (typeof container.show === 'function') { try { container.show(); } catch (e) {} }
-  if (btnContinue) { try { btnContinue.show(); } catch (e) {} try { btnContinue.expand(); } catch (e) {} }
   if (btnSummary) { try { btnSummary.show(); } catch (e) {} try { btnSummary.expand(); } catch (e) {} }
   let total = 0, totalGuests = 0, lines = [];
   for (let i = 0; i < _selections.length; i++) {
@@ -265,34 +262,6 @@ $w.onReady(function () {
     });
   }
 
-  if (tryFind('btnContinueToSummary')) {
-    const btn = $w('#btnContinueToSummary');
-    if (typeof btn.link === 'string') btn.link = '';
-    btn.onClick(() => {
-      if (_selections.length === 0) {
-        safeText('Please select a room below.');
-        console.log('>>> Continue blocked: no room selected');
-        return;
-      }
-      const parts = [], first = _selections[0];
-      for (let i = 0; i < _selections.length; i++) {
-        const s = _selections[i];
-        parts.push(s.roomCode + ':' + s.qty + ':' + (s.numGuests || 1) + ':' + (s.roomFee || 0));
-      }
-      try {
-        localStorage.setItem('_wbe_rc', parts.join(','));
-        localStorage.setItem('_wbe_ci', first.availableCheckIn || '');
-        localStorage.setItem('_wbe_co', first.availableCheckOut || '');
-        console.log('>>> STORED rc:', parts.join(','));
-      } catch (e) {
-        console.log('>>> storage save error:', e.message);
-      }
-      wixLocation.to('/booking-summary?rc=' + encodeURIComponent(parts.join(',')) +
-        '&ci=' + encodeURIComponent(first.availableCheckIn) +
-        '&co=' + encodeURIComponent(first.availableCheckOut));
-    });
-  }
-
   const rep = tryFind('searchResultsRepeater');
   if (rep && typeof rep.onItemReady === 'function') {
     rep.onItemReady(($item, itemData) => {
@@ -436,8 +405,6 @@ $w.onReady(function () {
   if (containerStart) { try { containerStart.hide(); } catch (e) {} }
   const repStart = tryFind('searchResultsRepeater');
   if (repStart) { try { repStart.collapse(); } catch (e) {} }
-  const btnStart = tryFind('btnContinueToSummary');
-  if (btnStart) { try { btnStart.collapse(); } catch (e) {} }
   const btnSummaryStart = tryFind('btnSummary');
   if (btnSummaryStart) { try { btnSummaryStart.collapse(); } catch (e) {} }
   const boxStart = tryFind('box3');
@@ -512,9 +479,7 @@ async function searchHandler() {
       if (panel) { try { panel.collapse(); } catch (e) {} }
       const container = tryFind('selectedRoomsContainer');
       if (container) { try { container.hide(); } catch (e) {} }
-      const btnContinue = tryFind('btnContinueToSummary');
-      if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
-      safeText('No rooms are available for the dates entered. Checking nearby dates...');
+        safeText('No rooms are available for the dates entered. Checking nearby dates...');
       trackSearchNoResults({ nights: res.requestedNights, checkIn: ciDate ? ciDate.toISOString().slice(0, 10) : undefined });
       showAlternateDates(ciDate, coDate);
       return;
@@ -543,9 +508,7 @@ async function searchHandler() {
       if (selPanel) { try { selPanel.collapse(); } catch (e) {} }
       const container = tryFind('selectedRoomsContainer');
       if (container) { try { container.hide(); } catch (e) {} }
-      const btnContinue = tryFind('btnContinueToSummary');
-      if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
-      safeText('No rooms are available for the dates entered. Checking nearby dates...');
+        safeText('No rooms are available for the dates entered. Checking nearby dates...');
       trackSearchNoResults({ nights: res.requestedNights, checkIn: ciDate ? ciDate.toISOString().slice(0, 10) : undefined });
       showAlternateDates(ciDate, coDate);
       return;
