@@ -7,6 +7,8 @@ import wixLocation from 'wix-location';
 
 let _selections = [];
 let _roomFeeMap = {};
+let _summaryNights = 0;
+let _cachedBaseRate = 0;
 
 function clearSelections(silent) {
   _selections = [];
@@ -63,10 +65,22 @@ function updateSelectionPanel() {
     total += s.qty;
     totalGuests += guests;
   }
-  lines.push('Total rooms: ' + total);
-  lines.push('Total guests: ' + totalGuests);
-  container.text = lines.join('\n');
-  console.log('>>> selection panel updated:', container.text);
+
+  // Calculate and display subTotalBooking: baseRate * nights * total guests.
+  const summaryContainer = tryFind('bookingSummaryContainer');
+  if (summaryContainer) {
+    if (_selections.length > 0 && _summaryNights > 0 && _cachedBaseRate > 0) {
+      const subTotal = _cachedBaseRate * _summaryNights * totalGuests;
+      const subTotalEl = tryFind('subTotalBooking');
+      if (subTotalEl) {
+        subTotalEl.text = '$' + subTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      try { summaryContainer.show(); } catch (e) {}
+      try { summaryContainer.expand(); } catch (e) {}
+    } else {
+      try { summaryContainer.collapse(); } catch (e) {}
+    }
+  }
 }
 
 function safeItem($item, selector, action, val) {
@@ -123,6 +137,7 @@ $w.onReady(function () {
       if (ci && co && co > ci) {
         nights = Math.round((co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24));
       }
+      _summaryNights = nights;
 
       // Set vacation date range at bottom of page.
       const vacationDatesEl = tryFind('vacationDates');
@@ -360,10 +375,6 @@ async function loadMessages() {
 }
 
 // Value estimate for audience tiering: 2 guests at the per-person package rate.
-// Fetched once and cached; returns 0 when unknown (Google ignores 0-value events
-// for value-based audiences but still counts them for membership).
-let _cachedBaseRate = 0;
-
 async function ensureBaseRate(nights) {
   if (_cachedBaseRate || !nights) return;
   try { _cachedBaseRate = Number(await getPackageBaseRate(nights)) || 0; } catch (e) {}
@@ -396,6 +407,10 @@ async function searchHandler() {
   const ciDate = parseDate(ci), coDate = parseDate(co);
   if (!ciDate || !coDate) { safeText('Please select check-in and check-out dates.'); return; }
   if (ciDate >= coDate) { safeText('Check-in date must be before the Check-out date.'); return; }
+
+  const computedNights = Math.round((coDate.getTime() - ciDate.getTime()) / 86400000);
+  _summaryNights = computedNights;
+  await ensureBaseRate(computedNights);
 
   clearSelections(true);
   safeText('Searching...');
