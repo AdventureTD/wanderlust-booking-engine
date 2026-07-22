@@ -233,6 +233,38 @@ $w.onReady(function () {
     });
   }
 
+  const summaryUrl = '/booking-summary';
+
+  if (tryFind('btnSummary')) {
+    console.log('>>> btnSummary handler registered');
+    const summaryBtn = $w('#btnSummary');
+    if (typeof summaryBtn.link === 'string') summaryBtn.link = '';
+    summaryBtn.onClick(() => {
+      console.log('>>> btnSummary clicked');
+      if (_selections.length === 0) {
+        safeText('Please select a room below.');
+        console.log('>>> Summary blocked: no room selected');
+        return;
+      }
+      const parts = [], first = _selections[0];
+      for (let i = 0; i < _selections.length; i++) {
+        const s = _selections[i];
+        parts.push(s.roomCode + ':' + s.qty + ':' + (s.numGuests || 1) + ':' + (s.roomFee || 0));
+      }
+      try {
+        localStorage.setItem('_wbe_rc', parts.join(','));
+        localStorage.setItem('_wbe_ci', first.availableCheckIn || '');
+        localStorage.setItem('_wbe_co', first.availableCheckOut || '');
+        console.log('>>> STORED rc (summary):', parts.join(','));
+      } catch (e) {
+        console.log('>>> storage save error (summary):', e.message);
+      }
+      wixLocation.to(summaryUrl + '?rc=' + encodeURIComponent(parts.join(',')) +
+        '&ci=' + encodeURIComponent(first.availableCheckIn) +
+        '&co=' + encodeURIComponent(first.availableCheckOut));
+    });
+  }
+
   if (tryFind('btnContinueToSummary')) {
     const btn = $w('#btnContinueToSummary');
     if (typeof btn.link === 'string') btn.link = '';
