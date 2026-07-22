@@ -245,8 +245,27 @@ async function wirePromoCode() {
         _promoDiscount = parseFloat(result.discount) || 0;
         _promoCodeApplied = code;
         safeText('promoStatus', code + ' applied! Discount: ' + ((_promoDiscount * 100).toFixed(0)) + '% off');
-        if (result.description) {
-          safeText('promoDescription', result.description);
+
+        // Fetch description from PromoCodes if backend didn't return it.
+        let promoDesc = result.description || '';
+        if (!promoDesc) {
+          try {
+            const promoRes = await wixData.query('PromoCodes').limit(10).find();
+            for (const item of promoRes.items) {
+              const itemTitle = item.title || item.Title || item.title_fld || '';
+              if (String(itemTitle).trim().toUpperCase() === String(code).trim().toUpperCase()) {
+                promoDesc = item.description || item.Description || item.desc || item.Desc || item.description_fld || '';
+                console.log('[WBE-PROMO-CLIENT] fallback description lookup:', promoDesc);
+                break;
+              }
+            }
+          } catch (promoErr) {
+            console.log('[WBE-PROMO-CLIENT] fallback lookup error:', promoErr.message);
+          }
+        }
+
+        if (promoDesc) {
+          safeText('promoDescription', promoDesc);
           safeExpand('promoDescription');
           try { $w('#promoDescription').show(); } catch (e) {}
         } else {
