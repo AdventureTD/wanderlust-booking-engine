@@ -1,10 +1,12 @@
 import { getActiveMessages } from 'backend/messages';
 import { searchAvailability, suggestAlternateDates } from 'backend/search';
 import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights } from 'backend/packages';
+import { getRoomNames } from 'backend/rooms';
 import { trackBeginBooking, captureClickIds, trackViewBookingSearch, trackRoomView, trackSearchNoResults, initTracking } from 'public/tracking';
 import wixLocation from 'wix-location';
 
 let _selections = [];
+let _roomFeeMap = {};
 
 function clearSelections(silent) {
   _selections = [];
@@ -82,6 +84,12 @@ function tryFind(id) { try { return $w('#' + id); } catch (e) { return null; } }
 $w.onReady(function () {
   initTracking($w);
   captureClickIds();
+
+  // Load room metadata including roomFee once for the repeater rows.
+  (async function () {
+    try { _roomFeeMap = await getRoomNames(); } catch (e) { _roomFeeMap = {}; }
+  })();
+
   trackViewBookingSearch();
   const shouldAutoSearch = applyUrlDatesIfPresent();
   if (shouldAutoSearch) {
@@ -192,20 +200,22 @@ $w.onReady(function () {
       safeItem($item, '#occupancy', 'text', String(itemData.occupancy || 2));
       safeItem($item, '#defaultOccupancy', 'text', String(itemData.baseOccupancy || itemData.occupancy || 2));
 
-      // Show room fee only for Penthouse Apartment.
+      // Set roomFeeText from Rooms collection and show penthouseFeeText only for Penthouse Apartment.
+      const feeInfo = (_roomFeeMap && _roomFeeMap[itemData.roomCode]) || {};
+      const feeAmount = Number(feeInfo.roomFee) || Number(itemData.roomFee) || 0;
+      const roomFeeTextEl = safeItem($item, '#roomFeeText', null, null);
+      if (roomFeeTextEl) {
+        roomFeeTextEl.text = feeAmount > 0 ? '$' + feeAmount.toFixed(2) : '';
+      }
+
       const penthouseFeeTextEl = safeItem($item, '#penthouseFeeText', null, null);
       if (penthouseFeeTextEl) {
         if (itemData.roomCode === 'penthouse_apartment') {
-          const fee = (itemData.roomFee !== undefined && itemData.roomFee !== null && !isNaN(itemData.roomFee))
-            ? '$' + Number(itemData.roomFee).toFixed(2)
-            : '';
-          penthouseFeeTextEl.text = fee;
-          if (fee) { penthouseFeeTextEl.show(); penthouseFeeTextEl.expand(); }
-          else { penthouseFeeTextEl.hide(); penthouseFeeTextEl.collapse(); }
+          try { penthouseFeeTextEl.show(); } catch (e) {}
+          try { penthouseFeeTextEl.expand(); } catch (e) {}
         } else {
-          penthouseFeeTextEl.text = '';
-          penthouseFeeTextEl.hide();
-          penthouseFeeTextEl.collapse();
+          try { penthouseFeeTextEl.hide(); } catch (e) {}
+          try { penthouseFeeTextEl.collapse(); } catch (e) {}
         }
       }
 
