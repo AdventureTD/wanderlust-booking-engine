@@ -77,7 +77,7 @@ export const getPackageDetailsByNights = webMethod(
       if (Number(itemNights) === n) {
         const title = item.title || item.title_fld || item.Title || item.name || item.Name || '';
         const included = item.includedAmenities || item.IncludedAmenities || '';
-        const specialtyTours = item.specialtyTours || item.SpecialtyTours || item.specialtytours || '';
+        const specialtyTours = String(item.specialtyTours || item.SpecialtyTours || item.specialtytours || '');
         return { title, includedAmenities: included, specialtyTours };
       }
     }
