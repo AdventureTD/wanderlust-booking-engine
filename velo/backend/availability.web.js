@@ -986,6 +986,8 @@ export const validatePromoCode = webMethod(
         const itemTitle = item.title || item.Title || item.title_fld || '';
         if (String(itemTitle).trim().toUpperCase() === String(code).trim().toUpperCase()) {
           found = item;
+          console.log('[WBE-PROMO-SERVER] matched item keys:', Object.keys(item));
+          console.log('[WBE-PROMO-SERVER] matched item:', JSON.stringify(item));
           break;
         }
       }
