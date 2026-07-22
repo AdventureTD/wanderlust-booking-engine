@@ -247,18 +247,24 @@ export const adminCancelBooking = webMethod(
     let adsRetraction = { attempted: false };
     if (summary.googleConversionUploaded && !summary.googleConversionRetracted) {
       adsRetraction.attempted = true;
-      const result = await adjustBookingConversion({
-        transactionId: bookingNumber,
-        gclid: summary.gclid || '',
-        gbraid: summary.gbraid || '',
-        wbraid: summary.wbraid || '',
-        adjustmentType: 'RETRACTION',
-        newValue: 0,
-        currency: 'USD',
-        email: summary.guestEmail || '',
-        phone: summary.guestPhone || '',
-        originalEvent: { conversionTime: summary.bookingDate || new Date().toISOString() },
-      });
+      let result;
+      if (await isGoogleAdsSuspended()) {
+        console.log('[WBE-ADMIN] skipping Google Ads retraction — suspendGoogleAds is enabled');
+        result = { ok: true, suspended: true };
+      } else {
+        result = await adjustBookingConversion({
+          transactionId: bookingNumber,
+          gclid: summary.gclid || '',
+          gbraid: summary.gbraid || '',
+          wbraid: summary.wbraid || '',
+          adjustmentType: 'RETRACTION',
+          newValue: 0,
+          currency: 'USD',
+          email: summary.guestEmail || '',
+          phone: summary.guestPhone || '',
+          originalEvent: { conversionTime: summary.bookingDate || new Date().toISOString() },
+        });
+      }
       adsRetraction.result = result;
       if (result && result.ok) {
         summary.googleConversionRetracted = true;

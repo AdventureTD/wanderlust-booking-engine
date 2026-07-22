@@ -33,6 +33,10 @@ function parseUrlParams(url) {
 // Reads click IDs from URL query and stores them (first-touch wins).
 export function captureClickIds() {
   try {
+    if (_suspendGoogleAds) {
+      console.log('[WBE-TRACKING] suspended — skipping click-id capture');
+      return null;
+    }
     // Wix's location API strips ad-click parameters from the URL in some cases,
     // so read the real browser URL first and use Wix data only as fallback.
     const rawBrowserUrl = (typeof window !== 'undefined' && window.location && window.location.href) || '';
@@ -111,10 +115,21 @@ export function clearClickIds() {
 // Page: Velo -> iframe.postMessage -> parent window -> head snippet -> dataLayer.
 // Public modules can't use the $w global, so page code injects it once.
 let _$w = null;
+let _suspendGoogleAds = false;
+
 export function initTracking(w) { _$w = w; }
+
+export function setSuspendGoogleAds(value) {
+  _suspendGoogleAds = !!value;
+  console.log('[WBE-TRACKING] Google Ads / Analytics suspended:', _suspendGoogleAds);
+}
 
 export function pushDataLayer(payload) {
   try {
+    if (_suspendGoogleAds) {
+      console.log('[WBE-TRACKING] suspended — dropping event:', payload.event || payload);
+      return;
+    }
     if (!_$w) {
       console.warn('[WBE-GTAG] initTracking($w) not called; dropping event:', payload.event || payload);
       return;

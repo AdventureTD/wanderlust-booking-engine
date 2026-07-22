@@ -874,17 +874,23 @@ export const cancelBooking = webMethod(
         if (summaryRes.items.length > 0) {
           const summary = summaryRes.items[0];
           if (summary.googleConversionUploaded === true && summary.googleConversionRetracted !== true) {
-            const adjResult = await adjustBookingConversion({
-              transactionId: b.bookingNumber,
-              gclid: summary.gclid || '',
-              gbraid: summary.gbraid || '',
-              wbraid: summary.wbraid || '',
-              email: summary.guestEmail || '',
-              phone: summary.guestPhone || '',
-              originalEvent: { conversionTime: summary.bookingDate || new Date().toISOString() },
-              adjustmentType: 'RETRACTION',
-              currency: 'USD'
-            });
+            let adjResult;
+            if (await isGoogleAdsSuspended()) {
+              console.log('[WBE-CANCEL] skipping Google Ads conversion retraction — suspendGoogleAds is enabled');
+              adjResult = { ok: true, suspended: true };
+            } else {
+              adjResult = await adjustBookingConversion({
+                transactionId: b.bookingNumber,
+                gclid: summary.gclid || '',
+                gbraid: summary.gbraid || '',
+                wbraid: summary.wbraid || '',
+                email: summary.guestEmail || '',
+                phone: summary.guestPhone || '',
+                originalEvent: { conversionTime: summary.bookingDate || new Date().toISOString() },
+                adjustmentType: 'RETRACTION',
+                currency: 'USD'
+              });
+            }
             console.log('>>> SERVER cancelBooking adjustment result:', JSON.stringify(adjResult).substring(0, 300));
             if (adjResult && adjResult.ok) {
               summary.googleConversionRetracted = true;

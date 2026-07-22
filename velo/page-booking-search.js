@@ -2,7 +2,8 @@ import { getActiveMessages } from 'backend/messages';
 import { searchAvailability, suggestAlternateDates } from 'backend/search';
 import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights } from 'backend/packages';
 import { getRoomNames } from 'backend/rooms';
-import { trackBeginBooking, captureClickIds, trackViewBookingSearch, trackRoomView, trackSearchNoResults, initTracking } from 'public/tracking';
+import { trackBeginBooking, captureClickIds, trackViewBookingSearch, trackRoomView, trackSearchNoResults, initTracking, setSuspendGoogleAds } from 'public/tracking';
+import { getAllSettings } from 'backend/settings';
 import wixLocation from 'wix-location';
 
 let _selections = [];
@@ -148,7 +149,16 @@ function formatVacationDate(d) {
 }
 
 
-$w.onReady(function () {
+$w.onReady(async function () {
+  try {
+    let settings = {};
+    try { settings = await getAllSettings(); } catch (e) {}
+    const suspend = String(settings.suspendGoogleAds).trim() === '1' || Number(settings.suspendGoogleAds) === 1;
+    setSuspendGoogleAds(suspend);
+  } catch (err) {
+    console.log('[WBE-SEARCH] settings load error:', err && err.message || err);
+  }
+
   initTracking($w);
   captureClickIds();
 

@@ -19,7 +19,7 @@ import { getAllSettings } from 'backend/settings';
 import { getRoomNames } from 'backend/rooms';
 import { getPackageAmenities, getPackageBaseRate } from 'backend/packages';
 import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
-import { trackPurchase, getStoredClickIds, clearClickIds, initTracking } from 'public/tracking';
+import { trackPurchase, getStoredClickIds, clearClickIds, initTracking, setSuspendGoogleAds } from 'public/tracking';
 import { recordBookingConversion } from 'backend/googleAdsConversions.web';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
@@ -204,6 +204,9 @@ async function initSummary() {
   _summaryCos = cos;
   _summarySettings = settings;
   _roomNames = roomNames;
+
+  const suspend = String(settings.suspendGoogleAds).trim() === '1' || Number(settings.suspendGoogleAds) === 1;
+  setSuspendGoogleAds(suspend);
 
   initRoomRepeater();
   safeCollapse('promoAmount');

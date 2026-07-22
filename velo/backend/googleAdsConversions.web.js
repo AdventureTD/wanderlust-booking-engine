@@ -2,8 +2,17 @@ import { Permissions, webMethod } from 'wix-web-module';
 import { getSecret } from 'wix-secrets-backend';
 import { ingestEvent } from 'backend/dataManagerClient.web';
 import { buildUserIdentifiers } from 'backend/hashUtils.web';
+import { getAllSettings } from 'backend/settings.web';
 import wixData from 'wix-data';
 // v2026-07-20-hashutils-import
+
+async function isGoogleAdsSuspended() {
+  try {
+    const settings = await getAllSettings();
+    const v = settings.suspendGoogleAds;
+    return String(v).trim() === '1' || Number(v) === 1;
+  } catch (e) { return false; }
+}
 
 function stripEmpty(obj) {
   const out = {};
@@ -19,6 +28,10 @@ export const recordBookingConversion = webMethod(
   Permissions.Anyone,
   async (booking) => {
     try {
+      if (await isGoogleAdsSuspended()) {
+        console.log('[WBE-GOOGLE] recordBookingConversion skipped — suspendGoogleAds is enabled');
+        return { ok: false, suspended: true };
+      }
       validateBooking(booking);
       const payload = await buildIngestPayload(booking);
       console.log('[WBE-GOOGLE] built payload for transaction:', booking.transactionId);
@@ -41,6 +54,10 @@ export const retryBookingConversion = webMethod(
   Permissions.Admin,
   async (bookingNumber) => {
     try {
+      if (await isGoogleAdsSuspended()) {
+        console.log('[WBE-GOOGLE] retryBookingConversion skipped — suspendGoogleAds is enabled');
+        return { ok: false, suspended: true };
+      }
       const summaryRes = await wixData.query('BookingSummary')
         .eq('bookingNumber', bookingNumber)
         .limit(1)
@@ -81,6 +98,10 @@ export const adjustBookingConversion = webMethod(
   Permissions.Admin,
   async ({ transactionId, gclid, gbraid, wbraid, adjustmentType, newValue, currency, adjustmentTime, originalEvent, email, phone }) => {
     try {
+      if (await isGoogleAdsSuspended()) {
+        console.log('[WBE-GOOGLE] adjustBookingConversion skipped — suspendGoogleAds is enabled');
+        return { ok: false, suspended: true };
+      }
       if (!transactionId) { throw new Error('transactionId required for adjustment'); }
       const payload = await buildAdjustmentPayload({
         transactionId,
