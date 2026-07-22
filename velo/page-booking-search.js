@@ -191,6 +191,24 @@ $w.onReady(function () {
         : 'Available for ' + itemData.availableNights + ' nights (partial)');
       safeItem($item, '#occupancy', 'text', String(itemData.occupancy || 2));
       safeItem($item, '#defaultOccupancy', 'text', String(itemData.baseOccupancy || itemData.occupancy || 2));
+
+      // Show room fee only for Penthouse Apartment.
+      const penthouseFeeTextEl = safeItem($item, '#penthouseFeeText', null, null);
+      if (penthouseFeeTextEl) {
+        if (itemData.roomCode === 'penthouse_apartment') {
+          const fee = (itemData.roomFee !== undefined && itemData.roomFee !== null && !isNaN(itemData.roomFee))
+            ? '$' + Number(itemData.roomFee).toFixed(2)
+            : '';
+          penthouseFeeTextEl.text = fee;
+          if (fee) { penthouseFeeTextEl.show(); penthouseFeeTextEl.expand(); }
+          else { penthouseFeeTextEl.hide(); penthouseFeeTextEl.collapse(); }
+        } else {
+          penthouseFeeTextEl.text = '';
+          penthouseFeeTextEl.hide();
+          penthouseFeeTextEl.collapse();
+        }
+      }
+
       if (itemData.mainPhoto) try { $item('#roomThumb').src = itemData.mainPhoto; } catch (e) {}
 
       try {
