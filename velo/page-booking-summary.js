@@ -250,17 +250,19 @@ async function wirePromoCode() {
         let promoDesc = result.description || '';
         if (!promoDesc) {
           try {
-            const promoRes = await wixData.query('PromoCodes').limit(10).find();
-            for (const item of promoRes.items) {
-              const itemTitle = item.title || item.Title || item.title_fld || '';
-              if (String(itemTitle).trim().toUpperCase() === String(code).trim().toUpperCase()) {
-                promoDesc = item.description || item.Description || item.desc || item.Desc || item.description_fld || '';
-                console.log('[WBE-PROMO-CLIENT] fallback description lookup:', promoDesc);
-                break;
-              }
+            const promoRes = await wixData.query('PromoCodes')
+              .eq('title', code)
+              .limit(1)
+              .find();
+            console.log('[WBE-PROMO-CLIENT] live PromoCodes query returned', promoRes.items.length, 'items');
+            if (promoRes.items.length > 0) {
+              const item = promoRes.items[0];
+              console.log('[WBE-PROMO-CLIENT] full promo item:', JSON.stringify(item));
+              promoDesc = item.description || item.Description || item.desc || item.Desc || item.description_fld || '';
+              console.log('[WBE-PROMO-CLIENT] live description lookup:', promoDesc);
             }
           } catch (promoErr) {
-            console.log('[WBE-PROMO-CLIENT] fallback lookup error:', promoErr.message);
+            console.log('[WBE-PROMO-CLIENT] live lookup error:', promoErr.message);
           }
         }
 
