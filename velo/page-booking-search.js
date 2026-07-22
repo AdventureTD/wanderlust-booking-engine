@@ -23,7 +23,7 @@ function setRoomSelection(roomCode, roomName, qty, numGuests, availableCheckIn, 
       if (qty > 0) next.push({ roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut, roomFee: roomFee || 0 });
     } else next.push(_selections[i]);
   }
-  if (!found && qty > 0) next.push({ roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut });
+  if (!found && qty > 0) next.push({ roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut, roomFee: roomFee || 0 });
   _selections = next;
   updateSelectionPanel();
 }
@@ -83,11 +83,13 @@ function updateSelectionPanel() {
         penthouseTotal += (Number(s.roomFee) || 0) * s.qty;
       }
     }
-    if (_summaryNights > 0 && penthouseTotal > 0) {
+    const hasPenthouse = penthouseTotal > 0;
+    if (_summaryNights > 0 && hasPenthouse) {
       const totalPenthouseFee = penthouseTotal * _summaryNights;
       penthouseFeeEl.text = '$' + totalPenthouseFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      try { penthouseFeeEl.show(); } catch (e) {}
     } else {
-      penthouseFeeEl.text = '$0.00';
+      try { penthouseFeeEl.hide(); } catch (e) {}
     }
   }
 
