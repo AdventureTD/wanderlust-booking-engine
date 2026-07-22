@@ -44,7 +44,7 @@ function updateSelectionPanel() {
   if (!panel || !container) return;
   if (_selections.length === 0) {
     panel.collapse();
-    try { container.collapse(); } catch (e) {}
+    try { container.hide(); } catch (e) {}
     if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
     if (btnSummary) { try { btnSummary.collapse(); } catch (e) {} }
     if (box3) { try { box3.collapse(); } catch (e) {} }
@@ -54,7 +54,6 @@ function updateSelectionPanel() {
   if (box3) { try { box3.show(); } catch (e) {} try { box3.expand(); } catch (e) {} }
   panel.expand();
   if (typeof container.show === 'function') { try { container.show(); } catch (e) {} }
-  if (typeof container.expand === 'function') { try { container.expand(); } catch (e) {} }
   if (btnContinue) { try { btnContinue.show(); } catch (e) {} try { btnContinue.expand(); } catch (e) {} }
   if (btnSummary) { try { btnSummary.show(); } catch (e) {} try { btnSummary.expand(); } catch (e) {} }
   let total = 0, totalGuests = 0, lines = [];
@@ -346,11 +345,9 @@ $w.onReady(function () {
           if (selectedContainer) {
             if (_selections.length > 0) {
               try { selectedContainer.show(); } catch (e) {}
-              try { selectedContainer.expand(); } catch (e) {}
-              console.log('>>> selectedRoomsContainer forced visible');
+              console.log('>>> selectedRoomsContainer forced visible (text element)');
             } else {
               try { selectedContainer.hide(); } catch (e) {}
-              try { selectedContainer.collapse(); } catch (e) {}
             }
           }
         });
@@ -364,7 +361,7 @@ $w.onReady(function () {
   const panel = tryFind('selectionPanel');
   if (panel) panel.collapse();
   const containerStart = tryFind('selectedRoomsContainer');
-  if (containerStart) { try { containerStart.collapse(); } catch (e) {} }
+  if (containerStart) { try { containerStart.hide(); } catch (e) {} }
   const repStart = tryFind('searchResultsRepeater');
   if (repStart) { try { repStart.collapse(); } catch (e) {} }
   const btnStart = tryFind('btnContinueToSummary');
@@ -442,7 +439,7 @@ async function searchHandler() {
       const panel = tryFind('selectionPanel');
       if (panel) { try { panel.collapse(); } catch (e) {} }
       const container = tryFind('selectedRoomsContainer');
-      if (container) { try { container.collapse(); } catch (e) {} }
+      if (container) { try { container.hide(); } catch (e) {} }
       const btnContinue = tryFind('btnContinueToSummary');
       if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
       safeText('No rooms are available for the dates entered. Checking nearby dates...');
@@ -473,7 +470,7 @@ async function searchHandler() {
       const selPanel = tryFind('selectionPanel');
       if (selPanel) { try { selPanel.collapse(); } catch (e) {} }
       const container = tryFind('selectedRoomsContainer');
-      if (container) { try { container.collapse(); } catch (e) {} }
+      if (container) { try { container.hide(); } catch (e) {} }
       const btnContinue = tryFind('btnContinueToSummary');
       if (btnContinue) { try { btnContinue.collapse(); } catch (e) {} }
       safeText('No rooms are available for the dates entered. Checking nearby dates...');
