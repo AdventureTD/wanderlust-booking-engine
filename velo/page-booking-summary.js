@@ -240,7 +240,6 @@ async function wirePromoCode() {
       const totalGuestNights = _summaryNights || 0;
       const result = await validatePromoCode(code, totalGuestNights);
       console.log('[WBE-PROMO] validatePromoCode result:', JSON.stringify(result));
-      console.log('[WBE-PROMO-CLIENT] result:', JSON.stringify(result));
       if (result && result.valid) {
         _promoDiscount = parseFloat(result.discount) || 0;
         _promoCodeApplied = code;
@@ -254,12 +253,9 @@ async function wirePromoCode() {
               .eq('title', code)
               .limit(1)
               .find();
-            console.log('[WBE-PROMO-CLIENT] live PromoCodes query returned', promoRes.items.length, 'items');
             if (promoRes.items.length > 0) {
               const item = promoRes.items[0];
-              console.log('[WBE-PROMO-CLIENT] full promo item:', JSON.stringify(item));
               promoDesc = item.description || item.Description || item.desc || item.Desc || item.description_fld || '';
-              console.log('[WBE-PROMO-CLIENT] live description lookup:', promoDesc);
             }
           } catch (promoErr) {
             console.log('[WBE-PROMO-CLIENT] live lookup error:', promoErr.message);

@@ -986,8 +986,6 @@ export const validatePromoCode = webMethod(
         const itemTitle = item.title || item.Title || item.title_fld || '';
         if (String(itemTitle).trim().toUpperCase() === String(code).trim().toUpperCase()) {
           found = item;
-          console.log('[WBE-PROMO-SERVER] matched item keys:', Object.keys(item));
-          console.log('[WBE-PROMO-SERVER] matched item:', JSON.stringify(item));
           break;
         }
       }
@@ -1016,7 +1014,6 @@ export const validatePromoCode = webMethod(
         return { valid: false, reason: 'Invalid discount value.' };
       }
       const description = found.description || found.Description || found.desc || found.Desc || found.description_fld || '';
-      console.log('[WBE-PROMO-SERVER] found code:', code, 'description:', description);
       return { valid: true, code: code, discount: discount, description: description };
     } catch (e) {
       return { valid: false, reason: 'Error validating promo code: ' + e.message };
