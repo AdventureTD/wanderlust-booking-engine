@@ -404,10 +404,12 @@ async function renderSummary() {
   // Promo display
   if (_promoDiscount > 0 && _promoCodeApplied) {
     safeExpand('promoDiscountRow');
+    safeExpand('promoAmount');
     safeText('promoAmount', '$' + fmtCurrency(promoAmount));
     safeText('promoDiscountText', 'Promo Code (' + _promoCodeApplied + '): ' + fmtCurrency(promoAmount) + ' (-' + (_promoDiscount * 100) + '%)');
   } else {
     safeCollapse('promoDiscountRow');
+    safeCollapse('promoAmount');
     safeText('promoAmount', '$' + fmtCurrency(0));
     safeText('promoDiscountText', '');
   }
