@@ -326,7 +326,7 @@ $w.onReady(function () {
             }
           }
 
-          // Directly force btnSummary visibility based on current selections.
+          // Directly force container and btnSummary visibility based on current selections.
           const summaryBtn = tryFind('btnSummary');
           if (summaryBtn) {
             if (_selections.length > 0) {
@@ -340,6 +340,18 @@ $w.onReady(function () {
             }
           } else {
             console.log('>>> btnSummary element not found');
+          }
+
+          const selectedContainer = tryFind('selectedRoomsContainer');
+          if (selectedContainer) {
+            if (_selections.length > 0) {
+              try { selectedContainer.show(); } catch (e) {}
+              try { selectedContainer.expand(); } catch (e) {}
+              console.log('>>> selectedRoomsContainer forced visible');
+            } else {
+              try { selectedContainer.hide(); } catch (e) {}
+              try { selectedContainer.collapse(); } catch (e) {}
+            }
           }
         });
       }
