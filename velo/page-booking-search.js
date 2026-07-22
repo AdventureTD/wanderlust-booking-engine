@@ -73,6 +73,24 @@ function updateSelectionPanel() {
     numTotalGuestsEl.text = String(totalGuests);
   }
 
+  // Compute total Penthouse Apartment additional fee if selected.
+  const penthouseFeeEl = tryFind('penthouseFee');
+  if (penthouseFeeEl) {
+    let penthouseTotal = 0;
+    for (let i = 0; i < _selections.length; i++) {
+      const s = _selections[i];
+      if (s.roomCode === 'penthouse_apartment') {
+        penthouseTotal += (Number(s.roomFee) || 0) * s.qty;
+      }
+    }
+    if (_summaryNights > 0 && penthouseTotal > 0) {
+      const totalPenthouseFee = penthouseTotal * _summaryNights;
+      penthouseFeeEl.text = '$' + totalPenthouseFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else {
+      penthouseFeeEl.text = '$0.00';
+    }
+  }
+
   // Calculate and display subTotalBooking: baseRate * nights * total guests.
   const summaryContainer = tryFind('bookingSummaryContainer');
   if (summaryContainer) {
