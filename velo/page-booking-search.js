@@ -81,6 +81,21 @@ function safeItem($item, selector, action, val) {
 
 function tryFind(id) { try { return $w('#' + id); } catch (e) { return null; } }
 
+function formatVacationDate(d) {
+  if (!d || isNaN(d.getTime())) { return ''; }
+  const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                  'July', 'August', 'September', 'October', 'November', 'December'];
+  const day = d.getDate();
+  let suffix = 'th';
+  if (day % 100 < 11 || day % 100 > 13) {
+    if (day % 10 === 1) suffix = 'st';
+    else if (day % 10 === 2) suffix = 'nd';
+    else if (day % 10 === 3) suffix = 'rd';
+  }
+  return months[d.getMonth()] + ' ' + day + suffix + ', ' + d.getFullYear();
+}
+
+
 $w.onReady(function () {
   initTracking($w);
   captureClickIds();
@@ -105,6 +120,21 @@ $w.onReady(function () {
       let nights = 0;
       if (ci && co && co > ci) {
         nights = Math.round((co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24));
+      }
+
+      // Set vacation date range at bottom of page.
+      const vacationDatesEl = tryFind('vacationDates');
+      if (vacationDatesEl) {
+        const ciFmt = formatVacationDate(ci);
+        const coFmt = formatVacationDate(co);
+        if (ciFmt && coFmt) {
+          vacationDatesEl.text = ciFmt + ' - ' + coFmt;
+          try { vacationDatesEl.show(); } catch (e) {}
+          try { vacationDatesEl.expand(); } catch (e) {}
+        } else {
+          vacationDatesEl.text = '';
+          try { vacationDatesEl.collapse(); } catch (e) {}
+        }
       }
 
       // Populate packageContainer with title, nights, and specialty tours before search.
@@ -282,6 +312,9 @@ $w.onReady(function () {
       }
     });
   }
+
+  const vacationDatesStart = tryFind('vacationDates');
+  if (vacationDatesStart) { try { vacationDatesStart.collapse(); } catch (e) {} }
 
   const panel = tryFind('selectionPanel');
   if (panel) panel.collapse();
