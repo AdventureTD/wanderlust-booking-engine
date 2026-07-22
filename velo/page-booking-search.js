@@ -310,6 +310,22 @@ $w.onReady(function () {
               try { rowVector.collapse(); } catch (e) {}
             }
           }
+
+          // Directly force btnSummary visibility based on current selections.
+          const summaryBtn = tryFind('btnSummary');
+          if (summaryBtn) {
+            if (_selections.length > 0) {
+              try { summaryBtn.show(); } catch (e) {}
+              try { summaryBtn.expand(); } catch (e) {}
+              console.log('>>> btnSummary forced visible', _selections.length);
+            } else {
+              try { summaryBtn.hide(); } catch (e) {}
+              try { summaryBtn.collapse(); } catch (e) {}
+              console.log('>>> btnSummary hidden');
+            }
+          } else {
+            console.log('>>> btnSummary element not found');
+          }
         });
       }
     });
