@@ -240,6 +240,7 @@ async function wirePromoCode() {
       const totalGuestNights = _summaryNights || 0;
       const result = await validatePromoCode(code, totalGuestNights);
       console.log('[WBE-PROMO] validatePromoCode result:', JSON.stringify(result));
+      console.log('[WBE-PROMO-CLIENT] result:', JSON.stringify(result));
       if (result && result.valid) {
         _promoDiscount = parseFloat(result.discount) || 0;
         _promoCodeApplied = code;
