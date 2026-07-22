@@ -67,6 +67,12 @@ function updateSelectionPanel() {
   container.text = lines.join('\n');
   console.log('>>> selection panel updated:', container.text);
 
+  // Update total guest count text in booking summary container.
+  const numTotalGuestsEl = tryFind('numTotalGuests');
+  if (numTotalGuestsEl) {
+    numTotalGuestsEl.text = String(totalGuests);
+  }
+
   // Calculate and display subTotalBooking: baseRate * nights * total guests.
   const summaryContainer = tryFind('bookingSummaryContainer');
   if (summaryContainer) {
