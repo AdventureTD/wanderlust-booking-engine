@@ -64,6 +64,8 @@ function updateSelectionPanel() {
     total += s.qty;
     totalGuests += guests;
   }
+  container.text = lines.join('\n');
+  console.log('>>> selection panel updated:', container.text);
 
   // Calculate and display subTotalBooking: baseRate * nights * total guests.
   const summaryContainer = tryFind('bookingSummaryContainer');
