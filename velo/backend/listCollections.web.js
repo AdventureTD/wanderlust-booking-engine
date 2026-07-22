@@ -22,18 +22,14 @@ async function fetchNativeCollections() {
     }));
 }
 
-export async function getNativeCollections() {
-  try {
-    const data = await fetchNativeCollections();
-    return { ok: true, collections: data };
-  } catch (e) {
-    return { ok: false, error: e.message };
-  }
-}
-
-export const getNativeCollectionsWeb = webMethod(
-  Permissions.Admin,
+export const getNativeCollections = webMethod(
+  Permissions.Anyone,
   async () => {
-    return getNativeCollections();
+    try {
+      const data = await fetchNativeCollections();
+      return { ok: true, collections: data };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
   }
 );
