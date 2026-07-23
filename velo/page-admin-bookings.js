@@ -37,16 +37,34 @@ $w.onReady(function () {
 // ---------------- FILTER / LIST ----------------
 
 function wireFilters() {
+  console.log('[WBE-ADMIN] wireFilters start');
+
   const btn = tryFind('btnSearch');
-  if (btn && typeof btn.onClick === 'function') btn.onClick(refreshList);
-  const si = tryFind('searchGuestInput');
-  if (si && typeof si.onKeyPress === 'function') {
-    si.onKeyPress(function (e) { if (e.key === 'Enter') refreshList(); });
+  console.log('[WBE-ADMIN] btnSearch found:', !!btn);
+  if (btn && typeof btn.onClick === 'function') {
+    btn.onClick(function () { console.log('[WBE-ADMIN] btnSearch clicked'); refreshList(); });
   }
+
+  const si = tryFind('searchGuestInput');
+  console.log('[WBE-ADMIN] searchGuestInput found:', !!si);
+  if (si && typeof si.onKeyPress === 'function') {
+    si.onKeyPress(function (e) {
+      console.log('[WBE-ADMIN] keypress:', e && e.key);
+      if (e && e.key === 'Enter') refreshList();
+    });
+  }
+
   const sd = tryFind('sortDropdown');
-  if (sd && typeof sd.onChange === 'function') sd.onChange(refreshList);
+  console.log('[WBE-ADMIN] sortDropdown found:', !!sd, 'value:', sd && sd.value);
+  if (sd && typeof sd.onChange === 'function') {
+    sd.onChange(function () { console.log('[WBE-ADMIN] sortDropdown changed'); refreshList(); });
+  }
+
   const st = tryFind('statusDropdown');
-  if (st && typeof st.onChange === 'function') st.onChange(refreshList);
+  console.log('[WBE-ADMIN] statusDropdown found:', !!st, 'value:', st && st.value);
+  if (st && typeof st.onChange === 'function') {
+    st.onChange(function () { console.log('[WBE-ADMIN] statusDropdown changed'); refreshList(); });
+  }
 }
 
 function readFilters() {
