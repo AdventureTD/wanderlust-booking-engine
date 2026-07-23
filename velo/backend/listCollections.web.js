@@ -23,7 +23,7 @@ async function fetchNativeCollections() {
 }
 
 export const getNativeCollections = webMethod(
-  Permissions.Anyone,
+  Permissions.Admin,
   async () => {
     try {
       const data = await fetchNativeCollections();
