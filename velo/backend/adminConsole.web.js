@@ -291,6 +291,7 @@ export const adminCancelBooking = webMethod(
           body: JSON.stringify({
             guest_name: summary.guestName || 'Guest',
             guest_email: summary.guestEmail,
+            owner_email: 'info@wanderlustcaribbean.com',
             booking_number: bookingNumber,
             check_in: isoDate(summary.checkIn),
             check_out: isoDate(summary.checkOut),
