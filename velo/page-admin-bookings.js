@@ -84,10 +84,14 @@ function readFilters() {
 }
 
 async function refreshList() {
+  console.log('[WBE-ADMIN] refreshList start');
   const rep = tryFind('bookingsRepeater');
   txt('listStatusText', 'Loading...');
   try {
-    const res = await adminListBookings(readFilters());
+    const filters = readFilters();
+    console.log('[WBE-ADMIN] filters:', JSON.stringify(filters));
+    const res = await adminListBookings(filters);
+    console.log('[WBE-ADMIN] adminListBookings res.ok:', res.ok, 'count:', res.items && res.items.length);
     if (!res.ok) { txt('listStatusText', 'Error: ' + (res.error || 'unknown')); return; }
     txt('listStatusText', res.items.length + ' booking(s)');
     if (!rep) return;
@@ -109,7 +113,9 @@ async function refreshList() {
       return { _id: s._id || ('row' + i), summary: s };
     });
     show('bookingsRepeater');
+    console.log('[WBE-ADMIN] bookingsRepeater data set, rows:', rep.data.length);
   } catch (e) {
+    console.error('[WBE-ADMIN] refreshList error:', e && e.message || e);
     txt('listStatusText', 'Error: ' + (e && e.message || e));
   }
 }
