@@ -30,6 +30,7 @@ function dstr(d) {
 $w.onReady(function () {
   wireFilters();
   wireDetailPanel();
+  switchTab('details');
   refreshList();
 });
 
@@ -113,10 +114,49 @@ function wireDetailPanel() {
   if (refBtn && typeof refBtn.onClick === 'function') refBtn.onClick(recordRefund);
   const cancelBtn = tryFind('btnCancelBooking');
   if (cancelBtn && typeof cancelBtn.onClick === 'function') cancelBtn.onClick(cancelBooking);
+
+  // Tab navigation
+  const tabMap = { btnDetails: 'details', btnPayments: 'payments', btnCancel: 'cancel' };
+  Object.keys(tabMap).forEach(function (id) {
+    const btn = tryFind(id);
+    const tab = tabMap[id];
+    if (btn && typeof btn.onClick === 'function') {
+      btn.onClick(function () { switchTab(tab); });
+    }
+  });
+}
+
+function switchTab(tabName) {
+  if (tabName === 'details') {
+    show('detailsContainer');
+    hide('paymentsContainer');
+    hide('cancelContainer');
+  } else if (tabName === 'payments') {
+    hide('detailsContainer');
+    show('paymentsContainer');
+    hide('cancelContainer');
+  } else if (tabName === 'cancel') {
+    hide('detailsContainer');
+    hide('paymentsContainer');
+    show('cancelContainer');
+  }
+  setButtonActive('btnDetails', tabName === 'details');
+  setButtonActive('btnPayments', tabName === 'payments');
+  setButtonActive('btnCancel', tabName === 'cancel');
+}
+
+function setButtonActive(id, active) {
+  const btn = tryFind(id);
+  if (!btn || !btn.style) return;
+  try {
+    btn.style.borderColor = active ? '#2E5C8A' : 'transparent';
+    btn.style.borderWidth = active ? '2px' : '0px';
+  } catch (e) {}
 }
 
 async function openDetail(bookingNumber) {
   txt('detailStatusText', 'Loading ' + bookingNumber + '...');
+  switchTab('details');
   show('detailPanel');
   try {
     const res = await adminGetBooking(bookingNumber);
