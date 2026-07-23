@@ -209,8 +209,8 @@ function renderDetail() {
   setVal('inputGuestEmail', s.guestEmail || '');
   setVal('inputGuestPhone', s.guestPhone || '');
   setVal('inputNumGuests', String(firstRoomGuests()));
-  setVal('dateCheckIn', s.checkIn ? new Date(s.checkIn) : null);
-  setVal('dateCheckOut', s.checkOut ? new Date(s.checkOut) : null);
+  setVal('dateCheckIn', s.checkIn ? dstr(s.checkIn) : '');
+  setVal('dateCheckOut', s.checkOut ? dstr(s.checkOut) : '');
   setVal('inputGrandTotal', String(s.grandTotal || 0));
   setVal('inputPromoCode', s.promoCode || '');
   setVal('editStatusDropdown', s.status || 'confirmed');
