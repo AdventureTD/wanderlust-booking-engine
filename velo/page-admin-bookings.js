@@ -167,8 +167,11 @@ function setButtonActive(id, active) {
   const btn = tryFind(id);
   if (!btn || !btn.style) return;
   try {
-    btn.style.borderColor = active ? '#2E5C8A' : 'transparent';
-    btn.style.borderWidth = active ? '2px' : '0px';
+    btn.style.borderColor = active ? '#2E5C8A' : 'rgba(0,0,0,0)';
+    btn.style.borderWidth = active ? '2px' : '1px';
+    if (!active) {
+      try { btn.style.borderStyle = 'solid'; } catch (e) {}
+    }
   } catch (e) {}
 }
 
