@@ -1,18 +1,27 @@
 import { getNativeCollections } from 'backend/listCollections';
 
 $w.onReady(async function () {
+  const output = (function () { try { return $w('#jsonOutput'); } catch (e) { return null; } })();
+
+  function setText(msg) {
+    console.log(msg);
+    if (output) {
+      try { output.text = String(output.text || '') + '\n' + msg; } catch (e) {}
+    }
+  }
+
   try {
-    console.log('[WBE-ERD] calling getNativeCollections...');
+    setText('[WBE-ERD] calling getNativeCollections...');
     const res = await getNativeCollections();
-    console.log('[WBE-ERD] response:', JSON.stringify(res, null, 2));
     if (res && res.ok) {
-      console.log('--- WIX NATIVE COLLECTIONS JSON START ---');
-      console.log(JSON.stringify(res.collections, null, 2));
-      console.log('--- WIX NATIVE COLLECTIONS JSON END ---');
+      const json = JSON.stringify(res.collections, null, 2);
+      setText('--- WIX NATIVE COLLECTIONS JSON START ---');
+      setText(json);
+      setText('--- WIX NATIVE COLLECTIONS JSON END ---');
     } else {
-      console.error('[WBE-ERD] failed to load collections:', res && res.error);
+      setText('[WBE-ERD] failed: ' + ((res && res.error) || 'unknown error'));
     }
   } catch (e) {
-    console.error('[WBE-ERD] error:', e.message);
+    setText('[WBE-ERD] error: ' + (e.message || e));
   }
 });
