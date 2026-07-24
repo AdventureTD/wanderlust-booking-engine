@@ -214,6 +214,7 @@ function renderDetail() {
   setVal('inputGrandTotal', String(s.grandTotal || 0));
   setVal('inputPromoCode', s.promoCode || '');
   setVal('editStatusDropdown', s.status || 'confirmed');
+  setVal('bookingNotes', s.notes || '');
 
   // Payments tab
   const t = _currentTotals || { grandTotal: 0, totalPaid: 0, totalRefunded: 0, balance: 0 };
