@@ -24,17 +24,26 @@ BCC_COPY = "info@wanderlustcaribbean.com"
 
 
 def build_invoice_email(to_email: str, guest_name: str, invoice_number: str,
-                        pdf_path: str, total_str: str) -> EmailMessage:
+                        pdf_path: str, total_str: str,
+                        owner_only: bool = False) -> EmailMessage:
     """Assemble the MIME email with the PDF attached. No network — pure build."""
     msg = EmailMessage()
     msg["From"] = f"Wanderlust Caribbean <{SENDER}>"
-    msg["To"] = to_email
-    # Send a copy to the hotel. Use a visible CC so the hotel copy is obvious.
-    msg["Cc"] = BCC_COPY
-    msg["Subject"] = f"Your Wanderlust Caribbean Invoice {invoice_number}"
+    if owner_only:
+        msg["To"] = BCC_COPY
+        msg["Subject"] = f"Internal copy — Wanderlust Caribbean Invoice {invoice_number}"
+        body_prefix = (
+            f"This is an internal copy of invoice {invoice_number} for {guest_name}.\n\n"
+        )
+    else:
+        msg["To"] = to_email
+        # Send a copy to the hotel. Use a visible CC so the hotel copy is obvious.
+        msg["Cc"] = BCC_COPY
+        msg["Subject"] = f"Your Wanderlust Caribbean Invoice {invoice_number}"
+        body_prefix = f"Dear {guest_name},\n\n"
 
     body = (
-        f"Dear {guest_name},\n\n"
+        body_prefix +
         "Thank you for booking your adventure with Wanderlust Caribbean.\n"
         f"Your invoice {invoice_number} is attached as a PDF.\n\n"
         f"Total: {total_str}\n\n"
@@ -128,14 +137,17 @@ def send_cancellation_email(to_email: str, guest_name: str, booking_number: str,
 
 
 def send_invoice_email(to_email: str, guest_name: str, invoice_number: str,
-                       pdf_path: str, total_str: str) -> dict:
+                       pdf_path: str, total_str: str,
+                       owner_only: bool = False) -> dict:
     """Build + send the invoice email via Gmail API. Returns the Gmail response."""
     msg = build_invoice_email(to_email, guest_name, invoice_number,
-                              pdf_path, total_str)
+                              pdf_path, total_str, owner_only=owner_only)
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
     service = _gmail_service()
     sent = service.users().messages().send(
         userId="me", body={"raw": raw}).execute()
     return {"gmail_message_id": sent.get("id"),
-            "to": to_email, "cc": BCC_COPY,
-            "invoice_number": invoice_number}
+            "to": BCC_COPY if owner_only else to_email,
+            "cc": None if owner_only else BCC_COPY,
+            "invoice_number": invoice_number,
+            "owner_only": owner_only}

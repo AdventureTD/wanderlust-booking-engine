@@ -41,7 +41,8 @@ SHARED_SECRET = os.environ.get("WBE_SHARED_SECRET", "")
 app = FastAPI(title="Wanderlust Invoice Service")
 
 
-def _bg_send_email(to_email, guest_name, invoice_number, pdf_path, total_str):
+def _bg_send_email(to_email, guest_name, invoice_number, pdf_path, total_str,
+                   owner_only=False):
     """Background task for Gmail send."""
     try:
         gmail_sender.send_invoice_email(
@@ -50,8 +51,9 @@ def _bg_send_email(to_email, guest_name, invoice_number, pdf_path, total_str):
             invoice_number=invoice_number,
             pdf_path=pdf_path,
             total_str=total_str,
+            owner_only=owner_only,
         )
-        print(f"[WBE-BG] Email sent OK to {to_email}")
+        print(f"[WBE-BG] Email sent OK to {to_email} (owner_only={owner_only})")
     except Exception as e:
         print(f"[WBE-BG] Email FAILED: {e}")
 
@@ -84,6 +86,7 @@ class IssueRequest(BaseModel):
     room_code: str = ""
     send_email: bool = True
     invoice_number: str | None = None
+    owner_only: bool = False
 
 
 @app.get("/health")
@@ -212,6 +215,7 @@ async def issue_invoice(req: IssueRequest, background_tasks: BackgroundTasks, x_
             invoice_number=invoice_number,
             pdf_path=pdf_path,
             total_str=f"${inv.total:,.2f} {inv.currency}",
+            owner_only=req.owner_only,
         )
         result["emailed"] = "scheduled"
     else:
