@@ -4,11 +4,13 @@ import { getSecret } from 'wix-secrets-backend';
 import { fetch } from 'wix-fetch';
 import { currentUser } from 'wix-users-backend';
 import { searchAvailability } from 'backend/search.web';
+import { issueBookingInvoice } from 'backend/availability';
 import { adjustBookingConversion, isGoogleAdsSuspended } from 'backend/googleAdsConversions.web';
 
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
 const BOOKING_PAYMENTS = 'BookingPayments';
+const BOOKING_INVOICES = 'BookingInvoices';
 const INVOICE_SERVICE_URL_KEY = 'WBE_INVOICE_SERVICE_URL';
 const SHARED_SECRET_KEY = 'WBE_SHARED_SECRET';
 
@@ -76,13 +78,35 @@ export const adminListBookings = webMethod(
         if (dateTo && String(it.checkIn || '') > String(dateTo)) return false;
         return true;
       });
-      return { ok: true, items: sortItems(filtered, sortBy, sortDir) };
+      return { ok: true, items: sortItems(await attachActiveInvoices(filtered), sortBy, sortDir) };
     }
 
     const res = await q.find();
-    return { ok: true, items: sortItems(res.items, sortBy, sortDir) };
+    return { ok: true, items: sortItems(await attachActiveInvoices(res.items), sortBy, sortDir) };
   }
 );
+
+
+async function attachActiveInvoices(items) {
+  const numbers = items.map(function (i) { return i.bookingNumber; }).filter(Boolean);
+  const map = {};
+  if (numbers.length) {
+    const invRes = await wixData.query(BOOKING_INVOICES)
+      .hasSome('bookingNumber', numbers)
+      .eq('status', 'Active')
+      .limit(500)
+      .find();
+    invRes.items.forEach(function (inv) {
+      if (!map[inv.bookingNumber]) map[inv.bookingNumber] = inv;
+    });
+  }
+  return items.map(function (i) {
+    const inv = map[i.bookingNumber];
+    i.grandTotal = inv ? inv.grandTotal : 0;
+    i.activeInvoice = inv || null;
+    return i;
+  });
+}
 
 function sortItems(items, sortBy, sortDir) {
   const field = sortBy || 'checkIn';
@@ -105,6 +129,7 @@ export const adminGetBooking = webMethod(
     const sRes = await wixData.query(BOOKING_SUMMARIES)
       .eq('bookingNumber', bookingNumber).limit(1).find();
     if (!sRes.items.length) return { ok: false, error: 'BookingSummary not found' };
+    const summary = sRes.items[0];
 
     const bRes = await wixData.query(BOOKINGS)
       .eq('bookingNumber', bookingNumber).limit(50).find();
@@ -112,13 +137,23 @@ export const adminGetBooking = webMethod(
     const pRes = await wixData.query(BOOKING_PAYMENTS)
       .eq('bookingNumber', bookingNumber).limit(200).find();
 
+    const iRes = await wixData.query(BOOKING_INVOICES)
+      .eq('bookingNumber', bookingNumber)
+      .descending('_createdDate')
+      .limit(200)
+      .find();
+    const invoices = iRes.items;
+    const activeInvoice = invoices.find(function (i) { return i.status === 'Active'; }) || invoices[0] || null;
+
     const payments = pRes.items.map(paymentDto);
     return {
       ok: true,
-      summary: sRes.items[0],
+      summary: summary,
       rooms: bRes.items,
       payments: payments,
-      totals: computeTotals(sRes.items[0], payments),
+      invoices: invoices,
+      activeInvoice: activeInvoice,
+      totals: computeTotals(activeInvoice || summary, payments),
     };
   }
 );
@@ -135,8 +170,8 @@ function paymentDto(p) {
   };
 }
 
-function computeTotals(summary, payments) {
-  const grand = money(summary && summary.grandTotal);
+function computeTotals(invoiceOrSummary, payments) {
+  const grand = money(invoiceOrSummary && (invoiceOrSummary.grandTotal || invoiceOrSummary.totalInvoice));
   let paid = 0, refunded = 0;
   payments.forEach(function (p) {
     const amt = money(p.paymentAmount);
@@ -172,6 +207,9 @@ export const adminUpdateBooking = webMethod(
     const newCi = ch.checkIn || isoDate(summary.checkIn);
     const newCo = ch.checkOut || isoDate(summary.checkOut);
     const datesChanged = (newCi !== isoDate(summary.checkIn)) || (newCo !== isoDate(summary.checkOut));
+    const promoChanged = ch.promoCode !== undefined || ch.promoDiscountAmount !== undefined;
+    const invoiceTriggerFields = ['checkIn','checkOut','roomTotal','grandTotal','accommodationVat','packageVat','propertyFee','promoCode','promoDiscountAmount'];
+    const invoiceFieldsChanged = invoiceTriggerFields.some(function (k) { return ch[k] !== undefined; });
 
     // Availability check when dates changed (exclude this booking's own rows).
     if (datesChanged) {
@@ -199,21 +237,58 @@ export const adminUpdateBooking = webMethod(
       if (ch.guestPhone !== undefined) updated.guestPhone = ch.guestPhone;
       if (ch.numGuests !== undefined) updated.guests = Number(ch.numGuests) || r.guests;
       if (ch.status !== undefined) updated.status = ch.status;
+      if (ch.promoCode !== undefined) updated.promoCode = ch.promoCode;
+      if (ch.promoDiscountAmount !== undefined) updated.promoDiscountAmount = money(ch.promoDiscountAmount);
+      if (datesChanged) { updated.checkIn = new Date(newCi); updated.checkOut = new Date(newCo); }
       await wixData.update(BOOKINGS, updated);
     }
 
-    // Apply to BookingSummary
+    // Apply to BookingSummary (no financial fields)
     const sUpd = Object.assign({}, summary);
     if (ch.guestName !== undefined) sUpd.guestName = ch.guestName;
     if (ch.guestEmail !== undefined) sUpd.guestEmail = ch.guestEmail;
     if (ch.guestPhone !== undefined) sUpd.guestPhone = ch.guestPhone;
-    if (ch.grandTotal !== undefined) sUpd.grandTotal = money(ch.grandTotal);
-    if (ch.promoCode !== undefined) sUpd.promoCode = ch.promoCode;
     if (ch.status !== undefined) sUpd.status = ch.status;
     if (datesChanged) { sUpd.checkIn = newCi; sUpd.checkOut = newCo; }
     await wixData.update(BOOKING_SUMMARIES, sUpd);
 
-    return { ok: true, bookingNumber: bookingNumber };
+    // Generate new invoice when material details changed
+    let invoiceResult = null;
+    if (invoiceFieldsChanged) {
+      try {
+        invoiceResult = await issueBookingInvoice(bookingNumber, false);
+      } catch (invErr) {
+        console.log('>>> adminUpdateBooking invoice generation ERROR:', invErr.message);
+        invoiceResult = { error: invErr.message };
+      }
+    }
+
+    return { ok: true, bookingNumber: bookingNumber, invoiceGenerated: invoiceFieldsChanged, invoiceResult: invoiceResult };
+  }
+);
+
+// ---------- INVOICES ----------
+
+export const adminListInvoices = webMethod(
+  Permissions.Admin,
+  async (bookingNumber) => {
+    await requireAdmin();
+    const res = await wixData.query(BOOKING_INVOICES)
+      .eq('bookingNumber', bookingNumber)
+      .descending('_createdDate')
+      .limit(200)
+      .find();
+    return { ok: true, items: res.items };
+  }
+);
+
+export const adminIssueNewInvoice = webMethod(
+  Permissions.Admin,
+  async (bookingNumber) => {
+    await requireAdmin();
+    if (!bookingNumber) throw new Error('bookingNumber required');
+    const result = await issueBookingInvoice(bookingNumber, true);
+    return { ok: true, bookingNumber: bookingNumber, invoiceNumber: result.invoice_number, invoiceUrl: result.invoice_url };
   }
 );
 

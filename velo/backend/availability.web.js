@@ -86,7 +86,7 @@ async function getPackageRateForNights(nights) {
   return 0;
 }
 
-async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoiceNumber) {
+async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoiceNumber, ownerOnly) {
   const serviceUrl = await getSecret(INVOICE_SERVICE_URL_KEY);
   const secret = await getSecret(SHARED_SECRET_KEY);
   if (!serviceUrl || !secret) {
@@ -101,6 +101,7 @@ async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoice
     check_out: dates.checkOut,
     room_code: Array.isArray(dates.roomCode) ? dates.roomCode.join(', ') : dates.roomCode,
     send_email: sendEmail,
+    owner_only: !!ownerOnly,
   };
   if (invoiceNumber) {
     body.invoice_number = invoiceNumber;
@@ -592,7 +593,8 @@ export const createBooking = webMethod(
 
 export const issueBookingInvoice = webMethod(
   Permissions.Anyone,
-  async (bookingNumber) => {
+  async (bookingNumber, ownerOnly) => {
+    ownerOnly = ownerOnly || false;
     if (!bookingNumber) throw new Error('bookingNumber required');
 
     const bookingsRes = await wixData.query(BOOKINGS)
@@ -811,7 +813,7 @@ export const issueBookingInvoice = webMethod(
       promoDiscountAmount: quoteBreakdown.promo_discount_amount || 0
     };
 
-    const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, invoiceNumber);
+    const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, invoiceNumber, ownerOnly);
     console.log('>>> issueBookingInvoice full service result keys:', Object.keys(result || {}).join(','));
     console.log('>>> CALENDAR result from invoice service:', JSON.stringify(
       result._calendar_debug || result.calendar || result.calendar_error || 'no-calendar-field'
