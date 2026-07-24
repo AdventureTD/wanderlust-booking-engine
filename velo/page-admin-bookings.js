@@ -7,12 +7,15 @@ import {
   adminCancelBooking,
   adminRecordPayment,
   adminRecordRefund,
+  adminIssueNewInvoice,
 } from 'backend/adminConsole.web';
 
 let _currentBooking = null;
 let _currentRooms = [];
 let _currentPayments = [];
 let _currentTotals = null;
+let _currentInvoices = [];
+let _currentActiveInvoice = null;
 
 function tryFind(id) { try { return $w('#' + id); } catch (e) { return null; } }
 function safeSet(el, prop, val) { try { el[prop] = val; } catch (e) {} }
@@ -138,6 +141,8 @@ function wireDetailPanel() {
   if (refBtn && typeof refBtn.onClick === 'function') refBtn.onClick(recordRefund);
   const cancelBtn = tryFind('btnCancelBooking');
   if (cancelBtn && typeof cancelBtn.onClick === 'function') cancelBtn.onClick(cancelBooking);
+  const newInvBtn = tryFind('btnNewInvoice');
+  if (newInvBtn && typeof newInvBtn.onClick === 'function') newInvBtn.onClick(newInvoice);
 
   // Tab navigation
   const tabMap = { btnDetails: 'details', btnPayments: 'payments', btnCancel: 'cancel' };
@@ -191,6 +196,8 @@ async function openDetail(bookingNumber) {
     _currentBooking = res.summary;
     _currentRooms = res.rooms || [];
     _currentPayments = res.payments || [];
+    _currentInvoices = res.invoices || [];
+    _currentActiveInvoice = res.activeInvoice || null;
     _currentTotals = res.totals || null;
     renderDetail();
     txt('detailStatusText', '');
@@ -211,10 +218,31 @@ function renderDetail() {
   setVal('inputNumGuests', String(firstRoomGuests()));
   setVal('dateCheckIn', s.checkIn ? dstr(s.checkIn) : '');
   setVal('dateCheckOut', s.checkOut ? dstr(s.checkOut) : '');
-  setVal('inputGrandTotal', String(s.grandTotal || 0));
-  setVal('inputPromoCode', s.promoCode || '');
+
+  const inv = _currentActiveInvoice || {};
+  setVal('inputGrandTotal', String(inv.grandTotal || 0));
+  setVal('inputRoomTotal', String(inv.roomTotal || 0));
+  setVal('inputPropertyFee', String(inv.propertyFee || 0));
+  setVal('inputAccommodationVat', String(inv.accommodationVat || 0));
+  setVal('inputPackageVat', String(inv.packageVat || 0));
+  setVal('inputPromoCode', inv.promoCode || '');
+  setVal('inputPromoDiscountAmount', String(inv.promoDiscountAmount || 0));
   setVal('editStatusDropdown', s.status || 'confirmed');
   setVal('bookingNotes', s.notes || '');
+
+  // Invoices table
+  const invRep = tryFind('invoicesRepeater');
+  if (invRep) {
+    invRep.onItemReady(($item, itemData) => {
+      const i = itemData.invoice || itemData;
+      safeItemText($item, '#invRowNumber', i.invoiceNumber || '');
+      safeItemText($item, '#invRowTotal', money(i.grandTotal));
+      safeItemText($item, '#invRowStatus', i.status || '');
+    });
+    invRep.data = _currentInvoices.map(function (i, idx) {
+      return { _id: i._id || ('inv' + idx), invoice: i, style: { backgroundColor: i.status === 'Active' ? '#e6f0fa' : '' } };
+    });
+  }
 
   // Payments tab
   const t = _currentTotals || { grandTotal: 0, totalPaid: 0, totalRefunded: 0, balance: 0 };
@@ -262,7 +290,12 @@ async function saveChanges() {
       checkIn: val('dateCheckIn') ? dstr(val('dateCheckIn')) : undefined,
       checkOut: val('dateCheckOut') ? dstr(val('dateCheckOut')) : undefined,
       grandTotal: Number(val('inputGrandTotal')) || undefined,
+      roomTotal: Number(val('inputRoomTotal')) || undefined,
+      propertyFee: Number(val('inputPropertyFee')) || undefined,
+      accommodationVat: Number(val('inputAccommodationVat')) || undefined,
+      packageVat: Number(val('inputPackageVat')) || undefined,
       promoCode: String(val('inputPromoCode') || ''),
+      promoDiscountAmount: Number(val('inputPromoDiscountAmount')) || undefined,
       status: val('editStatusDropdown') || undefined,
     };
     const res = await adminUpdateBooking(_currentBooking.bookingNumber, changes);
@@ -314,6 +347,19 @@ async function recordRefund() {
     await openDetail(_currentBooking.bookingNumber);
   } catch (e) {
     txt('paymentStatusText', 'Error: ' + (e && e.message || e));
+  }
+}
+
+async function newInvoice() {
+  if (!_currentBooking) return;
+  txt('saveStatusText', 'Generating new invoice...');
+  try {
+    const res = await adminIssueNewInvoice(_currentBooking.bookingNumber);
+    if (!res.ok) { txt('saveStatusText', 'Error: ' + (res.error || 'unknown')); return; }
+    txt('saveStatusText', 'New invoice ' + res.invoiceNumber + ' generated and sent to info@.');
+    await openDetail(_currentBooking.bookingNumber);
+  } catch (e) {
+    txt('saveStatusText', 'Error: ' + (e && e.message || e));
   }
 }
 
