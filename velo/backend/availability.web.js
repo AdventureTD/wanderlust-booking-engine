@@ -137,12 +137,14 @@ async function archiveActiveInvoice(bookingNumber) {
   }
 }
 
-async function recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, totals) {
+async function recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, totals, checkIn, checkOut) {
   await archiveActiveInvoice(bookingNumber);
   const row = {
     bookingNumber,
     invoiceNumber,
     invoiceUrl: invoiceUrl || '',
+    checkIn: checkIn || '',
+    checkOut: checkOut || '',
     roomTotal: totals.roomTotal || 0,
     grandTotal: totals.grandTotal || 0,
     accommodationVat: totals.accommodationVat || 0,
@@ -833,10 +835,27 @@ export const issueBookingInvoice = webMethod(
     const invoiceUrl = result.invoice_url || '';
 
     try {
-      await recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, totals);
+      await recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, totals, checkInDate, checkOutDate);
       console.log('>>> issueBookingInvoice recorded invoice', invoiceNumber, 'for booking', bookingNumber);
     } catch (invErr) {
       console.log('>>> issueBookingInvoice recordBookingInvoice ERROR:', invErr.message);
+    }
+
+    // Mirror active invoice dates onto BookingSummary.
+    try {
+      const summaryRes = await wixData.query(BOOKING_SUMMARIES)
+        .eq('bookingNumber', bookingNumber)
+        .limit(1)
+        .find();
+      if (summaryRes.items.length > 0) {
+        const sItem = summaryRes.items[0];
+        sItem.checkIn = checkInDate;
+        sItem.checkOut = checkOutDate;
+        await wixData.update(BOOKING_SUMMARIES, sItem);
+        console.log('>>> issueBookingInvoice mirrored dates to BookingSummary');
+      }
+    } catch (e) {
+      console.log('>>> issueBookingInvoice mirror dates ERROR:', e.message);
     }
 
     return returnPayload;
