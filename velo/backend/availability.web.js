@@ -8,6 +8,7 @@ import { adjustBookingConversion } from 'backend/googleAdsConversions.web';
 
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
+const BOOKING_INVOICES = 'BookingInvoices';
 const INVOICE_SERVICE_URL_KEY = 'WBE_INVOICE_SERVICE_URL';
 const SHARED_SECRET_KEY = 'WBE_SHARED_SECRET';
 
@@ -42,6 +43,10 @@ function getRoomDisplayName(roomCode) {
 async function getNextBookingNumber() {
   const next = await incrementSetting('bookNumber');
   return 'WC-' + next;
+}
+
+async function getNextInvoiceNumber() {
+  return String(await incrementSetting('invoiceNumber'));
 }
 
 function nightsBetween(checkIn, checkOut) {
@@ -116,6 +121,37 @@ async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoice
   }
 
   return res.json();
+}
+
+
+async function archiveActiveInvoice(bookingNumber) {
+  const res = await wixData.query(BOOKING_INVOICES)
+    .eq('bookingNumber', bookingNumber)
+    .eq('status', 'Active')
+    .limit(100)
+    .find();
+  for (const item of res.items) {
+    item.status = 'History';
+    await wixData.update(BOOKING_INVOICES, item);
+  }
+}
+
+async function recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, totals) {
+  await archiveActiveInvoice(bookingNumber);
+  const row = {
+    bookingNumber,
+    invoiceNumber,
+    invoiceUrl: invoiceUrl || '',
+    roomTotal: totals.roomTotal || 0,
+    grandTotal: totals.grandTotal || 0,
+    accommodationVat: totals.accommodationVat || 0,
+    packageVat: totals.packageVat || 0,
+    propertyFee: totals.propertyFee || 0,
+    promoCode: totals.promoCode || '',
+    promoDiscountAmount: totals.promoDiscountAmount || 0,
+    status: 'Active'
+  };
+  return await wixData.insert(BOOKING_INVOICES, row);
 }
 
 function buildQuoteBreakdown(booking) {
@@ -763,7 +799,19 @@ export const issueBookingInvoice = webMethod(
       accommodationShare: accommodationShare,
     }));
 
-    const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, bookingNumber);
+    const invoiceNumber = await getNextInvoiceNumber();
+
+    const totals = {
+      roomTotal: quoteBreakdown.subtotal_net || 0,
+      grandTotal: quoteBreakdown.total || 0,
+      accommodationVat: (quoteBreakdown.vat_by_class && quoteBreakdown.vat_by_class.accommodation) || 0,
+      packageVat: (quoteBreakdown.vat_by_class && quoteBreakdown.vat_by_class.standard) || 0,
+      propertyFee: quoteBreakdown.property_fee || 0,
+      promoCode: quoteBreakdown.promo_code || '',
+      promoDiscountAmount: quoteBreakdown.promo_discount_amount || 0
+    };
+
+    const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, invoiceNumber);
     console.log('>>> issueBookingInvoice full service result keys:', Object.keys(result || {}).join(','));
     console.log('>>> CALENDAR result from invoice service:', JSON.stringify(
       result._calendar_debug || result.calendar || result.calendar_error || 'no-calendar-field'
@@ -782,26 +830,11 @@ export const issueBookingInvoice = webMethod(
 
     const invoiceUrl = result.invoice_url || '';
 
-    for (const row of bookingsRes.items) {
-      if (!row.invoiceUrl) {
-        row.invoiceUrl = invoiceUrl;
-        await wixData.update(BOOKINGS, row);
-      }
-    }
-
     try {
-      const summaryRes = await wixData.query(BOOKING_SUMMARIES)
-        .eq('bookingNumber', bookingNumber)
-        .limit(1)
-        .find();
-
-      if (summaryRes.items.length > 0) {
-        const summaryItem = summaryRes.items[0];
-        summaryItem.invoiceUrl = invoiceUrl;
-        await wixData.update(BOOKING_SUMMARIES, summaryItem);
-      }
-    } catch (summaryErr) {
-      console.log('>>> issueBookingInvoice Booking Summary update skipped:', summaryErr.message);
+      await recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, totals);
+      console.log('>>> issueBookingInvoice recorded invoice', invoiceNumber, 'for booking', bookingNumber);
+    } catch (invErr) {
+      console.log('>>> issueBookingInvoice recordBookingInvoice ERROR:', invErr.message);
     }
 
     return returnPayload;
