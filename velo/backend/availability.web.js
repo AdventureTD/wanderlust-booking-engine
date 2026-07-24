@@ -3,7 +3,7 @@ import wixData from 'wix-data';
 import { Permissions, webMethod } from 'wix-web-module';
 import { fetch } from 'wix-fetch';
 import { getSecret } from 'wix-secrets-backend';
-import { getAllSettings } from 'backend/settings.web';
+import { getAllSettings, incrementSetting } from 'backend/settings.web';
 import { adjustBookingConversion } from 'backend/googleAdsConversions.web';
 
 const BOOKINGS = 'Bookings';
@@ -40,44 +40,8 @@ function getRoomDisplayName(roomCode) {
 }
 
 async function getNextBookingNumber() {
-  const PREFIX = 'WBE-INV-';
-  const PAD = 4;
-  let maxNum = 0;
-  let page = await wixData.query(BOOKINGS)
-    .limit(1000)
-    .find();
-  while (page.items.length) {
-    for (const item of page.items) {
-      const bn = item.bookingNumber;
-      if (bn) {
-        const m = String(bn).match(/(\d+)$/);
-        if (m) {
-          const n = parseInt(m[1], 10);
-          if (n > maxNum) maxNum = n;
-        }
-      }
-    }
-    if (page.hasNext()) {
-      page = await page.next();
-    } else {
-      break;
-    }
-  }
-  let candidate = maxNum + 1;
-  let attempts = 0;
-  while (attempts < 5) {
-    const numStr = PREFIX + String(candidate).padStart(PAD, '0');
-    const exist = await wixData.query(BOOKINGS)
-      .eq('bookingNumber', numStr)
-      .limit(1)
-      .find();
-    if (exist.items.length === 0) {
-      return numStr;
-    }
-    candidate++;
-    attempts++;
-  }
-  throw new Error('Failed to generate unique booking number');
+  const next = await incrementSetting('bookNumber');
+  return 'WC-' + next;
 }
 
 function nightsBetween(checkIn, checkOut) {
@@ -333,13 +297,6 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       guestEmail,
       guestPhone,
       roomCount,
-      roomTotal: Math.round((totalRoomTotal + Number.EPSILON) * 100) / 100,
-      accommodationVat: Math.round((totalAccommodationVat + Number.EPSILON) * 100) / 100,
-      packageVat: Math.round((totalPackageVat + Number.EPSILON) * 100) / 100,
-      propertyFee: Math.round((totalPropertyFee + Number.EPSILON) * 100) / 100,
-      grandTotal: Math.round((totalRoomTotal + totalAccommodationVat + totalPackageVat + totalPropertyFee + Number.EPSILON) * 100) / 100,
-      promoCode,
-      promoDiscountAmount: totalDiscountAmount,
       status: status || 'confirmed',
       gclid: anyGclid,
       gbraid: anyGbraid,
