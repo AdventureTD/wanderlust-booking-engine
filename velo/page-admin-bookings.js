@@ -104,7 +104,6 @@ async function refreshList() {
       safeItemText($item, '#rowBookingNumber', s.bookingNumber || '');
       safeItemText($item, '#rowGuestName', s.guestName || '');
       safeItemText($item, '#rowDates', dstr(s.checkIn) + ' – ' + dstr(s.checkOut));
-      safeItemText($item, '#rowTotal', money(s.grandTotal));
       safeItemText($item, '#rowStatus', s.status || '');
       const btn = safeItemFind($item, '#btnViewBooking');
       if (btn && typeof btn.onClick === 'function') {
@@ -125,6 +124,7 @@ async function refreshList() {
 
 function safeItemFind($item, sel) { try { return $item(sel); } catch (e) { return null; } }
 function safeItemText($item, sel, v) { const el = safeItemFind($item, sel); if (el) safeSet(el, 'text', v); }
+function safeItemSet($item, sel, v) { const el = safeItemFind($item, sel); if (el && el.value !== undefined) safeSet(el, 'value', v); else safeItemText($item, sel, v); }
 
 // ---------------- DETAIL PANEL ----------------
 
@@ -211,36 +211,37 @@ function renderDetail() {
   if (!s) return;
   txt('detailTitle', 'Booking ' + (s.bookingNumber || ''));
 
-  // Details tab
+  // Details tab (BookingSummary fields)
   setVal('inputGuestName', s.guestName || '');
   setVal('inputGuestEmail', s.guestEmail || '');
   setVal('inputGuestPhone', s.guestPhone || '');
-  setVal('inputNumGuests', String(firstRoomGuests()));
-  setVal('dateCheckIn', s.checkIn ? dstr(s.checkIn) : '');
-  setVal('dateCheckOut', s.checkOut ? dstr(s.checkOut) : '');
+  setVal('inputRoomsNum', String(s.roomCount || _currentRooms.length || 0));
+  setVal('inputStatusDropdown', s.status || 'confirmed');
+  setVal('inputgclid', s.gclid || '');
+  setVal('inputgbraid', s.gbraid || '');
+  setVal('inputwbraid', s.wbraid || '');
+  setVal('inputConvUp', s.googleConversionUploaded ? '1' : '0');
+  setVal('inputConvRet', s.googleConversionRetracted ? '1' : '0');
+  setVal('inputBookingNotes', s.notes || '');
 
-  const inv = _currentActiveInvoice || {};
-  setVal('inputGrandTotal', String(inv.grandTotal || 0));
-  setVal('inputRoomTotal', String(inv.roomTotal || 0));
-  setVal('inputPropertyFee', String(inv.propertyFee || 0));
-  setVal('inputAccommodationVat', String(inv.accommodationVat || 0));
-  setVal('inputPackageVat', String(inv.packageVat || 0));
-  setVal('inputPromoCode', inv.promoCode || '');
-  setVal('inputPromoDiscountAmount', String(inv.promoDiscountAmount || 0));
-  setVal('editStatusDropdown', s.status || 'confirmed');
-  setVal('bookingNotes', s.notes || '');
-
-  // Invoices table
-  const invRep = tryFind('invoicesRepeater');
+  // Invoices repeater (BookingInvoices fields)
+  const invRep = tryFind('bookingInvoicesRepeater');
   if (invRep) {
     invRep.onItemReady(($item, itemData) => {
       const i = itemData.invoice || itemData;
-      safeItemText($item, '#invRowNumber', i.invoiceNumber || '');
-      safeItemText($item, '#invRowTotal', money(i.grandTotal));
-      safeItemText($item, '#invRowStatus', i.status || '');
+      safeItemText($item, '#inputInvoiceNumber', i.invoiceNumber || '');
+      safeItemSet($item, '#dateCheckIn', i.checkIn ? dstr(i.checkIn) : '');
+      safeItemSet($item, '#dateCheckOut', i.checkOut ? dstr(i.checkOut) : '');
+      safeItemText($item, '#inputPkgVat', money(i.packageVat));
+      safeItemText($item, '#inputAccVat', money(i.accommodationVat));
+      safeItemText($item, '#inputPropFee', money(i.propertyFee));
+      safeItemText($item, '#inputRoomTotal', money(i.roomTotal));
+      safeItemText($item, '#inputGrandTotal', money(i.grandTotal));
+      safeItemText($item, '#inputPromoCode', i.promoCode || '');
+      safeItemText($item, '#inputPromoDiscountNum', money(i.promoDiscountAmount));
     });
     invRep.data = _currentInvoices.map(function (i, idx) {
-      return { _id: i._id || ('inv' + idx), invoice: i, style: { backgroundColor: i.status === 'Active' ? '#e6f0fa' : '' } };
+      return { _id: i._id || ('inv' + idx), invoice: i };
     });
   }
 
@@ -286,17 +287,19 @@ async function saveChanges() {
       guestName: String(val('inputGuestName') || ''),
       guestEmail: String(val('inputGuestEmail') || ''),
       guestPhone: String(val('inputGuestPhone') || ''),
-      numGuests: Number(val('inputNumGuests')) || undefined,
+      numGuests: Number(val('inputRoomsNum')) || undefined,
       checkIn: val('dateCheckIn') ? dstr(val('dateCheckIn')) : undefined,
       checkOut: val('dateCheckOut') ? dstr(val('dateCheckOut')) : undefined,
-      grandTotal: Number(val('inputGrandTotal')) || undefined,
-      roomTotal: Number(val('inputRoomTotal')) || undefined,
-      propertyFee: Number(val('inputPropertyFee')) || undefined,
-      accommodationVat: Number(val('inputAccommodationVat')) || undefined,
-      packageVat: Number(val('inputPackageVat')) || undefined,
+      roomCount: Number(val('inputRoomsNum')) || undefined,
+      status: val('inputStatusDropdown') || undefined,
+      gclid: String(val('inputgclid') || ''),
+      gbraid: String(val('inputgbraid') || ''),
+      wbraid: String(val('inputwbraid') || ''),
+      googleConversionUploaded: val('inputConvUp') === '1' || val('inputConvUp') === true || val('inputConvUp') === 'true',
+      googleConversionRetracted: val('inputConvRet') === '1' || val('inputConvRet') === true || val('inputConvRet') === 'true',
+      notes: String(val('inputBookingNotes') || ''),
       promoCode: String(val('inputPromoCode') || ''),
       promoDiscountAmount: Number(val('inputPromoDiscountAmount')) || undefined,
-      status: val('editStatusDropdown') || undefined,
     };
     const res = await adminUpdateBooking(_currentBooking.bookingNumber, changes);
     if (!res.ok) { txt('saveStatusText', 'Error: ' + (res.error || 'unknown')); return; }

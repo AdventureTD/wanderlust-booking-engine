@@ -249,6 +249,12 @@ export const adminUpdateBooking = webMethod(
     if (ch.guestEmail !== undefined) sUpd.guestEmail = ch.guestEmail;
     if (ch.guestPhone !== undefined) sUpd.guestPhone = ch.guestPhone;
     if (ch.status !== undefined) sUpd.status = ch.status;
+    if (ch.notes !== undefined) sUpd.notes = ch.notes;
+    if (ch.gclid !== undefined) sUpd.gclid = ch.gclid;
+    if (ch.gbraid !== undefined) sUpd.gbraid = ch.gbraid;
+    if (ch.wbraid !== undefined) sUpd.wbraid = ch.wbraid;
+    if (ch.googleConversionUploaded !== undefined) sUpd.googleConversionUploaded = ch.googleConversionUploaded;
+    if (ch.googleConversionRetracted !== undefined) sUpd.googleConversionRetracted = ch.googleConversionRetracted;
     if (datesChanged) { sUpd.checkIn = newCi; sUpd.checkOut = newCo; }
     await wixData.update(BOOKING_SUMMARIES, sUpd);
 
@@ -346,8 +352,11 @@ export const adminCancelBooking = webMethod(
       }
     }
 
-    // 3. Update BookingSummary status
+    // 3. Update BookingSummary status and append cancellation note
     summary.status = 'Cancelled';
+    const today = new Date().toISOString().slice(0, 10);
+    const cancelNote = 'Cancellation on ' + today + (reason ? ': ' + reason : '.');
+    summary.notes = (summary.notes || '') + (summary.notes ? '\n' : '') + cancelNote;
     await wixData.update(BOOKING_SUMMARIES, summary);
 
     // 4. Cancellation email via invoice service
