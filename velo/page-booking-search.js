@@ -232,17 +232,6 @@ $w.onReady(async function () {
               try { pkgContainer.collapse(); } catch (e) {}
             }
           }
-
-          // Set packagePrice = nights × matching package baseRate.
-          const packagePriceEl = tryFind('packagePrice');
-          if (packagePriceEl) {
-            const baseRate = Number(pkgDetails.baseRate) || Number(_cachedBaseRate) || 0;
-            const packagePrice = baseRate * nights;
-            console.log('>>> packagePrice compute:', { nights: nights, baseRate: baseRate, packagePrice: packagePrice, pkgDetails: pkgDetails });
-            packagePriceEl.text = packagePrice > 0 ? '$' + packagePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
-            try { packagePriceEl.show(); } catch (e) {}
-            try { packagePriceEl.expand(); } catch (e) {}
-          }
         } catch (pkgErr) {
           console.log('>>> package details lookup error:', pkgErr && pkgErr.message || pkgErr);
         }
@@ -251,21 +240,6 @@ $w.onReady(async function () {
       const estValue = await ensureBaseRate(nights).then(function () {
         return estimateSearchValue(nights);
       });
-
-      // Set packagePrice = nights × matching package baseRate.
-      try {
-        const pkgDetails = await getPackageDetailsByNights(nights);
-        const packagePriceEl = tryFind('packagePrice');
-        if (packagePriceEl) {
-          const baseRate = Number(pkgDetails.baseRate) || Number(_cachedBaseRate) || 0;
-          const packagePrice = baseRate * nights;
-          packagePriceEl.text = packagePrice > 0 ? '$' + packagePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
-          try { packagePriceEl.show(); } catch (e) {}
-          try { packagePriceEl.expand(); } catch (e) {}
-        }
-      } catch (priceErr) {
-        console.log('>>> packagePrice lookup error:', priceErr && priceErr.message || priceErr);
-      }
       trackBeginBooking({
         checkIn: ci ? (ci.getMonth() + 1) + '/' + ci.getDate() + '/' + ci.getFullYear() : undefined,
         checkOut: co ? (co.getMonth() + 1) + '/' + co.getDate() + '/' + co.getFullYear() : undefined,
