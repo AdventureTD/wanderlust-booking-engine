@@ -319,7 +319,10 @@ $w.onReady(async function () {
         const ciFmt = formatVacationDate(ci);
         const coFmt = formatVacationDate(co);
         if (ciFmt && coFmt) {
-          vacationDatesEl.text = ciFmt + ' - ' + coFmt;
+          const dateText = ciFmt + ' - ' + coFmt;
+          vacationDatesEl.text = dateText;
+          console.log('>>> vacationDates text set to:', JSON.stringify(dateText), 'length:', dateText.length);
+          if (typeof vacationDatesEl.collapse === 'function') { try { vacationDatesEl.collapse(); } catch (e) {} }
           if (typeof vacationDatesEl.show === 'function') { try { vacationDatesEl.show(); } catch (e) {} }
           if (typeof vacationDatesEl.expand === 'function') { try { vacationDatesEl.expand(); } catch (e) {} }
         } else {
