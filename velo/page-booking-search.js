@@ -159,7 +159,11 @@ $w.onReady(async function () {
     let settings = {};
     try { settings = await getAllSettings(); } catch (e) {}
     const suspend = String(settings.suspendGoogleAds).trim() === '1' || Number(settings.suspendGoogleAds) === 1;
-    setSuspendGoogleAds(suspend);
+    if (typeof setSuspendGoogleAds === 'function') {
+      setSuspendGoogleAds(suspend);
+    } else {
+      console.log('[WBE-SEARCH] setSuspendGoogleAds import not ready, suspendGoogleAds defaults to false');
+    }
   } catch (err) {
     console.log('[WBE-SEARCH] settings load error:', err && err.message || err);
   }
@@ -300,7 +304,7 @@ $w.onReady(async function () {
   const rep = tryFind('searchResultsRepeater');
   if (rep && typeof rep.onItemReady === 'function') {
     rep.onItemReady(($item, itemData) => {
-      console.log('>>> [WBE-REPEATER] itemData keys:', Object.keys(itemData).join(','), JSON.stringify({ name: itemData.name, description: itemData.description, roomType: itemData.roomType, occupancyText: itemData.occupancyText }));
+      // Repeater item debug log disabled to reduce console noise
       if ((itemData.maxQty || 0) <= 0 || itemData.status === 'unavailable') {
         safeItem($item, '#roomName', 'text', (itemData.roomName || itemData.roomCode || '') + ' — Not available for these dates');
         safeItem($item, '#roomPrice', 'text', '');
@@ -468,8 +472,12 @@ async function loadMessages() {
     const msgs = await getActiveMessages('search');
     const el = tryFind('messagesContainer');
     if (!el) return;
-    if (msgs.length === 0) el.collapse();
-    else { el.expand(); el.text = msgs.map((m) => m.title || '').join('; '); }
+    if (msgs.length === 0) {
+      if (typeof el.collapse === 'function') { try { el.collapse(); } catch (e) {} }
+    } else {
+      if (typeof el.expand === 'function') { try { el.expand(); } catch (e) {} }
+      el.text = msgs.map((m) => m.title || '').join('; ');
+    }
   } catch (e) {}
 }
 
@@ -486,7 +494,7 @@ function estimateSearchValue(nights) {
 
 async function searchHandler() {
   const gallery = tryFind('hotelRoomPhotos');
-  if (gallery && typeof gallery.collapse === 'function') gallery.collapse();
+  if (gallery && typeof gallery.collapse === 'function') { try { gallery.collapse(); } catch (e) {} }
 
   let ciEl = tryFind('datePickerCheckIn'), coEl = tryFind('datePickerCheckOut');
   if (!ciEl || !coEl) {

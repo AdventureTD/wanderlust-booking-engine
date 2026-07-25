@@ -44,7 +44,11 @@ $w.onReady(async function () {
     let settings = {};
     try { settings = await getAllSettings(); } catch (e) {}
     const suspend = String(settings.suspendGoogleAds).trim() === '1' || Number(settings.suspendGoogleAds) === 1;
-    setSuspendGoogleAds(suspend);
+    if (typeof setSuspendGoogleAds === 'function') {
+      setSuspendGoogleAds(suspend);
+    } else {
+      console.log('[WBE-MASTER] setSuspendGoogleAds import not ready, suspend defaults to false');
+    }
 
     initTracking($w);
     console.log('[WBE-MASTER] captureClickIds started');

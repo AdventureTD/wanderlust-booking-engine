@@ -206,7 +206,11 @@ async function initSummary() {
   _roomNames = roomNames;
 
   const suspend = String(settings.suspendGoogleAds).trim() === '1' || Number(settings.suspendGoogleAds) === 1;
-  setSuspendGoogleAds(suspend);
+  if (typeof setSuspendGoogleAds === 'function') {
+    setSuspendGoogleAds(suspend);
+  } else {
+    console.log('[WBE-SUMMARY] setSuspendGoogleAds import not ready, suspend defaults to false');
+  }
 
   initRoomRepeater();
   safeCollapse('promoAmount');
