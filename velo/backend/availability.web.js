@@ -4,7 +4,7 @@ import { Permissions, webMethod } from 'wix-web-module';
 import { fetch } from 'wix-fetch';
 import { getSecret } from 'wix-secrets-backend';
 import { getAllSettings, incrementSetting } from 'backend/settings.web';
-import { adjustBookingConversion } from 'backend/googleAdsConversions.web';
+import { adjustBookingConversion, isGoogleAdsSuspended } from 'backend/googleAdsConversions.web';
 
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
