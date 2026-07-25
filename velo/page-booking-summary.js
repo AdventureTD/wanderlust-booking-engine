@@ -500,11 +500,14 @@ async function renderSummary() {
     if (pkgTitle) {
       safeExpand('box1');
       safeExpand('packageName');
+      safeExpand('packageLarge');
       safeText('packageName', pkgTitle);
-      console.log('[WBE] SET packageName to:', pkgTitle);
+      safeText('packageLarge', pkgTitle);
+      console.log('[WBE] SET packageName/packageLarge to:', pkgTitle);
     } else {
       safeCollapse('packageName');
-      console.log('[WBE] COLLAPSED packageName, no title found');
+      safeCollapse('packageLarge');
+      console.log('[WBE] COLLAPSED packageName/packageLarge, no title found');
     }
   } catch (e) {
     safeCollapse('packageName');
