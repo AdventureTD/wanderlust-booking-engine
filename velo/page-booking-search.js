@@ -43,7 +43,7 @@ function updateSelectionPanel() {
   const box3 = tryFind('box3');
   if (!panel || !container) return;
   if (_selections.length === 0) {
-    panel.collapse();
+    safeCollapse(panel);
     try { container.hide(); } catch (e) {}
     if (btnSummary) { safeCollapse(btnSummary); }
     if (box3) { safeCollapse(box3); }
@@ -51,7 +51,7 @@ function updateSelectionPanel() {
     return;
   }
   if (box3) { safeExpand(box3); }
-  panel.expand();
+  safeExpand(panel);
   if (typeof container.show === 'function') { try { container.show(); } catch (e) {} }
   if (btnSummary) { safeExpand(btnSummary); }
   let total = 0, totalGuests = 0, lines = [];
@@ -135,15 +135,15 @@ function tryFind(id) { try { return $w('#' + id); } catch (e) { return null; } }
 
 function safeCollapse(el) {
   if (!el) return;
-  if (typeof el.collapse === 'function') { safeCollapse(el); }
+  if (typeof el.collapse === 'function') { try { el.collapse(); } catch (e) {} }
   else if (typeof el.hide === 'function') { try { el.hide(); } catch (e) {} }
 }
 
 function safeExpand(el) {
   if (!el) return;
   if (typeof el.expand === 'function') { try { el.expand(); } catch (e) {} }
-  else if (typeof el.show === 'function') { safeExpand(el); }
-      });
+  else if (typeof el.show === 'function') { try { el.show(); } catch (e) {} }
+}
 
       const vacationDatesEl = tryFind('vacationDates');
       if (vacationDatesEl) {
@@ -622,4 +622,3 @@ function applyUrlDatesIfPresent() {
     return q.auto === '1';
   } catch (e) { return false; }
 }
-
