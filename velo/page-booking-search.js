@@ -71,6 +71,7 @@ function updateSelectionPanel() {
   const summaryContainer = tryFind('bookingSummaryContainer');
   const selection = tryFind('selection');
   const transSummary = tryFind('transSummary');
+  const summaryBackground = tryFind('summaryBackground');
   console.log('>>> updateSelectionPanel elements:', {
     panel: !!panel,
     container: !!container,
@@ -79,6 +80,7 @@ function updateSelectionPanel() {
     summaryContainer: !!summaryContainer,
     selection: !!selection,
     transSummary: !!transSummary,
+    summaryBackground: !!summaryBackground,
     selections: _selections.length
   });
 
@@ -91,6 +93,7 @@ function updateSelectionPanel() {
     hideElement(summaryContainer, 'bookingSummaryContainer');
     hideElement(selection, 'selection');
     hideElement(transSummary, 'transSummary');
+    hideElement(summaryBackground, 'summaryBackground');
     return;
   }
 
@@ -114,6 +117,7 @@ function updateSelectionPanel() {
   showElement(summaryContainer, 'bookingSummaryContainer');
   showElement(selection, 'selection');
   showElement(transSummary, 'transSummary');
+  showElement(summaryBackground, 'summaryBackground');
   showElement(panel, 'selectionPanel');
   showElement(container, 'selectedRoomsContainer');
   showElement(btnSummary, 'btnSummary');
