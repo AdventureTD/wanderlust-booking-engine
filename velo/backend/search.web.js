@@ -222,7 +222,26 @@ export const searchAvailability = webMethod(
       }
     }
 
-    const filtered = out.filter(r => r.maxQty > 0);
+    // Deduplicate by roomCode. If both full and partial exist, prefer the full row.
+    const seen = {};
+    const deduped = [];
+    for (const r of out) {
+      if (seen[r.roomCode]) {
+        const existing = seen[r.roomCode];
+        if (r.status === 'full' && existing.status !== 'full') {
+          existing.status = 'full';
+          existing.maxQty = r.maxQty;
+          existing.availableCheckIn = r.availableCheckIn;
+          existing.availableCheckOut = r.availableCheckOut;
+          existing.availableNights = r.availableNights;
+        }
+        continue;
+      }
+      seen[r.roomCode] = r;
+      deduped.push(r);
+    }
+
+    const filtered = deduped.filter(r => r.maxQty > 0);
 
     return {
       ok: true, error: null, requestedNights: rq, results: filtered,
