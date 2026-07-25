@@ -134,6 +134,11 @@ function safeItem($item, selector, action, val) {
 
 function tryFind(id) { try { return $w('#' + id); } catch (e) { return null; } }
 
+function plainTextFromHtml(html) {
+  if (!html) return '';
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function formatVacationDate(d) {
   if (!d || isNaN(d.getTime())) { return ''; }
   const months = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -289,6 +294,11 @@ $w.onReady(async function () {
         return;
       }
       safeItem($item, '#roomName', 'text', itemData.roomName || itemData.roomCode || '');
+      safeItem($item, '#roomname2', 'text', itemData.name || itemData.roomName || itemData.roomCode || '');
+      safeItem($item, '#description', 'text', plainTextFromHtml(itemData.description));
+      safeItem($item, '#roomType', 'text', itemData.roomType || '');
+      safeItem($item, '#occupancyText', 'text', itemData.occupancyText || '');
+      safeItem($item, '#additionalFeeText', 'text', itemData.additionalFeeText || '');
       safeItem($item, '#numRooms', 'text', String(itemData.maxQty || itemData.units || 1));
       safeItem($item, '#roomPrice', 'text', '');
       safeItem($item, '#roomAvailability', 'text',
@@ -296,6 +306,10 @@ $w.onReady(async function () {
         : 'Available for ' + itemData.availableNights + ' nights (partial)');
       safeItem($item, '#occupancy', 'text', String(itemData.occupancy || 2));
       safeItem($item, '#defaultOccupancy', 'text', String(itemData.baseOccupancy || itemData.occupancy || 2));
+
+      // Selected badge defaults hidden inside repeater template; reveal when qty selected.
+      const badgeEl = safeItem($item, '#selectedBadge', null, null);
+      if (badgeEl) { try { badgeEl.hide(); } catch (e) {} }
 
       // Set roomFeeText from Rooms collection and show penthouseFeeText only for Penthouse Apartment.
       const feeInfo = (_roomFeeMap && _roomFeeMap[itemData.roomCode]) || {};
@@ -362,18 +376,21 @@ $w.onReady(async function () {
           const qty = parseInt(event.target.value || '1', 10);
           const numGuests = typeof selectedGuests === 'number' ? selectedGuests : baseOcc;
           const rowVector = safeItem($item, '#vectorImage2', null, null);
+          const badgeEl = safeItem($item, '#selectedBadge', null, null);
           if (qty > 0) {
             setRoomSelection(itemData.roomCode, itemData.roomName || itemData.roomCode, qty, numGuests, itemData.availableCheckIn, itemData.availableCheckOut, itemData.roomFee || 0);
             if (rowVector) {
               try { rowVector.show(); } catch (e) {}
               try { rowVector.expand(); } catch (e) {}
             }
+            if (badgeEl) { try { badgeEl.show(); } catch (e) {} try { badgeEl.expand(); } catch (e) {} }
           } else {
             removeRoomSelection(itemData.roomCode);
             if (rowVector) {
               try { rowVector.hide(); } catch (e) {}
               try { rowVector.collapse(); } catch (e) {}
             }
+            if (badgeEl) { try { badgeEl.hide(); } catch (e) {} try { badgeEl.collapse(); } catch (e) {} }
           }
 
           // Directly force container and btnSummary visibility based on current selections.

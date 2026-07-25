@@ -107,10 +107,17 @@ export const searchAvailability = webMethod(
       const maxOcc = rm.maxOccupancy || 2;
       const baseOcc = rm.baseOccupancy || maxOcc;
       const roomFee = Number(rm.roomFee) || 0;
+      const extraFieldsUnavailable = {
+        name: rm.name || '',
+        description: rm.description || '',
+        roomType: rm.roomType || '',
+        occupancyText: rm.occupancyText || '',
+        additionalFeeText: rm.additionalFeeText || ''
+      };
 
       const minNights = rm.minNightsAllowed != null ? Number(rm.minNightsAllowed) : null;
       if (minNights != null && !isNaN(minNights) && rq < minNights) {
-        out.push({
+        out.push(Object.assign({
           roomCode: code, roomName: name, units: units,
           occupancy: maxOcc, baseOccupancy: baseOcc,
           maxQty: 0, status: 'unavailable',
@@ -118,7 +125,7 @@ export const searchAvailability = webMethod(
           availableNights: 0, baseRate: 0,
           roomFee: roomFee,
           mainPhoto: imgUrl(rm.mainPhoto),
-        });
+        }, extraFieldsUnavailable));
         continue;
       }
 
@@ -160,7 +167,7 @@ export const searchAvailability = webMethod(
       const maxQty = units - maxBooked;
 
       if (allAvail) {
-        out.push({
+        out.push(Object.assign({
           roomCode: code, roomName: name, units: units,
           occupancy: maxOcc, baseOccupancy: baseOcc,
           maxQty: maxQty, status: 'full',
@@ -169,12 +176,12 @@ export const searchAvailability = webMethod(
           availableNights: rq,
           roomFee: roomFee,
           mainPhoto: imgUrl(rm.mainPhoto),
-        });
+        }, extraFieldsUnavailable));
         continue;
       }
 
       if (maxQty <= 0) {
-        out.push({
+        out.push(Object.assign({
           roomCode: code, roomName: name, units: units,
           occupancy: maxOcc, baseOccupancy: baseOcc,
           maxQty: 0, status: 'unavailable',
@@ -182,7 +189,7 @@ export const searchAvailability = webMethod(
           availableNights: 0, baseRate: 0,
           roomFee: roomFee,
           mainPhoto: imgUrl(rm.mainPhoto),
-        });
+        }, extraFieldsUnavailable));
         continue;
       }
 
@@ -202,7 +209,7 @@ export const searchAvailability = webMethod(
         }
         const aci = nights[bs];
         const aco = ad(nights[bs + bl - 1], 1);
-        out.push({
+        out.push(Object.assign({
           roomCode: code, roomName: name, units: units,
           occupancy: maxOcc, baseOccupancy: baseOcc,
           maxQty: minFreePartial, status: 'partial',
@@ -211,7 +218,7 @@ export const searchAvailability = webMethod(
           availableNights: bl,
           roomFee: roomFee,
           mainPhoto: imgUrl(rm.mainPhoto),
-        });
+        }, extraFieldsUnavailable));
       }
     }
 
