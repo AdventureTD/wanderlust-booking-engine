@@ -232,6 +232,17 @@ $w.onReady(async function () {
               try { pkgContainer.collapse(); } catch (e) {}
             }
           }
+
+          // Set packagePrice = nights × matching package baseRate.
+          const packagePriceEl = tryFind('packagePrice');
+          if (packagePriceEl) {
+            const baseRate = Number(pkgDetails.baseRate) || 0;
+            const packagePrice = baseRate * nights;
+            console.log('>>> packagePrice compute:', { nights: nights, baseRate: baseRate, packagePrice: packagePrice, pkgDetails: pkgDetails });
+            packagePriceEl.text = packagePrice > 0 ? '$' + packagePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+            try { packagePriceEl.show(); } catch (e) {}
+            try { packagePriceEl.expand(); } catch (e) {}
+          }
         } catch (pkgErr) {
           console.log('>>> package details lookup error:', pkgErr && pkgErr.message || pkgErr);
         }
