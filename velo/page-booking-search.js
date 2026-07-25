@@ -249,6 +249,14 @@ $w.onReady(async function () {
   })();
 
   trackViewBookingSearch();
+
+  // Ensure the page starts at the top when loaded.
+  try {
+    if (typeof window !== 'undefined' && window.scrollTo) {
+      window.scrollTo(0, 0);
+    }
+  } catch (e) {}
+
   const shouldAutoSearch = applyUrlDatesIfPresent();
   if (shouldAutoSearch) {
     setTimeout(function () { searchHandler(); }, 400);
