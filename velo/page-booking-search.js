@@ -43,17 +43,17 @@ function updateSelectionPanel() {
   const box3 = tryFind('box3');
   if (!panel || !container) return;
   if (_selections.length === 0) {
-    panel.collapse();
+    if (typeof panel.collapse === 'function') { try { panel.collapse(); } catch (e) {} } else if (typeof panel.hide === 'function') { try { panel.hide(); } catch (e) {} }
     try { container.hide(); } catch (e) {}
-    if (btnSummary) { try { btnSummary.collapse(); } catch (e) {} }
-    if (box3) { try { box3.collapse(); } catch (e) {} }
+    if (btnSummary) { if (typeof btnSummary.collapse === 'function') { try { btnSummary.collapse(); } catch (e) {} } else if (typeof btnSummary.hide === 'function') { try { btnSummary.hide(); } catch (e) {} } }
+    if (box3) { if (typeof box3.collapse === 'function') { try { box3.collapse(); } catch (e) {} } else if (typeof box3.hide === 'function') { try { box3.hide(); } catch (e) {} } }
     container.text = '';
     return;
   }
-  if (box3) { try { box3.show(); } catch (e) {} try { box3.expand(); } catch (e) {} }
-  panel.expand();
+  if (box3) { if (typeof box3.show === 'function') { try { box3.show(); } catch (e) {} } if (typeof box3.expand === 'function') { try { box3.expand(); } catch (e) {} } }
+  if (typeof panel.expand === 'function') { try { panel.expand(); } catch (e) {} } else if (typeof panel.show === 'function') { try { panel.show(); } catch (e) {} }
   if (typeof container.show === 'function') { try { container.show(); } catch (e) {} }
-  if (btnSummary) { try { btnSummary.show(); } catch (e) {} try { btnSummary.expand(); } catch (e) {} }
+  if (btnSummary) { if (typeof btnSummary.show === 'function') { try { btnSummary.show(); } catch (e) {} } if (typeof btnSummary.expand === 'function') { try { btnSummary.expand(); } catch (e) {} } }
   let total = 0, totalGuests = 0, lines = [];
   for (let i = 0; i < _selections.length; i++) {
     const s = _selections[i];
@@ -112,10 +112,10 @@ function updateSelectionPanel() {
       if (subTotalEl) {
         subTotalEl.text = '$' + subTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
-      try { summaryContainer.show(); } catch (e) {}
-      try { summaryContainer.expand(); } catch (e) {}
+      if (typeof summaryContainer.show === 'function') { try { summaryContainer.show(); } catch (e) {} }
+      if (typeof summaryContainer.expand === 'function') { try { summaryContainer.expand(); } catch (e) {} }
     } else {
-      try { summaryContainer.collapse(); } catch (e) {}
+      if (typeof summaryContainer.collapse === 'function') { try { summaryContainer.collapse(); } catch (e) {} } else if (typeof summaryContainer.hide === 'function') { try { summaryContainer.hide(); } catch (e) {} }
     }
   }
 }
@@ -202,11 +202,11 @@ $w.onReady(async function () {
         const coFmt = formatVacationDate(co);
         if (ciFmt && coFmt) {
           vacationDatesEl.text = ciFmt + ' - ' + coFmt;
-          try { vacationDatesEl.show(); } catch (e) {}
-          try { vacationDatesEl.expand(); } catch (e) {}
+          if (typeof vacationDatesEl.show === 'function') { try { vacationDatesEl.show(); } catch (e) {} }
+          if (typeof vacationDatesEl.expand === 'function') { try { vacationDatesEl.expand(); } catch (e) {} }
         } else {
           vacationDatesEl.text = '';
-          try { vacationDatesEl.collapse(); } catch (e) {}
+          if (typeof vacationDatesEl.collapse === 'function') { try { vacationDatesEl.collapse(); } catch (e) {} } else if (typeof vacationDatesEl.hide === 'function') { try { vacationDatesEl.hide(); } catch (e) {} }
         }
       }
 
@@ -225,11 +225,11 @@ $w.onReady(async function () {
 
           if (pkgContainer) {
             if (pkgDetails.title || pkgDetails.specialtyTours) {
-              try { pkgContainer.show(); } catch (e) {}
-              try { pkgContainer.expand(); } catch (e) {}
+              if (typeof pkgContainer.show === 'function') { try { pkgContainer.show(); } catch (e) {} }
+              if (typeof pkgContainer.expand === 'function') { try { pkgContainer.expand(); } catch (e) {} }
               console.log('>>> packageContainer expanded');
             } else {
-              try { pkgContainer.collapse(); } catch (e) {}
+              if (typeof pkgContainer.collapse === 'function') { try { pkgContainer.collapse(); } catch (e) {} } else if (typeof pkgContainer.hide === 'function') { try { pkgContainer.hide(); } catch (e) {} }
             }
           }
 
@@ -241,8 +241,8 @@ $w.onReady(async function () {
             console.log('>>> packagePrice compute:', { pkgContainerHidden: pkgContainer && pkgContainer.collapsed, nights: nights, baseRate: baseRate, packagePrice: packagePrice, pkgDetails: pkgDetails });
             if (packagePrice > 0) {
               packagePriceEl.text = '$' + packagePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              try { packagePriceEl.show(); } catch (e) {}
-              try { packagePriceEl.expand(); } catch (e) {}
+              if (typeof packagePriceEl.show === 'function') { try { packagePriceEl.show(); } catch (e) {} }
+              if (typeof packagePriceEl.expand === 'function') { try { packagePriceEl.expand(); } catch (e) {} }
             } else {
               packagePriceEl.text = '';
             }
@@ -343,11 +343,11 @@ $w.onReady(async function () {
       const penthouseFeeTextEl = safeItem($item, '#penthouseFeeText', null, null);
       if (penthouseFeeTextEl) {
         if (itemData.roomCode === 'penthouse_apartment') {
-          try { penthouseFeeTextEl.show(); } catch (e) {}
-          try { penthouseFeeTextEl.expand(); } catch (e) {}
+          if (typeof penthouseFeeTextEl.show === 'function') { try { penthouseFeeTextEl.show(); } catch (e) {} }
+          if (typeof penthouseFeeTextEl.expand === 'function') { try { penthouseFeeTextEl.expand(); } catch (e) {} }
         } else {
-          try { penthouseFeeTextEl.hide(); } catch (e) {}
-          try { penthouseFeeTextEl.collapse(); } catch (e) {}
+          if (typeof penthouseFeeTextEl.hide === 'function') { try { penthouseFeeTextEl.hide(); } catch (e) {} }
+          if (typeof penthouseFeeTextEl.collapse === 'function') { try { penthouseFeeTextEl.collapse(); } catch (e) {} }
         }
       }
 
@@ -355,7 +355,7 @@ $w.onReady(async function () {
 
       try {
         const rowVectorInit = $item('#vectorImage2');
-        if (rowVectorInit) { rowVectorInit.hide(); rowVectorInit.collapse(); }
+        if (rowVectorInit) { try { rowVectorInit.hide(); } catch (e) {} if (typeof rowVectorInit.collapse === 'function') { try { rowVectorInit.collapse(); } catch (e) {} } }
       } catch (e) {}
 
       const baseOcc = Number(itemData.baseOccupancy || itemData.occupancy || 2);
@@ -525,7 +525,7 @@ async function searchHandler() {
       rep.data = [];
       clearSelections(true);
       const box3 = tryFind('box3');
-      if (box3) { try { box3.collapse(); } catch (e) {} }
+      if (box3) { if (typeof box3.collapse === 'function') { try { box3.collapse(); } catch (e) {} } else if (typeof box3.hide === 'function') { try { box3.hide(); } catch (e) {} } }
       const panel = tryFind('selectionPanel');
       if (panel) { try { panel.collapse(); } catch (e) {} }
       const container = tryFind('selectedRoomsContainer');
@@ -554,7 +554,7 @@ async function searchHandler() {
       updateSelectionPanel();
       try { rep.expand(); } catch (e) {}
       const box3 = tryFind('box3');
-      if (box3) { try { box3.collapse(); } catch (e) {} }
+      if (box3) { if (typeof box3.collapse === 'function') { try { box3.collapse(); } catch (e) {} } else if (typeof box3.hide === 'function') { try { box3.hide(); } catch (e) {} } }
       const selPanel = tryFind('selectionPanel');
       if (selPanel) { try { selPanel.collapse(); } catch (e) {} }
       const container = tryFind('selectedRoomsContainer');
