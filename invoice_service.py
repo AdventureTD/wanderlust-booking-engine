@@ -89,6 +89,11 @@ class IssueRequest(BaseModel):
     owner_only: bool = False
 
 
+@app.get("/")
+def root():
+    return {"service": "Wanderlust Invoice Service", "status": "ok"}
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
