@@ -190,7 +190,12 @@ $w.onReady(async function () {
       }
       _summaryNights = nights;
 
-      // Set vacation date range at bottom of page.
+      // Show package/accommodation labels and set vacation date range.
+      ['packageSelectionText', 'accommodationText'].forEach(function (id) {
+        const el = tryFind(id);
+        if (el) { try { el.show(); } catch (e) {} try { el.expand(); } catch (e) {} }
+      });
+
       const vacationDatesEl = tryFind('vacationDates');
       if (vacationDatesEl) {
         const ciFmt = formatVacationDate(ci);
