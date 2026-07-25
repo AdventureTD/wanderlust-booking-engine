@@ -285,6 +285,7 @@ $w.onReady(async function () {
   const rep = tryFind('searchResultsRepeater');
   if (rep && typeof rep.onItemReady === 'function') {
     rep.onItemReady(($item, itemData) => {
+      console.log('>>> [WBE-REPEATER] itemData keys:', Object.keys(itemData).join(','), JSON.stringify({ name: itemData.name, description: itemData.description, roomType: itemData.roomType, occupancyText: itemData.occupancyText }));
       if ((itemData.maxQty || 0) <= 0 || itemData.status === 'unavailable') {
         safeItem($item, '#roomName', 'text', (itemData.roomName || itemData.roomCode || '') + ' — Not available for these dates');
         safeItem($item, '#roomPrice', 'text', '');
