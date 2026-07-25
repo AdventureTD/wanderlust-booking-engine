@@ -45,15 +45,15 @@ function updateSelectionPanel() {
   if (_selections.length === 0) {
     safeCollapse(panel);
     try { container.hide(); } catch (e) {}
-    if (btnSummary) { safeCollapse(btnSummary); }
-    if (box3) { safeCollapse(box3); }
+    if (btnSummary) { try { btnSummary.collapse(); } catch (e) {} }
+    if (box3) { try { box3.collapse(); } catch (e) {} }
     container.text = '';
     return;
   }
-  if (box3) { safeExpand(box3); }
+  if (box3) { try { box3.show(); } catch (e) {} try { box3.expand(); } catch (e) {} }
   safeExpand(panel);
   if (typeof container.show === 'function') { try { container.show(); } catch (e) {} }
-  if (btnSummary) { safeExpand(btnSummary); }
+  if (btnSummary) { try { btnSummary.show(); } catch (e) {} try { btnSummary.expand(); } catch (e) {} }
   let total = 0, totalGuests = 0, lines = [];
   for (let i = 0; i < _selections.length; i++) {
     const s = _selections[i];
@@ -112,9 +112,10 @@ function updateSelectionPanel() {
       if (subTotalEl) {
         subTotalEl.text = '$' + subTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
-      safeExpand(summaryContainer);
+      try { summaryContainer.show(); } catch (e) {}
+      try { summaryContainer.expand(); } catch (e) {}
     } else {
-      safeCollapse(summaryContainer);
+      try { summaryContainer.collapse(); } catch (e) {}
     }
   }
 }
@@ -133,17 +134,67 @@ function safeItem($item, selector, action, val) {
 
 function tryFind(id) { try { return $w('#' + id); } catch (e) { return null; } }
 
-function safeCollapse(el) {
-  if (!el) return;
-  if (typeof el.collapse === 'function') { try { el.collapse(); } catch (e) {} }
-  else if (typeof el.hide === 'function') { try { el.hide(); } catch (e) {} }
+function plainTextFromHtml(html) {
+  if (!html) return '';
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-function safeExpand(el) {
-  if (!el) return;
-  if (typeof el.expand === 'function') { try { el.expand(); } catch (e) {} }
-  else if (typeof el.show === 'function') { try { el.show(); } catch (e) {} }
+function formatVacationDate(d) {
+  if (!d || isNaN(d.getTime())) { return ''; }
+  const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                  'July', 'August', 'September', 'October', 'November', 'December'];
+  const day = d.getDate();
+  let suffix = 'th';
+  if (day % 100 < 11 || day % 100 > 13) {
+    if (day % 10 === 1) suffix = 'st';
+    else if (day % 10 === 2) suffix = 'nd';
+    else if (day % 10 === 3) suffix = 'rd';
+  }
+  return months[d.getMonth()] + ' ' + day + suffix + ', ' + d.getFullYear();
 }
+
+
+$w.onReady(async function () {
+  try {
+    let settings = {};
+    try { settings = await getAllSettings(); } catch (e) {}
+    const suspend = String(settings.suspendGoogleAds).trim() === '1' || Number(settings.suspendGoogleAds) === 1;
+    setSuspendGoogleAds(suspend);
+  } catch (err) {
+    console.log('[WBE-SEARCH] settings load error:', err && err.message || err);
+  }
+
+  initTracking($w);
+  captureClickIds();
+
+  // Load room metadata including roomFee once for the repeater rows.
+  (async function () {
+    try { _roomFeeMap = await getRoomNames(); } catch (e) { _roomFeeMap = {}; }
+  })();
+
+  trackViewBookingSearch();
+  const shouldAutoSearch = applyUrlDatesIfPresent();
+  if (shouldAutoSearch) {
+    setTimeout(function () { searchHandler(); }, 400);
+  }
+  if (tryFind('btnSearchRooms')) {
+    $w('#btnSearchRooms').onClick(async function () {
+      console.log('>>> btnSearchRooms clicked');
+      const ciEl = tryFind('datePickerCheckIn');
+      const coEl = tryFind('datePickerCheckOut');
+      const ci = ciEl && ciEl.value ? new Date(ciEl.value) : null;
+      const co = coEl && coEl.value ? new Date(coEl.value) : null;
+      let nights = 0;
+      if (ci && co && co > ci) {
+        nights = Math.round((co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24));
+      }
+      _summaryNights = nights;
+
+      // Show package/accommodation labels and set vacation date range.
+      ['packageSelectionText', 'accommodationText'].forEach(function (id) {
+        const el = tryFind(id);
+        if (el) { try { el.show(); } catch (e) {} try { el.expand(); } catch (e) {} }
+      });
 
       const vacationDatesEl = tryFind('vacationDates');
       if (vacationDatesEl) {
@@ -151,10 +202,11 @@ function safeExpand(el) {
         const coFmt = formatVacationDate(co);
         if (ciFmt && coFmt) {
           vacationDatesEl.text = ciFmt + ' - ' + coFmt;
-          safeExpand(vacationDatesEl);
+          try { vacationDatesEl.show(); } catch (e) {}
+          try { vacationDatesEl.expand(); } catch (e) {}
         } else {
           vacationDatesEl.text = '';
-          safeCollapse(vacationDatesEl);
+          try { vacationDatesEl.collapse(); } catch (e) {}
         }
       }
 
@@ -173,10 +225,11 @@ function safeExpand(el) {
 
           if (pkgContainer) {
             if (pkgDetails.title || pkgDetails.specialtyTours) {
-              safeExpand(pkgContainer);
+              try { pkgContainer.show(); } catch (e) {}
+              try { pkgContainer.expand(); } catch (e) {}
               console.log('>>> packageContainer expanded');
             } else {
-              safeCollapse(pkgContainer);
+              try { pkgContainer.collapse(); } catch (e) {}
             }
           }
 
@@ -187,7 +240,8 @@ function safeExpand(el) {
             const packagePrice = baseRate * nights;
             console.log('>>> packagePrice compute:', { nights: nights, baseRate: baseRate, packagePrice: packagePrice, pkgDetails: pkgDetails });
             packagePriceEl.text = packagePrice > 0 ? '$' + packagePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
-            safeExpand(packagePriceEl);
+            try { packagePriceEl.show(); } catch (e) {}
+            try { packagePriceEl.expand(); } catch (e) {}
           }
         } catch (pkgErr) {
           console.log('>>> package details lookup error:', pkgErr && pkgErr.message || pkgErr);
@@ -206,7 +260,8 @@ function safeExpand(el) {
           const baseRate = Number(pkgDetails.baseRate) || Number(_cachedBaseRate) || 0;
           const packagePrice = baseRate * nights;
           packagePriceEl.text = packagePrice > 0 ? '$' + packagePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
-          safeExpand(packagePriceEl);
+          try { packagePriceEl.show(); } catch (e) {}
+          try { packagePriceEl.expand(); } catch (e) {}
         }
       } catch (priceErr) {
         console.log('>>> packagePrice lookup error:', priceErr && priceErr.message || priceErr);
@@ -299,10 +354,11 @@ function safeExpand(el) {
       const penthouseFeeTextEl = safeItem($item, '#penthouseFeeText', null, null);
       if (penthouseFeeTextEl) {
         if (itemData.roomCode === 'penthouse_apartment') {
-          safeExpand(penthouseFeeTextEl);
+          try { penthouseFeeTextEl.show(); } catch (e) {}
+          try { penthouseFeeTextEl.expand(); } catch (e) {}
         } else {
           try { penthouseFeeTextEl.hide(); } catch (e) {}
-          safeCollapse(penthouseFeeTextEl);
+          try { penthouseFeeTextEl.collapse(); } catch (e) {}
         }
       }
 
@@ -356,27 +412,29 @@ function safeExpand(el) {
           if (qty > 0) {
             setRoomSelection(itemData.roomCode, itemData.roomName || itemData.roomCode, qty, numGuests, itemData.availableCheckIn, itemData.availableCheckOut, itemData.roomFee || 0);
             if (rowVector) {
-              safeExpand(rowVector);
+              try { rowVector.show(); } catch (e) {}
+              try { rowVector.expand(); } catch (e) {}
             }
-            if (badgeEl) { safeExpand(badgeEl); }
+            if (badgeEl) { try { badgeEl.show(); } catch (e) {} try { badgeEl.expand(); } catch (e) {} }
           } else {
             removeRoomSelection(itemData.roomCode);
             if (rowVector) {
               try { rowVector.hide(); } catch (e) {}
-              safeCollapse(rowVector);
+              try { rowVector.collapse(); } catch (e) {}
             }
-            if (badgeEl) { try { badgeEl.hide(); } catch (e) {} safeCollapse(badgeEl); }
+            if (badgeEl) { try { badgeEl.hide(); } catch (e) {} try { badgeEl.collapse(); } catch (e) {} }
           }
 
           // Directly force container and btnSummary visibility based on current selections.
           const summaryBtn = tryFind('btnSummary');
           if (summaryBtn) {
             if (_selections.length > 0) {
-              safeExpand(summaryBtn);
+              try { summaryBtn.show(); } catch (e) {}
+              try { summaryBtn.expand(); } catch (e) {}
               console.log('>>> btnSummary forced visible', _selections.length);
             } else {
               try { summaryBtn.hide(); } catch (e) {}
-              safeCollapse(summaryBtn);
+              try { summaryBtn.collapse(); } catch (e) {}
               console.log('>>> btnSummary hidden');
             }
           } else {
@@ -401,7 +459,7 @@ function safeExpand(el) {
   safeCollapse(vacationDatesStart);
 
   const panel = tryFind('selectionPanel');
-  safeCollapse(panel);
+  if (panel) panel.collapse();
   const containerStart = tryFind('selectedRoomsContainer');
   if (containerStart) { try { containerStart.hide(); } catch (e) {} }
   const repStart = tryFind('searchResultsRepeater');
@@ -418,8 +476,8 @@ async function loadMessages() {
     const msgs = await getActiveMessages('search');
     const el = tryFind('messagesContainer');
     if (!el) return;
-    if (msgs.length === 0) el.collapse();
-    else { el.expand(); el.text = msgs.map((m) => m.title || '').join('; '); }
+    if (msgs.length === 0) safeCollapse(el);
+    else { safeExpand(el); el.text = msgs.map((m) => m.title || '').join('; '); }
   } catch (e) {}
 }
 
@@ -475,9 +533,9 @@ async function searchHandler() {
       rep.data = [];
       clearSelections(true);
       const box3 = tryFind('box3');
-      if (box3) { safeCollapse(box3); }
+      if (box3) { try { box3.collapse(); } catch (e) {} }
       const panel = tryFind('selectionPanel');
-      if (panel) { safeCollapse(panel); }
+      if (panel) { try { panel.collapse(); } catch (e) {} }
       const container = tryFind('selectedRoomsContainer');
       if (container) { try { container.hide(); } catch (e) {} }
         safeText('No rooms are available for the dates entered. Checking nearby dates...');
@@ -504,9 +562,9 @@ async function searchHandler() {
       updateSelectionPanel();
       try { rep.expand(); } catch (e) {}
       const box3 = tryFind('box3');
-      if (box3) { safeCollapse(box3); }
+      if (box3) { try { box3.collapse(); } catch (e) {} }
       const selPanel = tryFind('selectionPanel');
-      if (selPanel) { safeCollapse(selPanel); }
+      if (selPanel) { try { selPanel.collapse(); } catch (e) {} }
       const container = tryFind('selectedRoomsContainer');
       if (container) { try { container.hide(); } catch (e) {} }
         safeText('No rooms are available for the dates entered. Checking nearby dates...');
@@ -514,7 +572,7 @@ async function searchHandler() {
       showAlternateDates(ciDate, coDate);
       return;
     }
-    if (rep) { safeExpand(rep); }
+    if (rep) { try { rep.show(); } catch (e) {} try { rep.expand(); } catch (e) {} }
     rep.data = repData;
     loadPackageInfo(res.requestedNights);
     safeText('Found ' + res.results.length + ' result' + (res.results.length === 1 ? '' : 's') + ' for ' + res.requestedNights + ' nights.');
@@ -622,3 +680,4 @@ function applyUrlDatesIfPresent() {
     return q.auto === '1';
   } catch (e) { return false; }
 }
+
