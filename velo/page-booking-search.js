@@ -223,6 +223,16 @@ function plainTextFromHtml(html) {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function formatVacationDate(d) {
   if (!d || isNaN(d.getTime())) { return ''; }
   const months = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -319,9 +329,15 @@ $w.onReady(async function () {
         const ciFmt = formatVacationDate(ci);
         const coFmt = formatVacationDate(co);
         if (ciFmt && coFmt) {
-          const dateText = ciFmt + ' - ' + coFmt;
-          vacationDatesEl.text = dateText;
-          console.log('>>> vacationDates text set to:', JSON.stringify(dateText), 'length:', dateText.length);
+          const dateText = (ciFmt + ' - ' + coFmt).trim();
+          // Force single-line plain text; Wix sometimes preserves paragraph/line styling.
+          if (typeof vacationDatesEl.html !== 'undefined') {
+            vacationDatesEl.html = '<span style="white-space:nowrap;">' + escapeHtml(dateText) + '</span>';
+          } else {
+            vacationDatesEl.text = dateText;
+          }
+          console.log('>>> vacationDates set:', JSON.stringify(dateText), 'length:', dateText.length, 'html:', typeof vacationDatesEl.html !== 'undefined');
+          if (typeof vacationDatesEl.fitToContent === 'function') { try { vacationDatesEl.fitToContent(); } catch (e) {} }
           if (typeof vacationDatesEl.collapse === 'function') { try { vacationDatesEl.collapse(); } catch (e) {} }
           if (typeof vacationDatesEl.show === 'function') { try { vacationDatesEl.show(); } catch (e) {} }
           if (typeof vacationDatesEl.expand === 'function') { try { vacationDatesEl.expand(); } catch (e) {} }
