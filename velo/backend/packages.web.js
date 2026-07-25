@@ -78,7 +78,8 @@ export const getPackageDetailsByNights = webMethod(
         const title = item.title || item.title_fld || item.Title || item.name || item.Name || '';
         const included = item.includedAmenities || item.IncludedAmenities || '';
         const specialtyTours = String(item.specialtyTours || item.SpecialtyTours || item.specialtytours || '');
-        return { title, includedAmenities: included, specialtyTours };
+        const baseRate = Number(item.baseRate) || 0;
+        return { title, includedAmenities: included, specialtyTours, baseRate };
       }
     }
 
