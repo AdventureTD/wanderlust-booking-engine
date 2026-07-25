@@ -39,15 +39,6 @@ function removeRoomSelection(roomCode) {
   updateSelectionPanel();
 }
 
-function postSummaryBackground(show) {
-  try {
-    const iframe = $w('#summaryBackground');
-    if (iframe && typeof iframe.postMessage === 'function') {
-      iframe.postMessage({ type: 'wbe-summary-bg', show: show });
-    }
-  } catch (e) {}
-}
-
 function showElement(el, name) {
   if (!el) {
     console.log('>>> showElement skipped:', name, 'element not found');
@@ -107,7 +98,6 @@ function updateSelectionPanel() {
     hideElement(selection, 'selection');
     hideElement(transSummary, 'transSummary');
     hideElement(summaryBackground, 'summaryBackground');
-    postSummaryBackground(false);
     return;
   }
 
@@ -131,9 +121,15 @@ function updateSelectionPanel() {
   showElement(summaryContainer, 'bookingSummaryContainer');
   showElement(selection, 'selection');
   showElement(transSummary, 'transSummary');
-  console.log('>>> about to show summaryBackground, element found:', !!summaryBackground);
+  console.log('>>> about to show summaryBackground, element found:', !!summaryBackground, 'src:', summaryBackground && typeof summaryBackground.src);
+  try {
+    if (summaryBackground && typeof summaryBackground.src === 'string') {
+      summaryBackground.src = 'https://static.wixstatic.com/media/background-gradient-placeholder/summary-background.jpg';
+    }
+  } catch (e) {
+    console.log('>>> summaryBackground src error:', e && e.message || e);
+  }
   showElement(summaryBackground, 'summaryBackground');
-  postSummaryBackground(true);
   showElement(panel, 'selectionPanel');
   showElement(container, 'selectedRoomsContainer');
   showElement(btnSummary, 'btnSummary');
