@@ -38,22 +38,30 @@ function removeRoomSelection(roomCode) {
   updateSelectionPanel();
 }
 function updateSelectionPanel() {
-  const panel = tryFind('selectionPanel'), container = tryFind('selectedRoomsContainer');
+  const panel = tryFind('selectionPanel');
+  const container = tryFind('selectedRoomsContainer');
   const btnSummary = tryFind('btnSummary');
   const box3 = tryFind('box3');
-  if (!panel || !container) return;
+  const summaryContainer = tryFind('bookingSummaryContainer');
+  console.log('>>> updateSelectionPanel elements:', {
+    panel: !!panel,
+    container: !!container,
+    btnSummary: !!btnSummary,
+    box3: !!box3,
+    summaryContainer: !!summaryContainer,
+    selections: _selections.length
+  });
+
   if (_selections.length === 0) {
-    if (typeof panel.collapse === 'function') { try { panel.collapse(); } catch (e) {} } else if (typeof panel.hide === 'function') { try { panel.hide(); } catch (e) {} }
-    try { container.hide(); } catch (e) {}
+    if (panel) { if (typeof panel.collapse === 'function') { try { panel.collapse(); } catch (e) {} } else if (typeof panel.hide === 'function') { try { panel.hide(); } catch (e) {} } }
+    if (container) { try { container.hide(); } catch (e) {} container.text = ''; }
     if (btnSummary) { if (typeof btnSummary.collapse === 'function') { try { btnSummary.collapse(); } catch (e) {} } else if (typeof btnSummary.hide === 'function') { try { btnSummary.hide(); } catch (e) {} } }
     if (box3) { if (typeof box3.collapse === 'function') { try { box3.collapse(); } catch (e) {} } else if (typeof box3.hide === 'function') { try { box3.hide(); } catch (e) {} } }
-    container.text = '';
+    if (summaryContainer) { if (typeof summaryContainer.collapse === 'function') { try { summaryContainer.collapse(); } catch (e) {} } else if (typeof summaryContainer.hide === 'function') { try { summaryContainer.hide(); } catch (e) {} } }
     return;
   }
-  if (box3) { if (typeof box3.show === 'function') { try { box3.show(); } catch (e) {} } if (typeof box3.expand === 'function') { try { box3.expand(); } catch (e) {} } }
-  if (typeof panel.expand === 'function') { try { panel.expand(); } catch (e) {} } else if (typeof panel.show === 'function') { try { panel.show(); } catch (e) {} }
-  if (typeof container.show === 'function') { try { container.show(); } catch (e) {} }
-  if (btnSummary) { if (typeof btnSummary.show === 'function') { try { btnSummary.show(); } catch (e) {} } if (typeof btnSummary.expand === 'function') { try { btnSummary.expand(); } catch (e) {} } }
+
+  // Build text first, then expand parent, then show text.
   let total = 0, totalGuests = 0, lines = [];
   for (let i = 0; i < _selections.length; i++) {
     const s = _selections[i];
@@ -62,8 +70,18 @@ function updateSelectionPanel() {
     total += s.qty;
     totalGuests += guests;
   }
-  container.text = lines.join('\n');
-  console.log('>>> selection panel updated:', container.text);
+
+  if (container) {
+    container.text = lines.join('\n');
+    console.log('>>> selectedRoomsContainer text set:', container.text);
+  }
+
+  // Expand parent container(s) first so the text element can actually appear.
+  if (box3) { if (typeof box3.show === 'function') { try { box3.show(); } catch (e) {} } if (typeof box3.expand === 'function') { try { box3.expand(); } catch (e) {} } }
+  if (summaryContainer) { if (typeof summaryContainer.show === 'function') { try { summaryContainer.show(); } catch (e) {} } if (typeof summaryContainer.expand === 'function') { try { summaryContainer.expand(); } catch (e) {} } }
+  if (panel) { if (typeof panel.expand === 'function') { try { panel.expand(); } catch (e) {} } else if (typeof panel.show === 'function') { try { panel.show(); } catch (e) {} } }
+  if (container) { if (typeof container.show === 'function') { try { container.show(); } catch (e) {} } }
+  if (btnSummary) { if (typeof btnSummary.show === 'function') { try { btnSummary.show(); } catch (e) {} } if (typeof btnSummary.expand === 'function') { try { btnSummary.expand(); } catch (e) {} } }
 
   // Update total guest count text in booking summary container.
   const numTotalGuestsEl = tryFind('numTotalGuests');
@@ -418,31 +436,7 @@ $w.onReady(async function () {
             if (badgeEl) { try { badgeEl.hide(); } catch (e) {} try { badgeEl.collapse(); } catch (e) {} }
           }
 
-          // Directly force container and btnSummary visibility based on current selections.
-          const summaryBtn = tryFind('btnSummary');
-          if (summaryBtn) {
-            if (_selections.length > 0) {
-              try { summaryBtn.show(); } catch (e) {}
-              try { summaryBtn.expand(); } catch (e) {}
-              console.log('>>> btnSummary forced visible', _selections.length);
-            } else {
-              try { summaryBtn.hide(); } catch (e) {}
-              try { summaryBtn.collapse(); } catch (e) {}
-              console.log('>>> btnSummary hidden');
-            }
-          } else {
-            console.log('>>> btnSummary element not found');
-          }
-
-          const selectedContainer = tryFind('selectedRoomsContainer');
-          if (selectedContainer) {
-            if (_selections.length > 0) {
-              try { selectedContainer.show(); } catch (e) {}
-              console.log('>>> selectedRoomsContainer forced visible (text element)');
-            } else {
-              try { selectedContainer.hide(); } catch (e) {}
-            }
-          }
+          // Visibility is now handled centrally by updateSelectionPanel().
         });
       }
     });
