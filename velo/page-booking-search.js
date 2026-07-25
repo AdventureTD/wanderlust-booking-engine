@@ -75,7 +75,7 @@ function updateSelectionPanel() {
   const summaryContainer = tryFind('bookingSummaryContainer');
   const selection = tryFind('selection');
   const transSummary = tryFind('transSummary');
-  const summaryBackground = tryFind('summaryBackground');
+  const jpegBackground = tryFind('jpegBackground');
   console.log('>>> updateSelectionPanel elements:', {
     panel: !!panel,
     container: !!container,
@@ -84,7 +84,7 @@ function updateSelectionPanel() {
     summaryContainer: !!summaryContainer,
     selection: !!selection,
     transSummary: !!transSummary,
-    summaryBackground: !!summaryBackground,
+    jpegBackground: !!jpegBackground,
     selections: _selections.length
   });
 
@@ -97,7 +97,7 @@ function updateSelectionPanel() {
     hideElement(summaryContainer, 'bookingSummaryContainer');
     hideElement(selection, 'selection');
     hideElement(transSummary, 'transSummary');
-    hideElement(summaryBackground, 'summaryBackground');
+    hideElement(jpegBackground, 'jpegBackground');
     return;
   }
 
@@ -121,15 +121,15 @@ function updateSelectionPanel() {
   showElement(summaryContainer, 'bookingSummaryContainer');
   showElement(selection, 'selection');
   showElement(transSummary, 'transSummary');
-  console.log('>>> about to show summaryBackground, element found:', !!summaryBackground, 'src:', summaryBackground && typeof summaryBackground.src);
+  console.log('>>> about to show jpegBackground, element found:', !!jpegBackground, 'src:', jpegBackground && typeof jpegBackground.src);
   try {
-    if (summaryBackground && typeof summaryBackground.src === 'string') {
-      summaryBackground.src = 'https://static.wixstatic.com/media/background-gradient-placeholder/summary-background.jpg';
+    if (jpegBackground && typeof jpegBackground.src === 'string') {
+      jpegBackground.src = 'https://static.wixstatic.com/media/wanderlust-booking-engine/summary-background.jpg';
     }
   } catch (e) {
-    console.log('>>> summaryBackground src error:', e && e.message || e);
+    console.log('>>> jpegBackground src error:', e && e.message || e);
   }
-  showElement(summaryBackground, 'summaryBackground');
+  showElement(jpegBackground, 'jpegBackground');
   showElement(panel, 'selectionPanel');
   showElement(container, 'selectedRoomsContainer');
   showElement(btnSummary, 'btnSummary');
