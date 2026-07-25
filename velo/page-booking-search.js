@@ -118,6 +118,11 @@ function updateSelectionPanel() {
   showElement(selection, 'selection');
   showElement(transSummary, 'transSummary');
   showElement(summaryBackground, 'summaryBackground');
+  try {
+    if (summaryBackground && typeof summaryBackground.style === 'object') {
+      summaryBackground.style.background = 'radial-gradient(circle, #F9DDCB 0%, #FFFFFF 100%)';
+    }
+  } catch (e) {}
   showElement(panel, 'selectionPanel');
   showElement(container, 'selectedRoomsContainer');
   showElement(btnSummary, 'btnSummary');
@@ -227,6 +232,14 @@ function formatVacationDate(d) {
 
 
 $w.onReady(async function () {
+  // Apply radial gradient to the summary background container as early as possible.
+  try {
+    const summaryBackground = $w('#summaryBackground');
+    if (summaryBackground && typeof summaryBackground.style === 'object') {
+      summaryBackground.style.background = 'radial-gradient(circle, #F9DDCB 0%, #FFFFFF 100%)';
+    }
+  } catch (e) {}
+
   try {
     let settings = {};
     try { settings = await getAllSettings(); } catch (e) {}
@@ -520,14 +533,6 @@ $w.onReady(async function () {
   hideIfFound('searchResultsRepeater');
   hideIfFound('btnSummary');
   hideIfFound('box3');
-
-  // Apply radial gradient to the summary background container.
-  try {
-    const summaryBackground = $w('#summaryBackground');
-    if (summaryBackground && typeof summaryBackground.style === 'object') {
-      summaryBackground.style.background = 'radial-gradient(circle, #F9DDCB 0%, #FFFFFF 100%)';
-    }
-  } catch (e) {}
 
   loadMessages();
 });
