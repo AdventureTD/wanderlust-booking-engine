@@ -157,6 +157,8 @@ function updateSelectionPanel() {
   }
 
   // Calculate and display subTotalBooking: baseRate * nights * total guests.
+  // Also compute finalTotal = subTotalBooking + penthouseFee.
+  let finalTotal = 0;
   if (summaryContainer) {
     if (_selections.length > 0 && _summaryNights > 0 && _cachedBaseRate > 0) {
       const subTotal = _cachedBaseRate * _summaryNights * totalGuests;
@@ -164,6 +166,20 @@ function updateSelectionPanel() {
       if (subTotalEl) {
         subTotalEl.text = '$' + subTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
+
+      const penthouseFeeEl = tryFind('penthouseFee');
+      let penthouseFeeValue = 0;
+      if (penthouseFeeEl && typeof penthouseFeeEl.text === 'string') {
+        const cleaned = penthouseFeeEl.text.replace(/[^0-9.]/g, '');
+        penthouseFeeValue = Number(cleaned) || 0;
+      }
+
+      finalTotal = subTotal + penthouseFeeValue;
+      const finalTotalEl = tryFind('finalTotal');
+      if (finalTotalEl) {
+        finalTotalEl.text = '$' + finalTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+
       if (typeof summaryContainer.show === 'function') { try { summaryContainer.show(); } catch (e) {} }
       if (typeof summaryContainer.expand === 'function') { try { summaryContainer.expand(); } catch (e) {} }
     } else {
