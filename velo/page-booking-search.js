@@ -5,6 +5,7 @@ import { getRoomNames } from 'backend/rooms';
 import { trackBeginBooking, captureClickIds, trackViewBookingSearch, trackRoomView, trackSearchNoResults, initTracking, setSuspendGoogleAds } from 'public/tracking';
 import { getAllSettings } from 'backend/settings';
 import wixLocation from 'wix-location';
+import wixWindow from 'wix-window-frontend';
 
 let _selections = [];
 let _roomFeeMap = {};
@@ -39,11 +40,14 @@ function removeRoomSelection(roomCode) {
 }
 
 function showElement(el, name) {
-  if (!el) return false;
+  if (!el) {
+    console.log('>>> showElement skipped:', name, 'element not found');
+    return false;
+  }
   try {
     if (typeof el.show === 'function') { el.show(); }
     if (typeof el.expand === 'function') { el.expand(); }
-    console.log('>>> showElement success:', name);
+    console.log('>>> showElement success:', name, 'collapsed:', el.collapsed, 'hidden:', el.hidden, 'visible:', el.visible);
     return true;
   } catch (e) {
     console.log('>>> showElement error:', name, e && e.message || e);
@@ -277,12 +281,12 @@ $w.onReady(async function () {
 
   // Ensure the page starts at the top when loaded.
   try {
-    console.log('>>> scrollToTop check - window exists:', typeof window !== 'undefined', 'scrollTo exists:', typeof window !== 'undefined' && typeof window.scrollTo === 'function');
-    if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
-      window.scrollTo(0, 0);
-      console.log('>>> scrollToTop executed');
+    console.log('>>> scrollToTop via wixWindow.scrollTo');
+    if (wixWindow && typeof wixWindow.scrollTo === 'function') {
+      wixWindow.scrollTo(0, 0);
+      console.log('>>> scrollToTop via wixWindow executed');
     } else {
-      console.log('>>> scrollToTop skipped: window or scrollTo not available');
+      console.log('>>> scrollToTop skipped: wixWindow.scrollTo not available');
     }
   } catch (e) {
     console.log('>>> scrollToTop error:', e && e.message || e);
