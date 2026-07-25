@@ -39,6 +39,15 @@ function removeRoomSelection(roomCode) {
   updateSelectionPanel();
 }
 
+function postSummaryBackground(show) {
+  try {
+    const iframe = $w('#summaryBackground');
+    if (iframe && typeof iframe.postMessage === 'function') {
+      iframe.postMessage({ type: 'wbe-summary-bg', show: show });
+    }
+  } catch (e) {}
+}
+
 function showElement(el, name) {
   if (!el) {
     console.log('>>> showElement skipped:', name, 'element not found');
@@ -98,6 +107,7 @@ function updateSelectionPanel() {
     hideElement(selection, 'selection');
     hideElement(transSummary, 'transSummary');
     hideElement(summaryBackground, 'summaryBackground');
+    postSummaryBackground(false);
     return;
   }
 
@@ -121,18 +131,9 @@ function updateSelectionPanel() {
   showElement(summaryContainer, 'bookingSummaryContainer');
   showElement(selection, 'selection');
   showElement(transSummary, 'transSummary');
-  console.log('>>> about to show summaryBackground, element found:', !!summaryBackground, 'style type:', typeof summaryBackground.style);
+  console.log('>>> about to show summaryBackground, element found:', !!summaryBackground);
   showElement(summaryBackground, 'summaryBackground');
-  try {
-    if (summaryBackground && typeof summaryBackground.style === 'object') {
-      summaryBackground.style.background = 'radial-gradient(circle, #F9DDCB 0%, #FFFFFF 100%)';
-      console.log('>>> updateSelectionPanel summaryBackground gradient re-applied');
-    } else {
-      console.log('>>> updateSelectionPanel summaryBackground gradient skipped (no style object)');
-    }
-  } catch (e) {
-    console.log('>>> updateSelectionPanel summaryBackground gradient error:', e && e.message || e);
-  }
+  postSummaryBackground(true);
   showElement(panel, 'selectionPanel');
   showElement(container, 'selectedRoomsContainer');
   showElement(btnSummary, 'btnSummary');
@@ -242,20 +243,6 @@ function formatVacationDate(d) {
 
 
 $w.onReady(async function () {
-  // Apply radial gradient to the summary background container as early as possible.
-  try {
-    const summaryBackground = $w('#summaryBackground');
-    console.log('>>> onReady summaryBackground resolved:', !!summaryBackground, 'style:', typeof summaryBackground.style);
-    if (summaryBackground && typeof summaryBackground.style === 'object') {
-      summaryBackground.style.background = 'radial-gradient(circle, #F9DDCB 0%, #FFFFFF 100%)';
-      console.log('>>> onReady summaryBackground gradient applied');
-    } else {
-      console.log('>>> onReady summaryBackground gradient skipped (no style object)');
-    }
-  } catch (e) {
-    console.log('>>> onReady summaryBackground gradient error:', e && e.message || e);
-  }
-
   try {
     let settings = {};
     try { settings = await getAllSettings(); } catch (e) {}
