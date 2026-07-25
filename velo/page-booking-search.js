@@ -134,6 +134,18 @@ function safeItem($item, selector, action, val) {
 
 function tryFind(id) { try { return $w('#' + id); } catch (e) { return null; } }
 
+function safeCollapse(el) {
+  if (!el) return;
+  if (typeof el.collapse === 'function') { try { el.collapse(); } catch (e) {} }
+  else if (typeof el.hide === 'function') { try { el.hide(); } catch (e) {} }
+}
+
+function safeExpand(el) {
+  if (!el) return;
+  if (typeof el.expand === 'function') { try { el.expand(); } catch (e) {} }
+  else if (typeof el.show === 'function') { try { el.show(); } catch (e) {} }
+}
+
 function plainTextFromHtml(html) {
   if (!html) return '';
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
