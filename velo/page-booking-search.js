@@ -117,12 +117,18 @@ function updateSelectionPanel() {
   showElement(summaryContainer, 'bookingSummaryContainer');
   showElement(selection, 'selection');
   showElement(transSummary, 'transSummary');
+  console.log('>>> about to show summaryBackground, element found:', !!summaryBackground, 'style type:', typeof summaryBackground.style);
   showElement(summaryBackground, 'summaryBackground');
   try {
     if (summaryBackground && typeof summaryBackground.style === 'object') {
       summaryBackground.style.background = 'radial-gradient(circle, #F9DDCB 0%, #FFFFFF 100%)';
+      console.log('>>> updateSelectionPanel summaryBackground gradient re-applied');
+    } else {
+      console.log('>>> updateSelectionPanel summaryBackground gradient skipped (no style object)');
     }
-  } catch (e) {}
+  } catch (e) {
+    console.log('>>> updateSelectionPanel summaryBackground gradient error:', e && e.message || e);
+  }
   showElement(panel, 'selectionPanel');
   showElement(container, 'selectedRoomsContainer');
   showElement(btnSummary, 'btnSummary');
@@ -235,10 +241,16 @@ $w.onReady(async function () {
   // Apply radial gradient to the summary background container as early as possible.
   try {
     const summaryBackground = $w('#summaryBackground');
+    console.log('>>> onReady summaryBackground resolved:', !!summaryBackground, 'style:', typeof summaryBackground.style);
     if (summaryBackground && typeof summaryBackground.style === 'object') {
       summaryBackground.style.background = 'radial-gradient(circle, #F9DDCB 0%, #FFFFFF 100%)';
+      console.log('>>> onReady summaryBackground gradient applied');
+    } else {
+      console.log('>>> onReady summaryBackground gradient skipped (no style object)');
     }
-  } catch (e) {}
+  } catch (e) {
+    console.log('>>> onReady summaryBackground gradient error:', e && e.message || e);
+  }
 
   try {
     let settings = {};
@@ -265,10 +277,16 @@ $w.onReady(async function () {
 
   // Ensure the page starts at the top when loaded.
   try {
-    if (typeof window !== 'undefined' && window.scrollTo) {
+    console.log('>>> scrollToTop check - window exists:', typeof window !== 'undefined', 'scrollTo exists:', typeof window !== 'undefined' && typeof window.scrollTo === 'function');
+    if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') {
       window.scrollTo(0, 0);
+      console.log('>>> scrollToTop executed');
+    } else {
+      console.log('>>> scrollToTop skipped: window or scrollTo not available');
     }
-  } catch (e) {}
+  } catch (e) {
+    console.log('>>> scrollToTop error:', e && e.message || e);
+  }
 
   const shouldAutoSearch = applyUrlDatesIfPresent();
   if (shouldAutoSearch) {
