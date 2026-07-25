@@ -122,7 +122,6 @@ function updateSelectionPanel() {
   }
 
   // Calculate and display subTotalBooking: baseRate * nights * total guests.
-  const summaryContainer = tryFind('bookingSummaryContainer');
   if (summaryContainer) {
     if (_selections.length > 0 && _summaryNights > 0 && _cachedBaseRate > 0) {
       const subTotal = _cachedBaseRate * _summaryNights * totalGuests;
