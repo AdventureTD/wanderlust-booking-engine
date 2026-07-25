@@ -113,7 +113,15 @@ function updateSelectionPanel() {
 
   if (container) {
     container.text = lines.join('\n');
-    console.log('>>> selectedRoomsContainer text set:', container.text);
+    console.log('>>> selectedRoomsContainer text set:', JSON.stringify(container.text));
+    console.log('>>> selectedRoomsContainer state:', {
+      collapsed: container.collapsed,
+      hidden: container.hidden,
+      visible: container.visible,
+      height: container.height,
+      minHeight: container.minHeight,
+      fitToContent: typeof container.fitToContent === 'function'
+    });
   }
 
   // Expand parent container(s) first so the text element can actually appear.
