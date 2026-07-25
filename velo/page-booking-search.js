@@ -264,15 +264,31 @@ $w.onReady(async function () {
 
   // Ensure the page starts at the top when loaded.
   try {
-    console.log('>>> scrollToTop via wixWindow.scrollTo');
+    console.log('>>> scrollToTop attempt');
     if (wixWindow && typeof wixWindow.scrollTo === 'function') {
       wixWindow.scrollTo(0, 0);
-      console.log('>>> scrollToTop via wixWindow executed');
+      console.log('>>> scrollToTop via wixWindow.scrollTo executed');
+    } else if (wixWindow && typeof wixWindow.scrollBy === 'function') {
+      wixWindow.scrollBy(0, -100000);
+      console.log('>>> scrollToTop via wixWindow.scrollBy executed');
     } else {
-      console.log('>>> scrollToTop skipped: wixWindow.scrollTo not available');
+      console.log('>>> scrollToTop skipped: neither scrollTo nor scrollBy available');
     }
   } catch (e) {
     console.log('>>> scrollToTop error:', e && e.message || e);
+  }
+
+  // Fallback: try scrolling the html/body through the event-bridge iframe or document.
+  try {
+    if (typeof document !== 'undefined' && document.body && typeof document.body.scrollTo === 'function') {
+      document.body.scrollTo(0, 0);
+      console.log('>>> scrollToTop via document.body.scrollTo executed');
+    } else if (typeof document !== 'undefined' && document.documentElement && typeof document.documentElement.scrollTo === 'function') {
+      document.documentElement.scrollTo(0, 0);
+      console.log('>>> scrollToTop via document.documentElement.scrollTo executed');
+    }
+  } catch (e2) {
+    console.log('>>> scrollToTop document fallback error:', e2 && e2.message || e2);
   }
 
   const shouldAutoSearch = applyUrlDatesIfPresent();
