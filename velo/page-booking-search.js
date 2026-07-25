@@ -69,12 +69,16 @@ function updateSelectionPanel() {
   const btnSummary = tryFind('btnSummary');
   const box3 = tryFind('box3');
   const summaryContainer = tryFind('bookingSummaryContainer');
+  const selection = tryFind('selection');
+  const transSummary = tryFind('transSummary');
   console.log('>>> updateSelectionPanel elements:', {
     panel: !!panel,
     container: !!container,
     btnSummary: !!btnSummary,
     box3: !!box3,
     summaryContainer: !!summaryContainer,
+    selection: !!selection,
+    transSummary: !!transSummary,
     selections: _selections.length
   });
 
@@ -85,6 +89,8 @@ function updateSelectionPanel() {
     hideElement(btnSummary, 'btnSummary');
     hideElement(box3, 'box3');
     hideElement(summaryContainer, 'bookingSummaryContainer');
+    hideElement(selection, 'selection');
+    hideElement(transSummary, 'transSummary');
     return;
   }
 
@@ -106,6 +112,8 @@ function updateSelectionPanel() {
   // Expand parent container(s) first so the text element can actually appear.
   showElement(box3, 'box3');
   showElement(summaryContainer, 'bookingSummaryContainer');
+  showElement(selection, 'selection');
+  showElement(transSummary, 'transSummary');
   showElement(panel, 'selectionPanel');
   showElement(container, 'selectedRoomsContainer');
   showElement(btnSummary, 'btnSummary');
