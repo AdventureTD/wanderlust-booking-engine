@@ -43,7 +43,7 @@ function updateSelectionPanel() {
   const box3 = tryFind('box3');
   if (!panel || !container) return;
   if (_selections.length === 0) {
-    safeCollapse(panel);
+    panel.collapse();
     try { container.hide(); } catch (e) {}
     if (btnSummary) { try { btnSummary.collapse(); } catch (e) {} }
     if (box3) { try { box3.collapse(); } catch (e) {} }
@@ -51,7 +51,7 @@ function updateSelectionPanel() {
     return;
   }
   if (box3) { try { box3.show(); } catch (e) {} try { box3.expand(); } catch (e) {} }
-  safeExpand(panel);
+  panel.expand();
   if (typeof container.show === 'function') { try { container.show(); } catch (e) {} }
   if (btnSummary) { try { btnSummary.show(); } catch (e) {} try { btnSummary.expand(); } catch (e) {} }
   let total = 0, totalGuests = 0, lines = [];
@@ -133,18 +133,6 @@ function safeItem($item, selector, action, val) {
 }
 
 function tryFind(id) { try { return $w('#' + id); } catch (e) { return null; } }
-
-function safeCollapse(el) {
-  if (!el) return;
-  if (typeof el.collapse === 'function') { try { el.collapse(); } catch (e) {} }
-  else if (typeof el.hide === 'function') { try { el.hide(); } catch (e) {} }
-}
-
-function safeExpand(el) {
-  if (!el) return;
-  if (typeof el.expand === 'function') { try { el.expand(); } catch (e) {} }
-  else if (typeof el.show === 'function') { try { el.show(); } catch (e) {} }
-}
 
 function plainTextFromHtml(html) {
   if (!html) return '';
@@ -468,18 +456,18 @@ $w.onReady(async function () {
   }
 
   const vacationDatesStart = tryFind('vacationDates');
-  safeCollapse(vacationDatesStart);
+  if (vacationDatesStart) { try { vacationDatesStart.collapse(); } catch (e) {} }
 
   const panel = tryFind('selectionPanel');
   if (panel) panel.collapse();
   const containerStart = tryFind('selectedRoomsContainer');
   if (containerStart) { try { containerStart.hide(); } catch (e) {} }
   const repStart = tryFind('searchResultsRepeater');
-  safeCollapse(repStart);
+  if (repStart) { try { repStart.collapse(); } catch (e) {} }
   const btnSummaryStart = tryFind('btnSummary');
-  safeCollapse(btnSummaryStart);
+  if (btnSummaryStart) { try { btnSummaryStart.collapse(); } catch (e) {} }
   const boxStart = tryFind('box3');
-  safeCollapse(boxStart);
+  if (boxStart) { try { boxStart.collapse(); } catch (e) {} }
   loadMessages();
 });
 
@@ -488,8 +476,8 @@ async function loadMessages() {
     const msgs = await getActiveMessages('search');
     const el = tryFind('messagesContainer');
     if (!el) return;
-    if (msgs.length === 0) safeCollapse(el);
-    else { safeExpand(el); el.text = msgs.map((m) => m.title || '').join('; '); }
+    if (msgs.length === 0) el.collapse();
+    else { el.expand(); el.text = msgs.map((m) => m.title || '').join('; '); }
   } catch (e) {}
 }
 
@@ -506,7 +494,7 @@ function estimateSearchValue(nights) {
 
 async function searchHandler() {
   const gallery = tryFind('hotelRoomPhotos');
-  safeCollapse(gallery);
+  if (gallery && typeof gallery.collapse === 'function') gallery.collapse();
 
   let ciEl = tryFind('datePickerCheckIn'), coEl = tryFind('datePickerCheckOut');
   if (!ciEl || !coEl) {
@@ -692,4 +680,3 @@ function applyUrlDatesIfPresent() {
     return q.auto === '1';
   } catch (e) { return false; }
 }
-
