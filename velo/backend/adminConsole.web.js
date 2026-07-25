@@ -4,7 +4,7 @@ import { getSecret } from 'wix-secrets-backend';
 import { fetch } from 'wix-fetch';
 import { currentUser } from 'wix-users-backend';
 import { searchAvailability } from 'backend/search.web';
-import { issueBookingInvoice } from 'backend/availability';
+import { issueBookingInvoice } from 'backend/availability.web';
 import { adjustBookingConversion, isGoogleAdsSuspended } from 'backend/googleAdsConversions.web';
 
 const BOOKINGS = 'Bookings';
