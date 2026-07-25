@@ -238,10 +238,14 @@ $w.onReady(async function () {
           if (packagePriceEl) {
             const baseRate = Number(pkgDetails.baseRate) || 0;
             const packagePrice = baseRate * nights;
-            console.log('>>> packagePrice compute:', { nights: nights, baseRate: baseRate, packagePrice: packagePrice, pkgDetails: pkgDetails });
-            packagePriceEl.text = packagePrice > 0 ? '$' + packagePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
-            try { packagePriceEl.show(); } catch (e) {}
-            try { packagePriceEl.expand(); } catch (e) {}
+            console.log('>>> packagePrice compute:', { pkgContainerHidden: pkgContainer && pkgContainer.collapsed, nights: nights, baseRate: baseRate, packagePrice: packagePrice, pkgDetails: pkgDetails });
+            if (packagePrice > 0) {
+              packagePriceEl.text = '$' + packagePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              try { packagePriceEl.show(); } catch (e) {}
+              try { packagePriceEl.expand(); } catch (e) {}
+            } else {
+              packagePriceEl.text = '';
+            }
           }
         } catch (pkgErr) {
           console.log('>>> package details lookup error:', pkgErr && pkgErr.message || pkgErr);
@@ -440,19 +444,22 @@ $w.onReady(async function () {
     });
   }
 
-  const vacationDatesStart = tryFind('vacationDates');
-  if (vacationDatesStart) { try { vacationDatesStart.collapse(); } catch (e) {} }
+  function hideIfFound(id) {
+    const el = tryFind(id);
+    if (!el) return;
+    if (typeof el.collapse === 'function') {
+      try { el.collapse(); } catch (e) {}
+    } else if (typeof el.hide === 'function') {
+      try { el.hide(); } catch (e) {}
+    }
+  }
 
-  const panel = tryFind('selectionPanel');
-  if (panel) panel.collapse();
-  const containerStart = tryFind('selectedRoomsContainer');
-  if (containerStart) { try { containerStart.hide(); } catch (e) {} }
-  const repStart = tryFind('searchResultsRepeater');
-  if (repStart) { try { repStart.collapse(); } catch (e) {} }
-  const btnSummaryStart = tryFind('btnSummary');
-  if (btnSummaryStart) { try { btnSummaryStart.collapse(); } catch (e) {} }
-  const boxStart = tryFind('box3');
-  if (boxStart) { try { boxStart.collapse(); } catch (e) {} }
+  hideIfFound('vacationDates');
+  hideIfFound('selectionPanel');
+  hideIfFound('selectedRoomsContainer');
+  hideIfFound('searchResultsRepeater');
+  hideIfFound('btnSummary');
+  hideIfFound('box3');
   loadMessages();
 });
 
