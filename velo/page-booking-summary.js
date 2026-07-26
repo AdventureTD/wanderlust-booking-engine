@@ -489,6 +489,7 @@ async function renderSummary() {
   safeText('vatAcc', '$' + fmtCurrency(discountedAccNet));
   safeText('vatSer', '$' + fmtCurrency(discountedAdvNet));
   safeText('totalVatText', '$' + fmtCurrency(discountedTotalVat));
+  safeText('totalVat2', '$' + fmtCurrency(discountedTotalVat));
   safeText('propertyFeeText', '$' + fmtCurrency(discountedPropertyFee));
   safeText('grandTotalText', '$' + fmtCurrency(discountedGrandTotal));
 
