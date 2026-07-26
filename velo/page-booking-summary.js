@@ -450,6 +450,7 @@ async function renderSummary() {
   const packageTotal = Math.round(packageCost * totalGuests * 100) / 100;
   safeText('packageTotal', '$' + fmtCurrency(packageTotal));
   safeText('packageTotal2', '$' + fmtCurrency(packageTotal));
+  safeText('packageTotal3', '$' + fmtCurrency(packageTotal));
 
   const accNet = subtotalNet * accommodationShare;
   const advNet = subtotalNet * (1 - accommodationShare);
