@@ -465,14 +465,14 @@ async function renderSummary() {
   const discountedGrandTotal = Math.round((discountedSubtotal + discountedPropertyFee + discountedTotalVat) * 100) / 100;
 
   safeText('accommodationNamesText', names.join(', '));
-  safeText('packageSubTotal', '$' + fmtCurrency(Math.round((packageTotal + totalRoomFeeForDisplay + promoAmount) * 100) / 100));
+  safeText('packageSubTotal', '$' + fmtCurrency(discountedSubtotal));
   safeText('subtotalNetText', '$' + fmtCurrency(discountedSubtotal));
   safeText('additionalFee2', '$' + fmtCurrency(totalRoomFeeForDisplay));
 
   // Promo display
   if (_promoDiscount > 0 && _promoCodeApplied) {
     safeExpand('promoDiscountRow');
-    safeText('promoAmount', '$' + fmtCurrency(promoAmount));
+    safeText('promoAmount', '($' + fmtCurrency(Math.abs(promoAmount)) + ')');
     safeText('promoDiscountText', 'Promo Code (' + _promoCodeApplied + '): ' + fmtCurrency(promoAmount) + ' (-' + (_promoDiscount * 100).toFixed(0) + '%)');
     safeExpand('promoAmount');
     try { $w('#promoAmount').show(); } catch (e) {}
