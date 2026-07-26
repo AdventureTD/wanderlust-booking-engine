@@ -576,13 +576,22 @@ function initRoomRepeater() {
     }
 
     safeItem($item, '#roomPriceText', 'text', '$' + fmtCurrency(itemData.baseRate || 0) + ' / person / night');
+    const feeText = (itemData.additionalFee || 0) > 0 ? '$' + fmtCurrency(itemData.additionalFee) : '';
     const feeEl = safeItem($item, '#additionalFee', null, null);
     if (feeEl) {
-      const feeText = (itemData.additionalFee || 0) > 0 ? '$' + fmtCurrency(itemData.additionalFee) : '';
       try {
         if (typeof feeEl.text === 'string' || typeof feeEl.text === 'function') feeEl.text = feeText;
         else if (typeof feeEl.label === 'string' || typeof feeEl.label === 'function') feeEl.label = feeText;
         else if (typeof feeEl.value === 'string' || typeof feeEl.value === 'function') feeEl.value = feeText;
+      } catch (e) {}
+    }
+
+    const feeEl2 = safeItem($item, '#additionalFee2', null, null);
+    if (feeEl2) {
+      try {
+        if (typeof feeEl2.text === 'string' || typeof feeEl2.text === 'function') feeEl2.text = feeText;
+        else if (typeof feeEl2.label === 'string' || typeof feeEl2.label === 'function') feeEl2.label = feeText;
+        else if (typeof feeEl2.value === 'string' || typeof feeEl2.value === 'function') feeEl2.value = feeText;
       } catch (e) {}
     }
 
