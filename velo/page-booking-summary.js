@@ -53,6 +53,24 @@ function fmtDate(d) {
   return (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
 }
 
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function ordinalSuffix(n) {
+  const r = n % 100;
+  if (r >= 11 && r <= 13) return 'th';
+  switch (n % 10) {
+    case 1: return 'st';
+    case 2: return 'nd';
+    case 3: return 'rd';
+    default: return 'th';
+  }
+}
+
+function fmtDateVerbose(d) {
+  if (!d) return '';
+  return MONTH_NAMES[d.getMonth()] + ' ' + d.getDate() + ordinalSuffix(d.getDate());
+}
+
 /* nightsFromDisplay — parse checkInDisplay / checkOutDisplay text ("M/D/YYYY")
    and return the number of nights.  Used to look up package title by stay length. */
 function nightsFromDisplay(ciText, coText) {
@@ -413,6 +431,22 @@ async function renderSummary() {
   }
 
   safeText('totalGuests', String(totalGuests));
+  const ciDateForSummary = parseDateStr(_summaryCis) || parseDateStr(safeTextRead('checkInDisplay'));
+  const coDateForSummary = parseDateStr(_summaryCos) || parseDateStr(safeTextRead('checkOutDisplay'));
+  const summaryNights = nights > 0 ? nights : _summaryNights;
+  const summaryGuests = totalGuests || 0;
+  const guestWord = summaryGuests === 1 ? 'guest' : 'guests';
+  const nightWord = summaryNights === 1 ? 'night' : 'nights';
+  let packageSummaryText = '';
+  if (ciDateForSummary && coDateForSummary) {
+    packageSummaryText = fmtDateVerbose(ciDateForSummary) + ' to ' + fmtDateVerbose(coDateForSummary) +
+                         ' * ' + summaryNights + ' ' + nightWord +
+                         ' * ' + summaryGuests + ' ' + guestWord;
+  } else {
+    packageSummaryText = summaryNights + ' ' + nightWord + ' * ' + summaryGuests + ' ' + guestWord;
+  }
+  safeText('packageSummary', packageSummaryText);
+
   const packageTotal = Math.round(packageCost * totalGuests * 100) / 100;
   safeText('packageTotal', '$' + fmtCurrency(packageTotal));
 
