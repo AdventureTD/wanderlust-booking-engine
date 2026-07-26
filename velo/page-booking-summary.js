@@ -459,10 +459,11 @@ async function renderSummary() {
   const totalVat = vatAccommodation + vatAdventure;
   const grandTotal = subtotalNet + propertyFee + totalVat;
 
-  // promoAmount is calculated on the combined package + room fees (full pre-discount subtotal).
+  // promoAmount is calculated by matching promoCode against PromoCodes.title
+  // and multiplying the discount field by packageTotal.
   const totalRoomFeeForDisplay = Math.round((subtotalNet - packageTotal) * 100) / 100;
   const preDiscountSubtotal = Math.round((packageTotal + totalRoomFeeForDisplay) * 100) / 100;
-  const promoAmount = _promoDiscount > 0 ? -Math.round(preDiscountSubtotal * _promoDiscount * 100) / 100 : 0;
+  const promoAmount = _promoDiscount > 0 ? -Math.round(packageTotal * _promoDiscount * 100) / 100 : 0;
   const discountedSubtotal = Math.round((preDiscountSubtotal + promoAmount) * 100) / 100;
   const discountedAccNet = discountedSubtotal * accommodationShare;
   const discountedAdvNet = discountedSubtotal * (1 - accommodationShare);
