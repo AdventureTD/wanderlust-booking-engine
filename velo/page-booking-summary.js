@@ -86,26 +86,17 @@ function nightsFromDisplay(ciText, coText) {
 }
 
 function safeText(id, txt) {
-  try {
-    const el = $w('#' + id);
-    if (typeof el.expand === 'function') el.expand();
-    if (typeof el.show   === 'function') el.show();
-    el.text = txt;
-  } catch (e) {}
+  try { const el = $w('#' + id); if (typeof el.expand === 'function') el.expand(); } catch (e) {}
+  try { const el = $w('#' + id); if (typeof el.show   === 'function') el.show(); } catch (e) {}
+  try { $w('#' + id).text = txt; } catch (e) {}
 }
 function safeCollapse(id) {
-  try {
-    const el = $w('#' + id);
-    if (typeof el.collapse === 'function') el.collapse();
-    if (typeof el.hide    === 'function') el.hide();
-  } catch (e) {}
+  try { const el = $w('#' + id); if (typeof el.collapse === 'function') el.collapse(); } catch (e) {}
+  try { const el = $w('#' + id); if (typeof el.hide    === 'function') el.hide(); } catch (e) {}
 }
 function safeExpand(id) {
-  try {
-    const el = $w('#' + id);
-    if (typeof el.expand === 'function') el.expand();
-    if (typeof el.show   === 'function') el.show();
-  } catch (e) {}
+  try { const el = $w('#' + id); if (typeof el.expand === 'function') el.expand(); } catch (e) {}
+  try { const el = $w('#' + id); if (typeof el.show   === 'function') el.show(); } catch (e) {}
 }
 function safeVal(id) { try { return $w('#' + id).value || ''; } catch (e) { return ''; } }
 function safeTextRead(id) { try { return $w('#' + id).text || ''; } catch (e) { return ''; } }
@@ -482,8 +473,10 @@ async function renderSummary() {
   if (_promoDiscount > 0 && _promoCodeApplied) {
     safeExpand('promoDiscountRow');
     safeText('promoAmount', '$' + fmtCurrency(promoAmount));
-    safeText('promoDiscountText', 'Promo Code (' + _promoCodeApplied + '): ' + fmtCurrency(promoAmount) + ' (-' + (_promoDiscount * 100) + '%)');
+    safeText('promoDiscountText', 'Promo Code (' + _promoCodeApplied + '): ' + fmtCurrency(promoAmount) + ' (-' + (_promoDiscount * 100).toFixed(0) + '%)');
     safeExpand('promoAmount');
+    try { $w('#promoAmount').show(); } catch (e) {}
+    try { $w('#promoDiscountText').show(); } catch (e) {}
   } else {
     safeCollapse('promoDiscountRow');
     safeText('promoAmount', '');
