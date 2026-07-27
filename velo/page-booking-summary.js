@@ -469,18 +469,26 @@ async function renderSummary() {
   safeText('subtotalNetText', '$' + fmtCurrency(discountedSubtotal));
   safeText('additionalFee2', '$' + fmtCurrency(totalRoomFeeForDisplay));
 
-  // Promo display
+  // Promo display — box11 must be expanded so child text elements can render.
+  safeExpand('box11');
   if (_promoDiscount > 0 && _promoCodeApplied) {
+    const promoAmtTxt = '($' + fmtCurrency(Math.abs(promoAmount)) + ')';
+    const promoRowTxt = 'Promo Code (' + _promoCodeApplied + '): ' + fmtCurrency(promoAmount) + ' (-' + (_promoDiscount * 100).toFixed(0) + '%)';
+    console.log('[WBE-PROMO] rendering visible:', promoAmtTxt, promoRowTxt);
+
     safeExpand('promoDiscountRow');
-    safeText('promoAmount', '($' + fmtCurrency(Math.abs(promoAmount)) + ')');
-    safeText('promoDiscountText', 'Promo Code (' + _promoCodeApplied + '): ' + fmtCurrency(promoAmount) + ' (-' + (_promoDiscount * 100).toFixed(0) + '%)');
-    safeExpand('promoAmount');
-    try { $w('#promoAmount').show(); } catch (e) {}
-    try { $w('#promoDiscountText').show(); } catch (e) {}
+    safeText('promoAmount', promoAmtTxt);
+    safeText('promoDiscountText', promoRowTxt);
+    // Text elements don't support collapse/expand; force show/hide explicitly.
+    try { $w('#promoAmount').show(); } catch (e) { console.warn('[WBE-PROMO] show promoAmount failed:', e.message); }
+    try { $w('#promoDiscountText').show(); } catch (e) { console.warn('[WBE-PROMO] show promoDiscountText failed:', e.message); }
   } else {
+    console.log('[WBE-PROMO] hiding row; discount=', _promoDiscount, 'code=', _promoCodeApplied);
     safeCollapse('promoDiscountRow');
     safeText('promoAmount', '');
     safeText('promoDiscountText', '');
+    try { $w('#promoAmount').hide(); } catch (e) {}
+    try { $w('#promoDiscountText').hide(); } catch (e) {}
     safeCollapse('promoAmount');
   }
 
