@@ -443,7 +443,11 @@ async function renderSummary() {
   } else {
     packageSummaryText = summaryNights + ' ' + nightWord + ' * ' + summaryGuests + ' ' + guestWord;
   }
+  // Force packageSummary visible before assigning text so editor styles stick.
+  try { $w('#packageSummary').expand(); } catch (e) {}
+  try { $w('#packageSummary').show(); } catch (e) {}
   safeText('packageSummary', packageSummaryText);
+  try { $w('#packageSummary').text = packageSummaryText; } catch (e) {}
 
   const packageTotal = Math.round(packageCost * totalGuests * 100) / 100;
   safeText('packageTotal', '$' + fmtCurrency(packageTotal));
