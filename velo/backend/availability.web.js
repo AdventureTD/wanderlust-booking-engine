@@ -41,8 +41,25 @@ function getRoomDisplayName(roomCode) {
 }
 
 async function getNextBookingNumber() {
-  const next = await incrementSetting('bookNumber');
-  return 'WC-' + next;
+  try {
+    const next = await incrementSetting('bookNumber');
+    return 'WC-' + next;
+  } catch (e) {
+    console.log('>>> getNextBookingNumber fallback error:', e.message);
+    // Fallback: find highest existing WC-* number.
+    const res = await wixData.query(BOOKING_SUMMARIES)
+      .startsWith('bookingNumber', 'WC-')
+      .descending('bookingNumber')
+      .limit(1)
+      .find();
+    let last = 1000;
+    if (res.items.length > 0) {
+      const bn = String(res.items[0].bookingNumber || 'WC-1000');
+      const m = bn.match(/WC-(\d+)/);
+      if (m) last = parseInt(m[1], 10);
+    }
+    return 'WC-' + (last + 1);
+  }
 }
 
 async function getNextInvoiceNumber() {
@@ -475,7 +492,23 @@ export const unitsAvailable = webMethod(
 export const createBooking = webMethod(
   Permissions.Anyone,
   async (booking) => {
+    try {
+      return await createBookingImpl(booking);
+    } catch (e) {
+      console.log('>>> SERVER createBooking FATAL:', e.message);
+      throw e;
+    }
+  }
+);
+
+async function createBookingImpl(booking) {
     console.log('>>> SERVER createBooking called:', JSON.stringify(booking).substring(0,200));
+    try {
+      const bnTest = await getNextBookingNumber();
+      console.log('>>> SERVER bookingNumber generator works:', bnTest);
+    } catch (e) {
+      console.log('>>> SERVER getNextBookingNumber test failed:', e.message);
+    }
     const roomCode = booking.roomCode;
     const checkIn = booking.checkIn;
     const checkOut = booking.checkOut;
@@ -591,7 +624,7 @@ export const createBooking = webMethod(
     console.log('>>> SERVER createBooking complete. bookingNumber:', inserted.bookingNumber);
     return inserted;
   }
-);
+}
 
 export const issueBookingInvoice = webMethod(
   Permissions.Anyone,
