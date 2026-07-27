@@ -111,7 +111,7 @@ Backend: `backend/reporting.web.js` -> `queryBookingsByDateRange(from, to, dateF
 - Returns `{ rows, totals }`. `totals` aggregates all financial columns for the
   range (verified: sums + reconciliation correct).
 
-Page: `velo/page-admin-console.js` wires:
+Page: `velo/page-admin-bookings.js` wires:
 - `#datePickerFrom`, `#datePickerTo` — the range
 - `#dateFieldSelect` (optional dropdown) — which date to filter on
 - `#btnRunReport` — runs it
@@ -125,7 +125,7 @@ Page: `velo/page-admin-console.js` wires:
    to your admin account(s).
 2. Add the elements above (2 date pickers, a button, a repeater, text labels).
    Right-click each element to see/set its ID; match the IDs in the page code.
-3. Paste `velo/page-admin-console.js` into that page's code panel.
+3. Paste `velo/page-admin-bookings.js` into that page's code panel.
 4. Add `backend/reporting.web.js` under Backend.
 
 ## Verified

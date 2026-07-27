@@ -98,7 +98,7 @@ Reads selected rooms from sessionStorage + dates from URL.
 
 ---
 
-## PAGE 4 — Admin Console (paste: `velo/page-admin-console.js`)
+## PAGE 4 — Admin Console (paste: `velo/page-admin-bookings.js`)
 
 (Admin console unchanged — see full spec below for completeness)
 
@@ -206,7 +206,7 @@ Reads selected rooms from sessionStorage + dates from URL.
 3. Build Page 1, set the IDs, paste `velo/page-booking-search.js`, preview, test search + multi-select.
 4. Build Page 2, set the IDs, paste `velo/page-booking-summary.js`, test guest count changes + remove.
 5. Build Page 3, set the IDs, paste `velo/page-guest-confirm.js`, test multi-room booking creation.
-6. Build Page 4, set the IDs, paste `velo/page-admin-console.js`, test reports.
+6. Build Page 4, set the IDs, paste `velo/page-admin-bookings.js`, test reports.
 7. Deploy the external invoice service (INVOICING_EMAIL.md) and wire the confirm step.
 
 ## What I can/can't do (honest)

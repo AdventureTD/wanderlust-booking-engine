@@ -75,7 +75,7 @@ Use the mockup (`mockups/booking-pages-mockup.html`) as the visual target and
       paste `velo/page-booking-summary.js`. Reads selections from session storage.
 - [ ] **Guest & Confirm page:** capture name/email/phone, call `velo/page-guest-confirm.js`.
       Creates one booking per room, generates combined invoice, stores PDF, logs reports.
-- [ ] **Admin Console page:** add elements per spec, paste `velo/page-admin-console.js`
+- [ ] **Admin Console page:** add elements per spec, paste `velo/page-admin-bookings.js`
       (+ payments/settings snippets from `PAYMENTS.md`, `PRICING_MODEL.md`).
       Then LOCK IT DOWN per `ADMIN_ACCESS.md`: hide from menu + Members-only.
 
