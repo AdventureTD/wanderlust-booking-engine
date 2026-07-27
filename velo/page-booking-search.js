@@ -338,12 +338,8 @@ $w.onReady(async function () {
         const coFmt = formatVacationDate(co);
         if (ciFmt && coFmt) {
           const dateText = (ciFmt + ' - ' + coFmt).trim();
-          // Force single-line plain text; Wix sometimes preserves paragraph/line styling.
-          if (typeof vacationDatesEl.html !== 'undefined') {
-            vacationDatesEl.html = '<span style="white-space:nowrap;">' + escapeHtml(dateText) + '</span>';
-          } else {
-            vacationDatesEl.text = dateText;
-          }
+          // Use .text so the editor's Heading 2 / font-size styling is preserved.
+          vacationDatesEl.text = dateText;
           console.log('>>> vacationDates set:', JSON.stringify(dateText), 'length:', dateText.length, 'html:', typeof vacationDatesEl.html !== 'undefined');
           if (typeof vacationDatesEl.fitToContent === 'function') { try { vacationDatesEl.fitToContent(); } catch (e) {} }
           if (typeof vacationDatesEl.collapse === 'function') { try { vacationDatesEl.collapse(); } catch (e) {} }
