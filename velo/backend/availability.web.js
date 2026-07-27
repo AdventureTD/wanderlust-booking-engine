@@ -42,7 +42,7 @@ function getRoomDisplayName(roomCode) {
 
 async function getNextBookingNumber() {
   try {
-    const next = await incrementSetting('bookNumber');
+    const next = await incrementSetting('bookingNumber');
     return 'WC-' + next;
   } catch (e) {
     console.log('>>> getNextBookingNumber fallback error:', e.message);
