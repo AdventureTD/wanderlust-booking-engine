@@ -510,7 +510,13 @@ async function renderSummary() {
   safeText('propertyFeeText', '$' + fmtCurrency(discountedPropertyFee));
   safeText('propertyFee2', '$' + fmtCurrency(discountedPropertyFee));
   safeExpand('box8');
+  // Some Wix Text elements won't render new text while hidden/collapsed.
+  try { $w('#grandTotalText').expand(); } catch (e) {}
+  try { $w('#grandTotalText').show(); } catch (e) {}
   safeText('grandTotalText', '$' + fmtCurrency(discountedGrandTotal));
+  // Fallback ID in case the element was renamed to #grandTotal.
+  try { $w('#grandTotal').text = '$' + fmtCurrency(discountedGrandTotal); } catch (e) {}
+  console.log('[WBE-SUMMARY] grandTotal set to:', '$' + fmtCurrency(discountedGrandTotal));
 
   // Update totalNightsDisplay with calculated nights
   if (nights > 0) {
