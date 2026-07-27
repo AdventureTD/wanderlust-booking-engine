@@ -106,7 +106,7 @@ async function refreshList() {
     });
 
     // Expand results section and the repeater itself so rows are visible.
-    ['resultsContainer', 'bookingsRepeater'].forEach(function (id) {
+    ['resultsContainer', 'bookingsContainer', 'bookingsRepeater'].forEach(function (id) {
       const el = tryFind(id);
       if (!el) return;
       try { el.expand(); } catch (e) {}
