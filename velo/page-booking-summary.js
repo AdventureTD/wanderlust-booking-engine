@@ -511,11 +511,15 @@ async function renderSummary() {
   safeText('propertyFee2', '$' + fmtCurrency(discountedPropertyFee));
   safeExpand('box8');
   const grandTotalTxt = '$' + fmtCurrency(discountedGrandTotal);
-  // The visible TOTAL DUE element is #grandTotal1 in the Wix editor.
-  ['grandTotal1', 'grandTotalText', 'grandTotal'].forEach(function (gtId) {
-    try { $w('#' + gtId).expand(); } catch (e) {}
-    try { $w('#' + gtId).show(); } catch (e) {}
-    try { $w('#' + gtId).text = grandTotalTxt; } catch (e) {}
+  // TOTAL DUE element — user confirms the variable/ID is #grandTotal.
+  // We also write to #grandTotal1 and #grandTotalText as defensive fallbacks.
+  ['grandTotal', 'grandTotal1', 'grandTotalText'].forEach(function (gtId) {
+    try {
+      const el = $w('#' + gtId);
+      try { if (typeof el.expand === 'function') el.expand(); } catch (e) {}
+      try { if (typeof el.show === 'function') el.show(); } catch (e) {}
+      try { el.text = grandTotalTxt; } catch (e) {}
+    } catch (e) {}
   });
   console.log('[WBE-SUMMARY] grandTotal set to:', grandTotalTxt);
 
