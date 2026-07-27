@@ -636,12 +636,26 @@ function renderRoomRepeater(repData) {
 }
 
 function wireContinueButton() {
+  console.log('[WBE-FRONTEND] wireContinueButton starting');
   let btn;
-  try { btn = $w('#btnContinue'); } catch (e) { return; }
-  if (!btn || typeof btn.onClick !== 'function') return;
+  try { btn = $w('#btnContinue'); } catch (e) {
+    console.log('[WBE-FRONTEND] btnContinue element not found:', e.message);
+    return;
+  }
+  console.log('[WBE-FRONTEND] btnContinue found. link:', btn.link, 'onClick type:', typeof btn.onClick);
+  if (!btn || typeof btn.onClick !== 'function') {
+    console.log('[WBE-FRONTEND] btnContinue has no onClick method');
+    return;
+  }
+  // Remove any editor-configured navigation so the onClick handler can run.
   if (typeof btn.link === 'string') btn.link = '';
+  if (typeof btn.target === 'string') btn.target = '';
+  if (typeof btn.action === 'function') {
+    try { btn.action = null; } catch (e) {}
+  }
 
   btn.onClick(async function () {
+    console.log('[WBE-FRONTEND] btnContinue clicked');
     const name = safeVal('inputGuestName').trim();
     const email = safeVal('inputGuestEmail').trim();
     const phone = normalizePhone(safeVal('inputGuestPhone'));
@@ -655,6 +669,7 @@ function wireContinueButton() {
 
     const rooms = _summaryRooms || [];
     const ci = _summaryCis;
+    console.log('[WBE-FRONTEND] continue: rooms=', rooms.length, 'ci=', ci, 'co=', _summaryCos);
     const bookings = [], errors = [];
     let sharedBookingNumber = '';
 
@@ -691,7 +706,9 @@ function wireContinueButton() {
           gbraid: clickIds.gbraid,
           wbraid: clickIds.wbraid,
         };
+        console.log('[WBE-FRONTEND] calling createBooking for first room:', payload0.roomCode);
         const b0 = await createBooking(payload0);
+        console.log('[WBE-FRONTEND] createBooking returned:', JSON.stringify({ ok: !!b0, bookingNumber: b0 && b0.bookingNumber }));
         bookings.push(b0);
         if (b0.bookingNumber) sharedBookingNumber = b0.bookingNumber;
       }
@@ -828,6 +845,7 @@ function wireContinueButton() {
         wixLocation.to('https://www.wanderlustcaribbean.com');
       }
     } catch (e) {
+      console.error('[WBE-FRONTEND] createBooking/invoice flow error:', e.message, e.stack);
       safeText('bookingStatus', 'Booking error: ' + e.message);
       safeDisable('btnContinue', false);
     }
