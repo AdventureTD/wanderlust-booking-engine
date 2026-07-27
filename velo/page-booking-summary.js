@@ -71,6 +71,11 @@ function fmtDateVerbose(d) {
   return MONTH_NAMES[d.getMonth()] + ' ' + d.getDate() + ordinalSuffix(d.getDate());
 }
 
+function fmtDateVerboseWithYear(d) {
+  if (!d) return '';
+  return MONTH_NAMES[d.getMonth()] + ' ' + d.getDate() + ordinalSuffix(d.getDate()) + ', ' + d.getFullYear();
+}
+
 /* nightsFromDisplay — parse checkInDisplay / checkOutDisplay text ("M/D/YYYY")
    and return the number of nights.  Used to look up package title by stay length. */
 function nightsFromDisplay(ciText, coText) {
@@ -432,7 +437,7 @@ async function renderSummary() {
   const nightWord = summaryNights === 1 ? 'night' : 'nights';
   let packageSummaryText = '';
   if (ciDateForSummary && coDateForSummary) {
-    packageSummaryText = fmtDateVerbose(ciDateForSummary) + ' to ' + fmtDateVerbose(coDateForSummary) +
+    packageSummaryText = fmtDateVerboseWithYear(ciDateForSummary) + ' to ' + fmtDateVerboseWithYear(coDateForSummary) +
                          ' * ' + summaryNights + ' ' + nightWord +
                          ' * ' + summaryGuests + ' ' + guestWord;
   } else {
