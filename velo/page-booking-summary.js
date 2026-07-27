@@ -509,6 +509,7 @@ async function renderSummary() {
   safeText('totalVat2', '$' + fmtCurrency(discountedTotalVat));
   safeText('propertyFeeText', '$' + fmtCurrency(discountedPropertyFee));
   safeText('propertyFee2', '$' + fmtCurrency(discountedPropertyFee));
+  safeExpand('box8');
   safeText('grandTotalText', '$' + fmtCurrency(discountedGrandTotal));
 
   // Update totalNightsDisplay with calculated nights
