@@ -102,7 +102,17 @@ async function refreshList() {
     if (!rep) { console.warn('[WBE-ADMIN] bookingsRepeater missing in refreshList'); return; }
 
     rep.data = res.items.map(function (s, i) {
-      return { _id: s._id || ('row' + i), summary: s };
+      return {
+        _id: s._id || ('row' + i),
+        bookingNumber: s.bookingNumber || '',
+        guestName: s.guestName || '',
+        checkIn: s.checkIn || '',
+        checkOut: s.checkOut || '',
+        status: s.status || '',
+        grandTotal: s.grandTotal || 0,
+        // Preserve the full summary object for the click handler
+        summary: s
+      };
     });
 
     // Expand results section and the repeater itself so rows are visible.
