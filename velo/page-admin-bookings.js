@@ -25,6 +25,7 @@ function setVal(id, v) { const el = tryFind(id); if (el) safeSet(el, 'value', v)
 function show(id) { const el = tryFind(id); if (el) { try { el.expand(); } catch (e) {} try { el.show(); } catch (e) {} } }
 function hide(id) { const el = tryFind(id); if (el) { try { el.collapse(); } catch (e) {} try { el.hide(); } catch (e) {} } }
 function money(n) { return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtNum(n) { return String(Number(n || 0).toFixed(2)); }
 function dstr(d) {
   if (!d) return '';
   try { const dt = d instanceof Date ? d : new Date(d); if (isNaN(dt.getTime())) return String(d); return dt.toISOString().slice(0, 10); } catch (e) { return String(d); }
@@ -217,12 +218,19 @@ function renderDetail() {
   setVal('inputGuestPhone', s.guestPhone || '');
   setVal('inputRoomsNum', String(s.roomCount || _currentRooms.length || 0));
   setVal('inputStatusDropdown', s.status || 'confirmed');
-  setVal('inputgclid', s.gclid || '');
-  setVal('inputgbraid', s.gbraid || '');
-  setVal('inputwbraid', s.wbraid || '');
+  setVal('inputGclid', s.gclid || '');
+  setVal('inputGbraid', s.gbraid || '');
+  setVal('inputWbraid', s.wbraid || '');
   setVal('inputConvUp', s.googleConversionUploaded ? '1' : '0');
   setVal('inputConvRet', s.googleConversionRetracted ? '1' : '0');
   setVal('inputBookingNotes', s.notes || '');
+
+  // Financial detail fields (BookingSummary with active-invoice fallback)
+  const inv = _currentActiveInvoice || {};
+  setVal('inputPkgVat', fmtNum(s.packageVat || inv.packageVat));
+  setVal('inputAccVat', fmtNum(s.accommodationVat || inv.accommodationVat));
+  setVal('inputPropFee', fmtNum(s.propertyFee || inv.propertyFee));
+  setVal('inputPromoDiscountNum', fmtNum(s.promoDiscountAmount || inv.promoDiscountAmount));
 
   // Invoices repeater (BookingInvoices fields)
   const invRep = tryFind('bookingInvoicesRepeater');
@@ -292,14 +300,17 @@ async function saveChanges() {
       checkOut: val('dateCheckOut') ? dstr(val('dateCheckOut')) : undefined,
       roomCount: Number(val('inputRoomsNum')) || undefined,
       status: val('inputStatusDropdown') || undefined,
-      gclid: String(val('inputgclid') || ''),
-      gbraid: String(val('inputgbraid') || ''),
-      wbraid: String(val('inputwbraid') || ''),
+      gclid: String(val('inputGclid') || ''),
+      gbraid: String(val('inputGbraid') || ''),
+      wbraid: String(val('inputWbraid') || ''),
       googleConversionUploaded: val('inputConvUp') === '1' || val('inputConvUp') === true || val('inputConvUp') === 'true',
       googleConversionRetracted: val('inputConvRet') === '1' || val('inputConvRet') === true || val('inputConvRet') === 'true',
       notes: String(val('inputBookingNotes') || ''),
+      accommodationVat: Number(val('inputAccVat')) || undefined,
+      packageVat: Number(val('inputPkgVat')) || undefined,
+      propertyFee: Number(val('inputPropFee')) || undefined,
+      promoDiscountAmount: Number(val('inputPromoDiscountNum')) || undefined,
       promoCode: String(val('inputPromoCode') || ''),
-      promoDiscountAmount: Number(val('inputPromoDiscountAmount')) || undefined,
     };
     const res = await adminUpdateBooking(_currentBooking.bookingNumber, changes);
     if (!res.ok) { txt('saveStatusText', 'Error: ' + (res.error || 'unknown')); return; }

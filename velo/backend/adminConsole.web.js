@@ -239,6 +239,9 @@ export const adminUpdateBooking = webMethod(
       if (ch.status !== undefined) updated.status = ch.status;
       if (ch.promoCode !== undefined) updated.promoCode = ch.promoCode;
       if (ch.promoDiscountAmount !== undefined) updated.promoDiscountAmount = money(ch.promoDiscountAmount);
+      if (ch.accommodationVat !== undefined) updated.accommodationVat = money(ch.accommodationVat);
+      if (ch.packageVat !== undefined) updated.packageVat = money(ch.packageVat);
+      if (ch.propertyFee !== undefined) updated.propertyFee = money(ch.propertyFee);
       if (datesChanged) { updated.checkIn = new Date(newCi); updated.checkOut = new Date(newCo); }
       await wixData.update(BOOKINGS, updated);
     }
@@ -255,6 +258,10 @@ export const adminUpdateBooking = webMethod(
     if (ch.wbraid !== undefined) sUpd.wbraid = ch.wbraid;
     if (ch.googleConversionUploaded !== undefined) sUpd.googleConversionUploaded = ch.googleConversionUploaded;
     if (ch.googleConversionRetracted !== undefined) sUpd.googleConversionRetracted = ch.googleConversionRetracted;
+    if (ch.accommodationVat !== undefined) sUpd.accommodationVat = money(ch.accommodationVat);
+    if (ch.packageVat !== undefined) sUpd.packageVat = money(ch.packageVat);
+    if (ch.propertyFee !== undefined) sUpd.propertyFee = money(ch.propertyFee);
+    if (ch.promoDiscountAmount !== undefined) sUpd.promoDiscountAmount = money(ch.promoDiscountAmount);
     if (datesChanged) { sUpd.checkIn = newCi; sUpd.checkOut = newCo; }
     await wixData.update(BOOKING_SUMMARIES, sUpd);
 
