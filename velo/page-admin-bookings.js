@@ -34,6 +34,7 @@ function dstr(d) {
 $w.onReady(function () {
   wireFilters();
   wireDetailPanel();
+  wireBookingsRepeater();
   switchTab('details');
   refreshList();
 });
@@ -98,24 +99,19 @@ async function refreshList() {
     console.log('[WBE-ADMIN] adminListBookings res.ok:', res.ok, 'count:', res.items && res.items.length);
     if (!res.ok) { txt('listStatusText', 'Error: ' + (res.error || 'unknown')); return; }
     txt('listStatusText', res.items.length + ' booking(s)');
-    if (!rep) return;
-
-    rep.onItemReady(($item, itemData) => {
-      const s = itemData.summary || itemData;
-      safeItemText($item, '#rowBookingNumber', s.bookingNumber || '');
-      safeItemText($item, '#rowGuestName', s.guestName || '');
-      safeItemText($item, '#rowDates', dstr(s.checkIn) + ' – ' + dstr(s.checkOut));
-      safeItemText($item, '#rowStatus', s.status || '');
-      const btn = safeItemFind($item, '#btnViewBooking');
-      if (btn && typeof btn.onClick === 'function') {
-        btn.onClick(function () { openDetail(s.bookingNumber); });
-      }
-    });
+    if (!rep) { console.warn('[WBE-ADMIN] bookingsRepeater missing in refreshList'); return; }
 
     rep.data = res.items.map(function (s, i) {
       return { _id: s._id || ('row' + i), summary: s };
     });
-    show('bookingsRepeater');
+
+    // Expand results section and the repeater itself so rows are visible.
+    ['resultsContainer', 'bookingsRepeater'].forEach(function (id) {
+      const el = tryFind(id);
+      if (!el) return;
+      try { el.expand(); } catch (e) {}
+      try { el.show(); } catch (e) {}
+    });
     console.log('[WBE-ADMIN] bookingsRepeater data set, rows:', rep.data.length);
   } catch (e) {
     console.error('[WBE-ADMIN] refreshList error:', e && e.message || e);
@@ -126,6 +122,22 @@ async function refreshList() {
 function safeItemFind($item, sel) { try { return $item(sel); } catch (e) { return null; } }
 function safeItemText($item, sel, v) { const el = safeItemFind($item, sel); if (el) safeSet(el, 'text', v); }
 function safeItemSet($item, sel, v) { const el = safeItemFind($item, sel); if (el && el.value !== undefined) safeSet(el, 'value', v); else safeItemText($item, sel, v); }
+
+function wireBookingsRepeater() {
+  const rep = tryFind('bookingsRepeater');
+  if (!rep) { console.warn('[WBE-ADMIN] bookingsRepeater element not found'); return; }
+  rep.onItemReady(($item, itemData) => {
+    const s = itemData.summary || itemData;
+    safeItemText($item, '#rowBookingNumber', s.bookingNumber || '');
+    safeItemText($item, '#rowGuestName', s.guestName || '');
+    safeItemText($item, '#rowDates', dstr(s.checkIn) + ' – ' + dstr(s.checkOut));
+    safeItemText($item, '#rowStatus', s.status || '');
+    const btn = safeItemFind($item, '#btnViewBooking');
+    if (btn && typeof btn.onClick === 'function') {
+      btn.onClick(function () { openDetail(s.bookingNumber); });
+    }
+  });
+}
 
 // ---------------- DETAIL PANEL ----------------
 
