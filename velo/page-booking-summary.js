@@ -457,7 +457,8 @@ async function renderSummary() {
   const totalRoomFeeForDisplay = Math.round((subtotalNet - packageTotal) * 100) / 100;
   const preDiscountSubtotal = Math.round((packageTotal + totalRoomFeeForDisplay) * 100) / 100;
   const promoAmount = _promoDiscount > 0 ? -Math.round(packageTotal * _promoDiscount * 100) / 100 : 0;
-  const discountedSubtotal = Math.round((preDiscountSubtotal + promoAmount) * 100) / 100;
+  const packageSubtotalValue = Math.round((packageTotal + totalRoomFeeForDisplay + promoAmount) * 100) / 100;
+  const discountedSubtotal = packageSubtotalValue;
   const discountedAccNet = discountedSubtotal * accommodationShare;
   const discountedAdvNet = discountedSubtotal * (1 - accommodationShare);
   const discountedVatAccommodation = discountedAccNet * taxRateAccommodation;
@@ -467,7 +468,8 @@ async function renderSummary() {
   const discountedGrandTotal = Math.round((discountedSubtotal + discountedPropertyFee + discountedTotalVat) * 100) / 100;
 
   safeText('accommodationNamesText', names.join(', '));
-  safeText('packageSubTotal', '$' + fmtCurrency(discountedSubtotal));
+  safeText('packageSubtotal', '$' + fmtCurrency(packageSubtotalValue));
+  safeText('packageSubTotal', '$' + fmtCurrency(packageSubtotalValue));
   safeText('subtotalNetText', '$' + fmtCurrency(discountedSubtotal));
   safeText('additionalFee2', '$' + fmtCurrency(totalRoomFeeForDisplay));
 
