@@ -367,7 +367,9 @@ async function renderSummary() {
     safeText('vatAcc', '$' + fmtCurrency(0));
     safeText('vatSer', '$' + fmtCurrency(0));
     safeText('totalVatText', '$' + fmtCurrency(0));
+    safeText('totalVat2', '$' + fmtCurrency(0));
     safeText('propertyFeeText', '$' + fmtCurrency(0));
+    safeText('propertyFee2', '$' + fmtCurrency(0));
     safeText('grandTotalText', '$' + fmtCurrency(0));
     return;
   }
@@ -499,6 +501,7 @@ async function renderSummary() {
   safeText('totalVatText', '$' + fmtCurrency(discountedTotalVat));
   safeText('totalVat2', '$' + fmtCurrency(discountedTotalVat));
   safeText('propertyFeeText', '$' + fmtCurrency(discountedPropertyFee));
+  safeText('propertyFee2', '$' + fmtCurrency(discountedPropertyFee));
   safeText('grandTotalText', '$' + fmtCurrency(discountedGrandTotal));
 
   // Update totalNightsDisplay with calculated nights
