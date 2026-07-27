@@ -470,7 +470,7 @@ async function renderSummary() {
   const discountedVatAdventure = discountedAdvNet * taxRateAdventure;
   const discountedTotalVat = Math.round((discountedVatAccommodation + discountedVatAdventure) * 100) / 100;
   const discountedPropertyFee = Math.round(discountedSubtotal * propertyFeeRate * 100) / 100;
-  const discountedGrandTotal = Math.round((discountedSubtotal + discountedPropertyFee + discountedTotalVat) * 100) / 100;
+  const discountedGrandTotal = Math.round((packageSubtotalValue + discountedPropertyFee + discountedTotalVat) * 100) / 100;
 
   safeText('accommodationNamesText', names.join(', '));
   safeText('packageSubtotal', '$' + fmtCurrency(packageSubtotalValue));
