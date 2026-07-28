@@ -279,6 +279,7 @@ $w.onReady(async function () {
   })();
 
   trackViewBookingSearch();
+  hideSearchHeader();
 
   // Ensure the page starts at the top when loaded.
   try {
