@@ -726,13 +726,19 @@ function parseDate(v) {
   return null;
 }
 
-function safeText(txt) {
+function safeText(txt, opts) {
   try {
     const el = tryFind('statusText');
     if (!el) { console.log('>>> safeText: statusText element not found'); return; }
+    const style = 'font-family: "Inter Semi Bold", "Inter", sans-serif; font-size: 14px;';
+    if (opts && opts.html) {
+      el.html = '<span style="' + style + '">' + txt + '</span>';
+    } else {
+      const escaped = escapeHtml(txt).replace(/\n/g, '<br>');
+      el.html = '<span style="' + style + '">' + escaped + '</span>';
+    }
     if (typeof el.expand === 'function') el.expand();
     if (typeof el.show === 'function') el.show();
-    el.text = txt;
     console.log('>>> safeText:', txt);
   } catch (e) { console.log('>>> safeText error:', e.message); }
 }
@@ -741,23 +747,17 @@ async function showAlternateDates(ciDate, coDate) {
   try {
     const res = await suggestAlternateDates(ciDate, coDate);
     const sug = (res && res.suggestions) || [];
-    const el = tryFind('statusText');
-    if (!el) return;
 
     if (sug.length === 0) {
-      el.html = '<span>No rooms available within 30 days of your dates. Please contact us or try a shorter stay.</span>';
-      if (typeof el.expand === 'function') el.expand();
-      if (typeof el.show === 'function') el.show();
+      safeText('No rooms available within 30 days of your dates. Please contact us or try a shorter stay.', { html: true });
       return;
     }
 
     const links = sug.map(function (s) {
       const url = buildAltUrl(s.checkIn, s.checkOut);
-      return '<a href="' + url + '">' + s.label + '</a>';
+      return '<a href="' + url + '" style="font-family: \'Inter Semi Bold\', \'Inter\', sans-serif; font-size: 14px;">' + s.label + '</a>';
     }).join(' &middot; ');
-    el.html = '<span>No rooms for those dates. Try: ' + links + '</span>';
-    if (typeof el.expand === 'function') el.expand();
-    if (typeof el.show === 'function') el.show();
+    safeText('No rooms for those dates. Try: ' + links, { html: true });
   } catch (e) {
     console.error('>>> showAlternateDates error:', e && e.message || e);
     safeText('No rooms are available for the dates entered.');
