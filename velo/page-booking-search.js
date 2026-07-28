@@ -566,14 +566,13 @@ async function searchHandler() {
   _summaryNights = computedNights;
   await ensureBaseRate(computedNights);
 
-  showSearchHeader(ciDate, coDate, computedNights);
   clearSelections(true);
   safeText('Searching...');
 
   try {
     const res = await searchAvailability(ciDate, coDate);
     console.log('>>> [WBE-SEARCH] raw results:', JSON.stringify(res));
-    if (!res.ok) { safeText(res.error); return; }
+    if (!res.ok) { hideSearchHeader(); safeText(res.error); return; }
 
     const rep = tryFind('searchResultsRepeater');
     if (!rep) { safeText('Found ' + res.results.length + ' result(s) but no repeater to display them.'); return; }
