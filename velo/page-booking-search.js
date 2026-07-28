@@ -326,73 +326,6 @@ $w.onReady(async function () {
       }
       _summaryNights = nights;
 
-      // Show package/accommodation labels and set vacation date range.
-      ['packageSelectionText', 'accommodationText'].forEach(function (id) {
-        const el = tryFind(id);
-        if (el) { try { el.show(); } catch (e) {} try { el.expand(); } catch (e) {} }
-      });
-
-      const vacationDatesEl = tryFind('vacationDates');
-      if (vacationDatesEl) {
-        const ciFmt = formatVacationDate(ci);
-        const coFmt = formatVacationDate(co);
-        if (ciFmt && coFmt) {
-          const dateText = (ciFmt + ' - ' + coFmt).trim();
-          // Use .text so the editor's Heading 2 / font-size styling is preserved.
-          vacationDatesEl.text = dateText;
-          console.log('>>> vacationDates set:', JSON.stringify(dateText), 'length:', dateText.length, 'html:', typeof vacationDatesEl.html !== 'undefined');
-          if (typeof vacationDatesEl.fitToContent === 'function') { try { vacationDatesEl.fitToContent(); } catch (e) {} }
-          if (typeof vacationDatesEl.collapse === 'function') { try { vacationDatesEl.collapse(); } catch (e) {} }
-          if (typeof vacationDatesEl.show === 'function') { try { vacationDatesEl.show(); } catch (e) {} }
-          if (typeof vacationDatesEl.expand === 'function') { try { vacationDatesEl.expand(); } catch (e) {} }
-        } else {
-          vacationDatesEl.text = '';
-          if (typeof vacationDatesEl.collapse === 'function') { try { vacationDatesEl.collapse(); } catch (e) {} } else if (typeof vacationDatesEl.hide === 'function') { try { vacationDatesEl.hide(); } catch (e) {} }
-        }
-      }
-
-      // Populate packageContainer with title, nights, and specialty tours before search.
-      if (nights > 0) {
-        try {
-          const pkgDetails = await getPackageDetailsByNights(nights);
-          const pkgName2 = tryFind('packageName2');
-          const nightsTextEl = tryFind('nightsText');
-          const specialtyToursEl = tryFind('specialtyTours');
-          const pkgContainer = tryFind('packageContainer');
-
-          if (pkgName2) { pkgName2.text = pkgDetails.title || ''; }
-          if (nightsTextEl) { nightsTextEl.text = String(nights) + ' night' + (nights === 1 ? '' : 's'); }
-          if (specialtyToursEl) { specialtyToursEl.text = pkgDetails.specialtyTours || ''; }
-
-          if (pkgContainer) {
-            if (pkgDetails.title || pkgDetails.specialtyTours) {
-              if (typeof pkgContainer.show === 'function') { try { pkgContainer.show(); } catch (e) {} }
-              if (typeof pkgContainer.expand === 'function') { try { pkgContainer.expand(); } catch (e) {} }
-              console.log('>>> packageContainer expanded');
-            } else {
-              if (typeof pkgContainer.collapse === 'function') { try { pkgContainer.collapse(); } catch (e) {} } else if (typeof pkgContainer.hide === 'function') { try { pkgContainer.hide(); } catch (e) {} }
-            }
-          }
-
-          // Set packagePrice = nights × matching package baseRate.
-          const packagePriceEl = tryFind('packagePrice');
-          if (packagePriceEl) {
-            const baseRate = Number(pkgDetails.baseRate) || 0;
-            const packagePrice = baseRate * nights;
-            console.log('>>> packagePrice compute:', { pkgContainerHidden: pkgContainer && pkgContainer.collapsed, nights: nights, baseRate: baseRate, packagePrice: packagePrice, pkgDetails: pkgDetails });
-            if (packagePrice > 0) {
-              packagePriceEl.text = '$' + packagePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              if (typeof packagePriceEl.show === 'function') { try { packagePriceEl.show(); } catch (e) {} }
-              if (typeof packagePriceEl.expand === 'function') { try { packagePriceEl.expand(); } catch (e) {} }
-            } else {
-              packagePriceEl.text = '';
-            }
-          }
-        } catch (pkgErr) {
-          console.log('>>> package details lookup error:', pkgErr && pkgErr.message || pkgErr);
-        }
-      }
-
       const estValue = await ensureBaseRate(nights).then(function () {
         return estimateSearchValue(nights);
       });
@@ -626,13 +559,14 @@ async function searchHandler() {
   if (coEl) try { co = coEl.value; } catch (e) {}
 
   const ciDate = parseDate(ci), coDate = parseDate(co);
-  if (!ciDate || !coDate) { safeText('Please select check-in and check-out dates.'); return; }
-  if (ciDate >= coDate) { safeText('Check-in date must be before the Check-out date.'); return; }
+  if (!ciDate || !coDate) { hideSearchHeader(); safeText('Please select check-in and check-out dates.'); return; }
+  if (ciDate >= coDate) { hideSearchHeader(); safeText('Check-in date must be before the Check-out date.'); return; }
 
   const computedNights = Math.round((coDate.getTime() - ciDate.getTime()) / 86400000);
   _summaryNights = computedNights;
   await ensureBaseRate(computedNights);
 
+  showSearchHeader(ciDate, coDate, computedNights);
   clearSelections(true);
   safeText('Searching...');
 
@@ -646,6 +580,7 @@ async function searchHandler() {
     if (res.results.length === 0) {
       rep.data = [];
       clearSelections(true);
+      hideSearchHeader();
       const box3 = tryFind('box3');
       if (box3) { if (typeof box3.collapse === 'function') { try { box3.collapse(); } catch (e) {} } else if (typeof box3.hide === 'function') { try { box3.hide(); } catch (e) {} } }
       const panel = tryFind('selectionPanel');
@@ -673,6 +608,7 @@ async function searchHandler() {
     if (availableData.length === 0) {
       rep.data = repData;
       clearSelections(true);
+      hideSearchHeader();
       updateSelectionPanel();
       try { rep.expand(); } catch (e) {}
       const box3 = tryFind('box3');
@@ -724,6 +660,61 @@ async function loadPackageInfo(nights) {
 function hidePackageInfo() {
   try { $w('#packageName').collapse(); } catch (e) {}
   try { $w('#packageAmenities').collapse(); } catch (e) {}
+}
+
+function hideSearchHeader() {
+  ['packageSelectionText', 'accommodationText', 'vacationDates', 'packageContainer', 'packageName2', 'nightsText', 'specialtyTours', 'packagePrice']
+    .forEach(function (id) {
+      const el = tryFind(id);
+      if (el) {
+        if (typeof el.hide === 'function') { try { el.hide(); } catch (e) {} }
+        if (typeof el.collapse === 'function') { try { el.collapse(); } catch (e) {} }
+      }
+    });
+}
+
+function showSearchHeader(ciDate, coDate, nights) {
+  ['packageSelectionText', 'accommodationText'].forEach(function (id) {
+    const el = tryFind(id);
+    if (el) { try { el.show(); } catch (e) {} try { el.expand(); } catch (e) {} }
+  });
+
+  const vacationDatesEl = tryFind('vacationDates');
+  if (vacationDatesEl) {
+    const ciFmt = formatVacationDate(ciDate);
+    const coFmt = formatVacationDate(coDate);
+    if (ciFmt && coFmt) {
+      vacationDatesEl.text = (ciFmt + ' - ' + coFmt).trim();
+      if (typeof vacationDatesEl.show === 'function') { try { vacationDatesEl.show(); } catch (e) {} }
+      if (typeof vacationDatesEl.expand === 'function') { try { vacationDatesEl.expand(); } catch (e) {} }
+    }
+  }
+
+  if (nights > 0) {
+    getPackageDetailsByNights(nights).then(function (pkgDetails) {
+      const pkgName2 = tryFind('packageName2');
+      const nightsTextEl = tryFind('nightsText');
+      const specialtyToursEl = tryFind('specialtyTours');
+      const pkgContainer = tryFind('packageContainer');
+      if (pkgName2) { pkgName2.text = pkgDetails.title || ''; }
+      if (nightsTextEl) { nightsTextEl.text = String(nights) + ' night' + (nights === 1 ? '' : 's'); }
+      if (specialtyToursEl) { specialtyToursEl.text = pkgDetails.specialtyTours || ''; }
+      if (pkgContainer && (pkgDetails.title || pkgDetails.specialtyTours)) {
+        if (typeof pkgContainer.show === 'function') { try { pkgContainer.show(); } catch (e) {} }
+        if (typeof pkgContainer.expand === 'function') { try { pkgContainer.expand(); } catch (e) {} }
+      }
+      const packagePriceEl = tryFind('packagePrice');
+      if (packagePriceEl) {
+        const baseRate = Number(pkgDetails.baseRate) || 0;
+        const packagePrice = baseRate * nights;
+        if (packagePrice > 0) {
+          packagePriceEl.text = '$' + packagePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          if (typeof packagePriceEl.show === 'function') { try { packagePriceEl.show(); } catch (e) {} }
+          if (typeof packagePriceEl.expand === 'function') { try { packagePriceEl.expand(); } catch (e) {} }
+        }
+      }
+    }).catch(function () {});
+  }
 }
 
 function parseDate(v) {
