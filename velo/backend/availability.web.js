@@ -615,6 +615,7 @@ export const createBooking = webMethod(
     console.log('>>> SERVER createBooking complete. bookingNumber:', inserted.bookingNumber);
     return inserted;
   }
+);
 
 export const issueBookingInvoice = webMethod(
   Permissions.Anyone,
