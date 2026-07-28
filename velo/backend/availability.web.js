@@ -574,7 +574,6 @@ async function createBookingImpl(booking) {
       note: saveNote || '',
       promoCode: booking.promoCode || '',
       promoDiscount: booking.promoDiscount || 0,
-      promoApplied: true,
       gclid: booking.gclid || '',
       gbraid: booking.gbraid || '',
       wbraid: booking.wbraid || '',
@@ -702,7 +701,7 @@ export const issueBookingInvoice = webMethod(
 
     const promoDiscount = parseFloat(firstRow.promoDiscount) || 0;
     const promoCode = firstRow.promoCode || '';
-    const alreadyDiscounted = firstRow.promoApplied === true;
+    const alreadyDiscounted = !!(promoDiscount && promoCode);
 
     for (const row of bookingsRes.items) {
       const nights = nightsBetween(checkInDate || dates.checkIn, checkOutDate || dates.checkOut);
