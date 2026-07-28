@@ -347,8 +347,8 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
 
     const summary = {
       bookingNumber,
-      checkIn,
-      checkOut,
+      checkIn: checkIn || null,
+      checkOut: checkOut || null,
       guestName,
       guestEmail,
       guestPhone,
@@ -590,6 +590,7 @@ async function createBookingImpl(booking) {
     console.log('>>> SERVER toInsert keys:', Object.keys(toInsert).join(', '));
     console.log('>>> SERVER toInsert financials => roomTotal:', toInsert.roomTotal, '| propertyFee:', toInsert.propertyFee, '| accomodationVat:', toInsert.accomodationVat, '| packageVat:', toInsert.packageVat, '| grandTotal:', toInsert.grandTotal, '| bookingNumber:', toInsert.bookingNumber);
     const inserted = await wixData.insert(BOOKINGS, toInsert);
+    inserted.bookingNumber = invoiceNumber || inserted.bookingNumber || '';
     console.log('>>> SERVER insert returned keys:', Object.keys(inserted).join(', '));
     console.log('>>> SERVER insert returned financials => roomTotal:', inserted.roomTotal, '| propertyFee:', inserted.propertyFee, '| accomodationVat:', inserted.accomodationVat, '| packageVat:', inserted.packageVat, '| grandTotal:', inserted.grandTotal, '| bookingNumber:', inserted.bookingNumber);
     try {
