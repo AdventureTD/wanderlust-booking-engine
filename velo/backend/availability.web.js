@@ -492,23 +492,7 @@ export const unitsAvailable = webMethod(
 export const createBooking = webMethod(
   Permissions.Anyone,
   async (booking) => {
-    try {
-      return await createBookingImpl(booking);
-    } catch (e) {
-      console.log('>>> SERVER createBooking FATAL:', e.message);
-      throw e;
-    }
-  }
-);
-
-async function createBookingImpl(booking) {
     console.log('>>> SERVER createBooking called:', JSON.stringify(booking).substring(0,200));
-    try {
-      const bnTest = await getNextBookingNumber();
-      console.log('>>> SERVER bookingNumber generator works:', bnTest);
-    } catch (e) {
-      console.log('>>> SERVER getNextBookingNumber test failed:', e.message);
-    }
     const roomCode = booking.roomCode;
     const checkIn = booking.checkIn;
     const checkOut = booking.checkOut;
