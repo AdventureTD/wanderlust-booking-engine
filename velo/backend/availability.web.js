@@ -489,9 +489,7 @@ export const unitsAvailable = webMethod(
   }
 );
 
-export const createBooking = webMethod(
-  Permissions.Anyone,
-  async (booking) => {
+async function createBookingImpl(booking) {
     console.log('>>> SERVER createBooking called:', JSON.stringify(booking).substring(0,200));
     const roomCode = booking.roomCode;
     const checkIn = booking.checkIn;
@@ -614,8 +612,13 @@ export const createBooking = webMethod(
 
     console.log('>>> SERVER createBooking complete. bookingNumber:', inserted.bookingNumber);
     return inserted;
-  }
+}
+
+export const createBooking = webMethod(
+  Permissions.Anyone,
+  createBookingImpl
 );
+
 
 export const issueBookingInvoice = webMethod(
   Permissions.Anyone,
