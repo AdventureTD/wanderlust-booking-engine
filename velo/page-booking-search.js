@@ -608,8 +608,8 @@ async function searchHandler() {
     if (availableData.length === 0) {
       rep.data = repData;
       clearSelections(true);
-      hideSearchHeader();
       updateSelectionPanel();
+      hideSearchHeader();
       try { rep.expand(); } catch (e) {}
       const box3 = tryFind('box3');
       if (box3) { if (typeof box3.collapse === 'function') { try { box3.collapse(); } catch (e) {} } else if (typeof box3.hide === 'function') { try { box3.hide(); } catch (e) {} } }
@@ -622,6 +622,7 @@ async function searchHandler() {
       showAlternateDates(ciDate, coDate);
       return;
     }
+    showSearchHeader(ciDate, coDate, computedNights);
     if (rep) { try { rep.show(); } catch (e) {} try { rep.expand(); } catch (e) {} }
     rep.data = repData;
     loadPackageInfo(res.requestedNights);
