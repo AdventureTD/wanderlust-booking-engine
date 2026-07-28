@@ -713,6 +713,21 @@ function wireContinueButton() {
         console.log('[WBE-FRONTEND] createBooking returned:', JSON.stringify({ ok: !!b0, bookingNumber: b0 && b0.bookingNumber }));
         bookings.push(b0);
         if (b0.bookingNumber) sharedBookingNumber = b0.bookingNumber;
+
+        // Persist notes to BookingSummary separately.
+        try {
+          if (sharedBookingNumber) {
+            const summaryRes = await wixData.query('BookingSummary').eq('bookingNumber', sharedBookingNumber).limit(1).find();
+            if (summaryRes.items.length > 0) {
+              const s = summaryRes.items[0];
+              s.notes = note || '';
+              await wixData.update('BookingSummary', s);
+              console.log('[WBE-FRONTEND] updated BookingSummary.notes');
+            }
+          }
+        } catch (noteErr) {
+          console.log('[WBE-FRONTEND] update BookingSummary.notes error:', noteErr.message);
+        }
       }
 
       // Phase 2: book remaining rooms in parallel
@@ -737,7 +752,6 @@ function wireContinueButton() {
             packageVat: r.packageVat || 0,
             grandTotal: ((r.roomTotal || 0) + (r.accomodationVat || 0) + (r.packageVat || 0) + (r.propertyFee || 0)) || 0,
             bookingNumber: sharedBookingNumber,
-            note: note || '',
             promoCode: _promoCodeApplied,
             promoDiscount: _promoDiscount,
             gclid: clickIds.gclid,
