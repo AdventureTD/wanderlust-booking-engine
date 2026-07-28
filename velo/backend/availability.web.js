@@ -315,6 +315,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
     let guestPhone = optGuest && optGuest.guestPhone ? optGuest.guestPhone : '';
     let roomCount = 0;
     let status = '';
+    let notes = '';
 
     let promoDiscount = 0;
     let promoCode = '';
@@ -328,6 +329,8 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       roomCount++;
 
       if (!status && row.status) status = row.status;
+      if (!notes && row.note) notes = row.note;
+      if (!notes && row.notes) notes = row.notes;
       if (!promoCode && row.promoCode) promoCode = row.promoCode;
       if (!promoDiscount && row.promoDiscount) promoDiscount = parseFloat(row.promoDiscount) || 0;
     }
@@ -356,7 +359,8 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       status: status || 'confirmed',
       gclid: anyGclid,
       gbraid: anyGbraid,
-      wbraid: anyWbraid
+      wbraid: anyWbraid,
+      notes: notes || ''
     };
 
     console.log('>>> updateBookingSummary computed:', JSON.stringify(summary).substring(0,200));

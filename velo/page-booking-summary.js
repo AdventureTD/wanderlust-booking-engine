@@ -657,6 +657,7 @@ function wireContinueButton() {
   btn.onClick(async function () {
     console.log('[WBE-FRONTEND] btnContinue clicked');
     const name = safeVal('inputGuestName').trim();
+    const note = safeVal('bookingNotes');
     const email = safeVal('inputGuestEmail').trim();
     const phone = normalizePhone(safeVal('inputGuestPhone'));
     const dialingCode = safeVal('inputDialingCode').replace(/\D/g, '') || '1';
@@ -700,6 +701,7 @@ function wireContinueButton() {
           accomodationVat: r0.accomodationVat || 0,
           packageVat: r0.packageVat || 0,
           grandTotal: ((r0.roomTotal || 0) + (r0.accomodationVat || 0) + (r0.packageVat || 0) + (r0.propertyFee || 0)) || 0,
+          note: note || '',
           promoCode: _promoCodeApplied,
           promoDiscount: _promoDiscount,
           gclid: clickIds.gclid,
@@ -735,6 +737,7 @@ function wireContinueButton() {
             packageVat: r.packageVat || 0,
             grandTotal: ((r.roomTotal || 0) + (r.accomodationVat || 0) + (r.packageVat || 0) + (r.propertyFee || 0)) || 0,
             bookingNumber: sharedBookingNumber,
+            note: note || '',
             promoCode: _promoCodeApplied,
             promoDiscount: _promoDiscount,
             gclid: clickIds.gclid,
