@@ -730,12 +730,12 @@ function safeText(txt, opts) {
   try {
     const el = tryFind('statusText');
     if (!el) { console.log('>>> safeText: statusText element not found'); return; }
-    const style = 'font-family: "Inter Semi Bold", "Inter", sans-serif; font-size: 14px;';
+    const style = "font-family: 'Inter Semi Bold', 'Inter', sans-serif; font-size: 14px;";
     if (opts && opts.html) {
-      el.html = '<span style="' + style + '">' + txt + '</span>';
+      el.html = "<span style=\"" + style + "\">" + txt + "</span>";
     } else {
       const escaped = escapeHtml(txt).replace(/\n/g, '<br>');
-      el.html = '<span style="' + style + '">' + escaped + '</span>';
+      el.html = "<span style=\"" + style + "\">" + escaped + "</span>";
     }
     if (typeof el.expand === 'function') el.expand();
     if (typeof el.show === 'function') el.show();
@@ -755,7 +755,7 @@ async function showAlternateDates(ciDate, coDate) {
 
     const links = sug.map(function (s) {
       const url = buildAltUrl(s.checkIn, s.checkOut);
-      return '<a href="' + url + '" style="font-family: \'Inter Semi Bold\', \'Inter\', sans-serif; font-size: 14px;">' + s.label + '</a>';
+      return "<a href=\"" + url + "\" style=\"font-family: 'Inter Semi Bold', 'Inter', sans-serif; font-size: 14px;\">" + s.label + "</a>";
     }).join(' &middot; ');
     safeText('No rooms for those dates. Try: ' + links, { html: true });
   } catch (e) {
