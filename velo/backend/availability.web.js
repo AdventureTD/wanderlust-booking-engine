@@ -546,10 +546,16 @@ async function createBookingImpl(booking) {
     if (!invoiceNumber) {
       try {
         invoiceNumber = await getNextBookingNumber();
+        console.log('>>> SERVER generated invoiceNumber:', invoiceNumber);
       } catch (e) {
         console.log('>>> SERVER getNextBookingNumber ERROR:', e.message);
         invoiceNumber = '';
       }
+    }
+    if (!invoiceNumber) {
+      // Hard fallback so the booking is never created without a number.
+      invoiceNumber = 'WC-' + Date.now();
+      console.log('>>> SERVER fallback invoiceNumber:', invoiceNumber);
     }
 
     const promoDiscountRate = parseFloat(booking.promoDiscount) || 0;
@@ -578,7 +584,7 @@ async function createBookingImpl(booking) {
       accomodationVat: Math.round(computedAccVat * discountRatio * 100) / 100,
       packageVat: Math.round(computedPkgVat * discountRatio * 100) / 100,
       grandTotal: Math.round(computedGrandTotal * discountRatio * 100) / 100,
-      bookingNumber: invoiceNumber || '',
+      bookingNumber: invoiceNumber,
       note: saveNote || '',
       promoCode: booking.promoCode || '',
       promoDiscount: booking.promoDiscount || 0,
