@@ -282,7 +282,7 @@ export const suggestAlternateDates = webMethod(
               checkOut: newCo.toISOString(),
               checkInLabel: fmtShort(newCi),
               checkOutLabel: fmtShort(newCo),
-              label: fmtShort(newCi) + ' – ' + fmtShort(newCo),
+              label: '(' + fmtShort(newCi) + ' – ' + fmtShort(newCo) + ')',
             });
           }
         }
