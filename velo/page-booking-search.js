@@ -730,7 +730,7 @@ function safeText(txt, opts) {
   try {
     const el = tryFind('statusText');
     if (!el) { console.log('>>> safeText: statusText element not found'); return; }
-    const style = "font-family: 'Inter Semi Bold', 'Inter', sans-serif; font-size: 14px;";
+    const style = "font-family: 'Inter Semi Bold', 'Inter', sans-serif; font-size: 20px;";
     if (opts && opts.html) {
       el.html = "<span style=\"" + style + "\">" + txt + "</span>";
     } else {
@@ -749,18 +749,18 @@ async function showAlternateDates(ciDate, coDate) {
     const sug = (res && res.suggestions) || [];
 
     if (sug.length === 0) {
-      safeText('No rooms available within 30 days of your dates. Please contact us or try a shorter stay.', { html: true });
+      safeText('* No rooms available within 30 days of your dates. Please contact us or try a shorter stay.', { html: true });
       return;
     }
 
     const links = sug.map(function (s) {
       const url = buildAltUrl(s.checkIn, s.checkOut);
-      return "<a href=\"" + url + "\" style=\"font-family: 'Inter Semi Bold', 'Inter', sans-serif; font-size: 14px;\">" + s.label + "</a>";
+      return "<a href=\"" + url + "\" style=\"font-family: 'Inter Semi Bold', 'Inter', sans-serif; font-size: 20px;\">" + s.label + "</a>";
     }).join(' &middot; ');
-    safeText('No rooms for those dates. Try: ' + links, { html: true });
+    safeText('* No rooms for those dates. Try: ' + links, { html: true });
   } catch (e) {
     console.error('>>> showAlternateDates error:', e && e.message || e);
-    safeText('No rooms are available for the dates entered.');
+    safeText('* No rooms are available for the dates entered.');
   }
 }
 
