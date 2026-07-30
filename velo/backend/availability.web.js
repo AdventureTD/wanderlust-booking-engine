@@ -71,6 +71,13 @@ function nightsBetween(checkIn, checkOut) {
   return Math.round(ms / (1000 * 60 * 60 * 24));
 }
 
+function toDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 function capitaliseWords(s) {
   return s.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
 }
@@ -496,8 +503,9 @@ export const unitsAvailable = webMethod(
 async function createBookingImpl(booking) {
     console.log('>>> SERVER createBooking called:', JSON.stringify(booking).substring(0,200));
     const roomCode = booking.roomCode;
-    const checkIn = booking.checkIn;
-    const checkOut = booking.checkOut;
+    const checkIn = toDate(booking.checkIn);
+    const checkOut = toDate(booking.checkOut);
+    if (!checkIn || !checkOut) throw new Error('checkIn and checkOut must be valid dates');
     const guests = booking.guests || 1;
     const guestName = booking.guestName;
     const guestEmail = booking.guestEmail;
@@ -571,6 +579,8 @@ async function createBookingImpl(booking) {
       packageVat: Math.round(computedPkgVat * discountRatio * 100) / 100,
       grandTotal: Math.round(computedGrandTotal * discountRatio * 100) / 100,
       bookingNumber: invoiceNumber,
+      checkIn: checkIn,
+      checkOut: checkOut,
       note: saveNote || '',
       promoCode: booking.promoCode || '',
       promoDiscount: booking.promoDiscount || 0,
@@ -654,6 +664,15 @@ export const issueBookingInvoice = webMethod(
       }
     } catch (summaryErr) {
       console.log('>>> issueBookingInvoice BookingSummary read ERROR:', summaryErr.message);
+    }
+
+    if (!checkInDate || !checkOutDate) {
+      const fallbackCheckIn = summaryRow && summaryRow.checkIn ? new Date(summaryRow.checkIn) : null;
+      const fallbackCheckOut = summaryRow && summaryRow.checkOut ? new Date(summaryRow.checkOut) : null;
+      if (fallbackCheckIn && !isNaN(fallbackCheckIn.getTime()) && fallbackCheckOut && !isNaN(fallbackCheckOut.getTime())) {
+        checkInDate = fallbackCheckIn.toISOString().slice(0, 10);
+        checkOutDate = fallbackCheckOut.toISOString().slice(0, 10);
+      }
     }
 
     let packageTitle = '';
@@ -879,8 +898,8 @@ export const issueBookingInvoice = webMethod(
         .find();
       if (summaryRes.items.length > 0) {
         const sItem = summaryRes.items[0];
-        sItem.checkIn = checkInDate;
-        sItem.checkOut = checkOutDate;
+        sItem.checkIn = toDate(checkInDate);
+        sItem.checkOut = toDate(checkOutDate);
         await wixData.update(BOOKING_SUMMARIES, sItem);
         console.log('>>> issueBookingInvoice mirrored dates to BookingSummary');
       }
@@ -994,6 +1013,8 @@ export const blockRoom = webMethod(
       status: 'blocked',
       quantity: actual,
       note: note,
+      checkIn: toDate(checkIn),
+      checkOut: toDate(checkOut),
       bookingNumber: await getNextBookingNumber(),
     };
     const inserted = await wixData.insert(BOOKINGS, toInsert);
