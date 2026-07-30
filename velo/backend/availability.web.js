@@ -521,9 +521,17 @@ export const unitsAvailable = webMethod(
 );
 
 async function createDraftInvoice(bookingNumber, financials, checkIn, checkOut) {
+  // Only create one draft row per booking. If a draft/active row already exists,
+  // update it instead so multiple rooms don't create duplicate invoices.
+  const existingRes = await wixData.query(BOOKING_INVOICES)
+    .eq('bookingNumber', bookingNumber)
+    .hasSome('status', ['Active', 'Draft'])
+    .descending('_createdDate')
+    .limit(1)
+    .find();
+
   const invoiceNumber = financials.invoiceNumber || bookingNumber || '';
-  const row = {
-    bookingNumber,
+  const updates = {
     invoiceNumber,
     invoiceUrl: '',
     checkIn: toDate(checkIn),
@@ -535,10 +543,18 @@ async function createDraftInvoice(bookingNumber, financials, checkIn, checkOut) 
     propertyFee: financials.propertyFee || 0,
     promoCode: financials.promoCode || '',
     promoDiscountAmount: financials.promoDiscountAmount || 0,
-    status: 'Draft'
   };
+
   try {
-    return await wixData.insert(BOOKING_INVOICES, row);
+    if (existingRes.items.length > 0) {
+      const existing = existingRes.items[0];
+      Object.assign(existing, updates);
+      await wixData.update(BOOKING_INVOICES, existing);
+      return existing;
+    }
+
+    const newRow = Object.assign({ bookingNumber, status: 'Draft' }, updates);
+    return await wixData.insert(BOOKING_INVOICES, newRow);
   } catch (e) {
     console.log('>>> createDraftInvoice ERROR:', e.message);
     throw e;
