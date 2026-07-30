@@ -358,19 +358,27 @@ $w.onReady(async function () {
         const s = _selections[i];
         parts.push(s.roomCode + ':' + s.qty + ':' + (s.numGuests || 1) + ':' + (s.roomFee || 0));
       }
+      function stripTime(d) {
+        if (!d) return '';
+        const str = String(d);
+        const tIndex = str.indexOf('T');
+        return tIndex !== -1 ? str.substring(0, tIndex) : str;
+      }
+      const ciOnly = stripTime(first.availableCheckIn);
+      const coOnly = stripTime(first.availableCheckOut);
       try {
         if (typeof localStorage !== 'undefined' && localStorage) {
           localStorage.setItem('_wbe_rc', parts.join(','));
-          localStorage.setItem('_wbe_ci', first.availableCheckIn || '');
-          localStorage.setItem('_wbe_co', first.availableCheckOut || '');
+          localStorage.setItem('_wbe_ci', ciOnly);
+          localStorage.setItem('_wbe_co', coOnly);
           console.log('>>> STORED rc (summary):', parts.join(','));
         }
       } catch (e) {
         console.log('>>> storage save error (summary):', e && e.message || e);
       }
       wixLocation.to(summaryUrl + '?rc=' + encodeURIComponent(parts.join(',')) +
-        '&ci=' + encodeURIComponent(first.availableCheckIn) +
-        '&co=' + encodeURIComponent(first.availableCheckOut));
+        '&ci=' + encodeURIComponent(ciOnly) +
+        '&co=' + encodeURIComponent(coOnly));
     });
   }
 
