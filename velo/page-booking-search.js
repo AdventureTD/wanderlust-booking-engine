@@ -704,6 +704,12 @@ function showSearchHeader(ciDate, coDate, nights) {
         if (typeof pkgContainer.show === 'function') { try { pkgContainer.show(); } catch (e) {} }
         if (typeof pkgContainer.expand === 'function') { try { pkgContainer.expand(); } catch (e) {} }
       }
+      [pkgName2, nightsTextEl, specialtyToursEl].forEach(function (el) {
+        if (el) {
+          if (typeof el.show === 'function') { try { el.show(); } catch (e) {} }
+          if (typeof el.expand === 'function') { try { el.expand(); } catch (e) {} }
+        }
+      });
       const packagePriceEl = tryFind('packagePrice');
       if (packagePriceEl) {
         const baseRate = Number(pkgDetails.baseRate) || 0;
