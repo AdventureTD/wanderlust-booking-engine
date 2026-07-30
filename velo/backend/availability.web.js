@@ -379,7 +379,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
 
     if (existing.items.length > 0) {
       summary._id = existing.items[0]._id;
-      summary.bookingDate = existing.items[0].bookingDate || new Date();
+      summary.bookingDate = toDate(existing.items[0].bookingDate) || new Date();
       const existingAtt = existing.items[0];
       if (!summary.gclid && existingAtt.gclid) summary.gclid = existingAtt.gclid;
       if (!summary.gbraid && existingAtt.gbraid) summary.gbraid = existingAtt.gbraid;
