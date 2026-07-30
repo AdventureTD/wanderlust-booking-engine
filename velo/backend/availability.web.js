@@ -376,8 +376,8 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
 
     const summary = {
       bookingNumber,
-      checkIn: checkIn || null,
-      checkOut: checkOut || null,
+      checkIn: toDate(checkIn) || null,
+      checkOut: toDate(checkOut) || null,
       guestName,
       guestEmail,
       guestPhone,
@@ -626,8 +626,8 @@ async function createBookingImpl(booking) {
     quantity: quantity,
     roomFee: roomFee,
     bookingNumber: bookingNumber,
-    checkIn: checkIn,
-    checkOut: checkOut,
+    checkIn: toDate(checkIn),
+    checkOut: toDate(checkOut),
     note: saveNote || ''
   };
   console.log('>>> SERVER toInsert keys:', Object.keys(toInsert).join(', '), '| bookingNumber:', toInsert.bookingNumber);

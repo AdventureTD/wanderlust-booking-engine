@@ -177,6 +177,9 @@ async function initSummary() {
   const oneDay = 86400000;
   const nights = ciDate && coDate ? Math.round((coDate - ciDate) / oneDay) : 7;
 
+  _summaryCis = ciDate ? new Date(ciDate.getFullYear(), ciDate.getMonth(), ciDate.getDate()) : null;
+  _summaryCos = coDate ? new Date(coDate.getFullYear(), coDate.getMonth(), coDate.getDate()) : null;
+
   safeText('checkInDisplay', fmtDate(ciDate) || '-');
   safeText('checkOutDisplay', fmtDate(coDate) || '-');
 
@@ -214,8 +217,6 @@ async function initSummary() {
 
   _summaryRooms = rooms;
   _summaryNights = nights;
-  _summaryCis = cis;
-  _summaryCos = cos;
   _summarySettings = settings;
   _roomNames = roomNames;
 
