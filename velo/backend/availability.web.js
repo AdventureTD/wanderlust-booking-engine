@@ -548,7 +548,18 @@ async function createDraftInvoice(bookingNumber, financials, checkIn, checkOut) 
   try {
     if (existingRes.items.length > 0) {
       const existing = existingRes.items[0];
-      Object.assign(existing, updates);
+      // Accumulate numeric financial fields across multiple rooms.
+      existing.invoiceNumber = updates.invoiceNumber;
+      existing.checkIn = updates.checkIn;
+      existing.checkOut = updates.checkOut;
+      existing.invoiceUrl = updates.invoiceUrl;
+      existing.promoCode = updates.promoCode || existing.promoCode || '';
+      existing.roomTotal = Number(existing.roomTotal || 0) + Number(updates.roomTotal || 0);
+      existing.propertyFee = Number(existing.propertyFee || 0) + Number(updates.propertyFee || 0);
+      existing.accommodationVat = Number(existing.accommodationVat || 0) + Number(updates.accommodationVat || 0);
+      existing.packageVat = Number(existing.packageVat || 0) + Number(updates.packageVat || 0);
+      existing.grandTotal = Number(existing.grandTotal || 0) + Number(updates.grandTotal || 0);
+      existing.promoDiscountAmount = Number(existing.promoDiscountAmount || 0) + Number(updates.promoDiscountAmount || 0);
       await wixData.update(BOOKING_INVOICES, existing);
       return existing;
     }
