@@ -724,10 +724,15 @@ function wireContinueButton() {
       // Phase 1: book first room to get shared booking number
       if (rooms.length > 0) {
         const r0 = rooms[0];
+        function dateToStr(d) {
+          if (!d) return '';
+          if (typeof d === 'string') { const t = d.indexOf('T'); return t !== -1 ? d.substring(0, t) : d; }
+          return (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
+        }
         const payload0 = {
           roomCode: r0.roomCode,
-          checkIn: ci,
-          checkOut: _summaryCos,
+          checkIn: dateToStr(ci),
+          checkOut: dateToStr(_summaryCos),
           quantity: r0.qty || 1,
           guests: r0.numGuests || r0.qty || 1,
           roomFee: r0.roomFee || 0,
@@ -771,8 +776,8 @@ function wireContinueButton() {
           const r = rooms[i];
           const payload = {
             roomCode: r.roomCode,
-            checkIn: ci,
-            checkOut: _summaryCos,
+            checkIn: dateToStr(ci),
+            checkOut: dateToStr(_summaryCos),
             quantity: r.qty || 1,
             guests: r.numGuests || r.qty || 1,
             roomFee: r.roomFee || 0,
