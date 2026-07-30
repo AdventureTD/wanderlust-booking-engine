@@ -212,8 +212,10 @@ export const adminUpdateBooking = webMethod(
       .find();
     const invoice = iRes.items[0] || null;
 
-    const newCi = ch.checkIn || isoDate(summary.checkIn);
-    const newCo = ch.checkOut || isoDate(summary.checkOut);
+    const rawCi = ch.checkIn || isoDate(summary.checkIn);
+    const rawCo = ch.checkOut || isoDate(summary.checkOut);
+    const newCi = rawCi ? new Date(rawCi) : isoDate(summary.checkIn);
+    const newCo = rawCo ? new Date(rawCo) : isoDate(summary.checkOut);
     const datesChanged = (newCi !== isoDate(summary.checkIn)) || (newCo !== isoDate(summary.checkOut));
     const invoiceTriggerFields = ['checkIn','checkOut','roomTotal','grandTotal','accommodationVat','packageVat','propertyFee','promoCode','promoDiscountAmount'];
     const invoiceFieldsChanged = invoiceTriggerFields.some(function (k) { return ch[k] !== undefined; });
@@ -244,7 +246,7 @@ export const adminUpdateBooking = webMethod(
       if (ch.guestPhone !== undefined) updated.guestPhone = ch.guestPhone;
       if (ch.numGuests !== undefined) updated.guests = Number(ch.numGuests) || r.guests;
       if (ch.status !== undefined) updated.status = ch.status;
-      if (datesChanged) { updated.checkIn = new Date(newCi); updated.checkOut = new Date(newCo); }
+      if (datesChanged) { updated.checkIn = newCi instanceof Date ? newCi : new Date(newCi); updated.checkOut = newCo instanceof Date ? newCo : new Date(newCo); }
       await wixData.update(BOOKINGS, updated);
     }
 
@@ -260,7 +262,7 @@ export const adminUpdateBooking = webMethod(
     if (ch.wbraid !== undefined) sUpd.wbraid = ch.wbraid;
     if (ch.googleConversionUploaded !== undefined) sUpd.googleConversionUploaded = ch.googleConversionUploaded;
     if (ch.googleConversionRetracted !== undefined) sUpd.googleConversionRetracted = ch.googleConversionRetracted;
-    if (datesChanged) { sUpd.checkIn = newCi; sUpd.checkOut = newCo; }
+    if (datesChanged) { sUpd.checkIn = newCi instanceof Date ? newCi : new Date(newCi); sUpd.checkOut = newCo instanceof Date ? newCo : new Date(newCo); }
     await wixData.update(BOOKING_SUMMARIES, sUpd);
 
     // Apply financial changes to the active/draft BookingInvoices record.
