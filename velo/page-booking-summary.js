@@ -515,6 +515,15 @@ async function renderSummary() {
   safeText('propertyFeeText', '$' + fmtCurrency(discountedPropertyFee));
   safeText('propertyFee2', '$' + fmtCurrency(discountedPropertyFee));
   safeExpand('box8');
+
+  // Ensure invoice summary value elements are visible so values render.
+  const valueIds = ['basePackage', 'packageCost', 'packageTotal', 'packageTotal2', 'packageTotal3',
+    'packageSubtotal', 'packageSubTotal', 'subtotalNetText', 'additionalFee2',
+    'promoAmount', 'promoDiscountText', 'adjustedPackage',
+    'propertyFeeText', 'propertyFee2', 'totalVatText', 'totalVat2',
+    'vatAccommodationText', 'vatAdventureText', 'vatAcc', 'vatSer',
+    'grandTotal', 'grandTotal1', 'grandTotalText', 'totalNightsDisplay', 'totalGuests'];
+  valueIds.forEach(function (id) { safeExpand(id); });
   const grandTotalTxt = '$' + fmtCurrency(discountedGrandTotal);
   // TOTAL DUE element — user confirms the variable/ID is #grandTotal.
   // We also write to #grandTotal1 and #grandTotalText as defensive fallbacks.
