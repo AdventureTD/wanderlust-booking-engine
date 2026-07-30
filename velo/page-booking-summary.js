@@ -39,12 +39,15 @@ function getParam(name) {
 
 function parseDateStr(s) {
   if (!s) return null;
-  const p = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (s instanceof Date) return isNaN(s.getTime()) ? null : s;
+  if (typeof s === 'number') { const d = new Date(s); return isNaN(d.getTime()) ? null : d; }
+  const str = String(s);
+  const p = str.match(/(\d{4})-(\d{2})-(\d{2})/);
   if (p) {
     const d = new Date(parseInt(p[1], 10), parseInt(p[2], 10) - 1, parseInt(p[3], 10));
     return isNaN(d.getTime()) ? null : d;
   }
-  const d = new Date(s);
+  const d = new Date(str);
   return isNaN(d.getTime()) ? null : d;
 }
 

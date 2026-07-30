@@ -359,12 +359,14 @@ $w.onReady(async function () {
         parts.push(s.roomCode + ':' + s.qty + ':' + (s.numGuests || 1) + ':' + (s.roomFee || 0));
       }
       try {
-        localStorage.setItem('_wbe_rc', parts.join(','));
-        localStorage.setItem('_wbe_ci', first.availableCheckIn || '');
-        localStorage.setItem('_wbe_co', first.availableCheckOut || '');
-        console.log('>>> STORED rc (summary):', parts.join(','));
+        if (typeof localStorage !== 'undefined' && localStorage) {
+          localStorage.setItem('_wbe_rc', parts.join(','));
+          localStorage.setItem('_wbe_ci', first.availableCheckIn || '');
+          localStorage.setItem('_wbe_co', first.availableCheckOut || '');
+          console.log('>>> STORED rc (summary):', parts.join(','));
+        }
       } catch (e) {
-        console.log('>>> storage save error (summary):', e.message);
+        console.log('>>> storage save error (summary):', e && e.message || e);
       }
       wixLocation.to(summaryUrl + '?rc=' + encodeURIComponent(parts.join(',')) +
         '&ci=' + encodeURIComponent(first.availableCheckIn) +
