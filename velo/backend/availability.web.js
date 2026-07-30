@@ -87,7 +87,7 @@ function normalizeDate(v) {
   const m = parseInt(parts[1], 10) - 1;
   const d = parseInt(parts[2], 10);
   if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
-  const out = new Date(y, m, d);
+  const out = new Date(Date.UTC(y, m, d, 12, 0, 0));
   return isNaN(out.getTime()) ? null : out;
 }
 

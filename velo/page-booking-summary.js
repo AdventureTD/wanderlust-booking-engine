@@ -50,31 +50,31 @@ function normalizeDate(v) {
   const m = parseInt(parts[1], 10) - 1;
   const d = parseInt(parts[2], 10);
   if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
-  const out = new Date(y, m, d);
+  const out = new Date(Date.UTC(y, m, d, 12, 0, 0));
   return isNaN(out.getTime()) ? null : out;
 }
 
 function parseDateStr(s) {
   if (!s) return null;
-  if (s instanceof Date) return isNaN(s.getTime()) ? null : new Date(s.getFullYear(), s.getMonth(), s.getDate());
-  if (typeof s === 'number') { const d = new Date(s); return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+  if (s instanceof Date) return isNaN(s.getTime()) ? null : new Date(Date.UTC(s.getFullYear(), s.getMonth(), s.getDate(), 12, 0, 0));
+  if (typeof s === 'number') { const d = new Date(s); return isNaN(d.getTime()) ? null : new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0)); }
   const str = String(s);
   const tIndex = str.indexOf('T');
   if (tIndex !== -1) {
     const datePart = str.substring(0, tIndex);
     const p = datePart.match(/(\d{4})-(\d{2})-(\d{2})/);
     if (p) {
-      const d = new Date(parseInt(p[1], 10), parseInt(p[2], 10) - 1, parseInt(p[3], 10));
+      const d = new Date(Date.UTC(parseInt(p[1], 10), parseInt(p[2], 10) - 1, parseInt(p[3], 10), 12, 0, 0));
       return isNaN(d.getTime()) ? null : d;
     }
   }
   const p = str.match(/(\d{4})-(\d{2})-(\d{2})/);
   if (p) {
-    const d = new Date(parseInt(p[1], 10), parseInt(p[2], 10) - 1, parseInt(p[3], 10));
+    const d = new Date(Date.UTC(parseInt(p[1], 10), parseInt(p[2], 10) - 1, parseInt(p[3], 10), 12, 0, 0));
     return isNaN(d.getTime()) ? null : d;
   }
   const d = new Date(str);
-  return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return isNaN(d.getTime()) ? null : new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0));
 }
 
 function fmtDate(d) {
