@@ -727,7 +727,7 @@ function wireContinueButton() {
         function dateToStr(d) {
           if (!d) return '';
           if (typeof d === 'string') { const t = d.indexOf('T'); return t !== -1 ? d.substring(0, t) : d; }
-          return (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
+          return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         }
         const payload0 = {
           roomCode: r0.roomCode,
