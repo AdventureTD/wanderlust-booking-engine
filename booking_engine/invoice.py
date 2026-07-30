@@ -98,6 +98,7 @@ class Invoice:
     included_amenities: str = ""
     check_in: str = ""
     check_out: str = ""
+    total_guests: int = 0
     # Table-driven allocation ratios from Wix Settings (0.0-1.0).
     # These split the subtotal between accommodation/services for VAT summary display.
     accommodation_allocation: float = 0.5
@@ -162,6 +163,7 @@ class Invoice:
             check_out=quote_breakdown.get("check_out", ""),
             accommodation_allocation=acc_alloc,
             services_allocation=svc_alloc,
+            total_guests=quote_breakdown.get("total_guests", 0),
             promo_code=quote_breakdown.get("promo_code", ""),
             promo_discount_rate=quote_breakdown.get("promo_discount_rate", 0.0),
             promo_discount_amount=quote_breakdown.get("promo_discount_amount", 0.0),

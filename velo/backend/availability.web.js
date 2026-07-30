@@ -223,6 +223,7 @@ async function buildQuoteBreakdown(bookingNumber) {
     .eq('bookingNumber', bookingNumber)
     .limit(1000)
     .find();
+  const totalGuests = bookingsRes.items.reduce(function (sum, row) { return sum + (row.guests || 0); }, 0);
   const display_line_items = [];
   for (const row of bookingsRes.items) {
     const displayName = getRoomDisplayName(row.roomCode);
@@ -281,7 +282,8 @@ async function buildQuoteBreakdown(bookingNumber) {
     promo_discount_amount: inv.promoDiscountAmount || 0,
     check_in: checkInDate ? checkInDate.toISOString().slice(0, 10) : '',
     check_out: checkOutDate ? checkOutDate.toISOString().slice(0, 10) : '',
-    accommodationShare: accommodationShare
+    accommodationShare: accommodationShare,
+    total_guests: totalGuests
   };
 }
 

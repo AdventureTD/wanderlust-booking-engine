@@ -180,13 +180,16 @@ def render_invoice_pdf(inv, out_path: str) -> str:
             elems.append(Paragraph(f"<b>Stay:</b> {inv.check_in} to {inv.check_out}", p_left))
         if inv.package_title:
             package_total = _money(inv.subtotal_net + inv.promo_discount_amount)
+            guest_text = f"<b>Total Guests:</b> {inv.total_guests:g}" if inv.total_guests else ""
             pkg_table = Table([
                 [Paragraph(f"<b>Package:</b> {inv.package_title}", p_left),
+                 Paragraph(guest_text, p_left),
                  Paragraph(package_total, p_left)]
-            ], colWidths=[120 * mm, 60 * mm])
+            ], colWidths=[90 * mm, 45 * mm, 45 * mm])
             pkg_table.setStyle(TableStyle([
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("ALIGN", (0, 0), (0, 0), "LEFT"),
+                ("ALIGN", (1, 0), (1, -1), "CENTER"),
                 ("ALIGN", (-1, 0), (-1, -1), "RIGHT"),
                 ("LEFTPADDING", (0, 0), (-1, -1), 0),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 0),
