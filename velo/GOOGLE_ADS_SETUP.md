@@ -135,11 +135,7 @@ Save each secret.
 ## Step 9: Update your Wix CMS collections
 
 ### `Bookings` collection
-Add these text fields:
-
-- `gclid`
-- `gbraid`
-- `wbraid`
+No Google Ads fields are needed on individual room rows.
 
 ### `BookingSummary` collection
 Add these fields:

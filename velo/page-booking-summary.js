@@ -704,9 +704,6 @@ function wireContinueButton() {
           note: note || '',
           promoCode: _promoCodeApplied,
           promoDiscount: _promoDiscount,
-          gclid: clickIds.gclid,
-          gbraid: clickIds.gbraid,
-          wbraid: clickIds.wbraid,
         };
         console.log('[WBE-FRONTEND] calling createBooking for first room:', payload0.roomCode);
         const b0 = await createBooking(payload0);
@@ -754,9 +751,6 @@ function wireContinueButton() {
             bookingNumber: sharedBookingNumber,
             promoCode: _promoCodeApplied,
             promoDiscount: _promoDiscount,
-            gclid: clickIds.gclid,
-            gbraid: clickIds.gbraid,
-            wbraid: clickIds.wbraid,
           };
           restPromises.push(
             createBooking(payload)

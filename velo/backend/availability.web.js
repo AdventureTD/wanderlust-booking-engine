@@ -399,8 +399,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
     if (existing.items.length > 0) {
       summary._id = existing.items[0]._id;
       summary.bookingDate = toDate(existing.items[0].bookingDate) || new Date();
-      const existingAtt = existing.items[0];
-      if (!summary.gclid && existingAtt.gclid) summary.gclid = existingAtt.gclid;
+      const existingAtt = existing.items[0];if (!summary.gclid && existingAtt.gclid) summary.gclid = existingAtt.gclid;
       if (!summary.gbraid && existingAtt.gbraid) summary.gbraid = existingAtt.gbraid;
       if (!summary.wbraid && existingAtt.wbraid) summary.wbraid = existingAtt.wbraid;
       if (existingAtt.googleConversionUploaded) summary.googleConversionUploaded = existingAtt.googleConversionUploaded;
@@ -629,10 +628,7 @@ async function createBookingImpl(booking) {
     bookingNumber: bookingNumber,
     checkIn: checkIn,
     checkOut: checkOut,
-    note: saveNote || '',
-    gclid: booking.gclid || '',
-    gbraid: booking.gbraid || '',
-    wbraid: booking.wbraid || ''
+    note: saveNote || ''
   };
   console.log('>>> SERVER toInsert keys:', Object.keys(toInsert).join(', '), '| bookingNumber:', toInsert.bookingNumber);
   const inserted = await wixData.insert(BOOKINGS, toInsert);
@@ -672,9 +668,9 @@ async function createBookingImpl(booking) {
       guestEmail: guestEmail || '',
       guestPhone: guestPhone || ''
     }, {
-      gclid: booking.gclid || inserted.gclid || '',
-      gbraid: booking.gbraid || inserted.gbraid || '',
-      wbraid: booking.wbraid || inserted.wbraid || ''
+      gclid: booking.gclid || '',
+      gbraid: booking.gbraid || '',
+      wbraid: booking.wbraid || ''
     });
   } catch (e) {
     console.log('>>> SERVER updateBookingSummary ERROR:', e.message);
