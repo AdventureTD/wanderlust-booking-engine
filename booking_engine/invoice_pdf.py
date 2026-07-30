@@ -179,7 +179,19 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         if inv.check_in and inv.check_out:
             elems.append(Paragraph(f"<b>Stay:</b> {inv.check_in} to {inv.check_out}", p_left))
         if inv.package_title:
-            elems.append(Paragraph(f"<b>Package:</b> {inv.package_title}", p_left))
+            package_total = _money(inv.subtotal_net + inv.promo_discount_amount)
+            pkg_table = Table([
+                [Paragraph(f"<b>Package:</b> {inv.package_title}", p_left),
+                 Paragraph(package_total, p_left)]
+            ], colWidths=[120 * mm, 60 * mm])
+            pkg_table.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ALIGN", (0, 0), (0, 0), "LEFT"),
+                ("ALIGN", (-1, 0), (-1, -1), "RIGHT"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ]))
+            elems.append(pkg_table)
         elems.append(Spacer(1, 3 * mm))
 
     # ---- Line items table (rooms only, no per-room pricing) ----
