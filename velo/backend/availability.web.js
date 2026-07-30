@@ -71,22 +71,23 @@ function nightsBetween(checkIn, checkOut) {
   return Math.round(ms / (1000 * 60 * 60 * 24));
 }
 
+function dateOnly(d) {
+  if (!d || isNaN(d.getTime())) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
 function toDate(v) {
   if (!v) return null;
-  if (v instanceof Date) {
-    // Return a local-midnight date-only object.
-    return new Date(v.getFullYear(), v.getMonth(), v.getDate());
-  }
+  if (v instanceof Date) return dateOnly(v);
   const str = String(v).trim();
   // Parse YYYY-MM-DD or ISO strings without timezone shifts.
   const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) {
     const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
-    return isNaN(d.getTime()) ? null : d;
+    return dateOnly(d);
   }
   const d = new Date(str);
-  if (isNaN(d.getTime())) return null;
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return dateOnly(d);
 }
 
 function capitaliseWords(s) {
@@ -436,8 +437,8 @@ async function overlappingCount(roomCode, checkIn, checkOut) {
   const seenIds = [];
 
   const summaryRes = await wixData.query(BOOKING_SUMMARIES)
-    .lt('checkIn', new Date(checkOut))
-    .gt('checkOut', new Date(checkIn))
+    .lt('checkIn', toDate(checkOut) || new Date(checkOut))
+    .gt('checkOut', toDate(checkIn) || new Date(checkIn))
     .limit(1000)
     .find();
 
@@ -470,8 +471,8 @@ async function overlappingRows(roomCode, checkIn, checkOut) {
   const summaryDateMap = {}; // bookingNumber -> {checkIn, checkOut}
 
   const summaryRes = await wixData.query(BOOKING_SUMMARIES)
-    .lt('checkIn', new Date(checkOut))
-    .gt('checkOut', new Date(checkIn))
+    .lt('checkIn', toDate(checkOut) || new Date(checkOut))
+    .gt('checkOut', toDate(checkIn) || new Date(checkIn))
     .limit(1000)
     .find();
 
@@ -839,7 +840,7 @@ export const issueBookingInvoice = webMethod(
     };
 
     try {
-      await recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, totals, checkInDate, checkOutDate);
+      await recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, totals, toDate(checkInDate), toDate(checkOutDate));
       console.log('>>> issueBookingInvoice recorded invoice', invoiceNumber, 'for booking', bookingNumber);
     } catch (invErr) {
       console.log('>>> issueBookingInvoice recordBookingInvoice ERROR:', invErr.message);
@@ -855,6 +856,7 @@ export const issueBookingInvoice = webMethod(
         const sItem = summaryRes.items[0];
         sItem.checkIn = toDate(checkInDate);
         sItem.checkOut = toDate(checkOutDate);
+        if (sItem.bookingDate) sItem.bookingDate = toDate(sItem.bookingDate);
         await wixData.update(BOOKING_SUMMARIES, sItem);
         console.log('>>> issueBookingInvoice mirrored dates to BookingSummary');
       }
