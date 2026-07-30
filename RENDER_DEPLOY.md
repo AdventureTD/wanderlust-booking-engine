@@ -5,7 +5,7 @@ This guide deploys the Python invoice/PDF service to https://render.com (free ti
 ## What this service does
 - Wix calls it at `/issue-invoice` with guest + pricing data.
 - It generates a PDF invoice (with your logo) and returns it as base64.
-- Wix uploads the PDF to Wix Media and stores the invoice number on the Booking row.
+- Wix uploads the PDF to Wix Media and stores the invoice number and invoiceUrl in the BookingInvoices collection.
 - Optionally: emails the PDF to the guest (via Gmail API — configured separately).
 
 ---
@@ -152,8 +152,9 @@ Make a test booking on your published Wix site:
    - `>>> INVOICE service returned number: WBE-INV-0001`
    - `>>> INVOICE upload OK, url: ...`
    - `>>> INVOICE booking updated with WBE-INV-0001`
-4. In Wix Content Manager → Bookings → open the new row. You should see:
+4. In Wix Content Manager → **BookingInvoices** → open the new row. You should see:
    - `bookingNumber`: `WBE-INV-0001`
+   - `invoiceNumber`: `1001`
    - `invoiceUrl`: a Wix Media URL
 
 ---

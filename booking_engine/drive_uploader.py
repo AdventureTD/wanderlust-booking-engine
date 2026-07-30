@@ -3,7 +3,7 @@ Wanderlust Booking Engine — Google Drive PDF uploader.
 
 Uses a Google Cloud Service Account (not OAuth) to upload invoice PDFs
 to a shared Drive folder. Returns a webViewLink URL that can be stored
-in the Wix Bookings collection as invoiceUrl.
+in the Wix BookingInvoices collection as invoiceUrl.
 
 Setup:
   1. Create a Service Account in Google Cloud Console

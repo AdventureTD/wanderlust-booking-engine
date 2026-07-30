@@ -162,29 +162,50 @@ async function archiveActiveInvoice(bookingNumber) {
 }
 
 async function recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, totals, checkIn, checkOut) {
+  // Reuse the current Active or most-recent Draft/Active invoice row instead of always creating a new one.
+  const existingRes = await wixData.query(BOOKING_INVOICES)
+    .eq('bookingNumber', bookingNumber)
+    .hasSome('status', ['Active', 'Draft'])
+    .descending('_createdDate')
+    .limit(1)
+    .find();
+
+  const row = existingRes.items[0] || {};
+  row.bookingNumber = bookingNumber;
+  row.invoiceNumber = invoiceNumber;
+  row.invoiceUrl = invoiceUrl || row.invoiceUrl || '';
+  row.checkIn = toDate(checkIn);
+  row.checkOut = toDate(checkOut);
+  row.roomTotal = totals.roomTotal || 0;
+  row.grandTotal = totals.grandTotal || 0;
+  row.accommodationVat = totals.accommodationVat || 0;
+  row.packageVat = totals.packageVat || 0;
+  row.propertyFee = totals.propertyFee || 0;
+  row.promoCode = totals.promoCode || row.promoCode || '';
+  row.promoDiscountAmount = totals.promoDiscountAmount || 0;
+  row.status = 'Active';
+
+  if (row._id) {
+    await wixData.update(BOOKING_INVOICES, row);
+    return row;
+  }
+
+  // No existing invoice row — archive any strays and insert fresh.
   await archiveActiveInvoice(bookingNumber);
-  const row = {
-    bookingNumber,
-    invoiceNumber,
-    invoiceUrl: invoiceUrl || '',
-    checkIn: checkIn || '',
-    checkOut: checkOut || '',
-    roomTotal: totals.roomTotal || 0,
-    grandTotal: totals.grandTotal || 0,
-    accommodationVat: totals.accommodationVat || 0,
-    packageVat: totals.packageVat || 0,
-    propertyFee: totals.propertyFee || 0,
-    promoCode: totals.promoCode || '',
-    promoDiscountAmount: totals.promoDiscountAmount || 0,
-    status: 'Active'
-  };
   return await wixData.insert(BOOKING_INVOICES, row);
 }
 
-function buildQuoteBreakdown(booking) {
-  const nights = nightsBetween(booking.checkIn, booking.checkOut);
-  const roomTotal = booking.roomTotal || 0;
-  const propertyFee = booking.propertyFee || 0;
+async function buildQuoteBreakdown(bookingNumber) {
+  const inv = await getActiveInvoice(bookingNumber);
+  if (!inv) {
+    throw new Error('No active or draft invoice found for ' + bookingNumber);
+  }
+
+  const checkInDate = toDate(inv.checkIn);
+  const checkOutDate = toDate(inv.checkOut);
+  const nights = nightsBetween(checkInDate, checkOutDate);
+  const roomTotal = inv.roomTotal || 0;
+  const propertyFee = inv.propertyFee || 0;
   const accommodationShare = 0.5;
   const taxRateAccommodation = 0.10;
   const taxRateStandard = 0.15;
@@ -197,12 +218,35 @@ function buildQuoteBreakdown(booking) {
   const accUnitPrice = nights > 0 ? accNet / nights : 0;
   const advUnitPrice = nights > 0 ? advNet / nights : 0;
 
-  const displayName = getRoomDisplayName(booking.roomCode);
+  // Build display line items from the actual Bookings rows for this booking.
+  const bookingsRes = await wixData.query(BOOKINGS)
+    .eq('bookingNumber', bookingNumber)
+    .limit(1000)
+    .find();
+  const display_line_items = [];
+  for (const row of bookingsRes.items) {
+    const displayName = getRoomDisplayName(row.roomCode);
+    const rowNights = nightsBetween(checkInDate, checkOutDate);
+    const rowTotal = (roomTotal / bookingsRes.items.length) || 0;
+    const displayGross = rowTotal > 0 && inv.promoDiscountAmount > 0 && inv.promoCode
+      ? rowTotal + (inv.promoDiscountAmount / bookingsRes.items.length)
+      : rowTotal;
+    display_line_items.push({
+      label: displayName,
+      quantity: rowNights,
+      room_quantity: row.quantity || 1,
+      unit_price: rowNights > 0 ? displayGross / rowNights : 0,
+      net: displayGross,
+      vat_rate: 0,
+      vat: 0,
+      gross: displayGross
+    });
+  }
 
   return {
     line_items: [
       {
-        label: displayName + ' — Accommodation',
+        label: 'Accommodation',
         tax_class: 'accommodation',
         quantity: nights,
         unit_price: accUnitPrice,
@@ -212,7 +256,7 @@ function buildQuoteBreakdown(booking) {
         gross: accNet + accVat
       },
       {
-        label: displayName + ' — Activities & Services',
+        label: 'Activities & Services',
         tax_class: 'standard',
         quantity: nights,
         unit_price: advUnitPrice,
@@ -222,12 +266,22 @@ function buildQuoteBreakdown(booking) {
         gross: advNet + pkgVat
       }
     ],
+    display_line_items,
     subtotal_net: roomTotal,
     total_vat: Math.round((accVat + pkgVat + Number.EPSILON) * 100) / 100,
     total: roomTotal + propertyFee + accVat + pkgVat,
     property_fee_rate: roomTotal > 0 ? propertyFee / roomTotal : 0,
     property_fee: propertyFee,
-    currency: 'USD'
+    currency: 'USD',
+    vat_by_class: {
+      accommodation: accVat,
+      standard: pkgVat
+    },
+    promo_code: inv.promoCode || '',
+    promo_discount_amount: inv.promoDiscountAmount || 0,
+    check_in: checkInDate ? checkInDate.toISOString().slice(0, 10) : '',
+    check_out: checkOutDate ? checkOutDate.toISOString().slice(0, 10) : '',
+    accommodationShare: accommodationShare
   };
 }
 
@@ -237,7 +291,7 @@ async function generateAndStoreInvoice(bookingId) {
   const booking = await wixData.get(BOOKINGS, bookingId);
   if (!booking) throw new Error('Booking ' + bookingId + ' not found');
 
-  const quoteBreakdown = buildQuoteBreakdown(booking);
+  const quoteBreakdown = await buildQuoteBreakdown(booking.bookingNumber);
   console.log('>>> INVOICE quote total:', quoteBreakdown.total);
 
   const guest = {
@@ -246,8 +300,8 @@ async function generateAndStoreInvoice(bookingId) {
     phone: booking.guestPhone || ''
   };
   const dates = {
-    checkIn: booking.checkIn.toISOString().slice(0, 10),
-    checkOut: booking.checkOut.toISOString().slice(0, 10),
+    checkIn: quoteBreakdown.check_in,
+    checkOut: quoteBreakdown.check_out,
     roomCode: booking.roomCode || ''
   };
 
@@ -258,17 +312,6 @@ async function generateAndStoreInvoice(bookingId) {
   } catch (e) {
     console.log('>>> INVOICE callIssueInvoice ERROR:', e.message);
     throw new Error('Invoice generation failed: ' + e.message);
-  }
-
-  const updateObj = {
-    _id: booking._id,
-    bookingNumber: result.invoice_number
-  };
-  try {
-    await wixData.save(BOOKINGS, updateObj);
-    console.log('>>> INVOICE booking save SUCCESS with', result.invoice_number);
-  } catch (err) {
-    console.log('>>> INVOICE wixData.save FAILED:', err.message);
   }
 
   return {
@@ -313,10 +356,6 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       return;
     }
 
-    let totalRoomTotal = 0;
-    let totalAccommodationVat = 0;
-    let totalPackageVat = 0;
-    let totalPropertyFee = 0;
     let guestName = optGuest && optGuest.guestName ? optGuest.guestName : '';
     let guestEmail = optGuest && optGuest.guestEmail ? optGuest.guestEmail : '';
     let guestPhone = optGuest && optGuest.guestPhone ? optGuest.guestPhone : '';
@@ -324,30 +363,10 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
     let status = '';
     let notes = '';
 
-    let promoDiscount = 0;
-    let promoCode = '';
-    let totalDiscountAmount = 0;
-
     for (const row of res.items) {
-      totalRoomTotal += (row.roomTotal || 0);
-      totalAccommodationVat += (row.accomodationVat || 0);
-      totalPackageVat += (row.packageVat || 0);
-      totalPropertyFee += (row.propertyFee || 0);
-      roomCount++;
-
+      roomCount += (row.quantity || 1);
       if (!status && row.status) status = row.status;
       if (!notes && row.note) notes = row.note;
-      if (!notes && row.notes) notes = row.notes;
-      if (!promoCode && row.promoCode) promoCode = row.promoCode;
-      if (!promoDiscount && row.promoDiscount) promoDiscount = parseFloat(row.promoDiscount) || 0;
-    }
-
-    if (promoCode && promoDiscount > 0) {
-      const grossRatio = 1 - promoDiscount;
-      if (grossRatio > 0) {
-        const grossRoomTotal = totalRoomTotal / grossRatio;
-        totalDiscountAmount = Math.round((grossRoomTotal - totalRoomTotal) * 100) / 100;
-      }
     }
 
     const att = optAttribution || {};
@@ -370,7 +389,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       notes: notes || ''
     };
 
-    console.log('>>> updateBookingSummary computed:', JSON.stringify(summary).substring(0,200));
+    console.log('>>> updateBookingSummary computed:', JSON.stringify(summary).substring(0, 200));
 
     const existing = await wixData.query(BOOKING_SUMMARIES)
       .eq('bookingNumber', bookingNumber)
@@ -397,7 +416,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
     }
   } catch (e) {
     console.log('>>> updateBookingSummary ERROR:', e.message);
-    throw e; // re-throw so caller can log it too
+    throw e;
   }
 }
 async function overlappingCount(roomCode, checkIn, checkOut) {
@@ -500,131 +519,169 @@ export const unitsAvailable = webMethod(
   }
 );
 
+async function createDraftInvoice(bookingNumber, financials, checkIn, checkOut) {
+  const invoiceNumber = financials.invoiceNumber || bookingNumber || '';
+  const row = {
+    bookingNumber,
+    invoiceNumber,
+    invoiceUrl: '',
+    checkIn: toDate(checkIn),
+    checkOut: toDate(checkOut),
+    roomTotal: financials.roomTotal || 0,
+    grandTotal: financials.grandTotal || 0,
+    accommodationVat: financials.accommodationVat || 0,
+    packageVat: financials.packageVat || 0,
+    propertyFee: financials.propertyFee || 0,
+    promoCode: financials.promoCode || '',
+    promoDiscountAmount: financials.promoDiscountAmount || 0,
+    status: 'Draft'
+  };
+  try {
+    return await wixData.insert(BOOKING_INVOICES, row);
+  } catch (e) {
+    console.log('>>> createDraftInvoice ERROR:', e.message);
+    throw e;
+  }
+}
+
+async function getActiveInvoice(bookingNumber) {
+  try {
+    const res = await wixData.query(BOOKING_INVOICES)
+      .eq('bookingNumber', bookingNumber)
+      .hasSome('status', ['Active', 'Draft'])
+      .descending('_createdDate')
+      .limit(1)
+      .find();
+    return res.items[0] || null;
+  } catch (e) {
+    console.log('>>> getActiveInvoice ERROR:', e.message);
+    return null;
+  }
+}
+
 async function createBookingImpl(booking) {
-    console.log('>>> SERVER createBooking called:', JSON.stringify(booking).substring(0,200));
-    const roomCode = booking.roomCode;
-    const checkIn = toDate(booking.checkIn);
-    const checkOut = toDate(booking.checkOut);
-    if (!checkIn || !checkOut) throw new Error('checkIn and checkOut must be valid dates');
-    const guests = booking.guests || 1;
-    const guestName = booking.guestName;
-    const guestEmail = booking.guestEmail;
-    const guestPhone = booking.guestPhone;
-    const roomTotal = booking.roomTotal;
-    const accomodationVat = booking.accomodationVat;
-    const packageVat = booking.packageVat;
-    const propertyFee = booking.propertyFee;
-    const grandTotal = booking.grandTotal;
-    const note = booking.note;
-    let saveNote = note;
-    const bookingNumber = booking.bookingNumber;
-    const quantity = Math.max(1, parseInt(booking.quantity || 1, 10) || 1);
+  console.log('>>> SERVER createBooking called:', JSON.stringify(booking).substring(0, 200));
+  const roomCode = booking.roomCode;
+  const checkIn = toDate(booking.checkIn);
+  const checkOut = toDate(booking.checkOut);
+  if (!checkIn || !checkOut) throw new Error('checkIn and checkOut must be valid dates');
+  const guests = booking.guests || 1;
+  const guestName = booking.guestName;
+  const guestEmail = booking.guestEmail;
+  const guestPhone = booking.guestPhone;
+  const note = booking.note;
+  let saveNote = note;
+  const providedBookingNumber = booking.bookingNumber;
+  const quantity = Math.max(1, parseInt(booking.quantity || 1, 10) || 1);
 
-    console.log('>>> SERVER roomCode:', roomCode, 'checkIn:', checkIn, 'checkOut:', checkOut, 'guests:', guests);
-    const roomDisplay = getRoomDisplayName(roomCode);
-    if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomDisplay + '\'');
-    if (nightsBetween(checkIn, checkOut) <= 0) throw new Error('checkOut must be after checkIn');
-    if (guests < ROOM_MIN_OCCUPANCY[roomCode]) {
-      throw new Error(roomDisplay + ' requires at least ' + ROOM_MIN_OCCUPANCY[roomCode] + ' guests (no single-guest bookings); requested ' + guests);
-    }
-    if (guests > ROOM_MAX_OCCUPANCY[roomCode]) {
-      throw new Error(roomDisplay + ' sleeps ' + ROOM_MAX_OCCUPANCY[roomCode] + '; requested ' + guests);
-    }
+  console.log('>>> SERVER roomCode:', roomCode, 'checkIn:', checkIn, 'checkOut:', checkOut, 'guests:', guests);
+  const roomDisplay = getRoomDisplayName(roomCode);
+  if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomDisplay + '\'');
+  if (nightsBetween(checkIn, checkOut) <= 0) throw new Error('checkOut must be after checkIn');
+  if (guests < ROOM_MIN_OCCUPANCY[roomCode]) {
+    throw new Error(roomDisplay + ' requires at least ' + ROOM_MIN_OCCUPANCY[roomCode] + ' guests (no single-guest bookings); requested ' + guests);
+  }
+  if (guests > ROOM_MAX_OCCUPANCY[roomCode]) {
+    throw new Error(roomDisplay + ' sleeps ' + ROOM_MAX_OCCUPANCY[roomCode] + '; requested ' + guests);
+  }
 
-    const currentlyBooked = await overlappingCount(roomCode, checkIn, checkOut);
-    if (currentlyBooked + quantity > ROOM_UNITS[roomCode]) {
-      throw new Error('Only ' + (ROOM_UNITS[roomCode] - currentlyBooked) + ' ' + roomDisplay + '(s) available for ' + checkIn + ' to ' + checkOut);
-    }
+  const currentlyBooked = await overlappingCount(roomCode, checkIn, checkOut);
+  if (currentlyBooked + quantity > ROOM_UNITS[roomCode]) {
+    throw new Error('Only ' + (ROOM_UNITS[roomCode] - currentlyBooked) + ' ' + roomDisplay + '(s) available for ' + checkIn + ' to ' + checkOut);
+  }
 
-    let invoiceNumber = bookingNumber || '';
-    if (!invoiceNumber) {
-      try {
-        invoiceNumber = await getNextBookingNumber();
-        console.log('>>> SERVER generated invoiceNumber:', invoiceNumber);
-      } catch (e) {
-        console.log('>>> SERVER getNextBookingNumber ERROR:', e.message);
-        invoiceNumber = '';
-      }
-    }
-    if (!invoiceNumber) {
-      // Hard fallback so the booking is never created without a number.
-      invoiceNumber = 'WC-' + Date.now();
-      console.log('>>> SERVER fallback invoiceNumber:', invoiceNumber);
-    }
-
-    const promoDiscountRate = parseFloat(booking.promoDiscount) || 0;
-    const discountRatio = promoDiscountRate > 0 && promoDiscountRate < 1 ? (1 - promoDiscountRate) : 1;
-
-    const nights = nightsBetween(checkIn, checkOut);
-    const packageBaseRate = await getPackageRateForNights(nights);
-    const roomFee = Number(booking.roomFee) || 0;
-    let computedRoomTotal = packageBaseRate * guests * nights + roomFee * nights;
-    if (Number(booking.roomTotal) > 0) {
-      computedRoomTotal = Number(booking.roomTotal);
-    }
-    const computedPropertyFee = Math.round(computedRoomTotal * 0.05 * 100) / 100;
-    const computedAccVat = Math.round(computedRoomTotal * 0.5 * 0.10 * 100) / 100;
-    const computedPkgVat = Math.round(computedRoomTotal * 0.5 * 0.15 * 100) / 100;
-    const computedGrandTotal = Math.round((computedRoomTotal + computedPropertyFee + computedAccVat + computedPkgVat) * 100) / 100;
-
-    const toInsert = {
-      roomCode: roomCode,
-      guests: guests,
-      status: booking.status || 'confirmed',
-      quantity: quantity,
-      roomFee: roomFee,
-      roomTotal: Math.round(computedRoomTotal * discountRatio * 100) / 100,
-      propertyFee: Math.round(computedPropertyFee * discountRatio * 100) / 100,
-      accomodationVat: Math.round(computedAccVat * discountRatio * 100) / 100,
-      packageVat: Math.round(computedPkgVat * discountRatio * 100) / 100,
-      grandTotal: Math.round(computedGrandTotal * discountRatio * 100) / 100,
-      bookingNumber: invoiceNumber,
-      checkIn: checkIn,
-      checkOut: checkOut,
-      note: saveNote || '',
-      promoCode: booking.promoCode || '',
-      promoDiscount: booking.promoDiscount || 0,
-      gclid: booking.gclid || '',
-      gbraid: booking.gbraid || '',
-      wbraid: booking.wbraid || '',
-    };
-    console.log('>>> SERVER toInsert keys:', Object.keys(toInsert).join(', '));
-    console.log('>>> SERVER toInsert financials => roomTotal:', toInsert.roomTotal, '| propertyFee:', toInsert.propertyFee, '| accomodationVat:', toInsert.accomodationVat, '| packageVat:', toInsert.packageVat, '| grandTotal:', toInsert.grandTotal, '| bookingNumber:', toInsert.bookingNumber);
-    const inserted = await wixData.insert(BOOKINGS, toInsert);
-    inserted.bookingNumber = invoiceNumber || inserted.bookingNumber || '';
-    console.log('>>> SERVER insert returned keys:', Object.keys(inserted).join(', '));
-    console.log('>>> SERVER insert returned financials => roomTotal:', inserted.roomTotal, '| propertyFee:', inserted.propertyFee, '| accomodationVat:', inserted.accomodationVat, '| packageVat:', inserted.packageVat, '| grandTotal:', inserted.grandTotal, '| bookingNumber:', inserted.bookingNumber);
+  let bookingNumber = providedBookingNumber || '';
+  if (!bookingNumber) {
     try {
-      const verify = await wixData.get(BOOKINGS, inserted._id);
-      console.log('>>> SERVER verify-db row keys:', Object.keys(verify).join(', '));
-      console.log('>>> SERVER verify-db financials => roomTotal:', verify.roomTotal, '| propertyFee:', verify.propertyFee, '| accomodationVat:', verify.accomodationVat, '| packageVat:', verify.packageVat, '| grandTotal:', verify.grandTotal, '| bookingNumber:', verify.bookingNumber);
-    } catch (ve) {
-      console.log('>>> SERVER verify-db ERROR:', ve.message);
-    }
-
-    const countNow = await overlappingCount(roomCode, checkIn, checkOut);
-    if (countNow > ROOM_UNITS[roomCode]) {
-      await wixData.remove(BOOKINGS, inserted._id);
-      throw new Error('Booking conflict — ' + roomCode + ' was just taken. Please retry.');
-    }
-
-    console.log('>>> SERVER calling updateBookingSummary for', inserted.bookingNumber);
-    try {
-      await updateBookingSummary(inserted.bookingNumber, checkIn, checkOut, {
-        guestName: guestName || '',
-        guestEmail: guestEmail || '',
-        guestPhone: guestPhone || '',
-      }, {
-        gclid: booking.gclid || inserted.gclid || '',
-        gbraid: booking.gbraid || inserted.gbraid || '',
-        wbraid: booking.wbraid || inserted.wbraid || '',
-      });
+      bookingNumber = await getNextBookingNumber();
+      console.log('>>> SERVER generated bookingNumber:', bookingNumber);
     } catch (e) {
-      console.log('>>> SERVER updateBookingSummary ERROR:', e.message);
+      console.log('>>> SERVER getNextBookingNumber ERROR:', e.message);
+      bookingNumber = '';
     }
+  }
+  if (!bookingNumber) {
+    bookingNumber = 'WC-' + Date.now();
+    console.log('>>> SERVER fallback bookingNumber:', bookingNumber);
+  }
 
-    console.log('>>> SERVER createBooking complete. bookingNumber:', inserted.bookingNumber);
-    return inserted;
+  const promoDiscountRate = parseFloat(booking.promoDiscount) || 0;
+  const discountRatio = promoDiscountRate > 0 && promoDiscountRate < 1 ? (1 - promoDiscountRate) : 1;
+
+  const nights = nightsBetween(checkIn, checkOut);
+  const packageBaseRate = await getPackageRateForNights(nights);
+  const roomFee = Number(booking.roomFee) || 0;
+  let computedRoomTotal = packageBaseRate * guests * nights + roomFee * nights;
+  if (Number(booking.roomTotal) > 0) {
+    computedRoomTotal = Number(booking.roomTotal);
+  }
+  const computedPropertyFee = Math.round(computedRoomTotal * 0.05 * 100) / 100;
+  const computedAccVat = Math.round(computedRoomTotal * 0.5 * 0.10 * 100) / 100;
+  const computedPkgVat = Math.round(computedRoomTotal * 0.5 * 0.15 * 100) / 100;
+  const computedGrandTotal = Math.round((computedRoomTotal + computedPropertyFee + computedAccVat + computedPkgVat) * 100) / 100;
+
+  const toInsert = {
+    roomCode: roomCode,
+    guests: guests,
+    status: booking.status || 'confirmed',
+    quantity: quantity,
+    roomFee: roomFee,
+    bookingNumber: bookingNumber,
+    checkIn: checkIn,
+    checkOut: checkOut,
+    note: saveNote || '',
+    gclid: booking.gclid || '',
+    gbraid: booking.gbraid || '',
+    wbraid: booking.wbraid || ''
+  };
+  console.log('>>> SERVER toInsert keys:', Object.keys(toInsert).join(', '), '| bookingNumber:', toInsert.bookingNumber);
+  const inserted = await wixData.insert(BOOKINGS, toInsert);
+  inserted.bookingNumber = bookingNumber || inserted.bookingNumber || '';
+
+  const financials = {
+    roomTotal: Math.round(computedRoomTotal * discountRatio * 100) / 100,
+    propertyFee: Math.round(computedPropertyFee * discountRatio * 100) / 100,
+    accommodationVat: Math.round(computedAccVat * discountRatio * 100) / 100,
+    packageVat: Math.round(computedPkgVat * discountRatio * 100) / 100,
+    grandTotal: Math.round(computedGrandTotal * discountRatio * 100) / 100,
+    promoCode: booking.promoCode || '',
+    promoDiscountAmount: 0
+  };
+  if (booking.promoCode && promoDiscountRate > 0 && promoDiscountRate < 1) {
+    const gross = Math.round(computedRoomTotal * 100) / 100;
+    financials.promoDiscountAmount = Math.round((gross - financials.roomTotal) * 100) / 100;
+  }
+
+  try {
+    await createDraftInvoice(inserted.bookingNumber, financials, checkIn, checkOut);
+    console.log('>>> SERVER draft invoice created for', inserted.bookingNumber);
+  } catch (e) {
+    console.log('>>> SERVER createDraftInvoice ERROR:', e.message);
+  }
+
+  const countNow = await overlappingCount(roomCode, checkIn, checkOut);
+  if (countNow > ROOM_UNITS[roomCode]) {
+    await wixData.remove(BOOKINGS, inserted._id);
+    throw new Error('Booking conflict — ' + roomCode + ' was just taken. Please retry.');
+  }
+
+  console.log('>>> SERVER calling updateBookingSummary for', inserted.bookingNumber);
+  try {
+    await updateBookingSummary(inserted.bookingNumber, checkIn, checkOut, {
+      guestName: guestName || '',
+      guestEmail: guestEmail || '',
+      guestPhone: guestPhone || ''
+    }, {
+      gclid: booking.gclid || inserted.gclid || '',
+      gbraid: booking.gbraid || inserted.gbraid || '',
+      wbraid: booking.wbraid || inserted.wbraid || ''
+    });
+  } catch (e) {
+    console.log('>>> SERVER updateBookingSummary ERROR:', e.message);
+  }
+
+  console.log('>>> SERVER createBooking complete. bookingNumber:', inserted.bookingNumber);
+  return inserted;
 }
 
 export const createBooking = webMethod(
@@ -667,11 +724,10 @@ export const issueBookingInvoice = webMethod(
     }
 
     if (!checkInDate || !checkOutDate) {
-      const fallbackCheckIn = summaryRow && summaryRow.checkIn ? new Date(summaryRow.checkIn) : null;
-      const fallbackCheckOut = summaryRow && summaryRow.checkOut ? new Date(summaryRow.checkOut) : null;
-      if (fallbackCheckIn && !isNaN(fallbackCheckIn.getTime()) && fallbackCheckOut && !isNaN(fallbackCheckOut.getTime())) {
-        checkInDate = fallbackCheckIn.toISOString().slice(0, 10);
-        checkOutDate = fallbackCheckOut.toISOString().slice(0, 10);
+      const invFallback = await getActiveInvoice(bookingNumber);
+      if (invFallback && invFallback.checkIn && invFallback.checkOut) {
+        checkInDate = new Date(invFallback.checkIn).toISOString().slice(0, 10);
+        checkOutDate = new Date(invFallback.checkOut).toISOString().slice(0, 10);
       }
     }
 
@@ -698,171 +754,24 @@ export const issueBookingInvoice = webMethod(
       phone: summaryRow && summaryRow.guestPhone ? summaryRow.guestPhone : '',
     };
 
+    const quoteBreakdown = await buildQuoteBreakdown(bookingNumber);
+    quoteBreakdown.package_title = packageTitle;
+    quoteBreakdown.included_amenities = includedAmenities;
+
     const dates = {
       checkIn: checkInDate,
       checkOut: checkOutDate,
       roomCode: bookingsRes.items.map(function (r) { return r.roomCode; }).join(', ')
     };
 
-    let accommodationShare = 0.5;
-    try {
-      const settings = await getAllSettings();
-      accommodationShare = Number(settings.accommodationShare || 0.5);
-    } catch (e) {}
-
-    const line_items = [];
-    const display_line_items = [];
-    let subtotal_net = 0;
-    let total_vat = 0;
-    let total_property_fee = 0;
-    let total_acc_vat = 0;
-    let total_pkg_vat = 0;
-
-    const promoDiscount = parseFloat(firstRow.promoDiscount) || 0;
-    const promoCode = firstRow.promoCode || '';
-    const alreadyDiscounted = !!(promoDiscount && promoCode);
-
-    for (const row of bookingsRes.items) {
-      const nights = nightsBetween(checkInDate || dates.checkIn, checkOutDate || dates.checkOut);
-      const roomTotal = row.roomTotal || 0;
-      const propertyFee = row.propertyFee || 0;
-      const taxRateAccommodation = 0.10;
-      const taxRateStandard = 0.15;
-
-      const accNet = roomTotal * accommodationShare;
-      const advNet = roomTotal * (1 - accommodationShare);
-      const accVat = accNet * taxRateAccommodation;
-      const pkgVat = advNet * taxRateStandard;
-
-      const accUnitPrice = nights > 0 ? accNet / nights : 0;
-      const advUnitPrice = nights > 0 ? advNet / nights : 0;
-
-      const displayName = getRoomDisplayName(row.roomCode);
-
-      line_items.push({
-        label: displayName + ' — Accommodation',
-        tax_class: 'accommodation',
-        quantity: nights,
-        unit_price: accUnitPrice,
-        net: accNet,
-        vat_rate: taxRateAccommodation,
-        vat: accVat,
-        gross: accNet + accVat
-      });
-
-      line_items.push({
-        label: displayName + ' — Activities & Services',
-        tax_class: 'standard',
-        quantity: nights,
-        unit_price: advUnitPrice,
-        net: advNet,
-        vat_rate: taxRateStandard,
-        vat: pkgVat,
-        gross: advNet + pkgVat
-      });
-
-      const displayGross = alreadyDiscounted && promoDiscount > 0 && promoDiscount < 1
-        ? roomTotal / (1 - promoDiscount)
-        : roomTotal;
-      display_line_items.push({
-        label: displayName,
-        quantity: nights,
-        room_quantity: row.quantity || 1,
-        unit_price: nights > 0 ? displayGross / nights : 0,
-        net: displayGross,
-        vat_rate: 0,
-        vat: 0,
-        gross: displayGross
-      });
-
-      subtotal_net += roomTotal;
-      total_vat += accVat + pkgVat;
-      total_property_fee += propertyFee;
-      total_acc_vat += accVat;
-      total_pkg_vat += pkgVat;
-    }
-
-    let promoDiscountAmount = 0;
-    let discountRatio = 1;
-    if (promoDiscount > 0) {
-      if (alreadyDiscounted) {
-        const grossRatio = 1 - promoDiscount;
-        if (grossRatio > 0) {
-          const grossSubtotal = subtotal_net / grossRatio;
-          promoDiscountAmount = Math.round((grossSubtotal - subtotal_net) * 100) / 100;
-        }
-        discountRatio = 1;
-      } else {
-        promoDiscountAmount = Math.round(subtotal_net * promoDiscount * 100) / 100;
-        discountRatio = subtotal_net > 0 ? (subtotal_net - promoDiscountAmount) / subtotal_net : 1;
-      }
-    }
-
-    const discountedSubtotal = alreadyDiscounted ? subtotal_net : Math.round((subtotal_net - promoDiscountAmount) * 100) / 100;
-    const discountedPropertyFee = alreadyDiscounted ? total_property_fee : Math.round(total_property_fee * discountRatio * 100) / 100;
-    const discountedTotalVat = alreadyDiscounted ? total_vat : Math.round(total_vat * discountRatio * 100) / 100;
-    const discountedAccVat = alreadyDiscounted ? total_acc_vat : Math.round(total_acc_vat * discountRatio * 100) / 100;
-    const discountedPkgVat = alreadyDiscounted ? total_pkg_vat : Math.round(total_pkg_vat * discountRatio * 100) / 100;
-    const discountedTotal = Math.round((discountedSubtotal + discountedPropertyFee + discountedTotalVat) * 100) / 100;
-
-    const discounted_line_items = [];
-    for (const li of line_items) {
-      const discountedNet = alreadyDiscounted ? li.net : Math.round(li.net * discountRatio * 100) / 100;
-      const discountedVat = alreadyDiscounted ? li.vat : Math.round(li.vat * discountRatio * 100) / 100;
-      const finalUnitPrice = li.quantity > 0 ? discountedNet / li.quantity : 0;
-      discounted_line_items.push({
-        label: li.label,
-        tax_class: li.tax_class,
-        quantity: li.quantity,
-        unit_price: finalUnitPrice,
-        net: discountedNet,
-        vat_rate: li.vat_rate,
-        vat: discountedVat,
-        gross: discountedNet + discountedVat
-      });
-    }
-
-    const quoteBreakdown = {
-      line_items: discounted_line_items,
-      display_line_items,
-      subtotal_net: discountedSubtotal,
-      total_vat: discountedTotalVat,
-      total: discountedTotal,
-      property_fee_rate: discountedSubtotal > 0 ? discountedPropertyFee / discountedSubtotal : 0,
-      property_fee: discountedPropertyFee,
-      currency: 'USD',
-      vat_by_class: {
-        accommodation: discountedAccVat,
-        standard: discountedPkgVat
-      },
-      package_title: packageTitle,
-      included_amenities: includedAmenities,
-      check_in: checkInDate,
-      check_out: checkOutDate,
-      accommodationShare: accommodationShare,
-      promo_code: promoCode,
-      promo_discount_rate: promoDiscount,
-      promo_discount_amount: promoDiscountAmount,
-    };
-
     console.log('>>> issueBookingInvoice calling invoice service with dates:', JSON.stringify({
       checkIn: dates.checkIn,
       checkOut: dates.checkOut,
       guestPresent: !!(guest.name && guest.email),
-      accommodationShare: accommodationShare,
+      accommodationShare: quoteBreakdown.accommodationShare,
     }));
 
     const invoiceNumber = await getNextInvoiceNumber();
-
-    const totals = {
-      roomTotal: quoteBreakdown.subtotal_net || 0,
-      grandTotal: quoteBreakdown.total || 0,
-      accommodationVat: (quoteBreakdown.vat_by_class && quoteBreakdown.vat_by_class.accommodation) || 0,
-      packageVat: (quoteBreakdown.vat_by_class && quoteBreakdown.vat_by_class.standard) || 0,
-      propertyFee: quoteBreakdown.property_fee || 0,
-      promoCode: quoteBreakdown.promo_code || '',
-      promoDiscountAmount: quoteBreakdown.promo_discount_amount || 0
-    };
 
     const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, invoiceNumber, ownerOnly);
     console.log('>>> issueBookingInvoice full service result keys:', Object.keys(result || {}).join(','));
@@ -882,6 +791,16 @@ export const issueBookingInvoice = webMethod(
     };
 
     const invoiceUrl = result.invoice_url || '';
+
+    const totals = {
+      roomTotal: quoteBreakdown.subtotal_net || 0,
+      grandTotal: quoteBreakdown.total || 0,
+      accommodationVat: (quoteBreakdown.vat_by_class && quoteBreakdown.vat_by_class.accommodation) || 0,
+      packageVat: (quoteBreakdown.vat_by_class && quoteBreakdown.vat_by_class.standard) || 0,
+      propertyFee: quoteBreakdown.property_fee || 0,
+      promoCode: quoteBreakdown.promo_code || '',
+      promoDiscountAmount: quoteBreakdown.promo_discount_amount || 0
+    };
 
     try {
       await recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, totals, checkInDate, checkOutDate);

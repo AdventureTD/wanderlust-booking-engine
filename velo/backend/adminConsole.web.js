@@ -204,10 +204,17 @@ export const adminUpdateBooking = webMethod(
     if (!bRes.items.length) return { ok: false, error: 'No Bookings rows' };
     const rooms = bRes.items;
 
+    const iRes = await wixData.query(BOOKING_INVOICES)
+      .eq('bookingNumber', bookingNumber)
+      .hasSome('status', ['Active', 'Draft'])
+      .descending('_createdDate')
+      .limit(1)
+      .find();
+    const invoice = iRes.items[0] || null;
+
     const newCi = ch.checkIn || isoDate(summary.checkIn);
     const newCo = ch.checkOut || isoDate(summary.checkOut);
     const datesChanged = (newCi !== isoDate(summary.checkIn)) || (newCo !== isoDate(summary.checkOut));
-    const promoChanged = ch.promoCode !== undefined || ch.promoDiscountAmount !== undefined;
     const invoiceTriggerFields = ['checkIn','checkOut','roomTotal','grandTotal','accommodationVat','packageVat','propertyFee','promoCode','promoDiscountAmount'];
     const invoiceFieldsChanged = invoiceTriggerFields.some(function (k) { return ch[k] !== undefined; });
 
@@ -229,7 +236,7 @@ export const adminUpdateBooking = webMethod(
       }
     }
 
-    // Apply to Bookings rows
+    // Apply to Bookings rows (no financial fields).
     for (const r of rooms) {
       const updated = Object.assign({}, r);
       if (ch.guestName !== undefined) updated.guestName = ch.guestName;
@@ -237,16 +244,11 @@ export const adminUpdateBooking = webMethod(
       if (ch.guestPhone !== undefined) updated.guestPhone = ch.guestPhone;
       if (ch.numGuests !== undefined) updated.guests = Number(ch.numGuests) || r.guests;
       if (ch.status !== undefined) updated.status = ch.status;
-      if (ch.promoCode !== undefined) updated.promoCode = ch.promoCode;
-      if (ch.promoDiscountAmount !== undefined) updated.promoDiscountAmount = money(ch.promoDiscountAmount);
-      if (ch.accommodationVat !== undefined) updated.accommodationVat = money(ch.accommodationVat);
-      if (ch.packageVat !== undefined) updated.packageVat = money(ch.packageVat);
-      if (ch.propertyFee !== undefined) updated.propertyFee = money(ch.propertyFee);
       if (datesChanged) { updated.checkIn = new Date(newCi); updated.checkOut = new Date(newCo); }
       await wixData.update(BOOKINGS, updated);
     }
 
-    // Apply to BookingSummary (no financial fields)
+    // Apply to BookingSummary (no financial fields).
     const sUpd = Object.assign({}, summary);
     if (ch.guestName !== undefined) sUpd.guestName = ch.guestName;
     if (ch.guestEmail !== undefined) sUpd.guestEmail = ch.guestEmail;
@@ -258,14 +260,24 @@ export const adminUpdateBooking = webMethod(
     if (ch.wbraid !== undefined) sUpd.wbraid = ch.wbraid;
     if (ch.googleConversionUploaded !== undefined) sUpd.googleConversionUploaded = ch.googleConversionUploaded;
     if (ch.googleConversionRetracted !== undefined) sUpd.googleConversionRetracted = ch.googleConversionRetracted;
-    if (ch.accommodationVat !== undefined) sUpd.accommodationVat = money(ch.accommodationVat);
-    if (ch.packageVat !== undefined) sUpd.packageVat = money(ch.packageVat);
-    if (ch.propertyFee !== undefined) sUpd.propertyFee = money(ch.propertyFee);
-    if (ch.promoDiscountAmount !== undefined) sUpd.promoDiscountAmount = money(ch.promoDiscountAmount);
     if (datesChanged) { sUpd.checkIn = newCi; sUpd.checkOut = newCo; }
     await wixData.update(BOOKING_SUMMARIES, sUpd);
 
-    // Generate new invoice when material details changed
+    // Apply financial changes to the active/draft BookingInvoices record.
+    if (invoice) {
+      const invUpd = Object.assign({}, invoice);
+      if (ch.roomTotal !== undefined) invUpd.roomTotal = money(ch.roomTotal);
+      if (ch.grandTotal !== undefined) invUpd.grandTotal = money(ch.grandTotal);
+      if (ch.accommodationVat !== undefined) invUpd.accommodationVat = money(ch.accommodationVat);
+      if (ch.packageVat !== undefined) invUpd.packageVat = money(ch.packageVat);
+      if (ch.propertyFee !== undefined) invUpd.propertyFee = money(ch.propertyFee);
+      if (ch.promoCode !== undefined) invUpd.promoCode = ch.promoCode;
+      if (ch.promoDiscountAmount !== undefined) invUpd.promoDiscountAmount = money(ch.promoDiscountAmount);
+      if (datesChanged) { invUpd.checkIn = new Date(newCi); invUpd.checkOut = new Date(newCo); }
+      await wixData.update(BOOKING_INVOICES, invUpd);
+    }
+
+    // Generate new invoice when material details changed.
     let invoiceResult = null;
     if (invoiceFieldsChanged) {
       try {
@@ -475,10 +487,21 @@ export const adminRecordRefund = webMethod(
   }
 );
 
+async function getActiveInvoiceForBooking(bookingNumber) {
+  const res = await wixData.query(BOOKING_INVOICES)
+    .eq('bookingNumber', bookingNumber)
+    .hasSome('status', ['Active', 'Draft'])
+    .descending('_createdDate')
+    .limit(1)
+    .find();
+  return res.items[0] || null;
+}
+
 async function overpaymentWarning(summary, additionalPayment) {
+  const invoice = await getActiveInvoiceForBooking(summary.bookingNumber);
   const pRes = await wixData.query(BOOKING_PAYMENTS)
     .eq('bookingNumber', summary.bookingNumber).limit(200).find();
-  const t = computeTotals(summary, pRes.items.map(paymentDto));
+  const t = computeTotals(invoice || summary, pRes.items.map(paymentDto));
   if (t.totalPaid + additionalPayment > t.grandTotal && t.grandTotal > 0) {
     return 'This payment would bring total paid above the invoice total (' +
       (t.totalPaid + additionalPayment) + ' > ' + t.grandTotal + ').';
@@ -487,9 +510,10 @@ async function overpaymentWarning(summary, additionalPayment) {
 }
 
 async function overRefundWarning(summary, additionalRefund) {
+  const invoice = await getActiveInvoiceForBooking(summary.bookingNumber);
   const pRes = await wixData.query(BOOKING_PAYMENTS)
     .eq('bookingNumber', summary.bookingNumber).limit(200).find();
-  const t = computeTotals(summary, pRes.items.map(paymentDto));
+  const t = computeTotals(invoice || summary, pRes.items.map(paymentDto));
   if (t.totalRefunded + additionalRefund > t.totalPaid) {
     return 'This refund would exceed total payments received (' +
       (t.totalRefunded + additionalRefund) + ' > ' + t.totalPaid + ').';
