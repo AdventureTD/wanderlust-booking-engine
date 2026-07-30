@@ -726,6 +726,9 @@ function wireContinueButton() {
             if (summaryRes.items.length > 0) {
               const s = summaryRes.items[0];
               s.notes = note || '';
+              if (s.checkIn) s.checkIn = new Date(s.checkIn);
+              if (s.checkOut) s.checkOut = new Date(s.checkOut);
+              if (s.bookingDate) s.bookingDate = new Date(s.bookingDate);
               await wixData.update('BookingSummary', s);
               console.log('[WBE-FRONTEND] updated BookingSummary.notes');
             }
