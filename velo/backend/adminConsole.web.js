@@ -33,12 +33,29 @@ function money(n) {
   return isNaN(v) ? 0 : Math.round(v * 100) / 100;
 }
 
+function normalizeDate(v) {
+  if (!v) return null;
+  let str = String(v).trim();
+  const tIndex = str.indexOf('T');
+  if (tIndex !== -1) str = str.substring(0, tIndex);
+  const spaceIndex = str.indexOf(' ');
+  if (spaceIndex !== -1) str = str.substring(0, spaceIndex);
+  const parts = str.split('-');
+  if (parts.length !== 3) return null;
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+  const out = new Date(y, m, d);
+  return isNaN(out.getTime()) ? null : out;
+}
+
 function isoDate(d) {
   if (!d) return '';
   try {
-    const dt = d instanceof Date ? d : new Date(d);
-    if (isNaN(dt.getTime())) return '';
-    return dt.toISOString().slice(0, 10);
+    const dt = d instanceof Date ? d : normalizeDate(d);
+    if (!dt || isNaN(dt.getTime())) return '';
+    return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
   } catch (e) { return ''; }
 }
 
@@ -214,9 +231,9 @@ export const adminUpdateBooking = webMethod(
 
     const rawCi = ch.checkIn || isoDate(summary.checkIn);
     const rawCo = ch.checkOut || isoDate(summary.checkOut);
-    const newCi = rawCi ? new Date(rawCi) : isoDate(summary.checkIn);
-    const newCo = rawCo ? new Date(rawCo) : isoDate(summary.checkOut);
-    const datesChanged = (newCi !== isoDate(summary.checkIn)) || (newCo !== isoDate(summary.checkOut));
+    const newCi = normalizeDate(rawCi) || summary.checkIn;
+    const newCo = normalizeDate(rawCo) || summary.checkOut;
+    const datesChanged = (isoDate(newCi) !== isoDate(summary.checkIn)) || (isoDate(newCo) !== isoDate(summary.checkOut));
     const invoiceTriggerFields = ['checkIn','checkOut','roomTotal','grandTotal','accommodationVat','packageVat','propertyFee','promoCode','promoDiscountAmount'];
     const invoiceFieldsChanged = invoiceTriggerFields.some(function (k) { return ch[k] !== undefined; });
 

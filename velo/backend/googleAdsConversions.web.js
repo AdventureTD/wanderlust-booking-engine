@@ -85,9 +85,25 @@ export const retryBookingConversion = webMethod(
         throw new Error('Data Manager returned error: ' + JSON.stringify(response));
       }
       summary.googleConversionUploaded = true;
-      if (summary.checkIn) { const d = new Date(summary.checkIn); summary.checkIn = new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
-      if (summary.checkOut) { const d = new Date(summary.checkOut); summary.checkOut = new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
-      if (summary.bookingDate) { const d = new Date(summary.bookingDate); summary.bookingDate = new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+      const normalizeDate = function(v) {
+        if (!v) return null;
+        let str = String(v).trim();
+        const tIndex = str.indexOf('T');
+        if (tIndex !== -1) str = str.substring(0, tIndex);
+        const spaceIndex = str.indexOf(' ');
+        if (spaceIndex !== -1) str = str.substring(0, spaceIndex);
+        const parts = str.split('-');
+        if (parts.length !== 3) return null;
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+        const out = new Date(y, m, d);
+        return isNaN(out.getTime()) ? null : out;
+      };
+      if (summary.checkIn) summary.checkIn = normalizeDate(summary.checkIn);
+      if (summary.checkOut) summary.checkOut = normalizeDate(summary.checkOut);
+      if (summary.bookingDate) summary.bookingDate = normalizeDate(summary.bookingDate);
       await wixData.update('BookingSummary', summary);
       return { ok: true, transactionId: bookingNumber, response };
     } catch (err) {

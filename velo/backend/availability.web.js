@@ -71,23 +71,26 @@ function nightsBetween(checkIn, checkOut) {
   return Math.round(ms / (1000 * 60 * 60 * 24));
 }
 
-function dateOnly(d) {
-  if (!d || isNaN(d.getTime())) return null;
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+function normalizeDate(v) {
+  if (!v) return null;
+  let str = String(v).trim();
+  // Strip any time/timezone suffix starting with 'T' or space.
+  const tIndex = str.indexOf('T');
+  if (tIndex !== -1) str = str.substring(0, tIndex);
+  const spaceIndex = str.indexOf(' ');
+  if (spaceIndex !== -1) str = str.substring(0, spaceIndex);
+  const parts = str.split('-');
+  if (parts.length !== 3) return null;
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+  const out = new Date(y, m, d);
+  return isNaN(out.getTime()) ? null : out;
 }
 
 function toDate(v) {
-  if (!v) return null;
-  if (v instanceof Date) return dateOnly(v);
-  const str = String(v).trim();
-  // Parse YYYY-MM-DD or ISO strings without timezone shifts.
-  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) {
-    const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
-    return dateOnly(d);
-  }
-  const d = new Date(str);
-  return dateOnly(d);
+  return normalizeDate(v);
 }
 
 function capitaliseWords(s) {
