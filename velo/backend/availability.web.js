@@ -73,12 +73,14 @@ function nightsBetween(checkIn, checkOut) {
 
 function normalizeDate(v) {
   if (!v) return null;
+  if (v instanceof Date) return new Date(v.getFullYear(), v.getMonth(), v.getDate());
   let str = String(v).trim();
   // Strip any time/timezone suffix starting with 'T' or space.
   const tIndex = str.indexOf('T');
   if (tIndex !== -1) str = str.substring(0, tIndex);
   const spaceIndex = str.indexOf(' ');
   if (spaceIndex !== -1) str = str.substring(0, spaceIndex);
+  if (!str) return null;
   const parts = str.split('-');
   if (parts.length !== 3) return null;
   const y = parseInt(parts[0], 10);
@@ -343,7 +345,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
     console.log('>>> updateBookingSummary SKIPPED — no bookingNumber');
     return;
   }
-  console.log('>>> updateBookingSummary START for', bookingNumber);
+  console.log('>>> updateBookingSummary START for', bookingNumber, 'checkInArg:', checkInArg, 'checkOutArg:', checkOutArg);
 
   try {
     let checkIn = checkInArg || null;
@@ -707,7 +709,7 @@ async function createBookingImpl(booking) {
 
   console.log('>>> SERVER calling updateBookingSummary for', inserted.bookingNumber);
   try {
-    await updateBookingSummary(inserted.bookingNumber, checkIn, checkOut, {
+    await updateBookingSummary(inserted.bookingNumber, toDate(checkIn), toDate(checkOut), {
       guestName: guestName || '',
       guestEmail: guestEmail || '',
       guestPhone: guestPhone || ''
