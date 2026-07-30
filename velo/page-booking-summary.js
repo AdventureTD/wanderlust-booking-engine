@@ -720,15 +720,16 @@ function wireContinueButton() {
       wbraid: att.wbraid || ''
     };
 
+    function dateToStr(d) {
+      if (!d) return '';
+      if (typeof d === 'string') { const t = d.indexOf('T'); return t !== -1 ? d.substring(0, t) : d; }
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
     try {
       // Phase 1: book first room to get shared booking number
       if (rooms.length > 0) {
         const r0 = rooms[0];
-        function dateToStr(d) {
-          if (!d) return '';
-          if (typeof d === 'string') { const t = d.indexOf('T'); return t !== -1 ? d.substring(0, t) : d; }
-          return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-        }
         const payload0 = {
           roomCode: r0.roomCode,
           checkIn: dateToStr(ci),
