@@ -23,6 +23,6 @@ export async function incrementSetting(key) {
     throw new Error('Settings key ' + key + ' is not numeric');
   }
   const next = current + 1;
-  await wixData.update('Settings', { _id: item._id, value: String(next) });
+  await wixData.update('Settings', { _id: item._id, key: item.key, value: String(next) });
   return next;
 }
