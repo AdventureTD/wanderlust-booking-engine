@@ -73,9 +73,20 @@ function nightsBetween(checkIn, checkOut) {
 
 function toDate(v) {
   if (!v) return null;
-  if (v instanceof Date) return v;
-  const d = new Date(v);
-  return isNaN(d.getTime()) ? null : d;
+  if (v instanceof Date) {
+    // Return a local-midnight date-only object.
+    return new Date(v.getFullYear(), v.getMonth(), v.getDate());
+  }
+  const str = String(v).trim();
+  // Parse YYYY-MM-DD or ISO strings without timezone shifts.
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    const d = new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
 function capitaliseWords(s) {

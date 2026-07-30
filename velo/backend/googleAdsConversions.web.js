@@ -85,6 +85,9 @@ export const retryBookingConversion = webMethod(
         throw new Error('Data Manager returned error: ' + JSON.stringify(response));
       }
       summary.googleConversionUploaded = true;
+      if (summary.checkIn) { const d = new Date(summary.checkIn); summary.checkIn = new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+      if (summary.checkOut) { const d = new Date(summary.checkOut); summary.checkOut = new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+      if (summary.bookingDate) { const d = new Date(summary.bookingDate); summary.bookingDate = new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
       await wixData.update('BookingSummary', summary);
       return { ok: true, transactionId: bookingNumber, response };
     } catch (err) {

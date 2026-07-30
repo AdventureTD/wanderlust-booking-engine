@@ -182,6 +182,9 @@ async function initSummary() {
 
   _summaryCis = ciDate ? new Date(ciDate.getFullYear(), ciDate.getMonth(), ciDate.getDate()) : null;
   _summaryCos = coDate ? new Date(coDate.getFullYear(), coDate.getMonth(), coDate.getDate()) : null;
+  // Ensure dates passed to createBooking are date-only local midnight objects.
+  _summaryCis = _summaryCis ? new Date(_summaryCis.getFullYear(), _summaryCis.getMonth(), _summaryCis.getDate()) : null;
+  _summaryCos = _summaryCos ? new Date(_summaryCos.getFullYear(), _summaryCos.getMonth(), _summaryCos.getDate()) : null;
 
   safeText('checkInDisplay', fmtDate(ciDate) || '-');
   safeText('checkOutDisplay', fmtDate(coDate) || '-');
@@ -726,9 +729,9 @@ function wireContinueButton() {
             if (summaryRes.items.length > 0) {
               const s = summaryRes.items[0];
               s.notes = note || '';
-              if (s.checkIn) s.checkIn = new Date(s.checkIn);
-              if (s.checkOut) s.checkOut = new Date(s.checkOut);
-              if (s.bookingDate) s.bookingDate = new Date(s.bookingDate);
+              if (s.checkIn) { const d = new Date(s.checkIn); s.checkIn = new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+              if (s.checkOut) { const d = new Date(s.checkOut); s.checkOut = new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+              if (s.bookingDate) { const d = new Date(s.bookingDate); s.bookingDate = new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
               await wixData.update('BookingSummary', s);
               console.log('[WBE-FRONTEND] updated BookingSummary.notes');
             }
@@ -824,6 +827,9 @@ function wireContinueButton() {
                   if (summaryRes.items.length > 0) {
                     const summary = summaryRes.items[0];
                     summary.googleConversionUploaded = true;
+                    if (summary.checkIn) { const d = new Date(summary.checkIn); summary.checkIn = new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+                    if (summary.checkOut) { const d = new Date(summary.checkOut); summary.checkOut = new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+                    if (summary.bookingDate) { const d = new Date(summary.bookingDate); summary.bookingDate = new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
                     return wixData.update('BookingSummary', summary);
                   }
                   return null;
