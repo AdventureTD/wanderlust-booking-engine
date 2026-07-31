@@ -23,6 +23,14 @@ SENDER = "info@wanderlustcaribbean.com"
 BCC_COPY = "info@wanderlustcaribbean.com"
 
 
+def _first_name(full_name: str) -> str:
+    """Return the first whitespace-delimited word of the guest's full name."""
+    if not full_name:
+        return full_name
+    first = full_name.split()[0]
+    return first if first else full_name
+
+
 def build_invoice_email(to_email: str, guest_name: str, invoice_number: str,
                         pdf_path: str, total_str: str,
                         owner_only: bool = False) -> EmailMessage:
@@ -40,7 +48,7 @@ def build_invoice_email(to_email: str, guest_name: str, invoice_number: str,
         # Send a copy to the hotel. Use a visible CC so the hotel copy is obvious.
         msg["Cc"] = BCC_COPY
         msg["Subject"] = f"Your Wanderlust Caribbean Invoice {invoice_number}"
-        body_prefix = f"Dear {guest_name},\n\n"
+        body_prefix = f"Dear {_first_name(guest_name)},\n\n"
 
     body = (
         body_prefix +
