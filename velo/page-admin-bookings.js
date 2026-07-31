@@ -259,16 +259,16 @@ function renderDetail() {
   if (invRep) {
     invRep.onItemReady(($item, itemData) => {
       const i = itemData.invoice || itemData;
-      safeItemText($item, '#inputInvoiceNumber', i.invoiceNumber || '');
+      safeItemSet($item, '#inputInvoiceNumber', i.invoiceNumber || '');
       safeItemSet($item, '#dateCheckIn', i.checkIn ? dstr(i.checkIn) : '');
       safeItemSet($item, '#dateCheckOut', i.checkOut ? dstr(i.checkOut) : '');
-      safeItemText($item, '#inputPkgVat', money(i.packageVat));
-      safeItemText($item, '#inputAccVat', money(i.accommodationVat));
-      safeItemText($item, '#inputPropFee', money(i.propertyFee));
-      safeItemText($item, '#inputRoomTotal', money(i.roomTotal));
-      safeItemText($item, '#inputGrandTotal', money(i.grandTotal));
-      safeItemText($item, '#inputPromoCode', i.promoCode || '');
-      safeItemText($item, '#inputPromoDiscountNum', money(i.promoDiscountAmount));
+      safeItemSet($item, '#inputPkgVat', money(i.packageVat));
+      safeItemSet($item, '#inputAccVat', money(i.accommodationVat));
+      safeItemSet($item, '#inputPropFee', money(i.propertyFee));
+      safeItemSet($item, '#inputRoomTotal', money(i.roomTotal));
+      safeItemSet($item, '#inputGrandTotal', money(i.grandTotal));
+      safeItemSet($item, '#inputPromoCode', i.promoCode || '');
+      safeItemSet($item, '#inputPromoDiscountNum', money(i.promoDiscountAmount));
     });
     invRep.data = _currentInvoices.map(function (i, idx) {
       return { _id: i._id || ('inv' + idx), invoice: i };
