@@ -342,6 +342,23 @@ $w.onReady(async function () {
 
   const summaryUrl = '/booking-summary';
 
+  // When check-in date is selected, default check-out to the same date for easier picking.
+  const ciPicker = tryFind('datePickerCheckIn');
+  const coPicker = tryFind('datePickerCheckOut');
+  if (ciPicker && coPicker && typeof ciPicker.onChange === 'function') {
+    ciPicker.onChange((event) => {
+      const newCheckIn = event.target.value;
+      if (!newCheckIn) return;
+      // Only override check-out if it's empty or before the new check-in date.
+      const currentCo = coPicker.value;
+      const ciDate = parseDate(newCheckIn);
+      const coDate = currentCo ? parseDate(currentCo) : null;
+      if (!coDate || ciDate > coDate) {
+        coPicker.value = new Date(ciDate.getFullYear(), ciDate.getMonth(), ciDate.getDate(), 12, 0, 0);
+      }
+    });
+  }
+
   if (tryFind('btnSummary')) {
     console.log('>>> btnSummary handler registered');
     const summaryBtn = $w('#btnSummary');
