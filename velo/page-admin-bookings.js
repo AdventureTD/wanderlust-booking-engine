@@ -259,24 +259,32 @@ function renderDetail() {
   if (invRep) {
     invRep.onItemReady(($item, itemData) => {
       const i = itemData.invoice || itemData;
-      console.log('[WBE-ADMIN] setting invoice values for', i.invoiceNumber, JSON.stringify({
-        roomTotal: i.roomTotal,
-        grandTotal: i.grandTotal,
-        packageVat: i.packageVat,
-        accommodationVat: i.accommodationVat,
-        propertyFee: i.propertyFee,
-        promoCode: i.promoCode,
-        promoDiscountAmount: i.promoDiscountAmount
-      }));
-      // Set all text inputs first so a date-picker failure does not block them.
-      safeItemSet($item, '#inputInvoiceNumber', i.invoiceNumber || '');
-      safeItemSet($item, '#inputPkgVat', money(i.packageVat));
-      safeItemSet($item, '#inputAccVat', money(i.accommodationVat));
-      safeItemSet($item, '#inputPropFee', money(i.propertyFee));
-      safeItemSet($item, '#inputRoomTotal', money(i.roomTotal));
-      safeItemSet($item, '#inputGrandTotal', money(i.grandTotal));
-      safeItemSet($item, '#inputPromoCode', i.promoCode || '');
-      safeItemSet($item, '#inputPromoDiscountNum', money(i.promoDiscountAmount));
+      const values = {
+        '#inputInvoiceNumber': i.invoiceNumber || '',
+        '#inputPkgVat': money(i.packageVat),
+        '#inputAccVat': money(i.accommodationVat),
+        '#inputPropFee': money(i.propertyFee),
+        '#inputRoomTotal': money(i.roomTotal),
+        '#inputGrandTotal': money(i.grandTotal),
+        '#inputPromoCode': i.promoCode || '',
+        '#inputPromoDiscountNum': money(i.promoDiscountAmount)
+      };
+      console.log('[WBE-ADMIN] invoice values to set for', i.invoiceNumber, JSON.stringify(values));
+
+      // Set text inputs after a brief yield so the repeater element is fully mounted.
+      setTimeout(function () {
+        Object.keys(values).forEach(function (sel) {
+          const el = safeItemFind($item, sel);
+          if (!el) { console.log('[WBE-ADMIN] missing element', sel); return; }
+          try {
+            if (el.value !== undefined) el.value = values[sel];
+            else el.text = values[sel];
+            console.log('[WBE-ADMIN] set', sel, 'to', values[sel], 'readback', el.value !== undefined ? el.value : el.text);
+          } catch (e) {
+            console.log('[WBE-ADMIN] failed to set', sel, e && e.message || e);
+          }
+        });
+      }, 0);
 
       // Date pickers must receive a Date object (local midnight works best in Wix).
       function toPickerDate(d) {
