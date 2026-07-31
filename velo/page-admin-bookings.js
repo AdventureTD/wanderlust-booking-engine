@@ -212,11 +212,13 @@ function setButtonActive(id, active) {
 }
 
 async function openDetail(bookingNumber) {
+  console.log('[WBE-ADMIN] openDetail called for', bookingNumber);
   txt('detailStatusText', 'Loading ' + bookingNumber + '...');
   switchTab('details');
   show('detailPanel');
   try {
     const res = await adminGetBooking(bookingNumber);
+    console.log('[WBE-ADMIN] adminGetBooking result:', res.ok, 'payments:', (res.payments || []).length);
     if (!res.ok) { txt('detailStatusText', 'Error: ' + (res.error || 'unknown')); return; }
     _currentBooking = res.summary;
     _currentRooms = res.rooms || [];
@@ -227,6 +229,7 @@ async function openDetail(bookingNumber) {
     renderDetail();
     txt('detailStatusText', '');
   } catch (e) {
+    console.error('[WBE-ADMIN] openDetail error:', e && e.message || e);
     txt('detailStatusText', 'Error: ' + (e && e.message || e));
   }
 }
