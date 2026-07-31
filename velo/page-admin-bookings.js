@@ -412,7 +412,7 @@ function renderDetail() {
 
   const paymentTable = tryFind('paymentInfo');
   if (paymentTable) {
-    paymentTable.data = _currentPayments.map(function (p) {
+    const tableData = _currentPayments.map(function (p) {
       const sign = p.paymentAmount < 0 ? '-' : '+';
       return {
         payRowId: p.paymentId || p._id || '',
@@ -422,6 +422,11 @@ function renderDetail() {
         payRowNote: p.note || '',
       };
     });
+    console.log('[WBE-ADMIN] paymentInfo rows:', tableData.length, JSON.stringify(tableData));
+    paymentTable.data = tableData;
+    console.log('[WBE-ADMIN] paymentInfo.data readback:', paymentTable.data.length);
+  } else {
+    console.log('[WBE-ADMIN] paymentInfo table not found');
   }
 
   // Danger zone — show balance reminder
