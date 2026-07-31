@@ -257,8 +257,25 @@ function renderDetail() {
   // Invoices repeater (BookingInvoices fields)
   const invRep = tryFind('bookingInvoicesRepeater');
   if (invRep) {
+    console.log('[WBE-ADMIN] _currentInvoices:', _currentInvoices.length, JSON.stringify(_currentInvoices));
     invRep.onItemReady(($item, itemData) => {
       const i = itemData.invoice || itemData;
+      console.log('[WBE-ADMIN] invoice row:', JSON.stringify({
+        invoiceNumber: i.invoiceNumber,
+        checkIn: i.checkIn,
+        checkOut: i.checkOut,
+        roomTotal: i.roomTotal,
+        grandTotal: i.grandTotal,
+        promoCode: i.promoCode,
+        promoDiscountAmount: i.promoDiscountAmount,
+        packageVat: i.packageVat,
+        accommodationVat: i.accommodationVat,
+        propertyFee: i.propertyFee
+      }));
+      ['#inputInvoiceNumber','#dateCheckIn','#dateCheckOut','#inputPkgVat','#inputAccVat','#inputPropFee','#inputRoomTotal','#inputGrandTotal','#inputPromoCode','#inputPromoDiscountNum'].forEach(function (sel) {
+        const el = safeItemFind($item, sel);
+        console.log('[WBE-ADMIN] repeater element', sel, 'found:', !!el, 'hasValue:', el && el.value !== undefined, 'hasText:', el && el.text !== undefined);
+      });
       safeItemSet($item, '#inputInvoiceNumber', i.invoiceNumber || '');
       safeItemSet($item, '#dateCheckIn', i.checkIn ? dstr(i.checkIn) : '');
       safeItemSet($item, '#dateCheckOut', i.checkOut ? dstr(i.checkOut) : '');
