@@ -507,8 +507,8 @@ export const adminRecordPayment = webMethod(
       bookingNumber: bookingNumber,
       datePaid: datePaid ? new Date(datePaid) : new Date(),
       paymentAmount: amt,
-      paymentType: 'payment',
-      paymentMethod: paymentMethod || '',
+      paymentType: 'Credit Card',
+      paymentMethod: paymentMethod || 'Terminal',
       note: note || '',
     });
     return { ok: true, paymentId: paymentId, warning: warn };
@@ -535,7 +535,7 @@ export const adminRecordRefund = webMethod(
       datePaid: datePaid ? new Date(datePaid) : new Date(),
       paymentAmount: -amt,
       paymentType: 'refund',
-      paymentMethod: paymentMethod || '',
+      paymentMethod: paymentMethod || 'Terminal',
       note: note || '',
     });
     return { ok: true, paymentId: paymentId, warning: warn };

@@ -231,6 +231,61 @@ async function openDetail(bookingNumber) {
   }
 }
 
+function wirePaymentSave() {
+  const saveBtn = tryFind('btnPmtSave');
+  if (!saveBtn || typeof saveBtn.onClick !== 'function') return;
+  if (saveBtn.dataset && saveBtn.dataset.wired) return;
+  saveBtn.onClick(async function () {
+    const amtRaw = val('inputPayAmount');
+    const amt = Number(amtRaw.replace(/[^0-9.\-]/g, '')) || 0;
+    if (!amt) {
+      showToast('Please enter an amount.');
+      return;
+    }
+    const datePaid = val('inputPayDate') || dstr(new Date());
+    const note = val('notes') || '';
+    const method = 'Terminal';
+    saveBtn.label = 'Saving...';
+    try {
+      let res;
+      if (amt > 0) {
+        res = await adminRecordPayment({
+          bookingNumber: _currentBooking.bookingNumber,
+          amount: amt,
+          datePaid: datePaid,
+          paymentMethod: method,
+          note: note,
+        });
+      } else {
+        res = await adminRecordRefund({
+          bookingNumber: _currentBooking.bookingNumber,
+          amount: Math.abs(amt),
+          datePaid: datePaid,
+          paymentMethod: method,
+          note: note,
+        });
+      }
+      if (res.ok) {
+        saveBtn.label = 'Saved';
+        setVal('inputPayAmount', '');
+        setVal('notes', '');
+        await loadDetail(_currentBooking.bookingNumber);
+        setTimeout(function () { saveBtn.label = 'Save'; }, 1500);
+      } else {
+        saveBtn.label = 'Error';
+        showToast(res.error || 'Payment failed');
+        setTimeout(function () { saveBtn.label = 'Save'; }, 2000);
+      }
+    } catch (e) {
+      saveBtn.label = 'Error';
+      console.error('[WBE-ADMIN] payment save error:', e && e.message || e);
+      showToast(e && e.message || 'Payment failed');
+      setTimeout(function () { saveBtn.label = 'Save'; }, 2000);
+    }
+  });
+  try { saveBtn.dataset.wired = 'true'; } catch (e) {}
+}
+
 function renderDetail() {
   const s = _currentBooking;
   if (!s) return;
@@ -351,6 +406,8 @@ function renderDetail() {
   txt('totalPaidText', money(t.totalPaid));
   txt('totalRefundedText', money(t.totalRefunded));
   txt('balanceText', money(t.balance));
+
+  wirePaymentSave();
 
   const rep = tryFind('paymentsRepeater');
   if (rep) {
