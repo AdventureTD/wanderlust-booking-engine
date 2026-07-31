@@ -180,6 +180,21 @@ function wireDetailPanel() {
   });
 }
 
+function populatePaymentTable() {
+  const paymentTable = tryFind('paymentInfo');
+  if (!paymentTable) return;
+  paymentTable.data = _currentPayments.map(function (p) {
+    const sign = p.paymentAmount < 0 ? '-' : '+';
+    return {
+      payRowId: p.paymentId || p._id || '',
+      payRowDate: dstr(p.datePaid),
+      payRowAmount: sign + money(Math.abs(p.paymentAmount)),
+      payRowMethod: p.paymentMethod || '',
+      payRowNote: p.note || '',
+    };
+  });
+}
+
 function switchTab(tabName) {
   if (tabName === 'details') {
     show('detailsContainer');
@@ -189,6 +204,7 @@ function switchTab(tabName) {
     hide('detailsContainer');
     show('paymentsContainer');
     hide('cancelContainer');
+    populatePaymentTable();
   } else if (tabName === 'cancel') {
     hide('detailsContainer');
     hide('paymentsContainer');
@@ -212,13 +228,11 @@ function setButtonActive(id, active) {
 }
 
 async function openDetail(bookingNumber) {
-  console.log('[WBE-ADMIN] openDetail called for', bookingNumber);
   txt('detailStatusText', 'Loading ' + bookingNumber + '...');
   switchTab('details');
   show('detailPanel');
   try {
     const res = await adminGetBooking(bookingNumber);
-    console.log('[WBE-ADMIN] adminGetBooking result:', res.ok, 'payments:', (res.payments || []).length);
     if (!res.ok) { txt('detailStatusText', 'Error: ' + (res.error || 'unknown')); return; }
     _currentBooking = res.summary;
     _currentRooms = res.rooms || [];
@@ -229,7 +243,6 @@ async function openDetail(bookingNumber) {
     renderDetail();
     txt('detailStatusText', '');
   } catch (e) {
-    console.error('[WBE-ADMIN] openDetail error:', e && e.message || e);
     txt('detailStatusText', 'Error: ' + (e && e.message || e));
   }
 }
@@ -413,24 +426,7 @@ function renderDetail() {
 
   wirePaymentSave();
 
-  const paymentTable = tryFind('paymentInfo');
-  if (paymentTable) {
-    const tableData = _currentPayments.map(function (p) {
-      const sign = p.paymentAmount < 0 ? '-' : '+';
-      return {
-        payRowId: p.paymentId || p._id || '',
-        payRowDate: dstr(p.datePaid),
-        payRowAmount: sign + money(Math.abs(p.paymentAmount)),
-        payRowMethod: p.paymentMethod || '',
-        payRowNote: p.note || '',
-      };
-    });
-    console.log('[WBE-ADMIN] paymentInfo rows:', tableData.length, JSON.stringify(tableData));
-    paymentTable.data = tableData;
-    console.log('[WBE-ADMIN] paymentInfo.data readback:', paymentTable.data.length);
-  } else {
-    console.log('[WBE-ADMIN] paymentInfo table not found');
-  }
+  populatePaymentTable();
 
   // Danger zone — show balance reminder
   txt('cancelBalanceText', 'Current balance: ' + money(t.balance) +
