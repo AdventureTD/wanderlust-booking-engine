@@ -73,7 +73,7 @@ function nightsBetween(checkIn, checkOut) {
 
 function normalizeDate(v) {
   if (!v) return null;
-  if (v instanceof Date) return new Date(v.getFullYear(), v.getMonth(), v.getDate());
+  if (v instanceof Date) return new Date(Date.UTC(v.getFullYear(), v.getMonth(), v.getDate(), 12, 0, 0));
   let str = String(v).trim();
   // Strip any time/timezone suffix starting with 'T' or space.
   const tIndex = str.indexOf('T');
