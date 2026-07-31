@@ -4,6 +4,7 @@ import {
   adminListBookings,
   adminGetBooking,
   adminUpdateBooking,
+  adminUpdateInvoice,
   adminCancelBooking,
   adminRecordPayment,
   adminRecordRefund,
@@ -132,6 +133,7 @@ async function refreshList() {
 function safeItemFind($item, sel) { try { return $item(sel); } catch (e) { return null; } }
 function safeItemText($item, sel, v) { const el = safeItemFind($item, sel); if (el) safeSet(el, 'text', v); }
 function safeItemSet($item, sel, v) { const el = safeItemFind($item, sel); if (el && el.value !== undefined) safeSet(el, 'value', v); else safeItemText($item, sel, v); }
+function safeItemVal($item, sel) { const el = safeItemFind($item, sel); return el && el.value !== undefined ? el.value : ''; }
 
 function wireBookingsRepeater() {
   const rep = tryFind('bookingsRepeater');
@@ -289,6 +291,52 @@ function renderDetail() {
       }
       safeItemSet($item, '#dateCheckIn', toPickerDate(i.checkIn));
       safeItemSet($item, '#dateCheckOut', toPickerDate(i.checkOut));
+
+      const saveBtn = safeItemFind($item, '#btnSave');
+      if (saveBtn && typeof saveBtn.onClick === 'function') {
+        saveBtn.onClick(async function () {
+          saveBtn.label = 'Saving...';
+          try {
+            const res = await adminUpdateInvoice(i._id, {
+              invoiceNumber: safeItemVal($item, '#inputInvoiceNumber'),
+              checkIn: safeItemVal($item, '#dateCheckIn'),
+              checkOut: safeItemVal($item, '#dateCheckOut'),
+              roomTotal: Number(safeItemVal($item, '#inputRoomTotal')) || 0,
+              grandTotal: Number(safeItemVal($item, '#inputGrandTotal')) || 0,
+              packageVat: Number(safeItemVal($item, '#inputPkgVat')) || 0,
+              accommodationVat: Number(safeItemVal($item, '#inputAccVat')) || 0,
+              propertyFee: Number(safeItemVal($item, '#inputPropFee')) || 0,
+              promoCode: safeItemVal($item, '#inputPromoCode'),
+              promoDiscountAmount: Number(safeItemVal($item, '#inputPromoDiscountNum')) || 0,
+            });
+            if (res.ok) {
+              saveBtn.label = 'Saved';
+              setTimeout(function () { saveBtn.label = 'Save'; }, 1500);
+            } else {
+              saveBtn.label = 'Error';
+              console.error('[WBE-ADMIN] save invoice error:', res.error);
+            }
+          } catch (e) {
+            saveBtn.label = 'Error';
+            console.error('[WBE-ADMIN] save invoice exception:', e && e.message || e);
+          }
+        });
+      }
+
+      const newInvBtn = safeItemFind($item, '#btnNewInvoice');
+      if (newInvBtn && typeof newInvBtn.onClick === 'function') {
+        newInvBtn.onClick(async function () {
+          newInvBtn.label = 'Working...';
+          try {
+            await newInvoice();
+            newInvBtn.label = 'New Invoice';
+          } catch (e) {
+            newInvBtn.label = 'Error';
+            console.error('[WBE-ADMIN] new invoice exception:', e && e.message || e);
+            setTimeout(function () { newInvBtn.label = 'New Invoice'; }, 2000);
+          }
+        });
+      }
     });
     invRep.data = _currentInvoices.map(function (i, idx) {
       return { _id: i._id || ('inv' + idx), invoice: i };

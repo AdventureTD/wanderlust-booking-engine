@@ -317,6 +317,36 @@ export const adminUpdateBooking = webMethod(
   }
 );
 
+export const adminUpdateInvoice = webMethod(
+  Permissions.Admin,
+  async (invoiceId, changes) => {
+    await requireAdmin();
+    if (!invoiceId) return { ok: false, error: 'invoiceId required' };
+    const ch = changes || {};
+    const invRes = await wixData.query(BOOKING_INVOICES)
+      .eq('_id', invoiceId)
+      .limit(1)
+      .find();
+    if (!invRes.items.length) return { ok: false, error: 'Invoice not found' };
+    const invoice = invRes.items[0];
+    const invUpd = Object.assign({}, invoice);
+
+    if (ch.invoiceNumber !== undefined) invUpd.invoiceNumber = String(ch.invoiceNumber || '');
+    if (ch.checkIn !== undefined) invUpd.checkIn = normalizeDate(ch.checkIn) || invoice.checkIn;
+    if (ch.checkOut !== undefined) invUpd.checkOut = normalizeDate(ch.checkOut) || invoice.checkOut;
+    if (ch.roomTotal !== undefined) invUpd.roomTotal = money(ch.roomTotal);
+    if (ch.grandTotal !== undefined) invUpd.grandTotal = money(ch.grandTotal);
+    if (ch.packageVat !== undefined) invUpd.packageVat = money(ch.packageVat);
+    if (ch.accommodationVat !== undefined) invUpd.accommodationVat = money(ch.accommodationVat);
+    if (ch.propertyFee !== undefined) invUpd.propertyFee = money(ch.propertyFee);
+    if (ch.promoCode !== undefined) invUpd.promoCode = String(ch.promoCode || '');
+    if (ch.promoDiscountAmount !== undefined) invUpd.promoDiscountAmount = money(ch.promoDiscountAmount);
+
+    await wixData.update(BOOKING_INVOICES, invUpd);
+    return { ok: true, invoiceId: invoiceId };
+  }
+);
+
 // ---------- INVOICES ----------
 
 export const adminListInvoices = webMethod(
