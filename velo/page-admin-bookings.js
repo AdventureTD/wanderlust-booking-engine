@@ -183,7 +183,7 @@ function wireDetailPanel() {
 function populatePaymentTable() {
   const paymentTable = tryFind('paymentInfo');
   if (!paymentTable) return;
-  paymentTable.data = _currentPayments.map(function (p) {
+  const rows = _currentPayments.map(function (p) {
     const sign = p.paymentAmount < 0 ? '-' : '+';
     return {
       payRowId: p.paymentId || p._id || '',
@@ -193,6 +193,12 @@ function populatePaymentTable() {
       payRowNote: p.note || '',
     };
   });
+  console.log('[WBE-ADMIN] populatePaymentTable rows:', rows.length);
+  // Defer data assignment until the table is fully mounted.
+  setTimeout(function () {
+    paymentTable.data = rows;
+    console.log('[WBE-ADMIN] paymentInfo.data assigned:', paymentTable.data.length);
+  }, 50);
 }
 
 function switchTab(tabName) {
