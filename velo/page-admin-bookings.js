@@ -239,7 +239,7 @@ function wirePaymentSave() {
     const amtRaw = val('inputPayAmount');
     const amt = Number(amtRaw.replace(/[^0-9.\-]/g, '')) || 0;
     if (!amt) {
-      showToast('Please enter an amount.');
+      txt('paymentStatusText', 'Please enter an amount.');
       return;
     }
     const datePaid = val('inputPayDate') || dstr(new Date());
@@ -269,17 +269,17 @@ function wirePaymentSave() {
         saveBtn.label = 'Saved';
         setVal('inputPayAmount', '');
         setVal('notes', '');
-        await loadDetail(_currentBooking.bookingNumber);
+        await openDetail(_currentBooking.bookingNumber);
         setTimeout(function () { saveBtn.label = 'Save'; }, 1500);
       } else {
         saveBtn.label = 'Error';
-        showToast(res.error || 'Payment failed');
+        txt('paymentStatusText', res.error || 'Payment failed');
         setTimeout(function () { saveBtn.label = 'Save'; }, 2000);
       }
     } catch (e) {
       saveBtn.label = 'Error';
       console.error('[WBE-ADMIN] payment save error:', e && e.message || e);
-      showToast(e && e.message || 'Payment failed');
+      txt('paymentStatusText', e && e.message || 'Payment failed');
       setTimeout(function () { saveBtn.label = 'Save'; }, 2000);
     }
   });
