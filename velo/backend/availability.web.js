@@ -866,7 +866,7 @@ export const issueBookingInvoice = webMethod(
         const sItem = summaryRes.items[0];
         sItem.checkIn = toDate(checkInDate);
         sItem.checkOut = toDate(checkOutDate);
-        if (sItem.bookingDate) sItem.bookingDate = toDate(sItem.bookingDate);
+        sItem.bookingDate = toDate(sItem.bookingDate) || toDate(new Date().toISOString());
         await wixData.update(BOOKING_SUMMARIES, sItem);
         console.log('>>> issueBookingInvoice mirrored dates to BookingSummary');
       }
