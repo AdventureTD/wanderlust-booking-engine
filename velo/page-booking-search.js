@@ -1,6 +1,6 @@
 import { getActiveMessages } from 'backend/messages';
 import { searchAvailability, suggestAlternateDates } from 'backend/search';
-import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights } from 'backend/packages';
+import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights, packageExistsForNights } from 'backend/packages';
 import { getRoomNames } from 'backend/rooms';
 import { trackBeginBooking, captureClickIds, trackViewBookingSearch, trackRoomView, trackSearchNoResults, initTracking, setSuspendGoogleAds } from 'public/tracking';
 import { getAllSettings } from 'backend/settings';
@@ -593,6 +593,23 @@ async function searchHandler() {
   const computedNights = Math.round((coDate.getTime() - ciDate.getTime()) / 86400000);
   _summaryNights = computedNights;
   await ensureBaseRate(computedNights);
+
+  // Validate that an adventure package is defined for this number of nights.
+  const pkgExists = await packageExistsForNights(computedNights);
+  if (!pkgExists) {
+    hideSearchHeader();
+    hideAlternateDates();
+    const rep = tryFind('searchResultsRepeater');
+    if (rep) { try { rep.collapse(); } catch (e) {} }
+    const box3 = tryFind('box3');
+    if (box3) { if (typeof box3.collapse === 'function') { try { box3.collapse(); } catch (e) {} } else if (typeof box3.hide === 'function') { try { box3.hide(); } catch (e) {} } }
+    const panel = tryFind('selectionPanel');
+    if (panel) { try { panel.collapse(); } catch (e) {} }
+    const container = tryFind('selectedRoomsContainer');
+    if (container) { try { container.hide(); } catch (e) {} }
+    safeText('No adventure packages exist for that number of nights. Please choose a lower number of nights.');
+    return;
+  }
 
   clearSelections(true);
   safeText('Searching...');

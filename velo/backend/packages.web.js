@@ -86,3 +86,20 @@ export const getPackageDetailsByNights = webMethod(
     return { title: '', includedAmenities: '', specialtyTours: '' };
   }
 );
+
+export const packageExistsForNights = webMethod(
+  Permissions.Anyone,
+  async (nights) => {
+    const n = Number(nights);
+    if (!n || n <= 0) return false;
+    try {
+      const res = await wixData.query('Packages').limit(100).find();
+      if (!res || !res.items || res.items.length === 0) return false;
+      for (const item of res.items) {
+        const itemNights = item.numberOfNights || item.NumberOfNights || item.numberofnights || 0;
+        if (Number(itemNights) === n) return true;
+      }
+    } catch (e) { return false; }
+    return false;
+  }
+);
