@@ -402,12 +402,10 @@ function renderDetail() {
 
   // Payments tab
   const t = _currentTotals || { grandTotal: 0, totalPaid: 0, totalRefunded: 0, balance: 0 };
-  console.log('[WBE-ADMIN] totals render:', JSON.stringify(t));
   txt('invoiceTotalText', money(t.grandTotal));
   txt('totalPaidText', money(t.totalPaid));
   txt('totalRefundedText', money(t.totalRefunded));
   txt('balanceText', money(t.balance));
-  console.log('[WBE-ADMIN] totalPaidText readback:', txt('totalPaidText'), 'totalRefundedText readback:', txt('totalRefundedText'));
 
   wirePaymentSave();
 
