@@ -259,9 +259,8 @@ function renderDetail() {
   if (invRep) {
     invRep.onItemReady(($item, itemData) => {
       const i = itemData.invoice || itemData;
+      // Set all text inputs first so a date-picker failure does not block them.
       safeItemSet($item, '#inputInvoiceNumber', i.invoiceNumber || '');
-      safeItemSet($item, '#dateCheckIn', i.checkIn ? new Date(i.checkIn) : null);
-      safeItemSet($item, '#dateCheckOut', i.checkOut ? new Date(i.checkOut) : null);
       safeItemSet($item, '#inputPkgVat', money(i.packageVat));
       safeItemSet($item, '#inputAccVat', money(i.accommodationVat));
       safeItemSet($item, '#inputPropFee', money(i.propertyFee));
@@ -269,6 +268,16 @@ function renderDetail() {
       safeItemSet($item, '#inputGrandTotal', money(i.grandTotal));
       safeItemSet($item, '#inputPromoCode', i.promoCode || '');
       safeItemSet($item, '#inputPromoDiscountNum', money(i.promoDiscountAmount));
+
+      // Date pickers must receive a Date object (local midnight works best in Wix).
+      function toPickerDate(d) {
+        if (!d) return null;
+        const dt = d instanceof Date ? d : new Date(d);
+        if (isNaN(dt.getTime())) return null;
+        return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 0, 0, 0);
+      }
+      safeItemSet($item, '#dateCheckIn', toPickerDate(i.checkIn));
+      safeItemSet($item, '#dateCheckOut', toPickerDate(i.checkOut));
     });
     invRep.data = _currentInvoices.map(function (i, idx) {
       return { _id: i._id || ('inv' + idx), invoice: i };
