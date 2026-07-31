@@ -35,6 +35,10 @@ function money(n) {
 
 function normalizeDate(v) {
   if (!v) return null;
+  if (v instanceof Date) {
+    if (isNaN(v.getTime())) return null;
+    return new Date(Date.UTC(v.getFullYear(), v.getMonth(), v.getDate(), 12, 0, 0));
+  }
   let str = String(v).trim();
   const tIndex = str.indexOf('T');
   if (tIndex !== -1) str = str.substring(0, tIndex);
@@ -65,11 +69,13 @@ export const adminListBookings = webMethod(
   Permissions.Admin,
   async ({ search, status, dateFrom, dateTo, sortBy, sortDir, limit }) => {
     await requireAdmin();
+    const fromDate = normalizeDate(dateFrom);
+    const toDate = normalizeDate(dateTo);
     let q = wixData.query(BOOKING_SUMMARIES).limit(Math.min(limit || 100, 500));
 
     if (status && status !== 'All') q = q.eq('status', status);
-    if (dateFrom) q = q.ge('checkOut', dateFrom);
-    if (dateTo) q = q.le('checkOut', dateTo);
+    if (fromDate) q = q.ge('checkOut', fromDate);
+    if (toDate) q = q.le('checkOut', toDate);
 
     if (search) {
       const s = String(search).trim();
@@ -91,8 +97,8 @@ export const adminListBookings = webMethod(
       // Apply status/date filters in memory for searched sets
       const filtered = items.filter(function (it) {
         if (status && status !== 'All' && it.status !== status) return false;
-        if (dateFrom && String(it.checkOut || '') < String(dateFrom)) return false;
-        if (dateTo && String(it.checkOut || '') > String(dateTo)) return false;
+        if (fromDate && isoDate(it.checkOut || '') < isoDate(fromDate)) return false;
+        if (toDate && isoDate(it.checkOut || '') > isoDate(toDate)) return false;
         return true;
       });
       return { ok: true, items: sortItems(await attachActiveInvoices(filtered), sortBy, sortDir) };
