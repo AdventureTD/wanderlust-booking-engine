@@ -417,8 +417,8 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
 
     if (existing.items.length > 0) {
       summary._id = existing.items[0]._id;
-      summary.bookingDate = toDate(existing.items[0].bookingDate) || new Date();
-      const existingAtt = existing.items[0];if (!summary.gclid && existingAtt.gclid) summary.gclid = existingAtt.gclid;
+      summary.bookingDate = toDate(existing.items[0].bookingDate) || normalizeDate(new Date().toISOString());
+      const existingAtt = existing.items[0];
       if (!summary.gbraid && existingAtt.gbraid) summary.gbraid = existingAtt.gbraid;
       if (!summary.wbraid && existingAtt.wbraid) summary.wbraid = existingAtt.wbraid;
       if (existingAtt.googleConversionUploaded) summary.googleConversionUploaded = existingAtt.googleConversionUploaded;
@@ -427,7 +427,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       await wixData.update(BOOKING_SUMMARIES, summary);
       console.log('>>> updateBookingSummary UPDATE complete');
     } else {
-      summary.bookingDate = new Date();
+      summary.bookingDate = normalizeDate(new Date().toISOString());
       console.log('>>> updateBookingSummary INSERTING new row with bookingDate');
       await wixData.insert(BOOKING_SUMMARIES, summary);
       console.log('>>> updateBookingSummary INSERT complete');
