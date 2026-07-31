@@ -406,6 +406,7 @@ function renderDetail() {
   txt('totalPaidText', money(t.totalPaid));
   txt('totalRefundedText', money(t.totalRefunded));
   txt('balanceText', money(t.balance));
+  txt('remBalance', money(t.grandTotal - t.totalPaid + t.totalRefunded));
 
   wirePaymentSave();
 
