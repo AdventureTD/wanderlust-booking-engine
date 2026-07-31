@@ -273,6 +273,8 @@ function renderDetail() {
         '#inputPromoDiscountNum': fmtNum(i.promoDiscountAmount)
       };
 
+      safeItemSet($item, '#status', i.status || '');
+
       Object.keys(values).forEach(function (sel) {
         const el = safeItemFind($item, sel);
         if (!el) return;
