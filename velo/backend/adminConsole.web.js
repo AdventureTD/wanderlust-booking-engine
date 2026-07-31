@@ -68,8 +68,8 @@ export const adminListBookings = webMethod(
     let q = wixData.query(BOOKING_SUMMARIES).limit(Math.min(limit || 100, 500));
 
     if (status && status !== 'All') q = q.eq('status', status);
-    if (dateFrom) q = q.ge('checkIn', dateFrom);
-    if (dateTo) q = q.le('checkIn', dateTo);
+    if (dateFrom) q = q.ge('checkOut', dateFrom);
+    if (dateTo) q = q.le('checkOut', dateTo);
 
     if (search) {
       const s = String(search).trim();
@@ -91,8 +91,8 @@ export const adminListBookings = webMethod(
       // Apply status/date filters in memory for searched sets
       const filtered = items.filter(function (it) {
         if (status && status !== 'All' && it.status !== status) return false;
-        if (dateFrom && String(it.checkIn || '') < String(dateFrom)) return false;
-        if (dateTo && String(it.checkIn || '') > String(dateTo)) return false;
+        if (dateFrom && String(it.checkOut || '') < String(dateFrom)) return false;
+        if (dateTo && String(it.checkOut || '') > String(dateTo)) return false;
         return true;
       });
       return { ok: true, items: sortItems(await attachActiveInvoices(filtered), sortBy, sortDir) };
