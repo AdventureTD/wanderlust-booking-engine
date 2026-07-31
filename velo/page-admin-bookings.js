@@ -410,19 +410,17 @@ function renderDetail() {
 
   wirePaymentSave();
 
-  const rep = tryFind('paymentsRepeater');
-  if (rep) {
-    rep.onItemReady(($item, itemData) => {
-      const p = itemData.payment || itemData;
-      safeItemText($item, '#payRowId', p.paymentId || '');
-      safeItemText($item, '#payRowDate', dstr(p.datePaid));
+  const paymentTable = tryFind('paymentInfo');
+  if (paymentTable) {
+    paymentTable.data = _currentPayments.map(function (p) {
       const sign = p.paymentAmount < 0 ? '-' : '+';
-      safeItemText($item, '#payRowAmount', sign + money(Math.abs(p.paymentAmount)));
-      safeItemText($item, '#payRowMethod', p.paymentMethod || '');
-      safeItemText($item, '#payRowNote', p.note || '');
-    });
-    rep.data = _currentPayments.map(function (p, i) {
-      return { _id: p.paymentId || ('p' + i), payment: p };
+      return {
+        payRowId: p.paymentId || p._id || '',
+        payRowDate: dstr(p.datePaid),
+        payRowAmount: sign + money(Math.abs(p.paymentAmount)),
+        payRowMethod: p.paymentMethod || '',
+        payRowNote: p.note || '',
+      };
     });
   }
 
