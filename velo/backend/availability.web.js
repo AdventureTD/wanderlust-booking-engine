@@ -393,6 +393,8 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
     const anyGbraid = att.gbraid || '';
     const anyWbraid = att.wbraid || '';
 
+    const nowUtc = new Date();
+    const todayNoonUtc = new Date(Date.UTC(nowUtc.getUTCFullYear(), nowUtc.getUTCMonth(), nowUtc.getUTCDate(), 12, 0, 0));
     const summary = {
       bookingNumber,
       checkIn: toDate(checkIn) || null,
@@ -405,7 +407,8 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       gclid: anyGclid,
       gbraid: anyGbraid,
       wbraid: anyWbraid,
-      notes: notes || ''
+      notes: notes || '',
+      bookingDate: todayNoonUtc
     };
 
     console.log('>>> updateBookingSummary computed:', JSON.stringify(summary).substring(0, 200));
@@ -417,7 +420,10 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
 
     if (existing.items.length > 0) {
       summary._id = existing.items[0]._id;
-      summary.bookingDate = toDate(existing.items[0].bookingDate) || normalizeDate(new Date().toISOString());
+      const existingBookingDate = toDate(existing.items[0].bookingDate);
+      console.log('>>> updateBookingSummary existing bookingDate:', existingBookingDate, 'raw:', existing.items[0].bookingDate);
+      summary.bookingDate = existingBookingDate || todayNoonUtc;
+      console.log('>>> updateBookingSummary final bookingDate (update):', summary.bookingDate);
       const existingAtt = existing.items[0];
       if (!summary.gbraid && existingAtt.gbraid) summary.gbraid = existingAtt.gbraid;
       if (!summary.wbraid && existingAtt.wbraid) summary.wbraid = existingAtt.wbraid;
@@ -427,8 +433,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       await wixData.update(BOOKING_SUMMARIES, summary);
       console.log('>>> updateBookingSummary UPDATE complete');
     } else {
-      summary.bookingDate = normalizeDate(new Date().toISOString());
-      console.log('>>> updateBookingSummary INSERTING new row with bookingDate');
+      console.log('>>> updateBookingSummary INSERTING new row with bookingDate:', summary.bookingDate);
       await wixData.insert(BOOKING_SUMMARIES, summary);
       console.log('>>> updateBookingSummary INSERT complete');
     }
