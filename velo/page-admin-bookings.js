@@ -259,32 +259,26 @@ function renderDetail() {
   if (invRep) {
     invRep.onItemReady(($item, itemData) => {
       const i = itemData.invoice || itemData;
+      // Use raw numeric strings for financial inputs so number-typed inputs accept them.
       const values = {
         '#inputInvoiceNumber': i.invoiceNumber || '',
-        '#inputPkgVat': money(i.packageVat),
-        '#inputAccVat': money(i.accommodationVat),
-        '#inputPropFee': money(i.propertyFee),
-        '#inputRoomTotal': money(i.roomTotal),
-        '#inputGrandTotal': money(i.grandTotal),
+        '#inputPkgVat': fmtNum(i.packageVat),
+        '#inputAccVat': fmtNum(i.accommodationVat),
+        '#inputPropFee': fmtNum(i.propertyFee),
+        '#inputRoomTotal': fmtNum(i.roomTotal),
+        '#inputGrandTotal': fmtNum(i.grandTotal),
         '#inputPromoCode': i.promoCode || '',
-        '#inputPromoDiscountNum': money(i.promoDiscountAmount)
+        '#inputPromoDiscountNum': fmtNum(i.promoDiscountAmount)
       };
-      console.log('[WBE-ADMIN] invoice values to set for', i.invoiceNumber, JSON.stringify(values));
 
-      // Set text inputs after a brief yield so the repeater element is fully mounted.
-      setTimeout(function () {
-        Object.keys(values).forEach(function (sel) {
-          const el = safeItemFind($item, sel);
-          if (!el) { console.log('[WBE-ADMIN] missing element', sel); return; }
-          try {
-            if (el.value !== undefined) el.value = values[sel];
-            else el.text = values[sel];
-            console.log('[WBE-ADMIN] set', sel, 'to', values[sel], 'readback', el.value !== undefined ? el.value : el.text);
-          } catch (e) {
-            console.log('[WBE-ADMIN] failed to set', sel, e && e.message || e);
-          }
-        });
-      }, 0);
+      Object.keys(values).forEach(function (sel) {
+        const el = safeItemFind($item, sel);
+        if (!el) return;
+        try {
+          if (el.value !== undefined) el.value = values[sel];
+          else el.text = values[sel];
+        } catch (e) {}
+      });
 
       // Date pickers must receive a Date object (local midnight works best in Wix).
       function toPickerDate(d) {
