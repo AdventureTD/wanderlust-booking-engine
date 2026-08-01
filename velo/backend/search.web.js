@@ -99,8 +99,7 @@ export const searchAvailability = webMethod(
     if (closure.closed) {
       return {
         ok: false,
-        error: 'The resort is closed from ' + closure.startDate + ' to ' + closure.endDate +
-          (closure.reason ? ' (' + closure.reason + ').' : '.'),
+        error: closure.reason || 'The resort is closed from ' + closure.startDate + ' to ' + closure.endDate + '.',
         requestedNights: rq,
         results: []
       };
