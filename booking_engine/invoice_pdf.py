@@ -95,7 +95,7 @@ def _payment_summary_elems(inv, h_biz, bold):
 
     balance_table = Table([
         ["Remaining Balance:", _money(remaining)],
-    ], colWidths=[44 * mm, 28 * mm], hAlign="LEFT")
+    ], colWidths=[28 * mm, 28 * mm], hAlign="LEFT")
     balance_table.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (0, 0), (0, 0), "LEFT"),
