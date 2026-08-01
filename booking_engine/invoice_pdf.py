@@ -33,89 +33,93 @@ def _money(x, currency="USD"):
     return f"${x:,.2f}"
 
 
-def _vat_payment_summary_table(inv, h_biz, bold):
-    """Build a single unified VAT + Payment Summary table for perfect alignment."""
+def _dominica_vat_summary_elems(inv, h_biz, bold):
+    """Build left-justified Dominica VAT summary elements (numbers close to labels)."""
     subtotal = inv.subtotal_net
     acc_amt = subtotal * inv.accommodation_allocation
     svc_amt = subtotal * inv.services_allocation
     acc_vat = acc_amt * 0.10
     svc_vat = svc_amt * 0.15
 
-    payments = inv.payments or []
-    pay_rows = []
-    total_paid = 0.0
-    for p in payments:
-        amt = float(p.get("paymentAmount") or p.get("amount") or 0)
-        total_paid += amt
-        dp = p.get("datePaid") or p.get("date") or ""
-        pay_rows.append([str(dp), _money(amt)])
-    remaining = inv.total - total_paid
-
-    # Five columns: VAT label, VAT value, gap, Payment date, Payment amount.
-    vat_label_w = 46 * mm
-    vat_value_w = 54 * mm
-    gap_w = 14 * mm
-    pay_date_w = 28 * mm
-    pay_amt_w = 28 * mm
-
-    # Header row with section titles. Payment Summary spans date+amount columns.
-    rows = [
-        [Paragraph("Dominica VAT Summary:", bold), "", "", Paragraph("Payment Summary:", bold), ""],
-        ["", "", "", "", ""],
-    ]
-
-    # VAT rows + payment rows side by side.
-    max_rows = max(4, len(pay_rows) + 1)
-    vat_data = [
+    # First column: labels. Second column: values kept close to labels, left-aligned.
+    # Total VAT row value is right-aligned under the figures above.
+    vat_table = Table([
         ["Subtotal:", _money(subtotal)],
         ["Accommodation VAT:", f"{_money(acc_amt)} * 10% = {_money(acc_vat)}"],
         ["Services VAT:", f"{_money(svc_amt)} * 15% = {_money(svc_vat)}"],
         ["Total VAT:", _money(inv.total_vat)],
-    ]
-    pay_data = pay_rows + [["", ""]] * (max_rows - len(pay_rows))
-    vat_data = vat_data + [["", ""]] * (max_rows - len(vat_data))
-
-    for i in range(max_rows):
-        rows.append([
-            vat_data[i][0], vat_data[i][1], "",
-            pay_data[i][0], pay_data[i][1],
-        ])
-
-    # Final row for remaining balance on the payment side.
-    rows.append([
-        "", "", "",
-        "Remaining Balance:", _money(remaining),
-    ])
-
-    table = Table(rows, colWidths=[vat_label_w, vat_value_w, gap_w, pay_date_w, pay_amt_w], hAlign="LEFT")
-    table.setStyle(TableStyle([
+    ], colWidths=[48 * mm, 34 * mm], hAlign="LEFT")
+    vat_table.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (0, 0), (0, -1), "LEFT"),
+        ("ALIGN", (1, 0), (1, -2), "LEFT"),
+        ("ALIGN", (1, -1), (1, -1), "RIGHT"),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("TOPPADDING", (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-        # Headers bold.
-        ("FONTNAME", (0, 0), (1, 0), "Helvetica-Bold"),
-        ("FONTNAME", (3, 0), (4, 0), "Helvetica-Bold"),
-        # VAT labels left, VAT values left.
-        ("ALIGN", (0, 0), (0, -1), "LEFT"),
-        ("ALIGN", (1, 0), (1, -2), "LEFT"),
-        # Total VAT value right-aligned under $627.75.
-        ("ALIGN", (1, -2), (1, -2), "RIGHT"),
-        # Payment dates left, amounts right.
-        ("ALIGN", (3, 0), (3, -1), "LEFT"),
-        ("ALIGN", (4, 0), (4, -1), "RIGHT"),
-        # Total VAT row line and styling.
-        ("LINEABOVE", (0, -3), (1, -3), 1, BRAND_TEAL),
-        ("FONTNAME", (0, -2), (1, -2), "Helvetica-Bold"),
-        ("TEXTCOLOR", (0, -2), (1, -2), BRAND_TEAL),
-        # Remaining balance row line and styling.
-        ("LINEABOVE", (3, -1), (4, -1), 1, BRAND_TEAL),
-        ("FONTNAME", (3, -1), (4, -1), "Helvetica-Bold"),
-        ("TEXTCOLOR", (3, -1), (4, -1), BRAND_TEAL),
+        ("LINEABOVE", (0, -1), (-1, -1), 1, BRAND_TEAL),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("TEXTCOLOR", (0, -1), (-1, -1), BRAND_TEAL),
     ]))
-    return table
+    return [
+        Paragraph("Dominica VAT Summary:", bold),
+        Spacer(1, 1.5 * mm),
+        vat_table,
+    ]
+
+
+def _payment_summary_elems(inv, h_biz, bold):
+    """Build Payment Summary elements (payments + remaining balance), right-justified."""
+    payments = inv.payments or []
+    rows = []
+    total_paid = 0.0
+    for p in payments:
+        amt = float(p.get("paymentAmount") or p.get("amount") or 0)
+        total_paid += amt
+        dp = p.get("datePaid") or p.get("date") or ""
+        rows.append([str(dp), _money(amt)])
+
+    remaining = inv.total - total_paid
+
+    pay_table = Table(rows, colWidths=[28 * mm, 28 * mm], hAlign="LEFT")
+    pay_table.setStyle(TableStyle([
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (0, 0), (0, -1), "LEFT"),
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+
+    balance_table = Table([
+        ["Remaining Balance:", _money(remaining)],
+    ], colWidths=[28 * mm, 28 * mm], hAlign="LEFT")
+    balance_table.setStyle(TableStyle([
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (0, 0), (0, 0), "LEFT"),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("LINEABOVE", (0, 0), (-1, 0), 1, BRAND_TEAL),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("TEXTCOLOR", (0, 0), (-1, 0), BRAND_TEAL),
+    ]))
+
+    out = [Paragraph("Payment Summary:", bold), Spacer(1, 1.5 * mm)]
+    if rows:
+        out.append(pay_table)
+    else:
+        out.append(Paragraph("No payments recorded.", h_biz))
+    out.append(Spacer(1, 2 * mm))
+    out.append(balance_table)
+    return out
 
 
 def render_invoice_pdf(inv, out_path: str) -> str:
@@ -322,8 +326,17 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     elems.append(Spacer(1, 5 * mm))
 
     elems.append(Spacer(1, 4 * mm))
-    summary_table = _vat_payment_summary_table(inv, h_biz, bold)
-    elems.append(summary_table)
+    vat_block = _dominica_vat_summary_elems(inv, h_biz, bold)
+    pay_block = _payment_summary_elems(inv, h_biz, bold)
+    # Fixed two-column layout: VAT summary on left, Payment Summary on right with a clear gap.
+    side_by_side = Table([[vat_block, pay_block]], colWidths=[88 * mm, 92 * mm])
+    side_by_side.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+    ]))
+    elems.append(side_by_side)
     elems.append(Spacer(1, 5 * mm))
 
     elems.append(Paragraph(
