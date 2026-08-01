@@ -5,8 +5,33 @@ import { ROOM_UNITS } from 'backend/wbeConfig';
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
 const ROOMS = 'Rooms';
+const HOTEL_CLOSURES = 'HotelClosures';
 const MIN_N = 4;
 const DAY = 86400000;
+
+function dstr(d) {
+  if (!d) return '';
+  try { const dt = d instanceof Date ? d : new Date(d); if (isNaN(dt.getTime())) return String(d); return dt.toISOString().slice(0, 10); } catch (e) { return String(d); }
+}
+
+async function checkHotelClosure(checkIn, checkOut) {
+  try {
+    const q = wixData.query(HOTEL_CLOSURES)
+      .le('startDate', checkOut)
+      .ge('endDate', checkIn);
+    const res = await q.limit(100).find();
+    if (res.items.length) {
+      const c = res.items[0];
+      return {
+        closed: true,
+        startDate: dstr(c.startDate),
+        endDate: dstr(c.endDate),
+        reason: c.reason || '',
+      };
+    }
+  } catch (e) {}
+  return { closed: false };
+}
 
 function imgUrl(v) {
   if (!v) { return ''; }
@@ -68,6 +93,17 @@ export const searchAvailability = webMethod(
     const rq = nb(ci, co);
     if (rq < MIN_N) {
       return { ok: false, error: 'Minimum stay is ' + MIN_N + ' nights.', requestedNights: rq, results: [] };
+    }
+
+    const closure = await checkHotelClosure(ci, co);
+    if (closure.closed) {
+      return {
+        ok: false,
+        error: 'The resort is closed from ' + closure.startDate + ' to ' + closure.endDate +
+          (closure.reason ? ' (' + closure.reason + ').' : '.'),
+        requestedNights: rq,
+        results: []
+      };
     }
 
     const nights = [];
