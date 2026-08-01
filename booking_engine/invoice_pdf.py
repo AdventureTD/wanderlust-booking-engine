@@ -46,7 +46,7 @@ def _dominica_vat_summary_elems(inv, h_biz, bold):
         ["Accommodation VAT:", f"{_money(acc_amt)} * 10% = {_money(acc_vat)}"],
         ["Services VAT:", f"{_money(svc_amt)} * 15% = {_money(svc_vat)}"],
         ["Total VAT:", _money(inv.total_vat)],
-    ], colWidths=[48 * mm, 60 * mm], hAlign="LEFT")
+    ], colWidths=[48 * mm, 42 * mm], hAlign="LEFT")
     vat_table.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (0, 0), (0, -1), "LEFT"),
@@ -324,13 +324,15 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     elems.append(Spacer(1, 4 * mm))
     vat_block = _dominica_vat_summary_elems(inv, h_biz, bold)
     pay_block = _payment_summary_elems(inv, h_biz, bold)
+    gap = Spacer(1, 1)
     side_by_side = Table([
-        [vat_block, pay_block]
-    ], colWidths=[88 * mm, 92 * mm])
+        [vat_block, gap, pay_block]
+    ], colWidths=[78 * mm, 10 * mm, 92 * mm])
     side_by_side.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
         ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("ALIGN", (2, 0), (2, 0), "RIGHT"),
     ]))
     elems.append(side_by_side)
     elems.append(Spacer(1, 5 * mm))
