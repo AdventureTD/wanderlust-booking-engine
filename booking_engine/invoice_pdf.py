@@ -179,52 +179,22 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         if inv.check_in and inv.check_out:
             elems.append(Paragraph(f"<b>Stay:</b> {inv.check_in} to {inv.check_out}", p_left))
         if inv.package_title:
-            package_total = _money(inv.subtotal_net + inv.promo_discount_amount)
             guest_text = f"<b>Total Guests:</b> {inv.total_guests:g}" if inv.total_guests else ""
             pkg_table = Table([
                 [Paragraph(f"<b>Package:</b> {inv.package_title}", p_left),
-                 Paragraph(guest_text, p_left),
-                 Paragraph(package_total, p_left)]
-            ], colWidths=[90 * mm, 45 * mm, 45 * mm])
+                 Paragraph(guest_text, p_left)]
+            ], colWidths=[110 * mm, 70 * mm])
             pkg_table.setStyle(TableStyle([
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("ALIGN", (0, 0), (0, 0), "LEFT"),
-                ("ALIGN", (1, 0), (1, -1), "CENTER"),
-                ("ALIGN", (-1, 0), (-1, -1), "RIGHT"),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
                 ("LEFTPADDING", (0, 0), (-1, -1), 0),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 0),
             ]))
             elems.append(pkg_table)
         elems.append(Spacer(1, 3 * mm))
 
-    # ---- Line items table (rooms only, no per-room pricing) ----
-    head = ["Room(s)", "Qty", "Nights"]
-    rows = [head]
-    for li in inv.lines:
-        rows.append([
-            Paragraph(li.label, h_biz),
-            f"{li.room_quantity:g}",
-            f"{li.quantity:g}",
-        ])
-    col_w = [90 * mm, 15 * mm, 75 * mm]
-    tbl = Table(rows, colWidths=col_w, repeatRows=1)
-    tbl.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), BRAND_TEAL),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT]),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-    ]))
-    elems.append(tbl)
-    elems.append(Spacer(1, 3 * mm))
-
     # ---- Financial summary (right-aligned, directly under the table) ----
-    tot_rows = [["Subtotal (net)", _money(inv.subtotal_net + inv.promo_discount_amount)]]
+    tot_rows = [["Adventure Package Fees", _money(inv.subtotal_net + inv.promo_discount_amount)]]
     if inv.promo_discount_amount > 0 and inv.promo_code:
         pct = int(round(inv.promo_discount_rate * 100))
         tot_rows.append([f"Promo Code — {pct}% off", "-" + _money(inv.promo_discount_amount)])
@@ -256,8 +226,37 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     elems.append(totals)
     elems.append(Spacer(1, 4 * mm))
 
-    # Dominica VAT summary is rendered at the bottom of the invoice.
-
+    # ---- Room information table (compact, left-justified, below Total Due) ----
+    if inv.lines and len(inv.lines) > 0:
+        elems.append(Paragraph("ROOM INFORMATION", bold))
+        head = ["Room(s)", "Qty", "Nights"]
+        rows = [head]
+        for li in inv.lines:
+            rows.append([
+                Paragraph(li.label, h_biz),
+                f"{li.room_quantity:g}",
+                f"{li.quantity:g}",
+            ])
+        # Smaller, left-justified table.
+        tbl = Table(rows, colWidths=[70 * mm, 15 * mm, 15 * mm], hAlign="LEFT")
+        tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), BRAND_TEAL),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+            ("ALIGN", (0, 0), (0, -1), "LEFT"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, LIGHT]),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#cccccc")),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ]))
+        elems.append(Spacer(1, 1.5 * mm))
+        elems.append(tbl)
+        elems.append(Spacer(1, 4 * mm))
 
     terms = ParagraphStyle("terms", parent=styles["Normal"], fontSize=9,
                            leading=13, textColor=colors.HexColor("#333333"),
