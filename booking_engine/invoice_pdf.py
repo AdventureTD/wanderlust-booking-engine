@@ -62,7 +62,7 @@ def _dominica_vat_summary_elems(inv, h_biz, bold):
     # the right-hand value part of the Services VAT formula.
     total_vat_table = Table([
         ["Total VAT:", _money(inv.total_vat)],
-    ], colWidths=[48 * mm, 34 * mm], hAlign="LEFT")
+    ], colWidths=[48 * mm, 42 * mm], hAlign="LEFT")
     total_vat_table.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (0, 0), (0, -1), "LEFT"),
@@ -127,7 +127,7 @@ def _payment_summary_elems(inv, h_biz, bold):
         ("TEXTCOLOR", (0, 0), (-1, 0), BRAND_TEAL),
     ]))
 
-    out = [Paragraph("Payment Summary:", bold), Spacer(1, 1.5 * mm)]
+    out = [Paragraph("<para leading=0>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Payment Summary:</para>", bold), Spacer(1, 1.5 * mm)]
     if rows:
         out.append(pay_table)
     else:
