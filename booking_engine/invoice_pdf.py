@@ -46,7 +46,7 @@ def _dominica_vat_summary_elems(inv, h_biz, bold):
         ["Accommodation VAT:", f"{_money(acc_amt)} * 10% = {_money(acc_vat)}"],
         ["Services VAT:", f"{_money(svc_amt)} * 15% = {_money(svc_vat)}"],
         ["Total VAT:", _money(inv.total_vat)],
-    ], colWidths=[48 * mm, 51 * mm], hAlign="LEFT")
+    ], colWidths=[48 * mm, 60 * mm], hAlign="LEFT")
     vat_table.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (0, 0), (0, -1), "LEFT"),
@@ -80,10 +80,11 @@ def _payment_summary_elems(inv, h_biz, bold):
 
     remaining = inv.total - total_paid
 
-    pay_table = Table(rows, colWidths=[28 * mm, 28 * mm], hAlign="LEFT")
+    pay_table = Table(rows, colWidths=[32 * mm, 32 * mm], hAlign="LEFT")
     pay_table.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("ALIGN", (0, 0), (0, -1), "LEFT"),
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("TOPPADDING", (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
@@ -93,7 +94,7 @@ def _payment_summary_elems(inv, h_biz, bold):
 
     balance_table = Table([
         ["Remaining Balance:", _money(remaining)],
-    ], colWidths=[48 * mm, 28 * mm], hAlign="LEFT")
+    ], colWidths=[48 * mm, 32 * mm], hAlign="LEFT")
     balance_table.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (0, 0), (-1, -1), "LEFT"),
@@ -325,7 +326,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     pay_block = _payment_summary_elems(inv, h_biz, bold)
     side_by_side = Table([
         [vat_block, pay_block]
-    ], colWidths=[95 * mm, 85 * mm])
+    ], colWidths=[88 * mm, 92 * mm])
     side_by_side.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
