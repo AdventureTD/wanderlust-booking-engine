@@ -46,7 +46,7 @@ def _dominica_vat_summary_elems(inv, h_biz, bold):
         ["Subtotal:", _money(subtotal)],
         ["Accommodation VAT:", f"{_money(acc_amt)} * 10% = {_money(acc_vat)}"],
         ["Services VAT:", f"{_money(svc_amt)} * 15% = {_money(svc_vat)}"],
-        ["Total VAT:", _money(inv.total_vat)],
+        ["Total VAT:", "   " + _money(inv.total_vat)],
     ], colWidths=[48 * mm, 42 * mm], hAlign="LEFT")
     vat_table.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
