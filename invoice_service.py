@@ -87,6 +87,8 @@ class IssueRequest(BaseModel):
     send_email: bool = True
     invoice_number: str | None = None
     owner_only: bool = False
+    payments: list[dict] | None = None
+    booking_number: str | None = None
 
 
 @app.get("/")
@@ -183,6 +185,12 @@ async def issue_invoice(req: IssueRequest, background_tasks: BackgroundTasks, x_
 
     issue = date.fromisoformat(req.issue_date) if req.issue_date else date.today()
     invoice_number = req.invoice_number or next_invoice_number()
+
+    # Pass payment data through to the invoice renderer if provided.
+    if req.payments is not None:
+        req.quote_breakdown["payments"] = req.payments
+    if req.booking_number:
+        req.quote_breakdown["booking_number"] = req.booking_number
 
     inv = Invoice.from_quote(invoice_number, issue, guest, req.quote_breakdown)
 

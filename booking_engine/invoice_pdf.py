@@ -34,7 +34,7 @@ def _money(x, currency="USD"):
 
 
 def _dominica_vat_summary_elems(inv, h_biz, bold):
-    """Build left-justified Dominica VAT summary elements for placement at the bottom."""
+    """Build left-justified Dominica VAT summary elements (numbers close to labels)."""
     subtotal = inv.subtotal_net
     acc_amt = subtotal * inv.accommodation_allocation
     svc_amt = subtotal * inv.services_allocation
@@ -46,11 +46,11 @@ def _dominica_vat_summary_elems(inv, h_biz, bold):
         ["Accommodation VAT:", f"{_money(acc_amt)} * 10% = {_money(acc_vat)}"],
         ["Services VAT:", f"{_money(svc_amt)} * 15% = {_money(svc_vat)}"],
         ["Total VAT:", _money(inv.total_vat)],
-    ], colWidths=[42 * mm, 57 * mm], hAlign="LEFT")
+    ], colWidths=[48 * mm, 51 * mm], hAlign="LEFT")
     vat_table.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (0, 0), (0, -1), "LEFT"),
-        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("ALIGN", (1, 0), (1, -1), "LEFT"),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("TOPPADDING", (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
@@ -65,6 +65,56 @@ def _dominica_vat_summary_elems(inv, h_biz, bold):
         Spacer(1, 1.5 * mm),
         vat_table,
     ]
+
+
+def _payment_summary_elems(inv, h_biz, bold):
+    """Build Payment Summary elements (payments + remaining balance)."""
+    payments = inv.payments or []
+    rows = []
+    total_paid = 0.0
+    for p in payments:
+        amt = float(p.get("paymentAmount") or p.get("amount") or 0)
+        total_paid += amt
+        dp = p.get("datePaid") or p.get("date") or ""
+        rows.append([str(dp), _money(amt)])
+
+    remaining = inv.total - total_paid
+
+    pay_table = Table(rows, colWidths=[28 * mm, 28 * mm], hAlign="LEFT")
+    pay_table.setStyle(TableStyle([
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+
+    balance_table = Table([
+        ["Remaining Balance:", _money(remaining)],
+    ], colWidths=[48 * mm, 28 * mm], hAlign="LEFT")
+    balance_table.setStyle(TableStyle([
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("LINEABOVE", (0, 0), (-1, 0), 1, BRAND_TEAL),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("TEXTCOLOR", (0, 0), (-1, 0), BRAND_TEAL),
+    ]))
+
+    out = [Paragraph("Payment Summary:", bold), Spacer(1, 1.5 * mm)]
+    if rows:
+        out.append(pay_table)
+    else:
+        out.append(Paragraph("No payments recorded.", h_biz))
+    out.append(Spacer(1, 2 * mm))
+    out.append(balance_table)
+    return out
 
 
 def render_invoice_pdf(inv, out_path: str) -> str:
@@ -175,22 +225,13 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     if inv.package_title or inv.included_amenities or inv.check_in or inv.check_out:
         elems.append(Spacer(1, 2 * mm))
         elems.append(Paragraph("PACKAGE INFORMATION", bold))
-        # Stay and Package on separate lines, left-justified.
+        # Stay and Package on separate lines, both left-justified on the left margin.
         if inv.check_in and inv.check_out:
             elems.append(Paragraph(f"<b>Stay:</b> {inv.check_in} to {inv.check_out}", p_left))
         if inv.package_title:
-            guest_text = f"<b>Total Guests:</b> {inv.total_guests:g}" if inv.total_guests else ""
-            pkg_table = Table([
-                [Paragraph(f"<b>Package:</b> {inv.package_title}", p_left),
-                 Paragraph(guest_text, p_left)]
-            ], colWidths=[110 * mm, 70 * mm])
-            pkg_table.setStyle(TableStyle([
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-            ]))
-            elems.append(pkg_table)
+            elems.append(Paragraph(f"<b>Package:</b> {inv.package_title}", p_left))
+        if inv.total_guests:
+            elems.append(Paragraph(f"<b>Total Guests:</b> {inv.total_guests:g}", p_left))
         elems.append(Spacer(1, 3 * mm))
 
     # ---- Financial summary (right-aligned, directly under the table) ----
@@ -280,7 +321,17 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     elems.append(Spacer(1, 5 * mm))
 
     elems.append(Spacer(1, 4 * mm))
-    elems.extend(_dominica_vat_summary_elems(inv, h_biz, bold))
+    vat_block = _dominica_vat_summary_elems(inv, h_biz, bold)
+    pay_block = _payment_summary_elems(inv, h_biz, bold)
+    side_by_side = Table([
+        [vat_block, pay_block]
+    ], colWidths=[95 * mm, 85 * mm])
+    side_by_side.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    elems.append(side_by_side)
     elems.append(Spacer(1, 5 * mm))
 
     elems.append(Paragraph(

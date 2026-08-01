@@ -127,7 +127,7 @@ async function getPackageRateForNights(nights) {
   return 0;
 }
 
-async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoiceNumber, ownerOnly) {
+async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoiceNumber, ownerOnly, payments, bookingNumber) {
   const serviceUrl = await getSecret(INVOICE_SERVICE_URL_KEY);
   const secret = await getSecret(SHARED_SECRET_KEY);
   if (!serviceUrl || !secret) {
@@ -146,6 +146,12 @@ async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoice
   };
   if (invoiceNumber) {
     body.invoice_number = invoiceNumber;
+  }
+  if (payments && payments.length) {
+    body.payments = payments;
+  }
+  if (bookingNumber) {
+    body.booking_number = bookingNumber;
   }
 
   const res = await fetch(serviceUrl + '/issue-invoice', {
@@ -326,7 +332,7 @@ async function generateAndStoreInvoice(bookingId) {
 
   let result;
   try {
-    result = await callIssueInvoice(guest, quoteBreakdown, dates, true, '');
+    result = await callIssueInvoice(guest, quoteBreakdown, dates, true, '', false, [], booking.bookingNumber);
     console.log('>>> INVOICE service returned number:', result.invoice_number);
   } catch (e) {
     console.log('>>> INVOICE callIssueInvoice ERROR:', e.message);
@@ -820,7 +826,23 @@ export const issueBookingInvoice = webMethod(
 
     const invoiceNumber = await getNextInvoiceNumber();
 
-    const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, invoiceNumber, ownerOnly);
+    // Fetch payments for this booking to show in the Payment Summary section.
+    let payments = [];
+    try {
+      const payRes = await wixData.query('BookingPayments')
+        .eq('bookingNumber', bookingNumber)
+        .find();
+      payments = (payRes.items || []).map(function (p) {
+        return {
+          datePaid: p.datePaid ? p.datePaid.toISOString().slice(0, 10) : '',
+          paymentAmount: p.paymentAmount || 0
+        };
+      });
+    } catch (payErr) {
+      console.log('>>> issueBookingInvoice payment fetch error:', payErr.message);
+    }
+
+    const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, invoiceNumber, ownerOnly, payments, bookingNumber);
     console.log('>>> issueBookingInvoice full service result keys:', Object.keys(result || {}).join(','));
     console.log('>>> CALENDAR result from invoice service:', JSON.stringify(
       result._calendar_debug || result.calendar || result.calendar_error || 'no-calendar-field'

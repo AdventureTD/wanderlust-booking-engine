@@ -107,6 +107,9 @@ class Invoice:
     promo_code: str = ""
     promo_discount_rate: float = 0.0
     promo_discount_amount: float = 0.0
+    # Payments from BookingPayments collection, if provided.
+    payments: List[dict] = field(default_factory=list)
+    booking_number: str = ""
 
     @classmethod
     def from_quote(cls, invoice_number: str, issue_date: date, guest: Guest,
@@ -167,4 +170,6 @@ class Invoice:
             promo_code=quote_breakdown.get("promo_code", ""),
             promo_discount_rate=quote_breakdown.get("promo_discount_rate", 0.0),
             promo_discount_amount=quote_breakdown.get("promo_discount_amount", 0.0),
+            payments=quote_breakdown.get("payments") or [],
+            booking_number=quote_breakdown.get("booking_number", ""),
         )
