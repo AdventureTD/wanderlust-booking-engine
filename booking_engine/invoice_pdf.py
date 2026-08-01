@@ -42,16 +42,18 @@ def _dominica_vat_summary_elems(inv, h_biz, bold):
     svc_vat = svc_amt * 0.15
 
     # First column: labels. Second column: values kept close to labels, left-aligned.
+    # Total VAT row value is right-aligned under the figures above.
     vat_table = Table([
         ["Subtotal:", _money(subtotal)],
         ["Accommodation VAT:", f"{_money(acc_amt)} * 10% = {_money(acc_vat)}"],
         ["Services VAT:", f"{_money(svc_amt)} * 15% = {_money(svc_vat)}"],
         ["Total VAT:", _money(inv.total_vat)],
-    ], colWidths=[48 * mm, 42 * mm], hAlign="LEFT")
+    ], colWidths=[48 * mm, 34 * mm], hAlign="LEFT")
     vat_table.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("ALIGN", (0, 0), (0, -1), "LEFT"),
-        ("ALIGN", (1, 0), (1, -1), "LEFT"),
+        ("ALIGN", (1, 0), (1, -2), "LEFT"),
+        ("ALIGN", (1, -1), (1, -1), "RIGHT"),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("TOPPADDING", (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
@@ -327,7 +329,7 @@ def render_invoice_pdf(inv, out_path: str) -> str:
     vat_block = _dominica_vat_summary_elems(inv, h_biz, bold)
     pay_block = _payment_summary_elems(inv, h_biz, bold)
     # Fixed two-column layout: VAT summary on left, Payment Summary on right with a clear gap.
-    side_by_side = Table([[vat_block, pay_block]], colWidths=[95 * mm, 85 * mm])
+    side_by_side = Table([[vat_block, pay_block]], colWidths=[88 * mm, 92 * mm])
     side_by_side.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 0),
