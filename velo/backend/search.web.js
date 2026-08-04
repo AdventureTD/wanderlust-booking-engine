@@ -138,7 +138,7 @@ export const searchAvailability = webMethod(
       const rm = rooms[r];
       const code = rm.roomCode;
       const name = rm.name || code;
-      const units = rm.units != null ? rm.units : ROOM_UNITS[code] || 1;
+      const units = ROOM_UNITS[code] != null ? ROOM_UNITS[code] : (rm.units != null ? rm.units : 1);
       const maxOcc = rm.maxOccupancy || 2;
       const baseOcc = rm.baseOccupancy || maxOcc;
       const roomFee = Number(rm.roomFee) || 0;
