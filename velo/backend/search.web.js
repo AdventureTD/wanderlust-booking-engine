@@ -178,20 +178,28 @@ export const searchAvailability = webMethod(
       }
 
       const bpn = [];
+      const debugCounts = [];
       for (let i = 0; i < nights.length; i++) {
         const nt = nights[i];
         const nx = ad(nt, 1);
         let count = 0;
+        const matched = [];
         for (const bk of rBookings) {
           const s = (bk.status || '').toLowerCase().trim();
           if (s === 'cancelled' || s === 'canceled') continue;
           const dates = summaryMap[String(bk.bookingNumber)];
           if (dates) {
-            if (dates.dsCi < nx && dates.dsCo > nt) { count += (bk.quantity || 1); }
+            if (dates.dsCi < nx && dates.dsCo > nt) {
+              const qty = (bk.quantity || 1);
+              count += qty;
+              matched.push({ bn: bk.bookingNumber, qty: qty, ci: dstr(dates.dsCi), co: dstr(dates.dsCo), nt: dstr(nt) });
+            }
           }
         }
         bpn.push(count);
+        debugCounts.push({ night: dstr(nt), count: count, matched: matched });
       }
+      console.log('>>> searchAvailability counts for', code, JSON.stringify(debugCounts));
 
       let allAvail = true;
       let maxBooked = 0;
