@@ -223,19 +223,6 @@ export const searchAvailability = webMethod(
         continue;
       }
 
-      if (maxQty <= 0) {
-        out.push(Object.assign({
-          roomCode: code, roomName: name, units: units,
-          occupancy: maxOcc, baseOccupancy: baseOcc,
-          maxQty: 0, status: 'unavailable',
-          availableCheckIn: '', availableCheckOut: '',
-          availableNights: 0, baseRate: 0,
-          roomFee: roomFee,
-          mainPhoto: imgUrl(rm.mainPhoto),
-        }, extraFieldsUnavailable));
-        continue;
-      }
-
       let bs = null, bl = 0, cs = null, cl = 0;
       for (let i = 0; i < bpn.length; i++) {
         if (bpn[i] < units) {
@@ -259,6 +246,16 @@ export const searchAvailability = webMethod(
           availableCheckIn: aci.toISOString(),
           availableCheckOut: aco.toISOString(),
           availableNights: bl,
+          roomFee: roomFee,
+          mainPhoto: imgUrl(rm.mainPhoto),
+        }, extraFieldsUnavailable));
+      } else {
+        out.push(Object.assign({
+          roomCode: code, roomName: name, units: units,
+          occupancy: maxOcc, baseOccupancy: baseOcc,
+          maxQty: 0, status: 'unavailable',
+          availableCheckIn: '', availableCheckOut: '',
+          availableNights: 0, baseRate: 0,
           roomFee: roomFee,
           mainPhoto: imgUrl(rm.mainPhoto),
         }, extraFieldsUnavailable));
