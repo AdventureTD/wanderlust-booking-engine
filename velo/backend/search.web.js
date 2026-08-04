@@ -187,7 +187,7 @@ export const searchAvailability = webMethod(
           if (s === 'cancelled' || s === 'canceled') continue;
           const dates = summaryMap[String(bk.bookingNumber)];
           if (dates) {
-            if (dates.dsCi < nx && dates.dsCo > nt) { count += 1; }
+            if (dates.dsCi < nx && dates.dsCo > nt) { count += (bk.quantity || 1); }
           }
         }
         bpn.push(count);
