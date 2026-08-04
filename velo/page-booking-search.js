@@ -483,7 +483,7 @@ $w.onReady(async function () {
 
       const dd = safeItem($item, '#roomQtyDropdown', null, null);
       if (dd && typeof dd.onChange === 'function') {
-        const maxQty = typeof itemData.maxQty === 'number' ? itemData.maxQty : 1;
+        const maxQty = typeof itemData.maxQty === 'number' ? itemData.maxQty : (Number(itemData.units) || 1);
         if (maxQty <= 0) {
           dd.options = [{ label: '0', value: '0' }];
           dd.value = '0';
