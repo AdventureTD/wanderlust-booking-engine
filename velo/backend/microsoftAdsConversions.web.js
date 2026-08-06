@@ -1,8 +1,12 @@
 import { Permissions, webMethod } from 'wix-web-module';
 import { getSecret } from 'wix-secrets-backend';
+import { fetch } from 'wix-fetch';
 import wixData from 'wix-data';
 import { getAllSettings } from 'backend/settings.web';
 import { buildUserIdentifiers } from 'backend/hashUtils.web';
+
+const MICROSOFT_AUTH_URL = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
+let cachedToken = null;
 
 async function isMicrosoftAdsSuspended() {
   try {
@@ -133,10 +137,10 @@ async function buildIngestPayload(booking) {
 
 async function callMicrosoftOfflineConversions(payload) {
   const developerToken = await getSecret('MICROSOFT_ADS_DEVELOPER_TOKEN');
-  const accessToken = await getSecret('MICROSOFT_ADS_ACCESS_TOKEN');
+  const accessToken = await getMicrosoftAccessToken();
 
-  if (!developerToken || !accessToken) {
-    throw new Error('Microsoft Ads developer token or access token missing from secrets');
+  if (!developerToken) {
+    throw new Error('Microsoft Ads developer token missing from secrets');
   }
 
   const url = 'https://bingads.microsoft.com/Api/Advertiser/CampaignManagement/v13/OfflineConversion/ApplyOfflineConversions';
@@ -177,6 +181,61 @@ async function callMicrosoftOfflineConversions(payload) {
     throw new Error('Microsoft offline conversions HTTP ' + res.status + ': ' + JSON.stringify(json));
   }
   return json;
+}
+
+async function getMicrosoftAccessToken() {
+  if (cachedToken && cachedToken.expiresAt > Date.now() + 60000) {
+    console.log('[WBE-MICROSOFT] using cached access token');
+    return cachedToken.token;
+  }
+
+  const clientId = await getSecret('MICROSOFT_ADS_CLIENT_ID');
+  const clientSecret = await getSecret('MICROSOFT_ADS_CLIENT_SECRET');
+  const refreshToken = await getSecret('MICROSOFT_ADS_REFRESH_TOKEN');
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error('Microsoft Ads OAuth credentials missing: need client_id, client_secret, and refresh_token');
+  }
+
+  const body = new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+    scope: 'https://ads.microsoft.com/ads.manage offline_access'
+  });
+
+  console.log('[WBE-MICROSOFT] refreshing access token');
+
+  const res = await fetch(MICROSOFT_AUTH_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
+
+  const text = await res.text();
+  let json;
+  try { json = JSON.parse(text); } catch (e) { json = { raw: text }; }
+
+  if (!res.ok) {
+    throw new Error('Microsoft OAuth refresh failed (' + res.status + '): ' + JSON.stringify(json));
+  }
+
+  if (!json.access_token) {
+    throw new Error('Microsoft OAuth response did not include access_token: ' + JSON.stringify(json));
+  }
+
+  cachedToken = {
+    token: json.access_token,
+    expiresAt: Date.now() + ((json.expires_in || 3600) * 1000)
+  };
+
+  if (json.refresh_token) {
+    console.log('[WBE-MICROSOFT] Microsoft returned a new refresh token. Consider updating the secret.');
+  }
+
+  console.log('[WBE-MICROSOFT] access token refreshed, expires in', json.expires_in || 3600, 'seconds');
+  return cachedToken.token;
 }
 
 function validateBooking(b) {
