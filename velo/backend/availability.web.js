@@ -398,6 +398,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
     const anyGclid = att.gclid || '';
     const anyGbraid = att.gbraid || '';
     const anyWbraid = att.wbraid || '';
+    const anyMsclkid = att.msclkid || '';
 
     const nowUtc = new Date();
     const todayNoonUtc = new Date(Date.UTC(nowUtc.getUTCFullYear(), nowUtc.getUTCMonth(), nowUtc.getUTCDate(), 12, 0, 0));
@@ -413,6 +414,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       gclid: anyGclid,
       gbraid: anyGbraid,
       wbraid: anyWbraid,
+      msclkid: anyMsclkid,
       notes: notes || '',
       bookingDate: todayNoonUtc
     };
@@ -433,8 +435,11 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       const existingAtt = existing.items[0];
       if (!summary.gbraid && existingAtt.gbraid) summary.gbraid = existingAtt.gbraid;
       if (!summary.wbraid && existingAtt.wbraid) summary.wbraid = existingAtt.wbraid;
+      if (!summary.msclkid && existingAtt.msclkid) summary.msclkid = existingAtt.msclkid;
       if (existingAtt.googleConversionUploaded) summary.googleConversionUploaded = existingAtt.googleConversionUploaded;
       if (existingAtt.googleConversionRetracted) summary.googleConversionRetracted = existingAtt.googleConversionRetracted;
+      if (existingAtt.microsoftConversionUploaded) summary.microsoftConversionUploaded = existingAtt.microsoftConversionUploaded;
+      if (existingAtt.microsoftConversionRetracted) summary.microsoftConversionRetracted = existingAtt.microsoftConversionRetracted;
       console.log('>>> updateBookingSummary UPDATING row', existing.items[0]._id);
       await wixData.update(BOOKING_SUMMARIES, summary);
       console.log('>>> updateBookingSummary UPDATE complete');
@@ -727,7 +732,8 @@ async function createBookingImpl(booking) {
     }, {
       gclid: booking.gclid || '',
       gbraid: booking.gbraid || '',
-      wbraid: booking.wbraid || ''
+      wbraid: booking.wbraid || '',
+      msclkid: booking.msclkid || ''
     });
   } catch (e) {
     console.log('>>> SERVER updateBookingSummary ERROR:', e.message);

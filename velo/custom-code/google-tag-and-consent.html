@@ -35,12 +35,13 @@
     }
 
     const params = parseParams(window.location.href);
-    if (params.gclid || params.gbraid || params.wbraid) {
+    if (params.gclid || params.gbraid || params.wbraid || params.msclkid) {
       try {
         const record = {
           gclid: params.gclid || '',
           gbraid: params.gbraid || '',
           wbraid: params.wbraid || '',
+          msclkid: params.msclkid || '',
           landingUrl: window.location.href,
           capturedAt: new Date().toISOString()
         };
@@ -205,4 +206,50 @@
       }
     }
   });
+</script>
+
+<!-- Microsoft UET tag — mirror of Google remarketing for Microsoft Advertising.
+     Tag ID: 17524068 (Remarketing Tom 1) -->
+<script>
+  (function (w, d, t) {
+    var f = d.getElementsByTagName(t)[0], j = d.createElement(t), s = d.createElement(t);
+    s.async = true;
+    s.src = 'https://bat.bing.com/bat.js';
+    s.onload = function () {
+      try {
+        var uetq = w.uetq = w.uetq || [];
+        var o = { ti: '17524068', tm: '' };
+        o.q = uetq;
+        w._uetq = uetq;
+        uetq.push('event', 'page_view', { page_path: w.location.pathname });
+      } catch (e) {}
+    };
+    f.parentNode.insertBefore(s, f);
+  })(window, document, 'script');
+</script>
+<script>
+  (function () {
+    window.uetq = window.uetq || [];
+    var eventToUet = {
+      view_booking_search: 'page_view',
+      room_view: 'view_item',
+      begin_booking: 'begin_checkout',
+      search_no_results: 'search_no_results',
+      purchase: 'purchase'
+    };
+    window.addEventListener('message', function (event) {
+      var d = event && event.data;
+      if (d && d.source === 'wbe-event-bridge' && d.payload) {
+        var p = d.payload;
+        if (!p.event) return;
+        var uetEvent = eventToUet[p.event] || p.event;
+        var params = { page_path: window.location.pathname };
+        if (p.value) params.revenue_value = p.value;
+        if (p.currency) params.currency = p.currency;
+        if (p.transaction_id) params.transaction_id = p.transaction_id;
+        window.uetq.push('event', uetEvent, params);
+        console.log('[WBE-UET] UET event sent:', uetEvent, JSON.stringify(params));
+      }
+    });
+  })();
 </script>

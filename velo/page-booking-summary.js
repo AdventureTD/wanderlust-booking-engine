@@ -21,6 +21,7 @@ import { getPackageAmenities, getPackageBaseRate } from 'backend/packages';
 import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
 import { trackPurchase, getStoredClickIds, clearClickIds, initTracking, setSuspendGoogleAds } from 'public/tracking';
 import { recordBookingConversion } from 'backend/googleAdsConversions.web';
+import { recordMicrosoftBookingConversion } from 'backend/microsoftAdsConversions.web';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
 const ROOM_DISPLAY_NAMES = {
@@ -723,7 +724,8 @@ function wireContinueButton() {
     const clickIds = {
       gclid: att.gclid || '',
       gbraid: att.gbraid || '',
-      wbraid: att.wbraid || ''
+      wbraid: att.wbraid || '',
+      msclkid: att.msclkid || ''
     };
 
     try {
@@ -744,6 +746,7 @@ function wireContinueButton() {
           note: note || '',
           promoCode: _promoCodeApplied,
           promoDiscount: _promoDiscount,
+          msclkid: clickIds.msclkid
         };
         console.log('[WBE-FRONTEND] calling createBooking for first room:', payload0.roomCode);
         const b0 = await createBooking(payload0);
@@ -758,6 +761,7 @@ function wireContinueButton() {
             if (summaryRes.items.length > 0) {
               const s = summaryRes.items[0];
               s.notes = note || '';
+              s.msclkid = clickIds.msclkid || s.msclkid || '';
               if (s.checkIn) s.checkIn = normalizeDate(s.checkIn);
               if (s.checkOut) s.checkOut = normalizeDate(s.checkOut);
               if (s.bookingDate) s.bookingDate = normalizeDate(s.bookingDate);
@@ -789,6 +793,7 @@ function wireContinueButton() {
             bookingNumber: sharedBookingNumber,
             promoCode: _promoCodeApplied,
             promoDiscount: _promoDiscount,
+            msclkid: clickIds.msclkid
           };
           restPromises.push(
             createBooking(payload)
@@ -833,6 +838,7 @@ function wireContinueButton() {
           gclid: clickIds.gclid,
           gbraid: clickIds.gbraid,
           wbraid: clickIds.wbraid,
+          msclkid: clickIds.msclkid,
           email: email,
           phone: phone,
           dialingCode: dialingCode,
@@ -873,6 +879,52 @@ function wireContinueButton() {
         .catch(function (convErr) {
           console.error('[WBE-GOOGLE] conversion upload error:', convErr && convErr.message || convErr);
         });
+
+        // Microsoft Ads conversion upload (mirrors Google, uses msclkid).
+        if (clickIds.msclkid) {
+          const microsoftPayload = {
+            transactionId: sharedBookingNumber,
+            value: grandTotal,
+            currency: 'USD',
+            msclkid: clickIds.msclkid,
+            email: email,
+            phone: phone,
+            firstName: name.split(' ')[0],
+            lastName: name.split(' ').slice(1).join(' '),
+            conversionTime: new Date().toISOString()
+          };
+          console.log('[WBE-FRONTEND] calling recordMicrosoftBookingConversion with:', JSON.stringify(microsoftPayload));
+          recordMicrosoftBookingConversion(microsoftPayload)
+            .then(function (msResult) {
+              console.log('[WBE-MICROSOFT] conversion upload result:', JSON.stringify(msResult));
+              if (msResult && msResult.ok) {
+                try {
+                  wixData.query('BookingSummary')
+                    .eq('bookingNumber', sharedBookingNumber)
+                    .limit(1)
+                    .find()
+                    .then(function (summaryRes) {
+                      if (summaryRes.items.length > 0) {
+                        const summary = summaryRes.items[0];
+                        summary.microsoftConversionUploaded = true;
+                        if (summary.checkIn) summary.checkIn = normalizeDate(summary.checkIn);
+                        if (summary.checkOut) summary.checkOut = normalizeDate(summary.checkOut);
+                        if (summary.bookingDate) summary.bookingDate = normalizeDate(summary.bookingDate);
+                        return wixData.update('BookingSummary', summary);
+                      }
+                      return null;
+                    })
+                    .then(function () { console.log('[WBE-MICROSOFT] marked BookingSummary.microsoftConversionUploaded=true'); })
+                    .catch(function (markErr) { console.error('[WBE-MICROSOFT] failed to mark conversion uploaded:', markErr && markErr.message || markErr); });
+                } catch (markErr) {
+                  console.error('[WBE-MICROSOFT] failed to mark conversion uploaded:', markErr && markErr.message || markErr);
+                }
+              }
+            })
+            .catch(function (msErr) {
+              console.error('[WBE-MICROSOFT] conversion upload error:', msErr && msErr.message || msErr);
+            });
+        }
 
         // Start invoice/calendar creation in the background so the redirect is not blocked.
         const invoicePromise = issueBookingInvoice(sharedBookingNumber)

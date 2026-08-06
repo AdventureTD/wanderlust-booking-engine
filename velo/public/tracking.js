@@ -7,7 +7,7 @@ import { local } from 'wix-storage-frontend';
 import wixLocationFrontend from 'wix-location-frontend';
 
 const STORAGE_KEY = 'wl_click_attribution';
-const CLICK_PARAMS = ['gclid', 'gbraid', 'wbraid'];
+const CLICK_PARAMS = ['gclid', 'gbraid', 'wbraid', 'msclkid'];
 const ATTRIBUTION_WINDOW_DAYS = 90;
 
 function parseUrlParams(url) {
@@ -45,10 +45,10 @@ export function captureClickIds() {
     console.log('[WBE-TRACKING] parsed from window.location:', JSON.stringify(query));
 
     // Fallback to Wix APIs if window.location is unavailable.
-    if (!query.gclid && !query.gbraid && !query.wbraid) {
+    if (!query.gclid && !query.gbraid && !query.wbraid && !query.msclkid) {
       query = wixLocationFrontend.query || {};
       console.log('[WBE-TRACKING] wixLocationFrontend.query:', JSON.stringify(query));
-      if (!query.gclid && !query.gbraid && !query.wbraid) {
+      if (!query.gclid && !query.gbraid && !query.wbraid && !query.msclkid) {
         query = parseUrlParams(wixLocationFrontend.url);
         console.log('[WBE-TRACKING] parsed from wixLocationFrontend.url:', JSON.stringify(query));
       }
@@ -65,12 +65,13 @@ export function captureClickIds() {
     if (Object.keys(found).length === 0) { return getStoredClickIds(); }
 
     const existing = getStoredClickIds();
-    if (existing && existing.gclid) { return existing; }
+    if (existing && (existing.gclid || existing.gbraid || existing.wbraid || existing.msclkid)) { return existing; }
 
     const record = {
       gclid: found.gclid || '',
       gbraid: found.gbraid || '',
       wbraid: found.wbraid || '',
+      msclkid: found.msclkid || '',
       landingUrl: wixLocationFrontend.url || '',
       capturedAt: new Date().toISOString()
     };
