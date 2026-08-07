@@ -773,9 +773,11 @@ function loadPackageOptions(nights) {
 
           // Bind click to the row container and each text element inside the item.
           function selectThisPackage(evt) {
-            console.log('>>> package row clicked:', itemData.title);
-            _selectedPackage = itemData;
-            _cachedBaseRate = itemData.baseRate;
+            console.log('>>> package row clicked:', itemData.title, 'id:', itemData._id);
+            // Use the original package object from _availablePackages so _id is preserved.
+            const originalPkg = _availablePackages.find(function (p) { return p._id === itemData._id; }) || itemData;
+            _selectedPackage = originalPkg;
+            _cachedBaseRate = originalPkg.baseRate;
             updateSelectionPanel();
             updatePackageNameField();
             highlightSelectedPackageRow();
@@ -797,7 +799,7 @@ function loadPackageOptions(nights) {
 
       // Mark first as selected by default
       try {
-        repeater.data = _availablePackages.map((p, idx) => ({ ...p, _id: String(idx) }));
+        repeater.data = _availablePackages.map((p, idx) => ({ ...p, _id: p._id || String(idx) }));
       } catch (e) {
         console.log('>>> packageRepeater data error:', e.message);
       }
