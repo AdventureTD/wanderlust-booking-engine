@@ -678,7 +678,7 @@ async function searchHandler() {
     loadPackageInfo(res.requestedNights);
 
     // Show package column labels above the repeater.
-    ['packageText', 'nightsText', 'specialtyText', 'priceText'].forEach(function (id) {
+    ['packageText', 'nightsLabel', 'specialtyText', 'priceText'].forEach(function (id) {
       const el = tryFind(id);
       if (el) {
         if (typeof el.show === 'function') { try { el.show(); } catch (e) {} }
@@ -803,7 +803,7 @@ function loadPackageOptions(nights) {
 }
 
 function hideSearchHeader() {
-  ['packageSelectionText', 'accommodationText', 'vacationDates', 'packageContainer', 'packageName2', 'nightsText', 'specialtyTours', 'packagePrice', 'packageText', 'specialtyText', 'priceText']
+  ['packageSelectionText', 'accommodationText', 'vacationDates', 'packageContainer', 'packageName2', 'nightsText', 'specialtyTours', 'packagePrice', 'packageText', 'nightsLabel', 'specialtyText', 'priceText']
     .forEach(function (id) {
       const el = tryFind(id);
       if (el) {
