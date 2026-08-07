@@ -768,6 +768,10 @@ function loadPackageOptions(nights) {
             packagePriceEl.text = price > 0 ? '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
           }
 
+          // Ensure indicator starts hidden; shown only when row is selected.
+          const indicator = safeItem($item, '#vectorimage1', null, null);
+          if (indicator) { try { indicator.hide(); } catch (e) {} }
+
         });
       }
 
@@ -778,7 +782,12 @@ function loadPackageOptions(nights) {
         console.log('>>> packageRepeater data error:', e.message);
       }
 
-      // Ensure all indicators start hidden.
+      // Determine which package should be selected by default.
+      const defaultSelected = _availablePackages.length === 1 ? _availablePackages[0] : _availablePackages[0];
+      _selectedPackage = defaultSelected;
+      _cachedBaseRate = defaultSelected.baseRate;
+
+      // Hide all indicators, then show only the selected package's indicator.
       try {
         repeater.forEachItem((itemScope) => {
           const indicator = itemScope('#vectorimage1');
@@ -786,14 +795,15 @@ function loadPackageOptions(nights) {
         });
       } catch (e) {}
 
-      // If only one package, auto-select it and show vectorimage1.
-      if (_availablePackages.length === 1) {
-        _selectedPackage = _availablePackages[0];
-        _cachedBaseRate = _selectedPackage.baseRate;
+      if (defaultSelected) {
+        const selectedId = defaultSelected._id || '0';
         try {
           repeater.forEachItem((itemScope) => {
             const indicator = itemScope('#vectorimage1');
-            if (indicator) { try { indicator.show(); } catch (e) {} }
+            const rowData = itemScope('#packageName2');
+            if (indicator && rowData && rowData.text === (defaultSelected.title || '')) {
+              try { indicator.show(); } catch (e) {}
+            }
           });
         } catch (e) {}
         updatePackageNameField();
