@@ -676,6 +676,16 @@ async function searchHandler() {
     if (rep) { try { rep.show(); } catch (e) {} try { rep.expand(); } catch (e) {} }
     rep.data = repData;
     loadPackageInfo(res.requestedNights);
+
+    // Show package column labels above the repeater.
+    ['packageText', 'nightsText', 'specialtyText', 'priceText'].forEach(function (id) {
+      const el = tryFind(id);
+      if (el) {
+        if (typeof el.show === 'function') { try { el.show(); } catch (e) {} }
+        if (typeof el.expand === 'function') { try { el.expand(); } catch (e) {} }
+      }
+    });
+
     safeText('Found ' + res.results.length + ' result' + (res.results.length === 1 ? '' : 's') + ' for ' + res.requestedNights + ' nights.');
   } catch (e) { safeText('Error: ' + e.message); }
 }
@@ -793,7 +803,7 @@ function loadPackageOptions(nights) {
 }
 
 function hideSearchHeader() {
-  ['packageSelectionText', 'accommodationText', 'vacationDates', 'packageContainer', 'packageName2', 'nightsText', 'specialtyTours', 'packagePrice']
+  ['packageSelectionText', 'accommodationText', 'vacationDates', 'packageContainer', 'packageName2', 'nightsText', 'specialtyTours', 'packagePrice', 'packageText', 'specialtyText', 'priceText']
     .forEach(function (id) {
       const el = tryFind(id);
       if (el) {
