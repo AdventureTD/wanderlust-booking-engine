@@ -858,21 +858,28 @@ function updatePackageNameField() {
 function hidePackageIndicator($item) {
   if (!$item) return;
   try {
-    const overlay = $item('#packageSelectedOverlay') || $item('#selectedOverlay') || $item('#vectorimage1');
-    if (overlay) { try { overlay.hide(); } catch (e) {} }
-  } catch (e) {}
+    const overlay = $item('#packageSelectedOverlay');
+    console.log('>>> hidePackageIndicator overlay found:', !!overlay);
+    if (overlay) { try { overlay.hide(); } catch (e) { console.log('>>> hide overlay error:', e.message); } }
+    const vector = $item('#vectorimage1');
+    if (vector) { try { vector.hide(); } catch (e) {} }
+  } catch (e) { console.log('>>> hidePackageIndicator error:', e.message); }
 }
 
 function showPackageIndicator($item) {
   if (!$item) return;
   try {
-    const overlay = $item('#packageSelectedOverlay') || $item('#selectedOverlay') || $item('#vectorimage1');
-    if (overlay) { try { overlay.show(); } catch (e) {} }
-  } catch (e) {}
+    const overlay = $item('#packageSelectedOverlay');
+    console.log('>>> showPackageIndicator overlay found:', !!overlay);
+    if (overlay) { try { overlay.show(); overlay.expand && overlay.expand(); } catch (e) { console.log('>>> show overlay error:', e.message); } }
+    const vector = $item('#vectorimage1');
+    if (vector) { try { vector.show(); vector.expand && vector.expand(); } catch (e) {} }
+  } catch (e) { console.log('>>> showPackageIndicator error:', e.message); }
 }
 
 function highlightSelectedPackageRow() {
   const repeater = tryFind('packageRepeater');
+  console.log('>>> highlightSelectedPackageRow called, repeater found:', !!repeater, 'selected:', _selectedPackage && _selectedPackage.title);
   if (!repeater || !_selectedPackage) return;
   const selectedTitle = _selectedPackage.title || '';
   try {
@@ -880,13 +887,14 @@ function highlightSelectedPackageRow() {
       const pkgNameEl = itemScope('#packageName2');
       if (!pkgNameEl) return;
       const isSelected = pkgNameEl.text === selectedTitle;
+      console.log('>>> comparing row title:', pkgNameEl.text, 'to selected:', selectedTitle, 'match:', isSelected);
       if (isSelected) {
         showPackageIndicator(itemScope);
       } else {
         hidePackageIndicator(itemScope);
       }
     });
-  } catch (e) {}
+  } catch (e) { console.log('>>> highlightSelectedPackageRow error:', e.message); }
 }
 
 function hideSearchHeader() {
