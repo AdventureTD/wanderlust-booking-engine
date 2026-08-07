@@ -609,36 +609,38 @@ async function renderSummary() {
     safeText('totalNightsDisplay', String(nights) + ' night' + (nights !== 1 ? 's' : ''));
   }
 
-  // packageName: look up title from Packages by nights.
-  let pkgTitle = '';
+  // packageName: prefer the user-selected package title; fall back to lookup by nights.
+  let pkgTitle = _selectedPackageTitle || '';
   try {
-    const ciText = safeTextRead('checkInDisplay');
-    const coText = safeTextRead('checkOutDisplay');
-    const nts = nightsFromDisplay(ciText, coText) || _summaryNights || 0;
+    if (!pkgTitle) {
+      const ciText = safeTextRead('checkInDisplay');
+      const coText = safeTextRead('checkOutDisplay');
+      const nts = nightsFromDisplay(ciText, coText) || _summaryNights || 0;
 
-    if (nts > 0) {
-      try {
-        const beResult = await getPackageAmenities(nts);
-        if (beResult && beResult.title) pkgTitle = beResult.title;
-      } catch (beErr) {}
-
-      if (!pkgTitle) {
+      if (nts > 0) {
         try {
-          const res = await wixData.query('Packages').limit(100).find();
-          for (let i = 0; i < res.items.length; i++) {
-            const item = res.items[i];
-            const itemNights = item.numberOfNights || item.NumberOfNights || item.numberofnights || 0;
-            if (Number(itemNights) === Number(nts)) {
-              pkgTitle = item.title_fld || item.title || item.Title || item.name || item.Name || '';
-              break;
+          const beResult = await getPackageAmenities(nts);
+          if (beResult && beResult.title) pkgTitle = beResult.title;
+        } catch (beErr) {}
+
+        if (!pkgTitle) {
+          try {
+            const res = await wixData.query('Packages').limit(100).find();
+            for (let i = 0; i < res.items.length; i++) {
+              const item = res.items[i];
+              const itemNights = item.numberOfNights || item.NumberOfNights || item.numberofnights || 0;
+              if (Number(itemNights) === Number(nts)) {
+                pkgTitle = item.title_fld || item.title || item.Title || item.name || item.Name || '';
+                break;
+              }
             }
-          }
-        } catch (qErr) {}
+          } catch (qErr) {}
+        }
       }
     }
 
     // Single debug log to diagnose the exact state
-    console.log('[WBE] nts=' + nts + ' pkgTitle=' + pkgTitle + ' summaryNights=' + _summaryNights);
+    console.log('[WBE] _selectedPackageTitle=' + _selectedPackageTitle + ' pkgTitle=' + pkgTitle + ' summaryNights=' + _summaryNights);
 
     if (pkgTitle) {
       safeExpand('box1');
