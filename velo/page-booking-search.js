@@ -791,12 +791,19 @@ function loadPackageOptions(nights) {
     // Ensure column header labels above the repeater are visible.
     ['packageText', 'nightsLabel', 'specialtyText', 'priceText'].forEach(function (id) {
       const el = tryFind(id);
-      console.log('>>> show label:', id, 'found:', !!el);
       if (el) {
         if (typeof el.show === 'function') { try { el.show(); } catch (e) {} }
         if (typeof el.expand === 'function') { try { el.expand(); } catch (e) {} }
       }
     });
+
+    // Ensure the package repeater itself is visible.
+    const packageRepeaterEl = tryFind('packageRepeater');
+    console.log('>>> packageRepeater found:', !!packageRepeaterEl);
+    if (packageRepeaterEl) {
+      if (typeof packageRepeaterEl.show === 'function') { try { packageRepeaterEl.show(); } catch (e) {} }
+      if (typeof packageRepeaterEl.expand === 'function') { try { packageRepeaterEl.expand(); } catch (e) {} }
+    }
 
     const packagePriceEl = tryFind('packagePrice');
     if (packagePriceEl) {
