@@ -769,9 +769,15 @@ function loadPackageOptions(nights) {
               _selectedPackage = itemData;
               _cachedBaseRate = itemData.baseRate;
               updateSelectionPanel();
-              // Visual selection feedback
-              try { repeater.forEachItem((i) => { try { i('#selectionIndicator').hide(); } catch (e) {} }); } catch (e) {}
-              try { $item('#selectionIndicator').show(); } catch (e) {}
+              // Visual selection feedback: show vectorimage1 on this row, hide on all others.
+              try {
+                repeater.forEachItem((itemScope) => {
+                  const indicator = itemScope('#vectorimage1');
+                  if (indicator) { try { indicator.hide(); } catch (e) {} }
+                });
+              } catch (e) {}
+              const myIndicator = $item('#vectorimage1');
+              if (myIndicator) { try { myIndicator.show(); } catch (e) {} }
             });
           }
         });
