@@ -372,6 +372,11 @@ $w.onReady(async function () {
         console.log('>>> Summary blocked: no room selected');
         return;
       }
+      if (!_selectedPackage || !_selectedPackage._id) {
+        safeText('Please select a package above before continuing.');
+        console.log('>>> Summary blocked: no package selected');
+        return;
+      }
       const parts = [], first = _selections[0];
       for (let i = 0; i < _selections.length; i++) {
         const s = _selections[i];
@@ -769,6 +774,7 @@ function loadPackageOptions(nights) {
               _selectedPackage = itemData;
               _cachedBaseRate = itemData.baseRate;
               updateSelectionPanel();
+              updatePackageNameField();
               // Visual selection feedback: show vectorimage1 on this row, hide on all others.
               try {
                 repeater.forEachItem((itemScope) => {
@@ -788,6 +794,19 @@ function loadPackageOptions(nights) {
         repeater.data = _availablePackages.map((p, idx) => ({ ...p, _id: String(idx) }));
       } catch (e) {
         console.log('>>> packageRepeater data error:', e.message);
+      }
+
+      // If only one package, auto-select it and show vectorimage1.
+      if (_availablePackages.length === 1) {
+        _selectedPackage = _availablePackages[0];
+        _cachedBaseRate = _selectedPackage.baseRate;
+        try {
+          repeater.forEachItem((itemScope) => {
+            const indicator = itemScope('#vectorimage1');
+            if (indicator) { try { indicator.show(); } catch (e) {} }
+          });
+        } catch (e) {}
+        updatePackageNameField();
       }
     }
 
@@ -823,6 +842,15 @@ function loadPackageOptions(nights) {
   }).catch(function (err) {
     console.log('>>> loadPackageOptions error:', err && err.message || err);
   });
+}
+
+function updatePackageNameField() {
+  const packageNameEl = tryFind('packageName');
+  if (packageNameEl) {
+    packageNameEl.text = _selectedPackage && _selectedPackage.title ? _selectedPackage.title : '';
+    if (typeof packageNameEl.show === 'function') { try { packageNameEl.show(); } catch (e) {} }
+    if (typeof packageNameEl.expand === 'function') { try { packageNameEl.expand(); } catch (e) {} }
+  }
 }
 
 function hideSearchHeader() {
