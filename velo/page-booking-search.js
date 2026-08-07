@@ -788,6 +788,16 @@ function loadPackageOptions(nights) {
     if (typeof pkgContainer.show === 'function') { try { pkgContainer.show(); } catch (e) {} }
     if (typeof pkgContainer.expand === 'function') { try { pkgContainer.expand(); } catch (e) {} }
 
+    // Ensure column header labels above the repeater are visible.
+    ['packageText', 'nightsLabel', 'specialtyText', 'priceText'].forEach(function (id) {
+      const el = tryFind(id);
+      console.log('>>> show label:', id, 'found:', !!el);
+      if (el) {
+        if (typeof el.show === 'function') { try { el.show(); } catch (e) {} }
+        if (typeof el.expand === 'function') { try { el.expand(); } catch (e) {} }
+      }
+    });
+
     const packagePriceEl = tryFind('packagePrice');
     if (packagePriceEl) {
       const packagePrice = _cachedBaseRate * nights;
