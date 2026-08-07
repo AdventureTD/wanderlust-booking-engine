@@ -769,8 +769,7 @@ function loadPackageOptions(nights) {
           }
 
           // Ensure indicator starts hidden; shown only when row is selected.
-          const indicator = safeItem($item, '#vectorimage1', null, null);
-          if (indicator) { try { indicator.hide(); } catch (e) {} }
+          hidePackageIndicator($item);
 
           // Bind click to the row container and each text element inside the item.
           function selectThisPackage(evt) {
@@ -779,16 +778,7 @@ function loadPackageOptions(nights) {
             _cachedBaseRate = itemData.baseRate;
             updateSelectionPanel();
             updatePackageNameField();
-            // Hide all indicators.
-            try {
-              repeater.forEachItem((itemScope) => {
-                const ind = itemScope('#vectorimage1');
-                if (ind) { try { ind.hide(); } catch (e) {} }
-              });
-            } catch (e) {}
-            // Show only this row's indicator.
-            const myInd = $item('#vectorimage1');
-            if (myInd) { try { myInd.show(); } catch (e) {} }
+            highlightSelectedPackageRow();
             if (evt && evt.stopPropagation) { evt.stopPropagation(); }
           }
 
@@ -818,19 +808,7 @@ function loadPackageOptions(nights) {
       _cachedBaseRate = defaultSelected.baseRate;
 
       // After data is set, show the indicator on the first/default package only.
-      try {
-        repeater.forEachItem((itemScope) => {
-          const indicator = itemScope('#vectorimage1');
-          const pkgNameEl = itemScope('#packageName2');
-          if (indicator && pkgNameEl) {
-            if (pkgNameEl.text === (defaultSelected.title || '')) {
-              try { indicator.show(); } catch (e) {}
-            } else {
-              try { indicator.hide(); } catch (e) {}
-            }
-          }
-        });
-      } catch (e) {}
+      setTimeout(highlightSelectedPackageRow, 100);
       updatePackageNameField();
     }
 
@@ -875,6 +853,40 @@ function updatePackageNameField() {
     if (typeof packageNameEl.show === 'function') { try { packageNameEl.show(); } catch (e) {} }
     if (typeof packageNameEl.expand === 'function') { try { packageNameEl.expand(); } catch (e) {} }
   }
+}
+
+function hidePackageIndicator($item) {
+  if (!$item) return;
+  try {
+    const overlay = $item('#packageSelectedOverlay') || $item('#selectedOverlay') || $item('#vectorimage1');
+    if (overlay) { try { overlay.hide(); } catch (e) {} }
+  } catch (e) {}
+}
+
+function showPackageIndicator($item) {
+  if (!$item) return;
+  try {
+    const overlay = $item('#packageSelectedOverlay') || $item('#selectedOverlay') || $item('#vectorimage1');
+    if (overlay) { try { overlay.show(); } catch (e) {} }
+  } catch (e) {}
+}
+
+function highlightSelectedPackageRow() {
+  const repeater = tryFind('packageRepeater');
+  if (!repeater || !_selectedPackage) return;
+  const selectedTitle = _selectedPackage.title || '';
+  try {
+    repeater.forEachItem((itemScope) => {
+      const pkgNameEl = itemScope('#packageName2');
+      if (!pkgNameEl) return;
+      const isSelected = pkgNameEl.text === selectedTitle;
+      if (isSelected) {
+        showPackageIndicator(itemScope);
+      } else {
+        hidePackageIndicator(itemScope);
+      }
+    });
+  } catch (e) {}
 }
 
 function hideSearchHeader() {
