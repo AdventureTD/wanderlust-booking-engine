@@ -207,6 +207,7 @@ async function recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, to
   row.promoCode = totals.promoCode || row.promoCode || '';
   row.promoDiscountAmount = totals.promoDiscountAmount || 0;
   row.status = 'Active';
+  console.log('>>> recordBookingInvoice row to save:', JSON.stringify({ invoiceNumber: row.invoiceNumber, invoiceUrl: row.invoiceUrl, status: row.status, _id: row._id || 'new' }));
 
   if (row._id) {
     await wixData.update(BOOKING_INVOICES, row);
@@ -571,7 +572,7 @@ export const unitsAvailable = webMethod(
 
 async function createDraftInvoice(bookingNumber, financials, checkIn, checkOut, packageTitle) {
   // Only create one draft row per booking. If a draft/active row already exists,
-  // update it instead so multiple rooms don't create duplicate invoices.
+  // update it instead so multiple rooms don't create duplicate invoice rows.
   const existingRes = await wixData.query(BOOKING_INVOICES)
     .eq('bookingNumber', bookingNumber)
     .hasSome('status', ['Active', 'Draft'])
@@ -579,7 +580,7 @@ async function createDraftInvoice(bookingNumber, financials, checkIn, checkOut, 
     .limit(1)
     .find();
 
-  const invoiceNumber = financials.invoiceNumber || bookingNumber || '';
+  const invoiceNumber = financials.invoiceNumber || '';
   const updates = {
     invoiceNumber,
     invoiceUrl: '',
@@ -870,6 +871,7 @@ export const issueBookingInvoice = webMethod(
 
     const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, invoiceNumber, ownerOnly, payments, bookingNumber);
     console.log('>>> issueBookingInvoice full service result keys:', Object.keys(result || {}).join(','));
+    console.log('>>> issueBookingInvoice full service result:', JSON.stringify(result));
     console.log('>>> CALENDAR result from invoice service:', JSON.stringify(
       result._calendar_debug || result.calendar || result.calendar_error || 'no-calendar-field'
     ));
@@ -886,6 +888,7 @@ export const issueBookingInvoice = webMethod(
     };
 
     const invoiceUrl = result.invoice_url || '';
+    console.log('>>> issueBookingInvoice invoiceUrl from service:', invoiceUrl);
 
     const totals = {
       roomTotal: quoteBreakdown.subtotal_net || 0,
