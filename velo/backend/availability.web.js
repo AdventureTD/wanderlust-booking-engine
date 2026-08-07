@@ -346,7 +346,7 @@ async function generateAndStoreInvoice(bookingId) {
   };
 }
 
-async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optGuest, optAttribution) {
+async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optGuest, optAttribution, optPackageTitle) {
   if (!bookingNumber) {
     console.log('>>> updateBookingSummary SKIPPED — no bookingNumber');
     return;
@@ -416,7 +416,8 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       wbraid: anyWbraid,
       msclkid: anyMsclkid,
       notes: notes || '',
-      bookingDate: todayNoonUtc
+      bookingDate: todayNoonUtc,
+      packageTitle: optPackageTitle || ''
     };
 
     console.log('>>> updateBookingSummary computed:', JSON.stringify(summary).substring(0, 200));
@@ -553,7 +554,7 @@ export const unitsAvailable = webMethod(
   }
 );
 
-async function createDraftInvoice(bookingNumber, financials, checkIn, checkOut) {
+async function createDraftInvoice(bookingNumber, financials, checkIn, checkOut, packageTitle) {
   // Only create one draft row per booking. If a draft/active row already exists,
   // update it instead so multiple rooms don't create duplicate invoices.
   const existingRes = await wixData.query(BOOKING_INVOICES)
@@ -576,6 +577,7 @@ async function createDraftInvoice(bookingNumber, financials, checkIn, checkOut) 
     propertyFee: financials.propertyFee || 0,
     promoCode: financials.promoCode || '',
     promoDiscountAmount: financials.promoDiscountAmount || 0,
+    packageTitle: packageTitle || ''
   };
 
   try {
@@ -587,6 +589,7 @@ async function createDraftInvoice(bookingNumber, financials, checkIn, checkOut) 
       existing.checkOut = updates.checkOut;
       existing.invoiceUrl = updates.invoiceUrl;
       existing.promoCode = updates.promoCode || existing.promoCode || '';
+      existing.packageTitle = existing.packageTitle || updates.packageTitle || '';
       existing.roomTotal = Number(existing.roomTotal || 0) + Number(updates.roomTotal || 0);
       existing.propertyFee = Number(existing.propertyFee || 0) + Number(updates.propertyFee || 0);
       existing.accommodationVat = Number(existing.accommodationVat || 0) + Number(updates.accommodationVat || 0);
@@ -696,6 +699,8 @@ async function createBookingImpl(booking) {
   const inserted = await wixData.insert(BOOKINGS, toInsert);
   inserted.bookingNumber = bookingNumber || inserted.bookingNumber || '';
 
+  const packageTitle = booking.packageTitle || '';
+
   const financials = {
     roomTotal: Math.round(computedRoomTotal * discountRatio * 100) / 100,
     propertyFee: Math.round(computedPropertyFee * discountRatio * 100) / 100,
@@ -711,7 +716,7 @@ async function createBookingImpl(booking) {
   }
 
   try {
-    await createDraftInvoice(inserted.bookingNumber, financials, checkIn, checkOut);
+    await createDraftInvoice(inserted.bookingNumber, financials, checkIn, checkOut, packageTitle);
     console.log('>>> SERVER draft invoice created for', inserted.bookingNumber);
   } catch (e) {
     console.log('>>> SERVER createDraftInvoice ERROR:', e.message);
@@ -734,7 +739,7 @@ async function createBookingImpl(booking) {
       gbraid: booking.gbraid || '',
       wbraid: booking.wbraid || '',
       msclkid: booking.msclkid || ''
-    });
+    }, packageTitle);
   } catch (e) {
     console.log('>>> SERVER updateBookingSummary ERROR:', e.message);
   }

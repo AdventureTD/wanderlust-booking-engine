@@ -87,6 +87,34 @@ export const getPackageDetailsByNights = webMethod(
   }
 );
 
+export const getPackagesByNights = webMethod(
+  Permissions.Anyone,
+  async (nights) => {
+    const n = Number(nights);
+    if (!n || n <= 0) { return []; }
+
+    const res = await wixData.query('Packages').limit(100).find();
+    if (!res || !res.items || res.items.length === 0) { return []; }
+
+    const packages = [];
+    for (let i = 0; i < res.items.length; i++) {
+      const item = res.items[i];
+      const itemNights = item.numberOfNights || item.NumberOfNights || item.numberofnights || 0;
+      if (Number(itemNights) === n) {
+        packages.push({
+          _id: item._id,
+          title: item.title || item.title_fld || item.Title || item.name || item.Name || '',
+          includedAmenities: item.includedAmenities || item.IncludedAmenities || '',
+          specialtyTours: String(item.specialtyTours || item.SpecialtyTours || item.specialtytours || ''),
+          baseRate: Number(item.baseRate) || 0,
+          nights: n
+        });
+      }
+    }
+    return packages;
+  }
+);
+
 export const packageExistsForNights = webMethod(
   Permissions.Anyone,
   async (nights) => {

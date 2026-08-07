@@ -1,6 +1,6 @@
 import { getActiveMessages } from 'backend/messages';
 import { searchAvailability, suggestAlternateDates } from 'backend/search';
-import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights, packageExistsForNights } from 'backend/packages';
+import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights, getPackagesByNights, packageExistsForNights } from 'backend/packages';
 import { getRoomNames } from 'backend/rooms';
 import { trackBeginBooking, captureClickIds, trackViewBookingSearch, trackRoomView, trackSearchNoResults, initTracking, setSuspendGoogleAds } from 'public/tracking';
 import { getAllSettings } from 'backend/settings';
@@ -11,6 +11,8 @@ let _selections = [];
 let _roomFeeMap = {};
 let _summaryNights = 0;
 let _cachedBaseRate = 0;
+let _availablePackages = [];
+let _selectedPackage = null;
 
 function clearSelections(silent) {
   _selections = [];
@@ -388,14 +390,18 @@ $w.onReady(async function () {
           localStorage.setItem('_wbe_rc', parts.join(','));
           localStorage.setItem('_wbe_ci', ciOnly);
           localStorage.setItem('_wbe_co', coOnly);
+          if (_selectedPackage && _selectedPackage._id) {
+            localStorage.setItem('_wbe_pkg', _selectedPackage._id);
+          }
           console.log('>>> STORED rc (summary):', parts.join(','));
         }
       } catch (e) {
         console.log('>>> storage save error (summary):', e && e.message || e);
       }
+      const pkgParam = _selectedPackage && _selectedPackage._id ? '&pkg=' + encodeURIComponent(_selectedPackage._id) : '';
       wixLocation.to(summaryUrl + '?rc=' + encodeURIComponent(parts.join(',')) +
         '&ci=' + encodeURIComponent(ciOnly) +
-        '&co=' + encodeURIComponent(coOnly));
+        '&co=' + encodeURIComponent(coOnly) + pkgParam);
     });
   }
 
@@ -707,6 +713,85 @@ function hidePackageInfo() {
   try { $w('#packageAmenities').collapse(); } catch (e) {}
 }
 
+function loadPackageOptions(nights) {
+  const pkgContainer = tryFind('packageContainer');
+  if (!pkgContainer) return;
+
+  getPackagesByNights(nights).then(function (packages) {
+    _availablePackages = packages || [];
+    if (!_availablePackages.length) return;
+
+    // Default to first package if none selected
+    _selectedPackage = _availablePackages[0];
+    _cachedBaseRate = _selectedPackage.baseRate;
+
+    // Legacy single-package elements
+    const pkgName2 = tryFind('packageName2');
+    const nightsTextEl = tryFind('nightsText');
+    const specialtyToursEl = tryFind('specialtyTours');
+    if (pkgName2) { pkgName2.text = _selectedPackage.title || ''; }
+    if (nightsTextEl) { nightsTextEl.text = String(nights) + ' night' + (nights === 1 ? '' : 's'); }
+    if (specialtyToursEl) { specialtyToursEl.text = _selectedPackage.specialtyTours || ''; }
+    [pkgName2, nightsTextEl, specialtyToursEl].forEach(function (el) {
+      if (el) {
+        if (typeof el.show === 'function') { try { el.show(); } catch (e) {} }
+        if (typeof el.expand === 'function') { try { el.expand(); } catch (e) {} }
+      }
+    });
+
+    // Repeater with multiple package options
+    const repeater = tryFind('packageRepeater');
+    if (repeater) {
+      if (typeof repeater.onItemReady === 'function') {
+        repeater.onItemReady(($item, itemData) => {
+          safeItem($item, '#packageName2', 'text', itemData.title || '');
+          safeItem($item, '#nightsText', 'text', String(nights) + ' night' + (nights === 1 ? '' : 's'));
+          safeItem($item, '#specialtyTours', 'text', itemData.specialtyTours || '');
+          const packagePriceEl = safeItem($item, '#packagePrice', null, null);
+          if (packagePriceEl) {
+            const price = (Number(itemData.baseRate) || 0) * nights;
+            packagePriceEl.text = price > 0 ? '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+          }
+
+          const row = $item('#packageRow') || $item('#packageContainer') || $item('#box1');
+          if (row && typeof row.onClick === 'function') {
+            row.onClick(() => {
+              _selectedPackage = itemData;
+              _cachedBaseRate = itemData.baseRate;
+              updateSelectionPanel();
+              // Visual selection feedback
+              try { repeater.forEachItem((i) => { try { i('#selectionIndicator').hide(); } catch (e) {} }); } catch (e) {}
+              try { $item('#selectionIndicator').show(); } catch (e) {}
+            });
+          }
+        });
+      }
+
+      // Mark first as selected by default
+      try {
+        repeater.data = _availablePackages.map((p, idx) => ({ ...p, _id: String(idx) }));
+      } catch (e) {
+        console.log('>>> packageRepeater data error:', e.message);
+      }
+    }
+
+    if (typeof pkgContainer.show === 'function') { try { pkgContainer.show(); } catch (e) {} }
+    if (typeof pkgContainer.expand === 'function') { try { pkgContainer.expand(); } catch (e) {} }
+
+    const packagePriceEl = tryFind('packagePrice');
+    if (packagePriceEl) {
+      const packagePrice = _cachedBaseRate * nights;
+      if (packagePrice > 0) {
+        packagePriceEl.text = '$' + packagePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        if (typeof packagePriceEl.show === 'function') { try { packagePriceEl.show(); } catch (e) {} }
+        if (typeof packagePriceEl.expand === 'function') { try { packagePriceEl.expand(); } catch (e) {} }
+      }
+    }
+  }).catch(function (err) {
+    console.log('>>> loadPackageOptions error:', err && err.message || err);
+  });
+}
+
 function hideSearchHeader() {
   ['packageSelectionText', 'accommodationText', 'vacationDates', 'packageContainer', 'packageName2', 'nightsText', 'specialtyTours', 'packagePrice']
     .forEach(function (id) {
@@ -736,35 +821,7 @@ function showSearchHeader(ciDate, coDate, nights) {
   }
 
   if (nights > 0) {
-    getPackageDetailsByNights(nights).then(function (pkgDetails) {
-      const pkgName2 = tryFind('packageName2');
-      const nightsTextEl = tryFind('nightsText');
-      const specialtyToursEl = tryFind('specialtyTours');
-      const pkgContainer = tryFind('packageContainer');
-      if (pkgName2) { pkgName2.text = pkgDetails.title || ''; }
-      if (nightsTextEl) { nightsTextEl.text = String(nights) + ' night' + (nights === 1 ? '' : 's'); }
-      if (specialtyToursEl) { specialtyToursEl.text = pkgDetails.specialtyTours || ''; }
-      if (pkgContainer && (pkgDetails.title || pkgDetails.specialtyTours)) {
-        if (typeof pkgContainer.show === 'function') { try { pkgContainer.show(); } catch (e) {} }
-        if (typeof pkgContainer.expand === 'function') { try { pkgContainer.expand(); } catch (e) {} }
-      }
-      [pkgName2, nightsTextEl, specialtyToursEl].forEach(function (el) {
-        if (el) {
-          if (typeof el.show === 'function') { try { el.show(); } catch (e) {} }
-          if (typeof el.expand === 'function') { try { el.expand(); } catch (e) {} }
-        }
-      });
-      const packagePriceEl = tryFind('packagePrice');
-      if (packagePriceEl) {
-        const baseRate = Number(pkgDetails.baseRate) || 0;
-        const packagePrice = baseRate * nights;
-        if (packagePrice > 0) {
-          packagePriceEl.text = '$' + packagePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          if (typeof packagePriceEl.show === 'function') { try { packagePriceEl.show(); } catch (e) {} }
-          if (typeof packagePriceEl.expand === 'function') { try { packagePriceEl.expand(); } catch (e) {} }
-        }
-      }
-    }).catch(function () {});
+    loadPackageOptions(nights);
   }
 }
 

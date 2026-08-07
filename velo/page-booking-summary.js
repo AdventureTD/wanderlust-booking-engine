@@ -17,7 +17,7 @@ import wixLocation from 'wix-location';
 import wixData from 'wix-data';
 import { getAllSettings } from 'backend/settings';
 import { getRoomNames } from 'backend/rooms';
-import { getPackageAmenities, getPackageBaseRate } from 'backend/packages';
+import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights, getPackagesByNights } from 'backend/packages';
 import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
 import { trackPurchase, getStoredClickIds, clearClickIds, initTracking, setSuspendGoogleAds } from 'public/tracking';
 import { recordBookingConversion } from 'backend/googleAdsConversions.web';
@@ -175,6 +175,9 @@ let _renderCount = 0;
 let _roomNames = {};
 let _promoDiscount = 0;   // e.g. 0.15
 let _promoCodeApplied = ''; // e.g. 'SAVE15'
+let _selectedPackageId = '';
+let _selectedPackageBaseRate = 0;
+let _selectedPackageTitle = '';
 
 $w.onReady(function () {
   initTracking($w);
@@ -207,6 +210,12 @@ async function initSummary() {
     rcParam = 'adventure_suite:2:2:0,two_bedroom_apartment:3:4:0';
     cis = '2026-06-07';
     cos = '2026-06-12';
+  }
+
+  // Restore selected package from URL or localStorage.
+  let pkgParam = getParam('pkg');
+  if (!pkgParam) {
+    try { pkgParam = localStorage.getItem('_wbe_pkg'); } catch (e) {}
   }
 
   const ciDate = parseDateStr(cis), coDate = parseDateStr(cos);
@@ -255,6 +264,28 @@ async function initSummary() {
   _summaryNights = nights;
   _summarySettings = settings;
   _roomNames = roomNames;
+
+  // Resolve selected package for this stay length.
+  _selectedPackageBaseRate = 0;
+  _selectedPackageTitle = '';
+  _selectedPackageId = pkgParam || '';
+  if (nights > 0) {
+    try {
+      const packages = await getPackagesByNights(nights);
+      if (packages && packages.length) {
+        let pkg = packages[0];
+        if (_selectedPackageId) {
+          const matched = packages.find(function (p) { return p._id === _selectedPackageId; });
+          if (matched) pkg = matched;
+        }
+        _selectedPackageBaseRate = pkg.baseRate || 0;
+        _selectedPackageTitle = pkg.title || '';
+        _selectedPackageId = pkg._id || '';
+      }
+    } catch (e) {
+      console.log('[WBE-SUMMARY] package resolution error:', e && e.message || e);
+    }
+  }
 
   const suspend = String(settings.suspendGoogleAds).trim() === '1' || Number(settings.suspendGoogleAds) === 1;
   if (typeof setSuspendGoogleAds === 'function') {
@@ -426,7 +457,7 @@ async function renderSummary() {
   let subtotalNet = 0, propertyFee = 0;
   let totalGuests = 0;
 
-  const packageBaseRate = await getPackageBaseRate(nights);
+  const packageBaseRate = _selectedPackageBaseRate || await getPackageBaseRate(nights);
   const packageCost = Math.round(packageBaseRate * nights * 100) / 100;
   safeText('packageCost', '$' + fmtCurrency(packageCost));
 
@@ -746,7 +777,8 @@ function wireContinueButton() {
           note: note || '',
           promoCode: _promoCodeApplied,
           promoDiscount: _promoDiscount,
-          msclkid: clickIds.msclkid
+          msclkid: clickIds.msclkid,
+          packageTitle: _selectedPackageTitle || ''
         };
         console.log('[WBE-FRONTEND] calling createBooking for first room:', payload0.roomCode);
         const b0 = await createBooking(payload0);
@@ -793,7 +825,8 @@ function wireContinueButton() {
             bookingNumber: sharedBookingNumber,
             promoCode: _promoCodeApplied,
             promoDiscount: _promoDiscount,
-            msclkid: clickIds.msclkid
+            msclkid: clickIds.msclkid,
+            packageTitle: _selectedPackageTitle || ''
           };
           restPromises.push(
             createBooking(payload)
