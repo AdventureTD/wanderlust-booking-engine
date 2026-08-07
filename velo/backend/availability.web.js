@@ -357,6 +357,19 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
     let checkIn = checkInArg || null;
     let checkOut = checkOutArg || null;
 
+    // Fallback: derive dates from the Bookings rows if not provided.
+    if (!checkIn || !checkOut) {
+      const bookingsRes = await wixData.query(BOOKINGS)
+        .eq('bookingNumber', bookingNumber)
+        .limit(1000)
+        .find();
+      for (const row of bookingsRes.items) {
+        if (!checkIn && row.checkIn) checkIn = row.checkIn;
+        if (!checkOut && row.checkOut) checkOut = row.checkOut;
+      }
+    }
+
+    // Fallback: use existing summary dates if still missing.
     if (!checkIn || !checkOut) {
       const existingSummaryRes = await wixData.query(BOOKING_SUMMARIES)
         .eq('bookingNumber', bookingNumber)
@@ -368,6 +381,8 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
         if (!checkOut && es.checkOut) checkOut = es.checkOut;
       }
     }
+
+    console.log('>>> updateBookingSummary resolved checkIn:', checkIn, 'checkOut:', checkOut);
 
     const res = await wixData.query(BOOKINGS)
       .eq('bookingNumber', bookingNumber)

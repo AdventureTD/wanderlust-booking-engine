@@ -748,6 +748,7 @@ function wireContinueButton() {
     const rooms = _summaryRooms || [];
     const ci = _summaryCis;
     console.log('[WBE-FRONTEND] continue: rooms=', rooms.length, 'ci=', ci, 'co=', _summaryCos);
+    console.log('[WBE-FRONTEND] dateToStr(ci)=', dateToStr(ci), 'dateToStr(_summaryCos)=', dateToStr(_summaryCos));
     const bookings = [], errors = [];
     let sharedBookingNumber = '';
 
