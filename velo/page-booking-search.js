@@ -772,6 +772,36 @@ function loadPackageOptions(nights) {
           const indicator = safeItem($item, '#vectorimage1', null, null);
           if (indicator) { try { indicator.hide(); } catch (e) {} }
 
+          // Bind click to the row container and each text element inside the item.
+          function selectThisPackage(evt) {
+            console.log('>>> package row clicked:', itemData.title);
+            _selectedPackage = itemData;
+            _cachedBaseRate = itemData.baseRate;
+            updateSelectionPanel();
+            updatePackageNameField();
+            // Hide all indicators.
+            try {
+              repeater.forEachItem((itemScope) => {
+                const ind = itemScope('#vectorimage1');
+                if (ind) { try { ind.hide(); } catch (e) {} }
+              });
+            } catch (e) {}
+            // Show only this row's indicator.
+            const myInd = $item('#vectorimage1');
+            if (myInd) { try { myInd.show(); } catch (e) {} }
+            if (evt && evt.stopPropagation) { evt.stopPropagation(); }
+          }
+
+          const rowContainer = $item('#packageContainer');
+          if (rowContainer && typeof rowContainer.onClick === 'function') {
+            rowContainer.onClick(selectThisPackage);
+          }
+          ['#packageName2', '#nightsText', '#specialtyTours', '#packagePrice'].forEach(function (sel) {
+            const el = $item(sel);
+            if (el && typeof el.onClick === 'function') {
+              try { el.onClick(selectThisPackage); } catch (e) {}
+            }
+          });
         });
       }
 
@@ -783,61 +813,25 @@ function loadPackageOptions(nights) {
       }
 
       // Determine which package should be selected by default.
-      const defaultSelected = _availablePackages.length === 1 ? _availablePackages[0] : _availablePackages[0];
+      const defaultSelected = _availablePackages[0];
       _selectedPackage = defaultSelected;
       _cachedBaseRate = defaultSelected.baseRate;
 
-      // Hide all indicators, then show only the selected package's indicator.
+      // After data is set, show the indicator on the first/default package only.
       try {
         repeater.forEachItem((itemScope) => {
           const indicator = itemScope('#vectorimage1');
-          if (indicator) { try { indicator.hide(); } catch (e) {} }
+          const pkgNameEl = itemScope('#packageName2');
+          if (indicator && pkgNameEl) {
+            if (pkgNameEl.text === (defaultSelected.title || '')) {
+              try { indicator.show(); } catch (e) {}
+            } else {
+              try { indicator.hide(); } catch (e) {}
+            }
+          }
         });
       } catch (e) {}
-
-      if (defaultSelected) {
-        const selectedId = defaultSelected._id || '0';
-        try {
-          repeater.forEachItem((itemScope) => {
-            const indicator = itemScope('#vectorimage1');
-            const rowData = itemScope('#packageName2');
-            if (indicator && rowData && rowData.text === (defaultSelected.title || '')) {
-              try { indicator.show(); } catch (e) {}
-            }
-          });
-        } catch (e) {}
-        updatePackageNameField();
-      }
-
-      // Handle clicks on any part of a repeater item.
-      if (typeof repeater.onItemClick === 'function') {
-        repeater.onItemClick((event) => {
-          const itemData = event && event.item;
-          console.log('>>> package repeater item clicked:', itemData && itemData.title);
-          if (!itemData) return;
-          _selectedPackage = itemData;
-          _cachedBaseRate = itemData.baseRate;
-          updateSelectionPanel();
-          updatePackageNameField();
-          // Visual selection feedback: show vectorimage1 on this row, hide on all others.
-          try {
-            repeater.forEachItem((itemScope) => {
-              const indicator = itemScope('#vectorimage1');
-              if (indicator) { try { indicator.hide(); } catch (e) {} }
-            });
-          } catch (e) {}
-          // Find the matching rendered item by title and show its indicator.
-          try {
-            repeater.forEachItem((itemScope) => {
-              const indicator = itemScope('#vectorimage1');
-              const pkgNameEl = itemScope('#packageName2');
-              if (indicator && pkgNameEl && pkgNameEl.text === (itemData.title || '')) {
-                try { indicator.show(); } catch (e) {}
-              }
-            });
-          } catch (e) {}
-        });
-      }
+      updatePackageNameField();
     }
 
     if (typeof pkgContainer.show === 'function') { try { pkgContainer.show(); } catch (e) {} }
