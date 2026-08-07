@@ -768,9 +768,12 @@ function loadPackageOptions(nights) {
             packagePriceEl.text = price > 0 ? '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
           }
 
-          const row = $item('#packageRow') || $item('#packageContainer') || $item('#box1');
-          if (row && typeof row.onClick === 'function') {
-            row.onClick(() => {
+          const row = $item('#packageRow') || $item('#packageContainer') || $item('#box1') || $item('#item');
+          console.log('>>> package repeater item clickable element:', row && row.id || 'NONE');
+          const onClickTarget = row || $item;
+          if (onClickTarget && typeof onClickTarget.onClick === 'function') {
+            onClickTarget.onClick(() => {
+              console.log('>>> package row clicked:', itemData.title);
               _selectedPackage = itemData;
               _cachedBaseRate = itemData.baseRate;
               updateSelectionPanel();
@@ -783,6 +786,7 @@ function loadPackageOptions(nights) {
                 });
               } catch (e) {}
               const myIndicator = $item('#vectorimage1');
+              console.log('>>> myIndicator found:', !!myIndicator);
               if (myIndicator) { try { myIndicator.show(); } catch (e) {} }
             });
           }
