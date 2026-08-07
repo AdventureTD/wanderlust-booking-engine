@@ -778,6 +778,14 @@ function loadPackageOptions(nights) {
         console.log('>>> packageRepeater data error:', e.message);
       }
 
+      // Ensure all indicators start hidden.
+      try {
+        repeater.forEachItem((itemScope) => {
+          const indicator = itemScope('#vectorimage1');
+          if (indicator) { try { indicator.hide(); } catch (e) {} }
+        });
+      } catch (e) {}
+
       // If only one package, auto-select it and show vectorimage1.
       if (_availablePackages.length === 1) {
         _selectedPackage = _availablePackages[0];
