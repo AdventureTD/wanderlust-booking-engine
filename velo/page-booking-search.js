@@ -812,7 +812,7 @@ function loadPackageOptions(nights) {
       // Handle clicks on any part of a repeater item.
       if (typeof repeater.onItemClick === 'function') {
         repeater.onItemClick((event) => {
-          const itemData = event && event.item && event.item;
+          const itemData = event && event.item;
           console.log('>>> package repeater item clicked:', itemData && itemData.title);
           if (!itemData) return;
           _selectedPackage = itemData;
@@ -826,11 +826,16 @@ function loadPackageOptions(nights) {
               if (indicator) { try { indicator.hide(); } catch (e) {} }
             });
           } catch (e) {}
-          const clickedScope = event.context && event.context.$item ? event.context.$item : null;
-          if (clickedScope) {
-            const myIndicator = clickedScope('#vectorimage1');
-            if (myIndicator) { try { myIndicator.show(); } catch (e) {} }
-          }
+          // Find the matching rendered item by title and show its indicator.
+          try {
+            repeater.forEachItem((itemScope) => {
+              const indicator = itemScope('#vectorimage1');
+              const pkgNameEl = itemScope('#packageName2');
+              if (indicator && pkgNameEl && pkgNameEl.text === (itemData.title || '')) {
+                try { indicator.show(); } catch (e) {}
+              }
+            });
+          } catch (e) {}
         });
       }
     }
