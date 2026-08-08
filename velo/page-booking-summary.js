@@ -955,6 +955,18 @@ function wireContinueButton() {
                 } catch (markErr) {
                   console.error('[WBE-MICROSOFT] failed to mark conversion uploaded:', markErr && markErr.message || markErr);
                 }
+                // Fire UET purchase event for Microsoft remarketing audience.
+                try {
+                  if (window.uetq && typeof window.uetq.push === 'function') {
+                    window.uetq.push('event', 'purchase', {
+                      revenue_value: microsoftPayload.value || 0,
+                      currency: microsoftPayload.currency || 'USD'
+                    });
+                    console.log('[WBE-MICROSOFT] UET purchase event pushed');
+                  }
+                } catch (uetErr) {
+                  console.error('[WBE-MICROSOFT] failed to push UET purchase event:', uetErr && uetErr.message || uetErr);
+                }
               }
             })
             .catch(function (msErr) {
