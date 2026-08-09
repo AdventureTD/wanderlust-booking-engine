@@ -780,6 +780,7 @@ function loadPackageOptions(nights) {
             _cachedBaseRate = originalPkg.baseRate;
             updateSelectionPanel();
             updatePackageNameField();
+            updatePackageAmenitiesField();
             highlightSelectedPackageRow();
             if (evt && evt.stopPropagation) { evt.stopPropagation(); }
           }
@@ -810,8 +811,11 @@ function loadPackageOptions(nights) {
       _cachedBaseRate = defaultSelected.baseRate;
 
       // After data is set, show the indicator on the first/default package only.
-      setTimeout(highlightSelectedPackageRow, 100);
-      updatePackageNameField();
+      setTimeout(function () {
+        highlightSelectedPackageRow();
+        updatePackageNameField();
+        updatePackageAmenitiesField();
+      }, 100);
     }
 
     if (typeof pkgContainer.show === 'function') { try { pkgContainer.show(); } catch (e) {} }
@@ -854,6 +858,16 @@ function updatePackageNameField() {
     packageNameEl.text = _selectedPackage && _selectedPackage.title ? _selectedPackage.title : '';
     if (typeof packageNameEl.show === 'function') { try { packageNameEl.show(); } catch (e) {} }
     if (typeof packageNameEl.expand === 'function') { try { packageNameEl.expand(); } catch (e) {} }
+  }
+}
+
+function updatePackageAmenitiesField() {
+  const packageAmenitiesEl = tryFind('packageAmenities');
+  if (!packageAmenitiesEl) return;
+  if (_selectedPackage && _selectedPackage.includedAmenities) {
+    packageAmenitiesEl.text = _selectedPackage.includedAmenities;
+    if (typeof packageAmenitiesEl.show === 'function') { try { packageAmenitiesEl.show(); } catch (e) {} }
+    if (typeof packageAmenitiesEl.expand === 'function') { try { packageAmenitiesEl.expand(); } catch (e) {} }
   }
 }
 
