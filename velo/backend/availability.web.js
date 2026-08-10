@@ -53,7 +53,7 @@ async function getNextBookingNumber() {
       .startsWith('bookingNumber', 'WC-')
       .descending('bookingNumber')
       .limit(1)
-      .find();
+      .find({ suppressAuth: true });
     let last = 1000;
     if (res.items.length > 0) {
       const bn = String(res.items[0].bookingNumber || 'WC-1000');
@@ -203,10 +203,10 @@ async function archiveActiveInvoice(bookingNumber) {
     .eq('bookingNumber', bookingNumber)
     .eq('status', 'Active')
     .limit(100)
-    .find();
+    .find({ suppressAuth: true });
   for (const item of res.items) {
     item.status = 'History';
-    await wixData.update(BOOKING_INVOICES, item);
+    await wixData.update(BOOKING_INVOICES, item, { suppressAuth: true });
   }
 }
 
@@ -217,7 +217,7 @@ async function recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, to
     .hasSome('status', ['Active', 'Draft'])
     .descending('_createdDate')
     .limit(1)
-    .find();
+    .find({ suppressAuth: true });
 
   const row = existingRes.items[0] || {};
   row.bookingNumber = bookingNumber;
@@ -236,13 +236,13 @@ async function recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, to
   console.log('>>> recordBookingInvoice row to save:', JSON.stringify({ invoiceNumber: row.invoiceNumber, invoiceUrl: row.invoiceUrl, status: row.status, _id: row._id || 'new' }));
 
   if (row._id) {
-    await wixData.update(BOOKING_INVOICES, row);
+    await wixData.update(BOOKING_INVOICES, row, { suppressAuth: true });
     return row;
   }
 
   // No existing invoice row — archive any strays and insert fresh.
   await archiveActiveInvoice(bookingNumber);
-  return await wixData.insert(BOOKING_INVOICES, row);
+  return await wixData.insert(BOOKING_INVOICES, row, { suppressAuth: true });
 }
 
 async function buildQuoteBreakdown(bookingNumber) {
@@ -401,7 +401,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       const existingSummaryRes = await wixData.query(BOOKING_SUMMARIES)
         .eq('bookingNumber', bookingNumber)
         .limit(1)
-        .find();
+        .find({ suppressAuth: true });
       if (existingSummaryRes.items.length > 0) {
         const es = existingSummaryRes.items[0];
         if (!checkIn && es.checkIn) checkIn = es.checkIn;
@@ -467,7 +467,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
     const existing = await wixData.query(BOOKING_SUMMARIES)
       .eq('bookingNumber', bookingNumber)
       .limit(1)
-      .find();
+      .find({ suppressAuth: true });
 
     if (existing.items.length > 0) {
       summary._id = existing.items[0]._id;
@@ -490,11 +490,11 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       if (existingAtt.microsoftConversionUploaded) summary.microsoftConversionUploaded = existingAtt.microsoftConversionUploaded;
       if (existingAtt.microsoftConversionRetracted) summary.microsoftConversionRetracted = existingAtt.microsoftConversionRetracted;
       console.log('>>> updateBookingSummary UPDATING row', existing.items[0]._id);
-      await wixData.update(BOOKING_SUMMARIES, summary);
+      await wixData.update(BOOKING_SUMMARIES, summary, { suppressAuth: true });
       console.log('>>> updateBookingSummary UPDATE complete');
     } else {
       console.log('>>> updateBookingSummary INSERTING new row with bookingDate:', summary.bookingDate);
-      await wixData.insert(BOOKING_SUMMARIES, summary);
+      await wixData.insert(BOOKING_SUMMARIES, summary, { suppressAuth: true });
       console.log('>>> updateBookingSummary INSERT complete');
     }
   } catch (e) {
@@ -510,7 +510,7 @@ async function overlappingCount(roomCode, checkIn, checkOut) {
     .lt('checkIn', toDate(checkOut) || new Date(checkOut))
     .gt('checkOut', toDate(checkIn) || new Date(checkIn))
     .limit(1000)
-    .find();
+    .find({ suppressAuth: true });
 
   const overlapNumbers = [];
   for (const s of summaryRes.items) {
@@ -525,7 +525,7 @@ async function overlappingCount(roomCode, checkIn, checkOut) {
       .hasSome('status', ['confirmed', 'hold', 'blocked'])
       .hasSome('bookingNumber', overlapNumbers)
       .limit(1000)
-      .find();
+      .find({ suppressAuth: true });
     for (const row of res.items) {
       total += (row.quantity || 1);
       if (row._id) seenIds.push(row._id);
@@ -544,7 +544,7 @@ async function overlappingRows(roomCode, checkIn, checkOut) {
     .lt('checkIn', toDate(checkOut) || new Date(checkOut))
     .gt('checkOut', toDate(checkIn) || new Date(checkIn))
     .limit(1000)
-    .find();
+    .find({ suppressAuth: true });
 
   const overlapNumbers = [];
   for (const s of summaryRes.items) {
@@ -565,7 +565,7 @@ async function overlappingRows(roomCode, checkIn, checkOut) {
       .hasSome('status', ['confirmed', 'hold', 'blocked'])
       .hasSome('bookingNumber', overlapNumbers)
       .limit(1000)
-      .find();
+      .find({ suppressAuth: true });
     for (const row of res.items) {
       if (!row.checkIn && summaryDateMap[String(row.bookingNumber)]) {
         row.checkIn = summaryDateMap[String(row.bookingNumber)].checkIn;
@@ -610,7 +610,7 @@ async function createDraftInvoice(bookingNumber, financials, checkIn, checkOut, 
     .hasSome('status', ['Active', 'Draft'])
     .descending('_createdDate')
     .limit(1)
-    .find();
+    .find({ suppressAuth: true });
 
   const invoiceNumber = financials.invoiceNumber || '';
   const updates = {
@@ -644,12 +644,12 @@ async function createDraftInvoice(bookingNumber, financials, checkIn, checkOut, 
       existing.packageVat = Number(existing.packageVat || 0) + Number(updates.packageVat || 0);
       existing.grandTotal = Number(existing.grandTotal || 0) + Number(updates.grandTotal || 0);
       existing.promoDiscountAmount = Number(existing.promoDiscountAmount || 0) + Number(updates.promoDiscountAmount || 0);
-      await wixData.update(BOOKING_INVOICES, existing);
+      await wixData.update(BOOKING_INVOICES, existing, { suppressAuth: true });
       return existing;
     }
 
     const newRow = Object.assign({ bookingNumber, status: 'Draft' }, updates);
-    return await wixData.insert(BOOKING_INVOICES, newRow);
+    return await wixData.insert(BOOKING_INVOICES, newRow, { suppressAuth: true });
   } catch (e) {
     console.log('>>> createDraftInvoice ERROR:', e.message);
     throw e;
@@ -663,7 +663,7 @@ async function getActiveInvoice(bookingNumber) {
       .hasSome('status', ['Active', 'Draft'])
       .descending('_createdDate')
       .limit(1)
-      .find();
+      .find({ suppressAuth: true });
     return res.items[0] || null;
   } catch (e) {
     console.log('>>> getActiveInvoice ERROR:', e.message);
@@ -846,7 +846,7 @@ export const issueBookingInvoice = webMethod(
       const summaryRes = await wixData.query(BOOKING_SUMMARIES)
         .eq('bookingNumber', bookingNumber)
         .limit(1)
-        .find();
+        .find({ suppressAuth: true });
       if (summaryRes.items.length > 0) {
         summaryRow = summaryRes.items[0];
         if (summaryRow.checkIn) checkInDate = new Date(summaryRow.checkIn).toISOString().slice(0, 10);
@@ -971,13 +971,13 @@ export const issueBookingInvoice = webMethod(
       const summaryRes = await wixData.query(BOOKING_SUMMARIES)
         .eq('bookingNumber', bookingNumber)
         .limit(1)
-        .find();
+        .find({ suppressAuth: true });
       if (summaryRes.items.length > 0) {
         const sItem = summaryRes.items[0];
         sItem.checkIn = toDate(checkInDate);
         sItem.checkOut = toDate(checkOutDate);
         sItem.bookingDate = toDate(sItem.bookingDate) || toDate(new Date().toISOString());
-        await wixData.update(BOOKING_SUMMARIES, sItem);
+        await wixData.update(BOOKING_SUMMARIES, sItem, { suppressAuth: true });
         console.log('>>> issueBookingInvoice mirrored dates to BookingSummary');
       }
     } catch (e) {
@@ -1007,7 +1007,7 @@ export const cancelBooking = webMethod(
         const summaryRes = await wixData.query(BOOKING_SUMMARIES)
           .eq('bookingNumber', b.bookingNumber)
           .limit(1)
-          .find();
+          .find({ suppressAuth: true });
         if (summaryRes.items.length > 0) {
           const summary = summaryRes.items[0];
           if (summary.googleConversionUploaded === true && summary.googleConversionRetracted !== true) {
