@@ -278,11 +278,17 @@ async function initSummary() {
   if (nights > 0) {
     try {
       const packages = await getPackagesByNights(nights);
-      if (packages && packages.length) {
+      if (!packages || !packages.length) {
+        throw new Error('No package is available for this stay length. Please return to the booking search.');
+      }
+      {
         let pkg = packages[0];
         if (_selectedPackageId) {
           const matched = packages.find(function (p) { return p._id === _selectedPackageId; });
-          if (matched) pkg = matched;
+          if (!matched) {
+            throw new Error('The selected package is no longer available. Please return to the booking search and select a package again.');
+          }
+          pkg = matched;
         }
         _selectedPackageBaseRate = pkg.baseRate || 0;
         _selectedPackagePriceModifier = Number(pkg.priceModifier) > 0 ? Number(pkg.priceModifier) : 1;
@@ -300,6 +306,8 @@ async function initSummary() {
       }
     } catch (e) {
       console.log('[WBE-SUMMARY] package resolution error:', e && e.message || e);
+      safeText('bookingStatus', e && e.message ? e.message : 'Unable to load the selected package.');
+      throw e;
     }
   }
 

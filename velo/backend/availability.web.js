@@ -849,15 +849,17 @@ export const issueBookingInvoice = webMethod(
       console.log('>>> issueBookingInvoice BookingSummary read ERROR:', summaryErr.message);
     }
 
+    const activeInvoice = await getActiveInvoice(bookingNumber);
     if (!checkInDate || !checkOutDate) {
-      const invFallback = await getActiveInvoice(bookingNumber);
-      if (invFallback && invFallback.checkIn && invFallback.checkOut) {
-        checkInDate = new Date(invFallback.checkIn).toISOString().slice(0, 10);
-        checkOutDate = new Date(invFallback.checkOut).toISOString().slice(0, 10);
+      if (activeInvoice && activeInvoice.checkIn && activeInvoice.checkOut) {
+        checkInDate = new Date(activeInvoice.checkIn).toISOString().slice(0, 10);
+        checkOutDate = new Date(activeInvoice.checkOut).toISOString().slice(0, 10);
       }
     }
 
-    let packageTitle = summaryRow && summaryRow.packageTitle ? summaryRow.packageTitle : '';
+    let packageTitle = summaryRow && summaryRow.packageTitle
+      ? summaryRow.packageTitle
+      : (activeInvoice && activeInvoice.packageTitle ? activeInvoice.packageTitle : '');
     let includedAmenities = '';
     try {
       const nights = nightsBetween(checkInDate, checkOutDate);
