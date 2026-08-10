@@ -433,7 +433,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       msclkid: anyMsclkid,
       notes: notes || '',
       bookingDate: todayNoonUtc,
-      packageTitlle: optPackageTitle || ''
+      packageTitle: optPackageTitle || ''
     };
 
     console.log('>>> updateBookingSummary computed:', JSON.stringify(summary).substring(0, 200));
@@ -450,11 +450,11 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       summary.bookingDate = existingBookingDate || todayNoonUtc;
       console.log('>>> updateBookingSummary final bookingDate (update):', summary.bookingDate);
       const existingAtt = existing.items[0];
-      // BookingSummary uses the existing CMS field key `packageTitlle`.
+      // BookingSummary uses the CMS field key `packageTitle`.
       // Preserve it when later summary refreshes do not receive a package title,
-      // and migrate any value previously written to the incorrect packageTitle key.
-      if (!summary.packageTitlle) {
-        summary.packageTitlle = existingAtt.packageTitlle || existingAtt.packageTitle || '';
+      // and recover any value briefly written to the misspelled packageTitlle key.
+      if (!summary.packageTitle) {
+        summary.packageTitle = existingAtt.packageTitle || existingAtt.packageTitlle || '';
       }
       if (!summary.gbraid && existingAtt.gbraid) summary.gbraid = existingAtt.gbraid;
       if (!summary.wbraid && existingAtt.wbraid) summary.wbraid = existingAtt.wbraid;
