@@ -6,7 +6,7 @@ import { getAllSettings } from 'backend/settings.web';
 import wixData from 'wix-data';
 // v2026-07-20-hashutils-import
 
-async function isGoogleAdsSuspended() {
+export async function isGoogleAdsSuspended() {
   try {
     const settings = await getAllSettings();
     const v = settings.suspendGoogleAds;
