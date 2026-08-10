@@ -1,7 +1,7 @@
 import { getActiveMessages } from 'backend/messages';
 import { searchAvailability, suggestAlternateDates } from 'backend/search';
 import { getPackageAmenities, getPackagesByNights, packageExistsForNights } from 'backend/packages';
-import { priceStay } from 'backend/seasonal';
+import { createPricingQuote } from 'backend/pricingQuotes';
 import { getRoomNames } from 'backend/rooms';
 import { trackBeginBooking, captureClickIds, trackViewBookingSearch, trackRoomView, trackSearchNoResults, initTracking, setSuspendGoogleAds } from 'public/tracking';
 import { getAllSettings } from 'backend/settings';
@@ -380,6 +380,10 @@ $w.onReady(async function () {
         console.log('>>> Summary blocked: no package selected');
         return;
       }
+      if (!_selectedPackage.pricingQuoteToken) {
+        safeText('Unable to lock this package price. Please search again.');
+        return;
+      }
       const parts = [], first = _selections[0];
       for (let i = 0; i < _selections.length; i++) {
         const s = _selections[i];
@@ -400,6 +404,7 @@ $w.onReady(async function () {
           localStorage.setItem('_wbe_co', coOnly);
           if (_selectedPackage && _selectedPackage._id) {
             localStorage.setItem('_wbe_pkg', _selectedPackage._id);
+            localStorage.setItem('_wbe_quote', _selectedPackage.pricingQuoteToken);
           }
           console.log('>>> STORED rc (summary):', parts.join(','));
         }
@@ -407,9 +412,10 @@ $w.onReady(async function () {
         console.log('>>> storage save error (summary):', e && e.message || e);
       }
       const pkgParam = _selectedPackage && _selectedPackage._id ? '&pkg=' + encodeURIComponent(_selectedPackage._id) : '';
+      const quoteParam = '&quote=' + encodeURIComponent(_selectedPackage.pricingQuoteToken);
       wixLocation.to(summaryUrl + '?rc=' + encodeURIComponent(parts.join(',')) +
         '&ci=' + encodeURIComponent(ciOnly) +
-        '&co=' + encodeURIComponent(coOnly) + pkgParam);
+        '&co=' + encodeURIComponent(coOnly) + pkgParam + quoteParam);
     });
   }
 
@@ -737,27 +743,34 @@ function loadPackageOptions(nights) {
     _availablePackages = packages || [];
     if (!_availablePackages.length) return;
 
-    // SeasonalRates is the first nightly-rate source. Packages.baseRate is passed
-    // as the fallback, and priceModifier applies to whichever source wins.
+    // The backend resolves seasonal and demand pricing per night, then signs a
+    // one-hour quote that remains authoritative through booking and invoicing.
     await Promise.all(_availablePackages.map(async function (pkg) {
       try {
-        const priced = await priceStay(
-          'adventure_suite',
+        const quoteResult = await createPricingQuote(
+          pkg._id,
           _searchCheckIn,
-          _searchCheckOut,
-          pkg.baseRate,
-          pkg.priceModifier
+          _searchCheckOut
         );
+        const priced = quoteResult && quoteResult.pricing;
         pkg.stayTotalPerPerson = Number(priced && priced.totalPerPerson) || 0;
         pkg.averageNightlyRate = Number(priced && priced.averageNightlyRate) || 0;
-        pkg.pricingResolved = !!priced && Number.isFinite(Number(priced.totalPerPerson));
+        pkg.pricingQuoteToken = quoteResult && quoteResult.token || '';
+        pkg.pricingResolved = !!priced && !!pkg.pricingQuoteToken && Number.isFinite(Number(priced.totalPerPerson));
       } catch (e) {
-        const modifier = Number(pkg.priceModifier) > 0 ? Number(pkg.priceModifier) : 1;
-        pkg.stayTotalPerPerson = Math.round(Number(pkg.baseRate || 0) * modifier * nights * 100) / 100;
-        pkg.averageNightlyRate = nights > 0 ? pkg.stayTotalPerPerson / nights : 0;
-        pkg.pricingResolved = true;
+        console.log('>>> pricing quote error for package', pkg._id, e && e.message || e);
+        pkg.pricingResolved = false;
+        pkg.pricingQuoteToken = '';
       }
     }));
+
+    _availablePackages = _availablePackages.filter(function (pkg) {
+      return pkg.pricingResolved && pkg.pricingQuoteToken;
+    });
+    if (!_availablePackages.length) {
+      safeText('Unable to calculate and lock package pricing. Please try the search again.');
+      return;
+    }
 
     // Default to first package if none selected
     _selectedPackage = _availablePackages[0];

@@ -18,7 +18,7 @@ import wixData from 'wix-data';
 import { getAllSettings } from 'backend/settings';
 import { getRoomNames } from 'backend/rooms';
 import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights, getPackagesByNights } from 'backend/packages';
-import { priceStay } from 'backend/seasonal';
+import { readPricingQuote } from 'backend/pricingQuotes';
 import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
 import { trackPurchase, getStoredClickIds, clearClickIds, initTracking, setSuspendGoogleAds } from 'public/tracking';
 import { recordBookingConversion } from 'backend/googleAdsConversions.web';
@@ -182,6 +182,7 @@ let _selectedPackagePriceModifier = 1;
 let _selectedPackageStayTotal = 0;
 let _hasSelectedPackageStayTotal = false;
 let _selectedPackageTitle = '';
+let _pricingQuoteToken = '';
 
 $w.onReady(function () {
   initTracking($w);
@@ -218,9 +219,14 @@ async function initSummary() {
 
   // Restore selected package from URL or localStorage.
   let pkgParam = getParam('pkg');
+  let quoteParam = getParam('quote');
   if (!pkgParam) {
     try { pkgParam = localStorage.getItem('_wbe_pkg'); } catch (e) {}
   }
+  if (!quoteParam) {
+    try { quoteParam = localStorage.getItem('_wbe_quote'); } catch (e) {}
+  }
+  _pricingQuoteToken = quoteParam || '';
 
   const ciDate = parseDateStr(cis), coDate = parseDateStr(cos);
   const oneDay = 86400000;
@@ -294,15 +300,20 @@ async function initSummary() {
         _selectedPackagePriceModifier = Number(pkg.priceModifier) > 0 ? Number(pkg.priceModifier) : 1;
         _selectedPackageTitle = pkg.title || '';
         _selectedPackageId = pkg._id || '';
-        const priced = await priceStay(
-          'adventure_suite',
+        if (!_pricingQuoteToken) {
+          throw new Error('The locked pricing quote is missing. Please return to the booking search.');
+        }
+        const quote = await readPricingQuote(
+          _pricingQuoteToken,
+          _selectedPackageId,
           _summaryCis,
-          _summaryCos,
-          _selectedPackageBaseRate,
-          _selectedPackagePriceModifier
+          _summaryCos
         );
-        _selectedPackageStayTotal = Number(priced && priced.totalPerPerson) || 0;
-        _hasSelectedPackageStayTotal = !!priced && Number.isFinite(Number(priced.totalPerPerson));
+        _selectedPackageTitle = quote.packageTitle || _selectedPackageTitle;
+        _selectedPackageBaseRate = Number(quote.baseRate) || 0;
+        _selectedPackagePriceModifier = Number(quote.priceModifier) > 0 ? Number(quote.priceModifier) : 1;
+        _selectedPackageStayTotal = Number(quote.totalPerPerson) || 0;
+        _hasSelectedPackageStayTotal = Number.isFinite(Number(quote.totalPerPerson));
       }
     } catch (e) {
       console.log('[WBE-SUMMARY] package resolution error:', e && e.message || e);
@@ -810,7 +821,8 @@ function wireContinueButton() {
           promoDiscount: _promoDiscount,
           msclkid: clickIds.msclkid,
           packageId: _selectedPackageId || '',
-          packageTitle: _selectedPackageTitle || ''
+          packageTitle: _selectedPackageTitle || '',
+          pricingQuoteToken: _pricingQuoteToken
         };
         console.log('[WBE-FRONTEND] calling createBooking for first room:', payload0.roomCode);
         const b0 = await createBooking(payload0);
@@ -859,7 +871,8 @@ function wireContinueButton() {
             promoDiscount: _promoDiscount,
             msclkid: clickIds.msclkid,
             packageId: _selectedPackageId || '',
-            packageTitle: _selectedPackageTitle || ''
+            packageTitle: _selectedPackageTitle || '',
+            pricingQuoteToken: _pricingQuoteToken
           };
           restPromises.push(
             createBooking(payload)

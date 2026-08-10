@@ -5,7 +5,8 @@ import { fetch } from 'wix-fetch';
 import { getSecret } from 'wix-secrets-backend';
 import { getAllSettings, incrementSetting } from 'backend/settings.web';
 import { adjustBookingConversion, isGoogleAdsSuspended } from 'backend/googleAdsConversions.web';
-import { resolvePerPersonStay, normalizePriceModifier, roundMoney } from 'backend/rateResolver';
+import { normalizePriceModifier, roundMoney } from 'backend/rateResolver';
+import { verifyLockedPricingQuote } from 'backend/pricingQuote';
 
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
@@ -717,13 +718,19 @@ async function createBookingImpl(booking) {
   }
 
   const nights = nightsBetween(checkIn, checkOut);
-  const packagePricing = await getPackagePricingForBooking(booking.packageId || '', nights);
-  const stayPricing = await resolvePerPersonStay(
+  const currentPackage = await getPackagePricingForBooking(booking.packageId || '', nights);
+  const lockedQuote = await verifyLockedPricingQuote(booking.pricingQuoteToken, {
+    packageId: currentPackage._id,
     checkIn,
     checkOut,
-    packagePricing.baseRate,
-    packagePricing.priceModifier
-  );
+  });
+  const packagePricing = {
+    packageId: lockedQuote.packageId,
+    packageTitle: lockedQuote.packageTitle || currentPackage.packageTitle,
+    baseRate: Number(lockedQuote.baseRate),
+    priceModifier: normalizePriceModifier(lockedQuote.priceModifier),
+  };
+  const stayPricing = { totalPerPerson: Number(lockedQuote.totalPerPerson) };
   const roomFee = await getAuthoritativeRoomFee(roomCode);
   const grossRoomTotal = roundMoney(
     (stayPricing.totalPerPerson * guests * quantity) + (roomFee * nights * quantity)
@@ -765,7 +772,7 @@ async function createBookingImpl(booking) {
   const inserted = await wixData.insert(BOOKINGS, toInsert);
   inserted.bookingNumber = bookingNumber || inserted.bookingNumber || '';
 
-  const packageTitle = packagePricing.title || booking.packageTitle || '';
+  const packageTitle = packagePricing.packageTitle || booking.packageTitle || '';
 
   const financials = {
     roomTotal: computedRoomTotal,

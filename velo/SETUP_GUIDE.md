@@ -111,6 +111,15 @@ Seed rows:
 - key=`propertyFeeRate`, value=`0.05` — 5% property fee on net package price.
 - key=`taxRate_accommodation`, value=`0.10` — VAT on room nights (10%).
 - key=`taxRate_standard`, value=`0.15` — VAT on adventure services / a la carte (15%).
+- key=`demandPricing`, value=`0` turns demand pricing ON; value=`1` turns it OFF.
+- key=`demandRoomQty`, value=total sellable room quantity used as 100% occupancy.
+- key=`demand50`, value=direct multiplier for nights at 50%–74.99% occupancy.
+- key=`demand75`, value=direct multiplier for nights at 75% or higher occupancy.
+
+In Wix Secrets Manager, add `WBE_PRICING_QUOTE_SECRET` with a random value of
+at least 32 characters. Search pricing is HMAC-signed with this secret and
+remains locked for one hour; altered, expired, package-mismatched, or
+date-mismatched quotes are rejected by the booking backend.
 
 If any row is missing, the engine falls back to the defaults above.
 
@@ -150,6 +159,12 @@ Adventure Suite and Two-Bedroom use the adjusted per-person rate directly.
 Penthouse adds `Rooms.roomFee` once per Penthouse room, per night. A valid promo
 discounts the complete pre-tax subtotal before the fixed 50/50 VAT split and
 property fee are calculated.
+
+When demand pricing is enabled, each night independently counts the quantities
+of `confirmed`, `hold`, and `blocked` Bookings across all room types. Cancelled
+bookings do not count. The nightly calculation order is:
+`(seasonal nightlyRate or package baseRate) × demand modifier × priceModifier`.
+If `demandRoomQty` is missing/invalid, demand pricing is safely disabled.
 
 ### Collection permissions [IMPORTANT]
 - `Rooms`, `Packages`, `SeasonalRates`, `AlaCarte`: **Read = Anyone** (so the booking page can
