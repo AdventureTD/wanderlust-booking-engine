@@ -19,7 +19,7 @@ async function checkHotelClosure(checkIn, checkOut) {
     const q = wixData.query(HOTEL_CLOSURES)
       .le('startDate', checkOut)
       .ge('endDate', checkIn);
-    const res = await q.limit(100).find();
+    const res = await q.limit(100).find({ suppressAuth: true });
     if (res.items.length) {
       const c = res.items[0];
       return {
@@ -108,13 +108,13 @@ export const searchAvailability = webMethod(
     const nights = [];
     for (let i = 0; i < rq; i++) { nights.push(ad(ci, i)); }
 
-    const roomRes = await wixData.query(ROOMS).limit(50).find();
-    const bookingRes = await wixData.query(BOOKINGS).limit(1000).find();
+    const roomRes = await wixData.query(ROOMS).limit(50).find({ suppressAuth: true });
+    const bookingRes = await wixData.query(BOOKINGS).limit(1000).find({ suppressAuth: true });
 
     const rooms = roomRes.items;
     const allBookings = bookingRes.items;
     // Fetch all BookingSummary records once; BookingSummary stores dates as text.
-    const summaryAllRes = await wixData.query(BOOKING_SUMMARIES).limit(1000).find();
+    const summaryAllRes = await wixData.query(BOOKING_SUMMARIES).limit(1000).find({ suppressAuth: true });
     const allSummaries = summaryAllRes.items;
 
     const normalizedSummaries = [];

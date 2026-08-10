@@ -1123,7 +1123,7 @@ async function validatePromoCodeImpl(code, totalGuestNights) {
   }
   const now = new Date();
   try {
-    const res = await wixData.query('PromoCodes').limit(1000).find();
+    const res = await wixData.query('PromoCodes').limit(1000).find({ suppressAuth: true });
     let found = null;
     for (const item of res.items) {
       const itemTitle = item.title || item.Title || item.title_fld || '';
