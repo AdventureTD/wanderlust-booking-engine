@@ -1,6 +1,7 @@
 import { getActiveMessages } from 'backend/messages';
 import { searchAvailability, suggestAlternateDates } from 'backend/search';
-import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights, getPackagesByNights, packageExistsForNights } from 'backend/packages';
+import { getPackageAmenities, getPackagesByNights, packageExistsForNights } from 'backend/packages';
+import { priceStay } from 'backend/seasonal';
 import { getRoomNames } from 'backend/rooms';
 import { trackBeginBooking, captureClickIds, trackViewBookingSearch, trackRoomView, trackSearchNoResults, initTracking, setSuspendGoogleAds } from 'public/tracking';
 import { getAllSettings } from 'backend/settings';
@@ -10,9 +11,12 @@ import wixWindow from 'wix-window-frontend';
 let _selections = [];
 let _roomFeeMap = {};
 let _summaryNights = 0;
-let _cachedBaseRate = 0;
+let _cachedPerPersonStayTotal = 0;
+let _hasCachedStayPricing = false;
 let _availablePackages = [];
 let _selectedPackage = null;
+let _searchCheckIn = null;
+let _searchCheckOut = null;
 
 function clearSelections(silent) {
   _selections = [];
@@ -182,12 +186,13 @@ function updateSelectionPanel() {
     }
   }
 
-  // Calculate and display subTotalBooking: baseRate * nights * total guests.
+  // Calculate and display the seasonal-first, modifier-adjusted per-person stay
+  // total for every guest. Penthouse roomFee remains a per-room/night surcharge.
   // Also compute finalTotal = subTotalBooking + penthouseFee.
   let finalTotal = 0;
   if (summaryContainer) {
-    if (_selections.length > 0 && _summaryNights > 0 && _cachedBaseRate > 0) {
-      const subTotal = _cachedBaseRate * _summaryNights * totalGuests;
+    if (_selections.length > 0 && _summaryNights > 0 && _hasCachedStayPricing) {
+      const subTotal = _cachedPerPersonStayTotal * totalGuests;
       const subTotalEl = tryFind('subTotalBooking');
       if (subTotalEl) {
         subTotalEl.text = '$' + subTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -329,9 +334,7 @@ $w.onReady(async function () {
       }
       _summaryNights = nights;
 
-      const estValue = await ensureBaseRate(nights).then(function () {
-        return estimateSearchValue(nights);
-      });
+      const estValue = estimateSearchValue(nights);
       trackBeginBooking({
         checkIn: ci ? (ci.getMonth() + 1) + '/' + ci.getDate() + '/' + ci.getFullYear() : undefined,
         checkOut: co ? (co.getMonth() + 1) + '/' + co.getDate() + '/' + co.getFullYear() : undefined,
@@ -567,15 +570,10 @@ async function loadMessages() {
   } catch (e) {}
 }
 
-// Value estimate for audience tiering: 2 guests at the per-person package rate.
-async function ensureBaseRate(nights) {
-  if (_cachedBaseRate || !nights) return;
-  try { _cachedBaseRate = Number(await getPackageBaseRate(nights)) || 0; } catch (e) {}
-}
-
+// Value estimate for audience tiering: 2 guests at the effective per-person stay rate.
 function estimateSearchValue(nights) {
-  if (!nights || !_cachedBaseRate) return 0;
-  return Math.round(_cachedBaseRate * nights * 2 * 100) / 100;
+  if (!nights || !_hasCachedStayPricing) return undefined;
+  return Math.round(_cachedPerPersonStayTotal * 2 * 100) / 100;
 }
 
 async function searchHandler() {
@@ -603,7 +601,10 @@ async function searchHandler() {
 
   const computedNights = Math.round((coDate.getTime() - ciDate.getTime()) / 86400000);
   _summaryNights = computedNights;
-  await ensureBaseRate(computedNights);
+  _searchCheckIn = ciDate;
+  _searchCheckOut = coDate;
+  _cachedPerPersonStayTotal = 0;
+  _hasCachedStayPricing = false;
 
   // Validate that an adventure package is defined for this number of nights.
   const pkgExists = await packageExistsForNights(computedNights);
@@ -732,13 +733,36 @@ function loadPackageOptions(nights) {
   const pkgContainer = tryFind('packageContainer');
   if (!pkgContainer) return;
 
-  getPackagesByNights(nights).then(function (packages) {
+  getPackagesByNights(nights).then(async function (packages) {
     _availablePackages = packages || [];
     if (!_availablePackages.length) return;
 
+    // SeasonalRates is the first nightly-rate source. Packages.baseRate is passed
+    // as the fallback, and priceModifier applies to whichever source wins.
+    await Promise.all(_availablePackages.map(async function (pkg) {
+      try {
+        const priced = await priceStay(
+          'adventure_suite',
+          _searchCheckIn,
+          _searchCheckOut,
+          pkg.baseRate,
+          pkg.priceModifier
+        );
+        pkg.stayTotalPerPerson = Number(priced && priced.totalPerPerson) || 0;
+        pkg.averageNightlyRate = Number(priced && priced.averageNightlyRate) || 0;
+        pkg.pricingResolved = !!priced && Number.isFinite(Number(priced.totalPerPerson));
+      } catch (e) {
+        const modifier = Number(pkg.priceModifier) > 0 ? Number(pkg.priceModifier) : 1;
+        pkg.stayTotalPerPerson = Math.round(Number(pkg.baseRate || 0) * modifier * nights * 100) / 100;
+        pkg.averageNightlyRate = nights > 0 ? pkg.stayTotalPerPerson / nights : 0;
+        pkg.pricingResolved = true;
+      }
+    }));
+
     // Default to first package if none selected
     _selectedPackage = _availablePackages[0];
-    _cachedBaseRate = _selectedPackage.baseRate;
+    _cachedPerPersonStayTotal = _selectedPackage.stayTotalPerPerson || 0;
+    _hasCachedStayPricing = !!_selectedPackage.pricingResolved;
 
     // Legacy single-package elements
     const pkgName2 = tryFind('packageName2');
@@ -764,8 +788,8 @@ function loadPackageOptions(nights) {
           safeItem($item, '#specialtyTours', 'text', itemData.specialtyTours || '');
           const packagePriceEl = safeItem($item, '#packagePrice', null, null);
           if (packagePriceEl) {
-            const price = (Number(itemData.baseRate) || 0) * nights;
-            packagePriceEl.text = price > 0 ? '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '';
+            const price = Number(itemData.stayTotalPerPerson) || 0;
+            packagePriceEl.text = '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
           }
 
           // Ensure indicator starts hidden; shown only when row is selected.
@@ -777,7 +801,8 @@ function loadPackageOptions(nights) {
             // Use the original package object from _availablePackages so _id is preserved.
             const originalPkg = _availablePackages.find(function (p) { return p._id === itemData._id; }) || itemData;
             _selectedPackage = originalPkg;
-            _cachedBaseRate = originalPkg.baseRate;
+            _cachedPerPersonStayTotal = originalPkg.stayTotalPerPerson || 0;
+            _hasCachedStayPricing = !!originalPkg.pricingResolved;
             updateSelectionPanel();
             updatePackageNameField();
             updatePackageAmenitiesField();
@@ -808,7 +833,8 @@ function loadPackageOptions(nights) {
       // Determine which package should be selected by default.
       const defaultSelected = _availablePackages[0];
       _selectedPackage = defaultSelected;
-      _cachedBaseRate = defaultSelected.baseRate;
+      _cachedPerPersonStayTotal = defaultSelected.stayTotalPerPerson || 0;
+      _hasCachedStayPricing = !!defaultSelected.pricingResolved;
 
       // After data is set, show the indicator on the first/default package only.
       setTimeout(function () {
@@ -840,8 +866,8 @@ function loadPackageOptions(nights) {
 
     const packagePriceEl = tryFind('packagePrice');
     if (packagePriceEl) {
-      const packagePrice = _cachedBaseRate * nights;
-      if (packagePrice > 0) {
+      const packagePrice = _cachedPerPersonStayTotal;
+      if (_hasCachedStayPricing) {
         packagePriceEl.text = '$' + packagePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         if (typeof packagePriceEl.show === 'function') { try { packagePriceEl.show(); } catch (e) {} }
         if (typeof packagePriceEl.expand === 'function') { try { packagePriceEl.expand(); } catch (e) {} }

@@ -5,6 +5,7 @@ import { fetch } from 'wix-fetch';
 import { getSecret } from 'wix-secrets-backend';
 import { getAllSettings, incrementSetting } from 'backend/settings.web';
 import { adjustBookingConversion, isGoogleAdsSuspended } from 'backend/googleAdsConversions.web';
+import { resolvePerPersonStay, normalizePriceModifier, roundMoney } from 'backend/rateResolver';
 
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
@@ -112,19 +113,43 @@ function snakeCaseKeys(obj) {
   return obj;
 }
 
-async function getPackageRateForNights(nights) {
+async function getPackagePricingForBooking(packageId, nights) {
   const n = Number(nights);
-  if (!n || n <= 0) return 0;
-  try {
-    const res = await wixData.query('Packages').limit(100).find();
-    for (const item of res.items) {
-      const itemNights = item.numberOfNights || item.NumberOfNights || item.numberofnights || 0;
-      if (Number(itemNights) === n) {
-        return Number(item.baseRate) || 0;
-      }
+  if (!n || n <= 0) throw new Error('A positive stay length is required');
+
+  let item = null;
+  if (packageId) {
+    const selected = await wixData.query('Packages').eq('_id', packageId).limit(1).find();
+    item = selected.items[0] || null;
+    if (!item) throw new Error('Selected package was not found');
+    const itemNights = item.numberOfNights || item.NumberOfNights || item.numberofnights || 0;
+    if (Number(itemNights) !== n) {
+      throw new Error('Selected package does not match the requested stay length');
     }
-  } catch (e) {}
-  return 0;
+  } else {
+    const res = await wixData.query('Packages').limit(1000).find();
+    item = res.items.find(function (candidate) {
+      const itemNights = candidate.numberOfNights || candidate.NumberOfNights || candidate.numberofnights || 0;
+      return Number(itemNights) === n;
+    }) || null;
+  }
+
+  if (!item) throw new Error('No package exists for ' + n + ' nights');
+  const baseRate = Number(item.baseRate);
+  if (!Number.isFinite(baseRate) || baseRate < 0) throw new Error('Selected package has an invalid baseRate');
+  return {
+    _id: item._id,
+    title: item.title || item.title_fld || item.Title || item.name || item.Name || '',
+    baseRate,
+    priceModifier: normalizePriceModifier(item.priceModifier),
+  };
+}
+
+async function getAuthoritativeRoomFee(roomCode) {
+  if (roomCode !== 'penthouse_apartment') return 0;
+  const result = await wixData.query('Rooms').eq('roomCode', roomCode).limit(1).find();
+  const fee = Number(result.items[0] && result.items[0].roomFee);
+  return Number.isFinite(fee) && fee > 0 ? fee : 0;
 }
 
 async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoiceNumber, ownerOnly, payments, bookingNumber) {
@@ -691,20 +716,39 @@ async function createBookingImpl(booking) {
     console.log('>>> SERVER fallback bookingNumber:', bookingNumber);
   }
 
-  const promoDiscountRate = parseFloat(booking.promoDiscount) || 0;
-  const discountRatio = promoDiscountRate > 0 && promoDiscountRate < 1 ? (1 - promoDiscountRate) : 1;
-
   const nights = nightsBetween(checkIn, checkOut);
-  const packageBaseRate = await getPackageRateForNights(nights);
-  const roomFee = Number(booking.roomFee) || 0;
-  let computedRoomTotal = packageBaseRate * guests * nights + roomFee * nights;
-  if (Number(booking.roomTotal) > 0) {
-    computedRoomTotal = Number(booking.roomTotal);
+  const packagePricing = await getPackagePricingForBooking(booking.packageId || '', nights);
+  const stayPricing = await resolvePerPersonStay(
+    checkIn,
+    checkOut,
+    packagePricing.baseRate,
+    packagePricing.priceModifier
+  );
+  const roomFee = await getAuthoritativeRoomFee(roomCode);
+  const grossRoomTotal = roundMoney(
+    (stayPricing.totalPerPerson * guests * quantity) + (roomFee * nights * quantity)
+  );
+
+  let promoDiscountRate = 0;
+  let promoCode = '';
+  if (booking.promoCode && String(booking.promoCode).trim()) {
+    const promoResult = await validatePromoCodeImpl(String(booking.promoCode).trim(), nights);
+    if (!promoResult.valid) throw new Error(promoResult.reason || 'Invalid promo code');
+    promoDiscountRate = promoResult.discount;
+    promoCode = promoResult.code;
   }
-  const computedPropertyFee = Math.round(computedRoomTotal * 0.05 * 100) / 100;
-  const computedAccVat = Math.round(computedRoomTotal * 0.5 * 0.10 * 100) / 100;
-  const computedPkgVat = Math.round(computedRoomTotal * 0.5 * 0.15 * 100) / 100;
-  const computedGrandTotal = Math.round((computedRoomTotal + computedPropertyFee + computedAccVat + computedPkgVat) * 100) / 100;
+
+  // Promo applies to the entire booking subtotal before taxes and property fee.
+  const computedRoomTotal = roundMoney(grossRoomTotal * (1 - promoDiscountRate));
+  const settings = await getAllSettings();
+  const propertyFeeRate = parseFloat(settings.propertyFeeRate) || 0.05;
+  const accommodationShare = 0.5;
+  const taxRateAccommodation = parseFloat(settings.taxRate_accommodation) || 0.10;
+  const taxRateAdventure = parseFloat(settings.taxRate_standard) || 0.15;
+  const computedPropertyFee = roundMoney(computedRoomTotal * propertyFeeRate);
+  const computedAccVat = roundMoney(computedRoomTotal * accommodationShare * taxRateAccommodation);
+  const computedPkgVat = roundMoney(computedRoomTotal * (1 - accommodationShare) * taxRateAdventure);
+  const computedGrandTotal = roundMoney(computedRoomTotal + computedPropertyFee + computedAccVat + computedPkgVat);
 
   const toInsert = {
     roomCode: roomCode,
@@ -721,21 +765,17 @@ async function createBookingImpl(booking) {
   const inserted = await wixData.insert(BOOKINGS, toInsert);
   inserted.bookingNumber = bookingNumber || inserted.bookingNumber || '';
 
-  const packageTitle = booking.packageTitle || '';
+  const packageTitle = packagePricing.title || booking.packageTitle || '';
 
   const financials = {
-    roomTotal: Math.round(computedRoomTotal * discountRatio * 100) / 100,
-    propertyFee: Math.round(computedPropertyFee * discountRatio * 100) / 100,
-    accommodationVat: Math.round(computedAccVat * discountRatio * 100) / 100,
-    packageVat: Math.round(computedPkgVat * discountRatio * 100) / 100,
-    grandTotal: Math.round(computedGrandTotal * discountRatio * 100) / 100,
-    promoCode: booking.promoCode || '',
-    promoDiscountAmount: 0
+    roomTotal: computedRoomTotal,
+    propertyFee: computedPropertyFee,
+    accommodationVat: computedAccVat,
+    packageVat: computedPkgVat,
+    grandTotal: computedGrandTotal,
+    promoCode,
+    promoDiscountAmount: roundMoney(grossRoomTotal - computedRoomTotal)
   };
-  if (booking.promoCode && promoDiscountRate > 0 && promoDiscountRate < 1) {
-    const gross = Math.round(computedRoomTotal * 100) / 100;
-    financials.promoDiscountAmount = Math.round((gross - financials.roomTotal) * 100) / 100;
-  }
 
   try {
     await createDraftInvoice(inserted.bookingNumber, financials, checkIn, checkOut, packageTitle);
@@ -817,16 +857,20 @@ export const issueBookingInvoice = webMethod(
       }
     }
 
-    let packageTitle = '';
+    let packageTitle = summaryRow && summaryRow.packageTitle ? summaryRow.packageTitle : '';
     let includedAmenities = '';
     try {
       const nights = nightsBetween(checkInDate, checkOutDate);
       if (nights > 0) {
-        const pkgRes = await wixData.query('Packages').limit(100).find();
+        const pkgRes = await wixData.query('Packages').limit(1000).find();
         for (const pkg of pkgRes.items) {
           const itemNights = pkg.NumberOfNights || pkg.numberOfNights || pkg.numberofnights || 0;
-          if (Number(itemNights) === Number(nights)) {
-            packageTitle = pkg.title_fld || pkg.Title || pkg.title || pkg.name || pkg.Name || '';
+          const candidateTitle = pkg.title_fld || pkg.Title || pkg.title || pkg.name || pkg.Name || '';
+          const titleMatches = packageTitle
+            ? String(candidateTitle).trim() === String(packageTitle).trim()
+            : true;
+          if (Number(itemNights) === Number(nights) && titleMatches) {
+            if (!packageTitle) packageTitle = candidateTitle;
             includedAmenities = pkg.includedAmenities || '';
             break;
           }
@@ -1064,53 +1108,55 @@ export const unblock = webMethod(
   }
 );
 
+async function validatePromoCodeImpl(code, totalGuestNights) {
+  if (!code || !code.trim()) {
+    return { valid: false, reason: 'No promo code provided.' };
+  }
+  const now = new Date();
+  try {
+    const res = await wixData.query('PromoCodes').limit(1000).find();
+    let found = null;
+    for (const item of res.items) {
+      const itemTitle = item.title || item.Title || item.title_fld || '';
+      if (String(itemTitle).trim().toUpperCase() === String(code).trim().toUpperCase()) {
+        found = item;
+        break;
+      }
+    }
+    if (!found) {
+      return { valid: false, reason: 'Promo code not found.' };
+    }
+    const startDate = found.startDate ? new Date(found.startDate) : null;
+    const endDate = found.endDate ? new Date(found.endDate) : null;
+    if (startDate && now < startDate) {
+      return { valid: false, reason: 'Promo code is not yet active.' };
+    }
+    if (endDate) {
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      if (now > endOfDay) {
+        return { valid: false, reason: 'Promo code has expired.' };
+      }
+    }
+    const minimumNights = parseInt(found.minimumNights, 10) || 0;
+    if (minimumNights > 0 && (totalGuestNights || 0) < minimumNights) {
+      return { valid: false, reason: `Promo code requires a minimum of ${minimumNights} nights.` };
+    }
+
+    const discount = parseFloat(found.discount) || 0;
+    if (discount <= 0 || discount > 1) {
+      return { valid: false, reason: 'Invalid discount value.' };
+    }
+    const description = found.description || found.Description || found.desc || found.Desc || found.description_fld || '';
+    return { valid: true, code: String(code).trim(), discount, description };
+  } catch (e) {
+    return { valid: false, reason: 'Error validating promo code: ' + e.message };
+  }
+}
+
 export const validatePromoCode = webMethod(
   Permissions.Anyone,
-  async (code, totalGuestNights) => {
-    if (!code || !code.trim()) {
-      return { valid: false, reason: 'No promo code provided.' };
-    }
-    const now = new Date();
-    try {
-      const res = await wixData.query('PromoCodes').limit(1).find();
-      let found = null;
-      for (const item of res.items) {
-        const itemTitle = item.title || item.Title || item.title_fld || '';
-        if (String(itemTitle).trim().toUpperCase() === String(code).trim().toUpperCase()) {
-          found = item;
-          break;
-        }
-      }
-      if (!found) {
-        return { valid: false, reason: 'Promo code not found.' };
-      }
-      const startDate = found.startDate ? new Date(found.startDate) : null;
-      const endDate = found.endDate ? new Date(found.endDate) : null;
-      if (startDate && now < startDate) {
-        return { valid: false, reason: 'Promo code is not yet active.' };
-      }
-      if (endDate) {
-        const endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        if (now > endOfDay) {
-          return { valid: false, reason: 'Promo code has expired.' };
-        }
-      }
-      const minimumNights = parseInt(found.minimumNights, 10) || 0;
-      if (minimumNights > 0 && (totalGuestNights || 0) < minimumNights) {
-        return { valid: false, reason: `Promo code requires a minimum of ${minimumNights} nights.` };
-      }
-
-      const discount = parseFloat(found.discount) || 0;
-      if (discount <= 0 || discount > 1) {
-        return { valid: false, reason: 'Invalid discount value.' };
-      }
-      const description = found.description || found.Description || found.desc || found.Desc || found.description_fld || '';
-      return { valid: true, code: code, discount: discount, description: description };
-    } catch (e) {
-      return { valid: false, reason: 'Error validating promo code: ' + e.message };
-    }
-  }
+  validatePromoCodeImpl
 );
 
 export const blockAllRooms = webMethod(

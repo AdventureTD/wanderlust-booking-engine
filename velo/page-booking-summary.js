@@ -18,6 +18,7 @@ import wixData from 'wix-data';
 import { getAllSettings } from 'backend/settings';
 import { getRoomNames } from 'backend/rooms';
 import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights, getPackagesByNights } from 'backend/packages';
+import { priceStay } from 'backend/seasonal';
 import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
 import { trackPurchase, getStoredClickIds, clearClickIds, initTracking, setSuspendGoogleAds } from 'public/tracking';
 import { recordBookingConversion } from 'backend/googleAdsConversions.web';
@@ -177,6 +178,9 @@ let _promoDiscount = 0;   // e.g. 0.15
 let _promoCodeApplied = ''; // e.g. 'SAVE15'
 let _selectedPackageId = '';
 let _selectedPackageBaseRate = 0;
+let _selectedPackagePriceModifier = 1;
+let _selectedPackageStayTotal = 0;
+let _hasSelectedPackageStayTotal = false;
 let _selectedPackageTitle = '';
 
 $w.onReady(function () {
@@ -254,9 +258,8 @@ async function initSummary() {
   const feeMap = await fetchRoomFees(rooms.map(r => r.roomCode));
   for (let i = 0; i < rooms.length; i++) {
     const rc = rooms[i].roomCode;
-    if (!(rooms[i].roomFee > 0) && feeMap[rc] > 0) {
-      rooms[i].roomFee = feeMap[rc];
-    }
+    // roomFee is authoritative from Rooms and applies only to the Penthouse.
+    rooms[i].roomFee = rc === 'penthouse_apartment' ? (Number(feeMap[rc]) || 0) : 0;
   }
   console.log('[WBE] roomFee map from Rooms collection:', feeMap);
 
@@ -267,6 +270,9 @@ async function initSummary() {
 
   // Resolve selected package for this stay length.
   _selectedPackageBaseRate = 0;
+  _selectedPackagePriceModifier = 1;
+  _selectedPackageStayTotal = 0;
+  _hasSelectedPackageStayTotal = false;
   _selectedPackageTitle = '';
   _selectedPackageId = pkgParam || '';
   if (nights > 0) {
@@ -279,8 +285,18 @@ async function initSummary() {
           if (matched) pkg = matched;
         }
         _selectedPackageBaseRate = pkg.baseRate || 0;
+        _selectedPackagePriceModifier = Number(pkg.priceModifier) > 0 ? Number(pkg.priceModifier) : 1;
         _selectedPackageTitle = pkg.title || '';
         _selectedPackageId = pkg._id || '';
+        const priced = await priceStay(
+          'adventure_suite',
+          _summaryCis,
+          _summaryCos,
+          _selectedPackageBaseRate,
+          _selectedPackagePriceModifier
+        );
+        _selectedPackageStayTotal = Number(priced && priced.totalPerPerson) || 0;
+        _hasSelectedPackageStayTotal = !!priced && Number.isFinite(Number(priced.totalPerPerson));
       }
     } catch (e) {
       console.log('[WBE-SUMMARY] package resolution error:', e && e.message || e);
@@ -449,7 +465,7 @@ async function renderSummary() {
 
   const settings = _summarySettings;
   const propertyFeeRate = parseFloat(settings.propertyFeeRate) || 0.05;
-  const accommodationShare = parseFloat(settings.accommodationShare) || 0.5;
+  const accommodationShare = 0.5;
   const taxRateAccommodation = parseFloat(settings.taxRate_accommodation) || 0.10;
   const taxRateAdventure = parseFloat(settings.taxRate_standard) || 0.15;
 
@@ -458,7 +474,11 @@ async function renderSummary() {
   let totalGuests = 0;
 
   const packageBaseRate = _selectedPackageBaseRate || await getPackageBaseRate(nights);
-  const packageCost = Math.round(packageBaseRate * nights * 100) / 100;
+  const fallbackModifier = Number(_selectedPackagePriceModifier) > 0 ? Number(_selectedPackagePriceModifier) : 1;
+  const packageCost = _hasSelectedPackageStayTotal
+    ? _selectedPackageStayTotal
+    : Math.round(packageBaseRate * fallbackModifier * nights * 100) / 100;
+  const effectiveAverageNightlyRate = nights > 0 ? Math.round((packageCost / nights) * 100) / 100 : 0;
   safeText('packageCost', '$' + fmtCurrency(packageCost));
 
   let totalRoomFee = 0;
@@ -466,17 +486,17 @@ async function renderSummary() {
     const r = rooms[i];
     const roomMeta = _roomNames[r.roomCode]; const displayName = roomMeta && roomMeta.name ? roomMeta.name : (typeof roomMeta === 'string' && roomMeta !== r.roomCode ? roomMeta : getRoomDisplayName(r.roomCode));
     names.push(displayName + ' x' + r.qty);
-    const rate = packageBaseRate;
+    const rate = effectiveAverageNightlyRate;
     const numGuests = Math.max(1, parseInt(r.numGuests, 10) || 1);
     const lineGuests = numGuests * r.qty;
     totalGuests += lineGuests;
-    let roomFee = Number(r.roomFee) || 0;
-    if (!roomFee && roomMeta && typeof roomMeta === 'object' && (roomMeta.roomFee || 0) > 0) {
+    let roomFee = r.roomCode === 'penthouse_apartment' ? (Number(r.roomFee) || 0) : 0;
+    if (r.roomCode === 'penthouse_apartment' && !roomFee && roomMeta && typeof roomMeta === 'object' && (roomMeta.roomFee || 0) > 0) {
       roomFee = Number(roomMeta.roomFee);
     }
-    const additionalFee = roomFee > 0 ? Math.round(roomFee * nights * 100) / 100 : 0;
+    const additionalFee = roomFee > 0 ? Math.round(roomFee * nights * r.qty * 100) / 100 : 0;
     totalRoomFee += additionalFee;
-    const roomTotal = rate * numGuests * r.qty * nights + additionalFee;
+    const roomTotal = packageCost * numGuests * r.qty + additionalFee;
     r.roomFee = roomFee;
     subtotalNet += roomTotal;
     propertyFee += roomTotal * propertyFeeRate;
@@ -529,12 +549,12 @@ async function renderSummary() {
   const totalVat = vatAccommodation + vatAdventure;
   const grandTotal = subtotalNet + propertyFee + totalVat;
 
-  // promoAmount is calculated by matching promoCode against PromoCodes.title
-  // and multiplying the discount field by packageTotal.
+  // A valid promo discounts the entire pre-tax booking, including Penthouse
+  // roomFee, before VAT and property fee are calculated.
   const totalRoomFeeForDisplay = Math.round((subtotalNet - packageTotal) * 100) / 100;
   const preDiscountSubtotal = Math.round((packageTotal + totalRoomFeeForDisplay) * 100) / 100;
-  const promoAmount = _promoDiscount > 0 ? -Math.round(packageTotal * _promoDiscount * 100) / 100 : 0;
-  const packageSubtotalValue = Math.round((packageTotal + totalRoomFeeForDisplay + promoAmount) * 100) / 100;
+  const promoAmount = _promoDiscount > 0 ? -Math.round(preDiscountSubtotal * _promoDiscount * 100) / 100 : 0;
+  const packageSubtotalValue = Math.round((preDiscountSubtotal + promoAmount) * 100) / 100;
   const discountedSubtotal = packageSubtotalValue;
   const discountedAccNet = discountedSubtotal * accommodationShare;
   const discountedAdvNet = discountedSubtotal * (1 - accommodationShare);
@@ -781,6 +801,7 @@ function wireContinueButton() {
           promoCode: _promoCodeApplied,
           promoDiscount: _promoDiscount,
           msclkid: clickIds.msclkid,
+          packageId: _selectedPackageId || '',
           packageTitle: _selectedPackageTitle || ''
         };
         console.log('[WBE-FRONTEND] calling createBooking for first room:', payload0.roomCode);
@@ -829,6 +850,7 @@ function wireContinueButton() {
             promoCode: _promoCodeApplied,
             promoDiscount: _promoDiscount,
             msclkid: clickIds.msclkid,
+            packageId: _selectedPackageId || '',
             packageTitle: _selectedPackageTitle || ''
           };
           restPromises.push(

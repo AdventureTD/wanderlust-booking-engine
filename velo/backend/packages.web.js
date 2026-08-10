@@ -79,7 +79,9 @@ export const getPackageDetailsByNights = webMethod(
         const included = item.includedAmenities || item.IncludedAmenities || '';
         const specialtyTours = String(item.specialtyTours || item.SpecialtyTours || item.specialtytours || '');
         const baseRate = Number(item.baseRate) || 0;
-        return { title, includedAmenities: included, specialtyTours, baseRate };
+        const rawModifier = Number(item.priceModifier);
+        const priceModifier = Number.isFinite(rawModifier) && rawModifier > 0 ? rawModifier : 1;
+        return { _id: item._id, title, includedAmenities: included, specialtyTours, baseRate, priceModifier };
       }
     }
 
@@ -107,6 +109,9 @@ export const getPackagesByNights = webMethod(
           includedAmenities: item.includedAmenities || item.IncludedAmenities || '',
           specialtyTours: String(item.specialtyTours || item.SpecialtyTours || item.specialtytours || ''),
           baseRate: Number(item.baseRate) || 0,
+          priceModifier: Number.isFinite(Number(item.priceModifier)) && Number(item.priceModifier) > 0
+            ? Number(item.priceModifier)
+            : 1,
           nights: n
         });
       }

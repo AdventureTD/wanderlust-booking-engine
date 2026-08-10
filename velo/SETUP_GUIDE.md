@@ -47,29 +47,24 @@ Seed with these CONFIRMED values (owner 2026-06-01):
 | penthouse_apartment   | Penthouse Apartment   | 1     | 2             | 2            | 0             |
 | two_bedroom_apartment | Two-Bedroom Apartment | 1     | 3             | 4            | 396           |
 
-### Collection: `Packages.baseRate`  [NEW — 2026-06-03]
-Per-night Adventure Package rates that vary by length of stay.
-| Field     | Type   | Notes                                                |
-|-----------|--------|------------------------------------------------------|
-| roomCode  | Text   | which room type this rate applies to                 |
-| nights    | Number | length of stay in nights (e.g. 4, 5, 6, ...)        |
-| baseRate  | Number | per-night Adventure Package price (USD, VAT not incl.) |
+### Collection: `Packages`
+Adventure Package definitions and fallback per-person rates by length of stay.
+| Field           | Type   | Notes                                                |
+|-----------------|--------|------------------------------------------------------|
+| numberOfNights  | Number | exact length of stay this package supports           |
+| title           | Text   | package name shown to the guest and stored on booking |
+| baseRate        | Number | fallback USD rate per person, per night, before VAT  |
+| priceModifier   | Number | multiplier applied to seasonal or fallback rate; defaults to `1.00` when missing/invalid |
 
 Permissions: **Read = Anyone** (search needs to look up rates); Write = Admin only.
 
-**Exact match rule:** if a guest searches for a stay length that has no row for
-a room, that room does NOT appear in search results. Add rows for every stay
-length you want to support. Delete rows to stop accepting that length.
+**Exact match rule:** if a guest searches for a stay length with no matching
+`numberOfNights` row, the booking search is stopped. Multiple packages may use
+the same stay length; the selected package `_id` is authoritative through booking.
 
-Seed with initial rates (3 rooms × 7 night counts = 21 rows):
-| roomCode              | nights | baseRate |
-|-----------------------|--------|----------|
-| adventure_suite       | 4–10   | 792      |
-| penthouse_apartment   | 4–10   | 930      |
-| two_bedroom_apartment | 4–10   | 1188     |
-
-(That means 7 rows per room: one for 4, one for 5, ..., one for 10.)
-Edit rates per night count as needed — e.g. $750 for 7+ nights as a volume discount.
+Add a row for every package/stay-length combination you sell. SeasonalRates is
+checked first for each night; `baseRate` is used only when that night has no
+matching seasonal rule. `priceModifier` multiplies whichever source rate wins.
 
 OCCUPANCY RULES (enforced in code): each room has a MINIMUM = its base occupancy
 (no single-guest bookings) and a MAXIMUM. Adventure Suite & Penthouse: min 2 /
@@ -112,7 +107,7 @@ Editable business settings (key/value) the admin can change without code.
 | value | Number | the value                      |
 
 Seed rows:
-- key=`accommodationShare`, value=`0.5` — package split: what % is accommodation vs adventure.
+- The accommodation/adventure split is fixed in code at 50/50.
 - key=`propertyFeeRate`, value=`0.05` — 5% property fee on net package price.
 - key=`taxRate_accommodation`, value=`0.10` — VAT on room nights (10%).
 - key=`taxRate_standard`, value=`0.15` — VAT on adventure services / a la carte (15%).
@@ -134,26 +129,31 @@ Table-driven messages displayed on the guest booking page (promos, closure notic
 Permissions: Read = Anyone (guest page fetches active messages); Write = Admin.
 
 ### Collection: `SeasonalRates`
-Holds date-range pricing rules per room. Each row is one season/rule.
+Holds the shared date-range pricing calendar. Each row is one season/rule.
 | Field        | Type   | Notes                                            |
 |--------------|--------|--------------------------------------------------|
-| roomCode     | Text   | which room type this rule applies to             |
+| roomCode     | Text   | always `adventure_suite`; this one calendar is shared by all rooms |
 | name         | Text   | e.g. "High Season", "Christmas Week"             |
 | start        | Date   | first date of the rule (INCLUSIVE)               |
 | end          | Date   | last date of the rule (INCLUSIVE)                |
-| nightlyRate  | Number | USD per night during this rule                   |
+| nightlyRate  | Number | USD per person, per night, before priceModifier and VAT |
 | priority     | Number | higher wins when ranges overlap (e.g. holiday=100 over season=10) |
 
-How it works: for each night of a stay, the engine finds the matching rule
-with the HIGHEST priority; if none matches, it falls back to the room's
-`baseRate`. A stay that crosses a season boundary is priced night-by-night.
+How it works: for each night of a stay, the engine finds the matching shared
+rule with the HIGHEST priority; if none matches, it falls back to the selected
+package's `baseRate`. The selected package's `priceModifier` is then applied.
+A stay that crosses a season boundary is priced night-by-night.
 Example: a Dec 13–17 stay with a "High Season" rule starting Dec 15 prices
 2 nights at base + 2 nights at high season automatically.
-Leave `SeasonalRates` empty and every night just uses the room's baseRate.
+Leave `SeasonalRates` empty and every night uses the selected package's baseRate.
+Adventure Suite and Two-Bedroom use the adjusted per-person rate directly.
+Penthouse adds `Rooms.roomFee` once per Penthouse room, per night. A valid promo
+discounts the complete pre-tax subtotal before the fixed 50/50 VAT split and
+property fee are calculated.
 
 ### Collection permissions [IMPORTANT]
-- `Rooms`, `Packages.baseRate`, `AlaCarte`: **Read = Anyone** (so the booking page can
-  show them); Write = Admin only.
+- `Rooms`, `Packages`, `SeasonalRates`, `AlaCarte`: **Read = Anyone** (so the booking page can
+  resolve pricing); Write = Admin only.
 - `Bookings`: Read = Admin (privacy!); the backend web module inserts on the
   guest's behalf, so guests never get direct write access to the raw collection.
 
