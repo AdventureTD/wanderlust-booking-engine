@@ -1,0 +1,83 @@
+<!-- Microsoft Advertising UET + Wanderlust booking events
+     Wix: Settings -> Custom Code -> Head
+     Placement: All pages; load once
+     UET tag: 17524068 (Remarketing Tom 1) -->
+<script>
+  (function (w, d, t, src, queueName) {
+    var pendingEvents = [];
+    var uetReady = false;
+
+    function sendEvent(action, params) {
+      if (!uetReady) {
+        pendingEvents.push([action, params]);
+        return;
+      }
+      w[queueName].push('event', action, params);
+      console.log('[WBE-UET] UET event sent:', action, JSON.stringify(params));
+    }
+
+    // Receive booking-funnel events relayed by the wbeEventBridge HTML iframe.
+    // The Wix Velo page sandbox cannot safely access the parent page's uetq.
+    var eventToUet = {
+      view_booking_search: 'view_booking_search',
+      room_view: 'view_item',
+      begin_booking: 'begin_checkout',
+      search_no_results: 'search_no_results',
+      purchase: 'purchase'
+    };
+    w.addEventListener('message', function (event) {
+      var data = event && event.data;
+      if (!data || data.source !== 'wbe-event-bridge' || !data.payload) return;
+
+      var payload = data.payload;
+      if (!payload.event) return;
+
+      var action = eventToUet[payload.event] || payload.event;
+      var params = { page_path: w.location.pathname };
+      if (payload.value !== undefined && payload.value !== null) {
+        params.revenue_value = payload.value;
+      }
+      if (payload.currency) params.currency = payload.currency;
+      if (payload.transaction_id) params.transaction_id = payload.transaction_id;
+      if (payload.nights) params.nights = payload.nights;
+      if (payload.guests) params.guests = payload.guests;
+      if (payload.check_in) params.check_in = payload.check_in;
+      if (payload.check_out) params.check_out = payload.check_out;
+      if (payload.room_code) params.room_code = payload.room_code;
+      sendEvent(action, params);
+    });
+
+    w[queueName] = w[queueName] || [];
+    var loadTag = function () {
+      var options = {
+        ti: '17524068',
+        tm: 'wix_ui',
+        enableAutoSpaTracking: true
+      };
+      options.q = w[queueName];
+      w[queueName] = new UET(options);
+      w[queueName].push('pageLoad');
+      uetReady = true;
+
+      for (var i = 0; i < pendingEvents.length; i++) {
+        w[queueName].push('event', pendingEvents[i][0], pendingEvents[i][1]);
+        console.log('[WBE-UET] queued UET event sent:', pendingEvents[i][0], JSON.stringify(pendingEvents[i][1]));
+      }
+      pendingEvents = [];
+      console.log('[WBE-UET] tag initialized on:', w.location.pathname);
+    };
+
+    var script = d.createElement(t);
+    script.src = src;
+    script.async = true;
+    script.onload = script.onreadystatechange = function () {
+      var state = this.readyState;
+      if (!state || state === 'loaded' || state === 'complete') {
+        loadTag();
+        script.onload = script.onreadystatechange = null;
+      }
+    };
+    var firstScript = d.getElementsByTagName(t)[0];
+    firstScript.parentNode.insertBefore(script, firstScript);
+  })(window, document, 'script', 'https://bat.bing.com/bat.js', 'uetq');
+</script>
