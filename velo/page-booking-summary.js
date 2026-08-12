@@ -780,8 +780,11 @@ function wireContinueButton() {
     const phone = normalizePhone(safeVal('inputGuestPhone'));
     const dialingCode = safeVal('inputDialingCode').replace(/\D/g, '') || '1';
 
-    if (!name) { safeText('bookingStatus', 'Please enter your full name.'); return; }
-    if (!email || email.indexOf('@') < 0) { safeText('bookingStatus', 'Please enter a valid email address.'); return; }
+    if (!name || !email || !phone) {
+      safeText('bookingStatus', 'Please enter the required information to complete your booking');
+      return;
+    }
+    if (email.indexOf('@') < 0) { safeText('bookingStatus', 'Please enter a valid email address.'); return; }
 
     safeText('bookingStatus', 'Processing your booking...');
     safeDisable('btnContinue', true);
