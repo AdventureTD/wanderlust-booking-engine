@@ -19,7 +19,7 @@ In **Content Manager** (CMS) → Create Collection. Field names must match EXACT
 Full field lists are in `velo/SETUP_GUIDE.md`, `REPORTING.md`, `PAYMENTS.md`,
 `INVOICES.md`, `ROOM_PHOTOS.md`. Collections to create:
 - [ ] `Rooms` (incl. baseOccupancy, maxOccupancy,
-      extraGuestFee, photoGallery, mainPhoto) — seed the 3 rooms.
+      photoGallery, mainPhoto) — seed the 3 rooms.
       NOTE: baseRate is NO LONGER on Rooms (moved to Packages).
 - [ ] `Packages` (roomCode, nights, baseRate) — seed 21 rows
       (3 rooms × 7 night counts 4–10). Read=Anyone, Write=Admin.

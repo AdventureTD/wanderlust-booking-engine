@@ -32,7 +32,6 @@ case-sensitive).
 | units           | Number   | 3 / 1 / 1                              |
 | baseOccupancy   | Number   | guests included in base rate           |
 | maxOccupancy    | Number   | max guests the room sleeps             |
-| extraGuestFee   | Number   | per night, per guest beyond baseOccupancy (0 if none) |
 | description     | Text     |                                        |
 | photoGallery    | Media Gallery | Native Wix gallery — upload room photos here in the Content Manager |
 | mainPhoto       | Image    | Single hero/thumbnail image for list views |
@@ -41,11 +40,11 @@ case-sensitive).
 rates now live in the `Packages.baseRate` collection (below) and vary by length of stay.
 
 Seed with these CONFIRMED values (owner 2026-06-01):
-| roomCode              | name                  | units | baseOccupancy | maxOccupancy | extraGuestFee |
-|-----------------------|-----------------------|-------|---------------|--------------|---------------|
-| adventure_suite       | Adventure Suite       | 3     | 2             | 2            | 0             |
-| penthouse_apartment   | Penthouse Apartment   | 1     | 2             | 2            | 0             |
-| two_bedroom_apartment | Two-Bedroom Apartment | 1     | 3             | 4            | 396           |
+| roomCode              | name                  | units | baseOccupancy | maxOccupancy |
+|-----------------------|-----------------------|-------|---------------|--------------|
+| adventure_suite       | Adventure Suite       | 3     | 2             | 2            |
+| penthouse_apartment   | Penthouse Apartment   | 1     | 2             | 2            |
+| two_bedroom_apartment | Two-Bedroom Apartment | 1     | 3             | 4            |
 
 ### Collection: `Packages`
 Adventure Package definitions and fallback per-person rates by length of stay.
@@ -67,8 +66,10 @@ checked first for each night; `baseRate` is used only when that night has no
 matching seasonal rule. `priceModifier` multiplies whichever source rate wins.
 
 OCCUPANCY RULES (enforced in code): each room has a MINIMUM = its base occupancy
-(no single-guest bookings) and a MAXIMUM. Adventure Suite & Penthouse: min 2 /
-max 2. Two-Bedroom: min 3 / max 4 (the 4th guest is the +extraGuestFee add-on).
+and a MAXIMUM. Adventure Suite: min 2 / max 2. Penthouse: min 2 /
+max 2. Two-Bedroom: min 3 / max 4. Every guest is charged the same effective
+per-person nightly rate from the shared SeasonalRates calendar (with the
+selected package baseRate fallback and priceModifier when applicable).
 A booking for fewer than the base occupancy is rejected.
 
 ### Collection: `Bookings`

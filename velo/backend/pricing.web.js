@@ -18,34 +18,8 @@
  */
 
 import { Permissions, webMethod } from 'wix-web-module';
-import { round2, ROOM_DEFAULTS } from 'backend/wbeConfig';
+import { round2 } from 'backend/wbeConfig';
 import { getAllTaxRates } from 'backend/settings.web';
-
-/*
- * extraGuestLine(roomCode, nights, guests, roomRow)
- * Returns an accommodation line item for guests beyond base occupancy, or null.
- * Mirrors Python Quote._add_extra_guests. roomRow (from Rooms collection) wins
- * over ROOM_DEFAULTS so the owner's edited values are authoritative.
- */
-export function extraGuestLine(roomCode, nights, guests, roomRow) {
-  const cfg = roomRow || ROOM_DEFAULTS[roomCode];
-  if (!cfg || !guests) return null;
-  const maxOcc = cfg.maxOccupancy;
-  if (guests > maxOcc) {
-    throw new Error(`${roomCode} sleeps ${maxOcc}; requested ${guests}.`);
-  }
-  const extra = guests - cfg.baseOccupancy;
-  const fee = cfg.extraGuestFee || 0;
-  if (extra > 0 && fee > 0) {
-    return {
-      label: `Extra guest x${extra} (${nights} night(s) @ $${fee.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})})`,
-      taxClass: 'accommodation',
-      quantity: extra * nights,
-      unitPrice: fee,
-    };
-  }
-  return null;
-}
 
 function calcLine(qty, unitPrice, taxClass, rates, pricesIncludeVat) {
   const rate = rates[taxClass];

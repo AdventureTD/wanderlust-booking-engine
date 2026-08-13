@@ -31,7 +31,6 @@ function roomToView(room) {
     units: room.units,
     baseOccupancy: room.baseOccupancy,
     maxOccupancy: room.maxOccupancy,
-    extraGuestFee: room.extraGuestFee || 0,
     mainPhoto: room.mainPhoto || (gallery[0] && gallery[0].src) || null,
     photos: gallery.map((g) => ({
       src: g.src,
