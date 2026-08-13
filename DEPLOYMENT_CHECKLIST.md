@@ -50,7 +50,6 @@ and paste the contents from this repo's `velo/backend/`:
 || `wbeConfig.js`          | velo/backend/wbeConfig.js               |
 || `availability.web.js`   | velo/backend/availability.web.js        |
 || `seasonal.web.js`       | velo/backend/seasonal.web.js            |
-|| `pricing.web.js`        | velo/backend/pricing.web.js (old model) |
 || `roomPricing.web.js`    | velo/backend/roomPricing.web.js  (NEW)  |
 || `packagePricing.web.js` | velo/backend/packagePricing.web.js (NEW)|
 || `settings.web.js`       | velo/backend/settings.web.js            |

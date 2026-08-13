@@ -23,7 +23,7 @@ Admin-only functions (verified):
 
 Public (Anyone) — correct, guests need these:
 - searchAvailability, quotePackage, isAvailable, unitsAvailable, createBooking,
-  getRoomsWithPhotos/getRoomMedia/getRoomThumbnails, priceStay, buildQuote,
+  getRoomsWithPhotos/getRoomMedia/getRoomThumbnails, priceStay,
   getAccommodationShare (read-only).
 
 ### Layer 2 — Hidden, login-locked admin PAGE (you set this in the Wix Editor)

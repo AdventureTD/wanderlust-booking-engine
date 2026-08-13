@@ -71,7 +71,7 @@ backend/reporting.web.js provides:
 
 **Edit flow (recompute is mandatory so totals never go stale):**
 1. Admin edits the reservation (new dates / added room) on the page.
-2. Page rebuilds the quote via `pricing.web.js` buildQuote (+ seasonal/extra-guest),
+2. Backend rebuilds the quote from the current locked seasonal/package pricing,
    OR calls the external service `POST /recompute` with the new quote_breakdown.
 3. The recomputed report_record (new VAT/nets/grandTotal) is passed to
    `applyEditedReservation`. All taxes/totals are updated atomically.
@@ -86,8 +86,8 @@ writes here directly — the admin backend module does.
 `accommodationSaleNet` and `packageSaleNet` are the sale amounts BEFORE VAT
 (standard for sales reporting — sales reported separately from tax collected).
 `grandTotal = accommodationSaleNet + packageSaleNet + totalVat`, which equals
-the invoice total. accommodationSaleNet includes room nights AND extra-guest
-charges (both are 10%); packageSaleNet includes packages AND a la carte (15%).
+the invoice total. Each guest uses the same effective per-person nightly rate;
+packageSaleNet includes packages and a la carte items (15%).
 
 ## How a booking gets logged (data flow)
 1. Booking completes -> Velo calls the external invoice service.

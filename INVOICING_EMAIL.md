@@ -68,8 +68,8 @@ export const issueInvoice = webMethod(Permissions.Anyone, async (guest, quoteBre
   return res.json();   // { invoice_number, total, emailed, gmail_message_id }
 });
 ```
-The `quote_breakdown` is exactly what `pricing.web.js`'s `buildQuote` returns
-(same shape as the Python `Quote.breakdown()` the service expects).
+The active booking backend constructs `quote_breakdown` from the locked pricing
+quote and stored booking/invoice data before calling the invoice service.
 
 ## SECURITY NOTES
 - Never expose the service without the shared-secret check.

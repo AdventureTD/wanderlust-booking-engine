@@ -183,7 +183,6 @@ matching file contents from the `velo/backend/` folder in this repo:
 |-----------------------------|-------------------------------|
 | `wbeConfig.js`              | `velo/backend/wbeConfig.js`     |
 | `availability.web.js`       | `velo/backend/availability.web.js` |
-| `pricing.web.js`            | `velo/backend/pricing.web.js`   |
 | `seasonal.web.js`           | `velo/backend/seasonal.web.js`  |
 | `messages.web.js`           | `velo/backend/messages.web.js`  |
 
@@ -210,10 +209,10 @@ I can't see. When you're ready, do ONE of:
   (b) Tell me to propose a layout and I'll give you element-by-element
       instructions + the matching page code.
 
-The page code will simply call the backend, e.g.:
+The page code calls the booking and locked-pricing backends, e.g.:
 ```js
 import { isAvailable, createBooking } from 'backend/availability.web';
-import { buildQuote } from 'backend/pricing.web';
+import { createPricingQuote } from 'backend/pricingQuotes.web';
 ```
 
 ---

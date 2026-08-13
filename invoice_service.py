@@ -135,9 +135,9 @@ def send_cancellation_email(req: CancellationEmailRequest,
 
 class RecomputeRequest(BaseModel):
     """Recompute totals for an edited reservation. The caller (Velo) sends the
-    full current quote_breakdown (rebuilt from the edited rooms/packages via
-    pricing.web.js's buildQuote) plus guest + dates; we return a fresh report
-    record. No email, no new invoice number — keeps the existing invoice #."""
+    full current quote_breakdown rebuilt from the active locked-pricing flow,
+    plus guest + dates; we return a fresh report record. No email, no new
+    invoice number — keeps the existing invoice #."""
     guest: GuestIn
     quote_breakdown: dict
     invoice_number: str
