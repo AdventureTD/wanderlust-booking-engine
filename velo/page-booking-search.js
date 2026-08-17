@@ -73,10 +73,29 @@ function hideElement(el, name) {
     return false;
   }
 }
+
+function hasSearchResultRows(resultCount) {
+  return Number(resultCount) > 0;
+}
+
+function roomSelectionRequiredMessage(selections) {
+  return Array.isArray(selections) && selections.length > 0
+    ? ''
+    : 'Please select one or more rooms to continue booking.';
+}
+
+function syncSummaryButtonWithResults(resultCount) {
+  const btnSummary = tryFind('btnSummary');
+  if (hasSearchResultRows(resultCount)) {
+    showElement(btnSummary, 'btnSummary');
+  } else {
+    hideElement(btnSummary, 'btnSummary');
+  }
+}
+
 function updateSelectionPanel() {
   const panel = tryFind('selectionPanel');
   const container = tryFind('selectedRoomsContainer');
-  const btnSummary = tryFind('btnSummary');
   const box3 = tryFind('box3');
   const summaryContainer = tryFind('bookingSummaryContainer');
   const selection = tryFind('selection');
@@ -85,7 +104,6 @@ function updateSelectionPanel() {
   console.log('>>> updateSelectionPanel elements:', {
     panel: !!panel,
     container: !!container,
-    btnSummary: !!btnSummary,
     box3: !!box3,
     summaryContainer: !!summaryContainer,
     selection: !!selection,
@@ -98,7 +116,6 @@ function updateSelectionPanel() {
     hideElement(panel, 'selectionPanel');
     if (container) { container.text = ''; }
     hideElement(container, 'selectedRoomsContainer');
-    hideElement(btnSummary, 'btnSummary');
     hideElement(box3, 'box3');
     hideElement(summaryContainer, 'bookingSummaryContainer');
     hideElement(selection, 'selection');
@@ -146,7 +163,6 @@ function updateSelectionPanel() {
   showElement(jpegBackground, 'jpegBackground');
   showElement(panel, 'selectionPanel');
   showElement(container, 'selectedRoomsContainer');
-  showElement(btnSummary, 'btnSummary');
 
   // Update total guest count text in booking summary container.
   const numTotalGuestsEl = tryFind('numTotalGuests');
@@ -370,8 +386,9 @@ $w.onReady(async function () {
     if (typeof summaryBtn.link === 'string') summaryBtn.link = '';
     summaryBtn.onClick(() => {
       console.log('>>> btnSummary clicked');
-      if (_selections.length === 0) {
-        safeText('Please select a room below.');
+      const selectionMessage = roomSelectionRequiredMessage(_selections);
+      if (selectionMessage) {
+        safeText(selectionMessage);
         console.log('>>> Summary blocked: no room selected');
         return;
       }
@@ -583,6 +600,7 @@ function estimateSearchValue(nights) {
 }
 
 async function searchHandler() {
+  syncSummaryButtonWithResults(0);
   const gallery = tryFind('hotelRoomPhotos');
   if (gallery && typeof gallery.collapse === 'function') { try { gallery.collapse(); } catch (e) {} }
 
@@ -669,6 +687,7 @@ async function searchHandler() {
     }
     if (availableData.length === 0) {
       rep.data = repData;
+      syncSummaryButtonWithResults(repData.length);
       clearSelections(true);
       updateSelectionPanel();
       hideSearchHeader();
@@ -687,6 +706,7 @@ async function searchHandler() {
     showSearchHeader(ciDate, coDate, computedNights);
     if (rep) { try { rep.show(); } catch (e) {} try { rep.expand(); } catch (e) {} }
     rep.data = repData;
+    syncSummaryButtonWithResults(repData.length);
     loadPackageInfo(res.requestedNights);
 
     // Show package column labels above the repeater.
