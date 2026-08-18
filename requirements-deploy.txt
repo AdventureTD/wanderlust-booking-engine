@@ -1,6 +1,9 @@
 fastapi[standard]>=0.110
 pydantic>=2.0
 reportlab>=4.0
+docxtpl>=0.20.2
+python-docx>=1.2.0
+Jinja2>=3.1
 uvicorn[standard]>=0.25
 gunicorn>=21.0
 google-auth>=2.0

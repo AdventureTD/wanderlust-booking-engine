@@ -13,6 +13,7 @@ const BOOKING_PAYMENTS = 'BookingPayments';
 const BOOKING_INVOICES = 'BookingInvoices';
 const INVOICE_SERVICE_URL_KEY = 'WBE_INVOICE_SERVICE_URL';
 const SHARED_SECRET_KEY = 'WBE_SHARED_SECRET';
+const MAX_PAYMENT_RECORDS_PER_BOOKING = 4;
 
 // Permissions.Admin on the webMethod restricts calls to signed-in members with
 // admin privileges. This adds an explicit role check as a second layer.
@@ -31,6 +32,21 @@ async function requireAdmin() {
 function money(n) {
   const v = Number(n);
   return isNaN(v) ? 0 : Math.round(v * 100) / 100;
+}
+
+function paymentRecordLimitReached(paymentRows) {
+  return (paymentRows || []).length >= MAX_PAYMENT_RECORDS_PER_BOOKING;
+}
+
+async function ensurePaymentRecordCapacity(bookingNumber) {
+  const existing = await wixData.query(BOOKING_PAYMENTS)
+    .eq('bookingNumber', bookingNumber)
+    .limit(MAX_PAYMENT_RECORDS_PER_BOOKING + 1)
+    .find();
+  if (paymentRecordLimitReached(existing.items)) {
+    return 'A booking can contain a maximum of ' + MAX_PAYMENT_RECORDS_PER_BOOKING + ' payment or refund records.';
+  }
+  return '';
 }
 
 function normalizeDate(v) {
@@ -500,6 +516,9 @@ export const adminRecordPayment = webMethod(
       .eq('bookingNumber', bookingNumber).limit(1).find();
     if (!sRes.items.length) return { ok: false, error: 'BookingSummary not found' };
 
+    const capacityError = await ensurePaymentRecordCapacity(bookingNumber);
+    if (capacityError) return { ok: false, error: capacityError };
+
     const warn = await overpaymentWarning(sRes.items[0], amt);
     const paymentId = await nextPaymentId();
     await wixData.insert(BOOKING_PAYMENTS, {
@@ -526,6 +545,9 @@ export const adminRecordRefund = webMethod(
     const sRes = await wixData.query(BOOKING_SUMMARIES)
       .eq('bookingNumber', bookingNumber).limit(1).find();
     if (!sRes.items.length) return { ok: false, error: 'BookingSummary not found' };
+
+    const capacityError = await ensurePaymentRecordCapacity(bookingNumber);
+    if (capacityError) return { ok: false, error: capacityError };
 
     const warn = await overRefundWarning(sRes.items[0], amt);
     const paymentId = await nextPaymentId();

@@ -30,7 +30,7 @@ from pydantic import BaseModel
 from starlette.responses import FileResponse
 
 from booking_engine.invoice import Guest, Invoice
-from booking_engine.invoice_pdf import render_invoice_pdf
+from booking_engine.invoice_renderer import render_invoice_pdf_for_service
 from booking_engine.invoice_number import next_invoice_number
 from booking_engine.report import build_report_record
 from booking_engine import gmail_sender
@@ -206,7 +206,8 @@ async def issue_invoice(req: IssueRequest, background_tasks: BackgroundTasks, x_
 
     # Generate the PDF to a temp file.
     pdf_path = os.path.join(tempfile.gettempdir(), f"{invoice_number}.pdf")
-    render_invoice_pdf(inv, pdf_path)
+    renderer_used = render_invoice_pdf_for_service(inv, pdf_path)
+    print(f"[WBE-INVOICE] Generated {invoice_number} with renderer={renderer_used}")
 
     # Build a download URL served by this Render service.
     base_url = os.environ.get("RENDER_EXTERNAL_URL", "https://wanderlust-invoice-service.onrender.com")
@@ -216,6 +217,7 @@ async def issue_invoice(req: IssueRequest, background_tasks: BackgroundTasks, x_
               "total": inv.total, "pdf_path": pdf_path, "emailed": False,
               "pdf_filename": f"{invoice_number}.pdf",
               "invoice_url": invoice_url,
+              "renderer": renderer_used,
               "issue_date": issue.isoformat(),
               "report_record": report.to_dict()}
 

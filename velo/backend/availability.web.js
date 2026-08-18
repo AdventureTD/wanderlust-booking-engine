@@ -13,6 +13,7 @@ const BOOKING_SUMMARIES = 'BookingSummary';
 const BOOKING_INVOICES = 'BookingInvoices';
 const INVOICE_SERVICE_URL_KEY = 'WBE_INVOICE_SERVICE_URL';
 const SHARED_SECRET_KEY = 'WBE_SHARED_SECRET';
+const MAX_ROOMS_PER_BOOKING = 5;
 
 const ROOM_UNITS = {
   adventure_suite: 3,
@@ -40,6 +41,18 @@ const ROOM_DISPLAY_NAMES = {
 
 function getRoomDisplayName(roomCode) {
   return ROOM_DISPLAY_NAMES[roomCode] || (roomCode || '').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
+
+function activeRoomQuantity(rows) {
+  return (rows || []).reduce(function (total, row) {
+    const status = String(row && row.status || '').toLowerCase().trim();
+    if (status === 'cancelled' || status === 'canceled') return total;
+    return total + Math.max(0, Number(row && row.quantity) || 0);
+  }, 0);
+}
+
+function wouldExceedBookingRoomLimit(existingRows, additionalQuantity) {
+  return activeRoomQuantity(existingRows) + Math.max(0, Number(additionalQuantity) || 0) > MAX_ROOMS_PER_BOOKING;
 }
 
 async function getNextBookingNumber() {
@@ -715,6 +728,14 @@ async function createBookingImpl(booking) {
   if (!bookingNumber) {
     bookingNumber = 'WC-' + Date.now();
     console.log('>>> SERVER fallback bookingNumber:', bookingNumber);
+  }
+
+  const bookingRoomRows = await wixData.query(BOOKINGS)
+    .eq('bookingNumber', bookingNumber)
+    .limit(100)
+    .find({ suppressAuth: true });
+  if (wouldExceedBookingRoomLimit(bookingRoomRows.items, quantity)) {
+    throw new Error('A booking can contain a maximum of ' + MAX_ROOMS_PER_BOOKING + ' rooms.');
   }
 
   const nights = nightsBetween(checkIn, checkOut);

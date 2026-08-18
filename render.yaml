@@ -6,10 +6,9 @@
 services:
   - type: web
     name: wanderlust-invoice-service
-    runtime: python
+    runtime: docker
     rootDir: .
-    buildCommand: pip install -r requirements-deploy.txt
-    startCommand: bash start.sh
+    dockerfilePath: ./Dockerfile
     plan: free
     envVars:
       - key: PYTHONPATH

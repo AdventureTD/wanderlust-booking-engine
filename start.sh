@@ -19,11 +19,11 @@ if [ -n "$GMAIL_TOKEN_B64" ]; then
   echo "Gmail token loaded from env."
 fi
 
-# PORT is injected by Render automatically.
-# Use 2 workers (free tier has limited RAM).
+# PORT is injected by Render automatically. LibreOffice conversion is memory
+# intensive, so default to one web worker on the free Render service.
 exec gunicorn \
   -k uvicorn.workers.UvicornWorker \
-  -w 2 \
+  -w "${WEB_CONCURRENCY:-1}" \
   --bind "0.0.0.0:$PORT" \
   --timeout 60 \
   --access-logfile - \
