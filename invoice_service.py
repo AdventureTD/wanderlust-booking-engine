@@ -31,6 +31,7 @@ from starlette.responses import FileResponse
 
 from booking_engine.invoice import Guest, Invoice
 from booking_engine.invoice_renderer import render_invoice_pdf_for_service
+from booking_engine.invoice_word import DEFAULT_TEMPLATE_PATH, find_libreoffice
 from booking_engine.invoice_number import next_invoice_number
 from booking_engine.report import build_report_record
 from booking_engine import gmail_sender
@@ -98,7 +99,13 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "invoice_renderer": os.environ.get("WBE_INVOICE_RENDERER", "word"),
+        "libreoffice_available": bool(find_libreoffice()),
+        "word_template_available": DEFAULT_TEMPLATE_PATH.exists(),
+        "git_commit": os.environ.get("RENDER_GIT_COMMIT", ""),
+    }
 
 
 class CancellationEmailRequest(BaseModel):
