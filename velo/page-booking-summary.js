@@ -1012,24 +1012,29 @@ function wireContinueButton() {
             });
         }
 
-        // Start invoice/calendar creation in the background so the redirect is not blocked.
-        const invoicePromise = issueBookingInvoice(sharedBookingNumber)
-          .then(function (invResult) {
-            console.log('[WBE-FRONTEND] Invoice service response:', JSON.stringify(invResult));
-            if (invResult && invResult._calendar_debug && !invResult._calendar_debug.ok) {
-              console.warn('[WBE-FRONTEND] Calendar event NOT created:', invResult._calendar_debug);
-            }
-            return invResult;
-          })
-          .catch(function (e) {
-            console.error('[WBE-FRONTEND] Invoice generation failed:', e.message);
-          });
-        // Race the invoice call against a short timer — redirect after max 1.5s.
-        Promise.race([invoicePromise, new Promise(function (resolve) { setTimeout(resolve, 1500); })])
-          .finally(function () {
-            console.log('[WBE-FRONTEND] redirecting to home');
-            wixLocation.to('https://www.wanderlustcaribbean.com');
-          });
+        // Complete invoice creation before leaving the page. Navigating away while
+        // this web-method request is pending can cancel it and leave a confirmed
+        // booking without an invoice email.
+        safeText('bookingStatus', 'Booking confirmed! Preparing your invoice...');
+        try {
+          const invResult = await issueBookingInvoice(sharedBookingNumber, false);
+          console.log('[WBE-FRONTEND] Invoice service response:', JSON.stringify(invResult));
+          if (!invResult || (invResult.emailed !== 'scheduled' && invResult.emailed !== 'sent')) {
+            throw new Error('The invoice service did not confirm email scheduling.');
+          }
+          if (invResult._calendar_debug && !invResult._calendar_debug.ok) {
+            console.warn('[WBE-FRONTEND] Calendar event NOT created:', invResult._calendar_debug);
+          }
+          safeText('bookingStatus', 'Booking confirmed! Your invoice is being emailed. Taking you home...');
+          console.log('[WBE-FRONTEND] invoice accepted; redirecting to home');
+          wixLocation.to('https://www.wanderlustcaribbean.com');
+        } catch (invoiceError) {
+          console.error('[WBE-FRONTEND] Invoice generation failed:', invoiceError && invoiceError.message || invoiceError);
+          safeText(
+            'bookingStatus',
+            'Your booking is confirmed, but the invoice email could not be sent. Please contact info@wanderlustcaribbean.com.'
+          );
+        }
       } else {
         safeText('bookingStatus', 'Booking confirmed! Taking you home...');
         wixLocation.to('https://www.wanderlustcaribbean.com');
