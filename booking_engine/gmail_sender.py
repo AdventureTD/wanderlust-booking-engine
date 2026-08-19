@@ -66,7 +66,7 @@ def build_invoice_email(to_email: str, guest_name: str, invoice_number: str,
 
     with open(pdf_path, "rb") as f:
         pdf_bytes = f.read()
-    fname = os.path.basename(pdf_path)
+    fname = f"Wanderlust Caribbean Invoice - {invoice_number}.pdf"
     msg.add_attachment(pdf_bytes, maintype="application", subtype="pdf",
                        filename=fname)
     return msg
