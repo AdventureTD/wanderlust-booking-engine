@@ -1019,7 +1019,7 @@ function wireContinueButton() {
         try {
           const invResult = await issueBookingInvoice(sharedBookingNumber, false);
           console.log('[WBE-FRONTEND] Invoice service response:', JSON.stringify(invResult));
-          if (!invResult || (invResult.emailed !== 'scheduled' && invResult.emailed !== 'sent')) {
+          if (!invoiceEmailWasAccepted(invResult)) {
             throw new Error('The invoice service did not confirm email scheduling.');
           }
           if (invResult._calendar_debug && !invResult._calendar_debug.ok) {
@@ -1045,6 +1045,15 @@ function wireContinueButton() {
       safeDisable('btnContinue', false);
     }
   });
+}
+
+function invoiceEmailWasAccepted(invResult) {
+  if (!invResult || invResult.emailed === false) return false;
+  if (invResult.emailed === 'scheduled' || invResult.emailed === 'sent') return true;
+  // Backward compatibility for the live Wix backend response used before the
+  // `emailed` field was returned. Invoice number + URL are only returned after
+  // Render accepts and generates the invoice request.
+  return !!(invResult.invoice_number && invResult.invoice_url);
 }
 
 function normalizePhone(raw) {
