@@ -35,9 +35,13 @@ export function hashName(name) {
 }
 
 export function buildUserIdentifiers(pii) {
-  console.log('[WBE-HASH] buildUserIdentifiers called v3-data-manager-rest:', JSON.stringify(pii));
-  const identifiers = [];
   pii = pii || {};
+  console.log('[WBE-HASH] buildUserIdentifiers v4-canonical-rest:', JSON.stringify({
+    hasEmail: !!pii.email,
+    hasPhone: !!pii.phone,
+    hasCompleteAddress: !!(pii.firstName && pii.lastName && pii.postalCode && pii.countryCode)
+  }));
+  const identifiers = [];
 
   // Data Manager REST UserIdentifier fields are camelCase. The legacy Google
   // Ads API names (hashed_email, hashed_phone_number, address_info) are not
@@ -64,6 +68,8 @@ export function buildUserIdentifiers(pii) {
       }
     });
   }
-  console.log('[WBE-HASH] identifiers result v3:', JSON.stringify(identifiers));
+  console.log('[WBE-HASH] identifier types v4:', identifiers.map(function (identifier) {
+    return Object.keys(identifier)[0] || 'unknown';
+  }).join(','));
   return identifiers;
 }

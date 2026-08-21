@@ -164,29 +164,29 @@ async function buildIngestPayload(booking) {
   });
 
   const event = {
-    transaction_id: booking.transactionId,
-    event_timestamp: toGoogleTimestamp(booking.conversionTime),
-    event_name: 'purchase',
-    conversion_value: Number(booking.value || 0),
+    transactionId: booking.transactionId,
+    eventTimestamp: toGoogleTimestamp(booking.conversionTime),
+    eventName: 'purchase',
+    conversionValue: Number(booking.value || 0),
     currency: booking.currency || 'USD',
-    event_source: 'WEB'
+    eventSource: 'WEB'
   };
 
   if (Object.keys(adIds).length > 0) {
-    event.ad_identifiers = adIds;
+    event.adIdentifiers = adIds;
   }
 
   if (userIds.length > 0) {
-    event.user_data = { user_identifiers: userIds };
+    event.userData = { userIdentifiers: userIds };
   }
 
   return {
     destinations: [{
-      operating_account: {
-        account_type: 'GOOGLE_ADS',
-        account_id: customerId
+      operatingAccount: {
+        accountType: 'GOOGLE_ADS',
+        accountId: customerId
       },
-      product_destination_id: conversionActionId
+      productDestinationId: conversionActionId
     }],
     encoding: 'HEX',
     events: [event]
@@ -203,12 +203,12 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
   });
 
   const event = {
-    transaction_id: booking.transactionId,
-    event_timestamp: toGoogleTimestamp(booking.originalEvent && booking.originalEvent.conversionTime),
-    event_name: adjustmentType === 'RETRACTION' ? 'purchase_retraction' : 'purchase_adjustment',
-    conversion_value: adjustmentType === 'RETRACTION' ? 0 : Number(booking.value || 0),
+    transactionId: booking.transactionId,
+    eventTimestamp: toGoogleTimestamp(booking.originalEvent && booking.originalEvent.conversionTime),
+    eventName: adjustmentType === 'RETRACTION' ? 'purchase_retraction' : 'purchase_adjustment',
+    conversionValue: adjustmentType === 'RETRACTION' ? 0 : Number(booking.value || 0),
     currency: booking.currency || 'USD',
-    event_source: 'WEB'
+    eventSource: 'WEB'
   };
 
   const adjAdIds = stripEmpty({
@@ -217,20 +217,20 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
     wbraid: booking.wbraid
   });
   if (Object.keys(adjAdIds).length > 0) {
-    event.ad_identifiers = adjAdIds;
+    event.adIdentifiers = adjAdIds;
   }
 
   if (userIds.length > 0) {
-    event.user_data = { user_identifiers: userIds };
+    event.userData = { userIdentifiers: userIds };
   }
 
   return {
     destinations: [{
-      operating_account: {
-        account_type: 'GOOGLE_ADS',
-        account_id: customerId
+      operatingAccount: {
+        accountType: 'GOOGLE_ADS',
+        accountId: customerId
       },
-      product_destination_id: conversionActionId
+      productDestinationId: conversionActionId
     }],
     encoding: 'HEX',
     events: [event]
@@ -249,7 +249,6 @@ function validateBooking(b) {
 
 function toGoogleTimestamp(iso) {
   const d = iso ? new Date(iso) : new Date();
-  const seconds = Math.floor(d.getTime() / 1000);
-  const nanos = (d.getTime() % 1000) * 1000000;
-  return { seconds: String(seconds), nanos: nanos };
+  if (isNaN(d.getTime())) { throw new Error('Invalid conversion timestamp'); }
+  return d.toISOString();
 }
