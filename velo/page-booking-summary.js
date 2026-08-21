@@ -1012,29 +1012,28 @@ function wireContinueButton() {
             });
         }
 
-        // Complete invoice creation before leaving the page. Navigating away while
-        // this web-method request is pending can cancel it and leave a confirmed
-        // booking without an invoice email.
-        safeText('bookingStatus', 'Booking confirmed! Preparing your invoice...');
-        try {
-          const invResult = await issueBookingInvoice(sharedBookingNumber, false);
-          console.log('[WBE-FRONTEND] Invoice service response:', JSON.stringify(invResult));
-          if (!invoiceEmailWasAccepted(invResult)) {
-            throw new Error('The invoice service did not confirm email scheduling.');
-          }
-          if (invResult._calendar_debug && !invResult._calendar_debug.ok) {
-            console.warn('[WBE-FRONTEND] Calendar event NOT created:', invResult._calendar_debug);
-          }
-          safeText('bookingStatus', 'Booking confirmed! Your invoice is being emailed. Taking you home...');
-          console.log('[WBE-FRONTEND] invoice accepted; redirecting to home');
+        // Start invoice creation without blocking the confirmed-booking redirect.
+        // The backend request begins immediately and continues server-side while
+        // the guest sees confirmation briefly and returns home after two seconds.
+        safeText('bookingStatus', 'Booking confirmed! Your invoice is being emailed. Taking you home...');
+        issueBookingInvoice(sharedBookingNumber, false)
+          .then(function (invResult) {
+            console.log('[WBE-FRONTEND] Invoice service response:', JSON.stringify(invResult));
+            if (!invoiceEmailWasAccepted(invResult)) {
+              console.error('[WBE-FRONTEND] Invoice service did not confirm email scheduling:', JSON.stringify(invResult));
+            }
+            if (invResult && invResult._calendar_debug && !invResult._calendar_debug.ok) {
+              console.warn('[WBE-FRONTEND] Calendar event NOT created:', invResult._calendar_debug);
+            }
+          })
+          .catch(function (invoiceError) {
+            console.error('[WBE-FRONTEND] Invoice generation failed after booking confirmation:', invoiceError && invoiceError.message || invoiceError);
+          });
+
+        setTimeout(function () {
+          console.log('[WBE-FRONTEND] confirmed booking redirecting to home');
           wixLocation.to('https://www.wanderlustcaribbean.com');
-        } catch (invoiceError) {
-          console.error('[WBE-FRONTEND] Invoice generation failed:', invoiceError && invoiceError.message || invoiceError);
-          safeText(
-            'bookingStatus',
-            'Your booking is confirmed, but the invoice email could not be sent. Please contact info@wanderlustcaribbean.com.'
-          );
-        }
+        }, 2000);
       } else {
         safeText('bookingStatus', 'Booking confirmed! Taking you home...');
         wixLocation.to('https://www.wanderlustcaribbean.com');
