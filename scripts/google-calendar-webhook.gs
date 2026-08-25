@@ -21,6 +21,29 @@
 
 var CALENDAR_SECRET = 'DominicaBooking';
 
+// Parse an ISO calendar date as local midnight. JavaScript treats
+// new Date('YYYY-MM-DD') as UTC, which shifts it to the previous day in
+// Dominica (GMT-04). Google Calendar all-day event end dates are exclusive.
+function parseLocalCalendarDate(value) {
+  var parts = String(value || '').substring(0, 10).split('-');
+  if (parts.length !== 3) {
+    throw new Error('Invalid calendar date: ' + value);
+  }
+
+  var year = Number(parts[0]);
+  var month = Number(parts[1]);
+  var day = Number(parts[2]);
+  var parsed = new Date(year, month - 1, day);
+
+  if (!year || !month || !day ||
+      parsed.getFullYear() !== year ||
+      parsed.getMonth() !== month - 1 ||
+      parsed.getDate() !== day) {
+    throw new Error('Invalid calendar date: ' + value);
+  }
+  return parsed;
+}
+
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
@@ -31,8 +54,8 @@ function doPost(e) {
 
     var calendar = CalendarApp.getDefaultCalendar();
 
-    var startDate = new Date(data.startDate);
-    var endDate = new Date(data.endDate);
+    var startDate = parseLocalCalendarDate(data.startDate);
+    var endDate = parseLocalCalendarDate(data.endDate);
 
     var eventSummary = data.summary || 'Wanderlust Booking';
     var eventDescription = data.description || '';
