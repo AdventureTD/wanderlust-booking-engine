@@ -902,7 +902,8 @@ function wireContinueButton() {
       if (sharedBookingNumber) {
         safeText('bookingStatus', 'Booking confirmed! Taking you home...');
 
-        const grandTotalText = safeTextRead('grandTotalText').replace(/[^0-9.]/g, '') || '0';
+        const grandTotalText = (safeTextRead('grandTotal') || safeTextRead('grandTotal1') || safeTextRead('grandTotalText'))
+          .replace(/[^0-9.]/g, '') || '0';
         const grandTotal = parseFloat(grandTotalText) || 0;
 
         console.log('[WBE-FRONTEND] stored click attribution:', JSON.stringify(clickIds));
