@@ -28,6 +28,22 @@ if (assignAt < 0 || showAt < 0 || assignAt > showAt) {
   fail('safeText must assign the value before showing the element');
 }
 
+const safeItemStart = source.indexOf('function safeItem($item, selector, action, val) {');
+const safeItemEnd = source.indexOf('\n}', safeItemStart);
+const safeItemBody = source.slice(safeItemStart, safeItemEnd);
+const itemAssignAt = safeItemBody.indexOf("if (action === 'text') el.text = val;");
+const itemShowAt = safeItemBody.indexOf('el.show');
+if (itemAssignAt < 0 || itemShowAt < 0 || itemAssignAt > itemShowAt) {
+  fail('safeItem must assign repeater values before showing the element');
+}
+
+if (!source.includes("if (typeof guestEl.show === 'function') guestEl.show();")) {
+  fail('guest count is not shown after its repeater value is assigned');
+}
+if (!source.includes("if (feeText && typeof feeEl.show === 'function') feeEl.show();")) {
+  fail('Penthouse fee is not shown after its repeater value is assigned');
+}
+
 if (!source.includes("'summaryRoomsRepeater'")) {
   fail('room repeater is not included in the initial hidden-value set');
 }

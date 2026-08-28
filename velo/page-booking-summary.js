@@ -132,7 +132,7 @@ function nightsFromDisplay(ciText, coText) {
 const INITIAL_SUMMARY_VALUE_IDS = [
   'checkInDisplay', 'checkOutDisplay', 'accommodationNamesText',
   'packageName', 'packageLarge', 'packageSummary', 'packageCost',
-  'basePackage', 'adjustedPackage', 'promoAmount', 'promoDiscountText', 'promoDescription',
+  'promoAmount', 'promoDiscountText', 'promoDescription',
   'packageTotal', 'packageTotal2', 'packageTotal3',
   'packageSubtotal', 'packageSubTotal', 'subtotalNetText', 'additionalFee2',
   'propertyFeeText', 'propertyFee2', 'totalVatText', 'totalVat2',
@@ -186,6 +186,10 @@ function safeItem($item, selector, action, val) {
     if (action === 'expand') el.expand();
     if (action === 'options') el.options = val;
     if (action === 'value') el.value = val;
+    if (action === 'text' || action === 'options' || action === 'value') {
+      if (typeof el.expand === 'function') el.expand();
+      if (typeof el.show === 'function') el.show();
+    }
     return el;
   } catch (e) { return null; }
 }
@@ -731,6 +735,8 @@ function initRoomRepeater() {
     if (guestEl) {
       try { guestEl.text = String(guestCount); } catch (e) {}
       try { guestEl.value = String(guestCount); } catch (e) {}
+      try { if (typeof guestEl.expand === 'function') guestEl.expand(); } catch (e) {}
+      try { if (typeof guestEl.show === 'function') guestEl.show(); } catch (e) {}
       console.log('[WBE-SUMMARY] set #numberOfGuests:', guestCount, 'for', itemData.roomCode);
     } else {
       console.warn('[WBE-SUMMARY] #numberOfGuests element not found for', itemData.roomCode);
@@ -744,6 +750,11 @@ function initRoomRepeater() {
         if (typeof feeEl.text === 'string' || typeof feeEl.text === 'function') feeEl.text = feeText;
         else if (typeof feeEl.label === 'string' || typeof feeEl.label === 'function') feeEl.label = feeText;
         else if (typeof feeEl.value === 'string' || typeof feeEl.value === 'function') feeEl.value = feeText;
+      } catch (e) {}
+      try {
+        if (feeText && typeof feeEl.expand === 'function') feeEl.expand();
+        if (feeText && typeof feeEl.show === 'function') feeEl.show();
+        if (!feeText && typeof feeEl.hide === 'function') feeEl.hide();
       } catch (e) {}
     }
 
