@@ -800,6 +800,7 @@ function wireContinueButton() {
     console.log('[WBE-FRONTEND] btnContinue clicked');
     const name = safeVal('inputGuestName').trim();
     const note = safeVal('bookingNotes');
+    const marketSource = safeVal('marketSource').trim();
     const email = safeVal('inputGuestEmail').trim();
     const phone = normalizePhone(safeVal('inputGuestPhone'));
     const dialingCode = safeVal('inputDialingCode').replace(/\D/g, '') || '1';
@@ -843,6 +844,7 @@ function wireContinueButton() {
           guestName: name,
           guestEmail: email,
           guestPhone: phone,
+          marketSource: marketSource,
           note: note || '',
           promoCode: _promoCodeApplied,
           promoDiscount: _promoDiscount,
@@ -893,6 +895,7 @@ function wireContinueButton() {
             guestName: name,
             guestEmail: email,
             guestPhone: phone,
+            marketSource: marketSource,
             bookingNumber: sharedBookingNumber,
             promoCode: _promoCodeApplied,
             promoDiscount: _promoDiscount,

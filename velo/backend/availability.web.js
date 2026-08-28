@@ -464,6 +464,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       guestName,
       guestEmail,
       guestPhone,
+      marketSource: optGuest && optGuest.marketSource ? String(optGuest.marketSource).trim() : '',
       roomCount,
       status: status || 'confirmed',
       gclid: anyGclid,
@@ -495,6 +496,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       if (!summary.packageTitle) {
         summary.packageTitle = existingAtt.packageTitle || existingAtt.packageTitlle || '';
       }
+      if (!summary.marketSource && existingAtt.marketSource) summary.marketSource = existingAtt.marketSource;
       if (!summary.gbraid && existingAtt.gbraid) summary.gbraid = existingAtt.gbraid;
       if (!summary.wbraid && existingAtt.wbraid) summary.wbraid = existingAtt.wbraid;
       if (!summary.msclkid && existingAtt.msclkid) summary.msclkid = existingAtt.msclkid;
@@ -823,7 +825,8 @@ async function createBookingImpl(booking) {
     await updateBookingSummary(inserted.bookingNumber, toDate(checkIn), toDate(checkOut), {
       guestName: guestName || '',
       guestEmail: guestEmail || '',
-      guestPhone: guestPhone || ''
+      guestPhone: guestPhone || '',
+      marketSource: booking.marketSource || ''
     }, {
       gclid: booking.gclid || '',
       gbraid: booking.gbraid || '',
