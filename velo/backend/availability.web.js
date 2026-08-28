@@ -471,6 +471,8 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       gbraid: anyGbraid,
       wbraid: anyWbraid,
       msclkid: anyMsclkid,
+      googleConversionUploaded: false,
+      microsoftConversionUploaded: false,
       notes: notes || '',
       bookingDate: todayNoonUtc,
       packageTitle: optPackageTitle || ''
@@ -497,12 +499,13 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
         summary.packageTitle = existingAtt.packageTitle || existingAtt.packageTitlle || '';
       }
       if (!summary.marketSource && existingAtt.marketSource) summary.marketSource = existingAtt.marketSource;
+      if (!summary.gclid && existingAtt.gclid) summary.gclid = existingAtt.gclid;
       if (!summary.gbraid && existingAtt.gbraid) summary.gbraid = existingAtt.gbraid;
       if (!summary.wbraid && existingAtt.wbraid) summary.wbraid = existingAtt.wbraid;
       if (!summary.msclkid && existingAtt.msclkid) summary.msclkid = existingAtt.msclkid;
-      if (existingAtt.googleConversionUploaded) summary.googleConversionUploaded = existingAtt.googleConversionUploaded;
+      if (existingAtt.googleConversionUploaded) summary.googleConversionUploaded = true;
       if (existingAtt.googleConversionRetracted) summary.googleConversionRetracted = existingAtt.googleConversionRetracted;
-      if (existingAtt.microsoftConversionUploaded) summary.microsoftConversionUploaded = existingAtt.microsoftConversionUploaded;
+      if (existingAtt.microsoftConversionUploaded) summary.microsoftConversionUploaded = true;
       if (existingAtt.microsoftConversionRetracted) summary.microsoftConversionRetracted = existingAtt.microsoftConversionRetracted;
       console.log('>>> updateBookingSummary UPDATING row', existing.items[0]._id);
       await wixData.update(BOOKING_SUMMARIES, summary, { suppressAuth: true });

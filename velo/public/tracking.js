@@ -108,6 +108,11 @@ export function getStoredClickIds() {
 // Clears stored attribution after a successful conversion upload.
 export function clearClickIds() {
   try { local.removeItem(STORAGE_KEY); } catch (err) { /* noop */ }
+  try {
+    if (_$w) {
+      _$w('#wbeEventBridge').postMessage({ type: 'wbe-click-attribution-clear' });
+    }
+  } catch (err) { /* noop */ }
 }
 
 // Push an event onto window.dataLayer for the Google tag to pick up.
@@ -117,8 +122,40 @@ export function clearClickIds() {
 // Public modules can't use the $w global, so page code injects it once.
 let _$w = null;
 let _suspendGoogleAds = false;
+let _bridgeMessageBound = false;
 
-export function initTracking(w) { _$w = w; }
+export function initTracking(w) {
+  _$w = w;
+  try {
+    const bridge = _$w('#wbeEventBridge');
+    if (!_bridgeMessageBound && bridge && typeof bridge.onMessage === 'function') {
+      bridge.onMessage(function (event) {
+        try {
+          const data = event && event.data;
+          if (!data || data.type !== 'wbe-click-attribution' || !data.payload) return;
+          const record = data.payload;
+          if (!(record.gclid || record.gbraid || record.wbraid || record.msclkid)) return;
+          local.setItem(STORAGE_KEY, JSON.stringify(record));
+          console.log('[WBE-TRACKING] page click attribution synced into Velo storage:', JSON.stringify({
+            gclid: !!record.gclid,
+            gbraid: !!record.gbraid,
+            wbraid: !!record.wbraid,
+            msclkid: !!record.msclkid,
+            capturedAt: record.capturedAt || ''
+          }));
+        } catch (err) {
+          console.error('[WBE-TRACKING] attribution bridge response failed:', err && err.message || err);
+        }
+      });
+      _bridgeMessageBound = true;
+    }
+    if (bridge && typeof bridge.postMessage === 'function') {
+      bridge.postMessage({ type: 'wbe-click-attribution-request' });
+    }
+  } catch (err) {
+    console.error('[WBE-TRACKING] attribution bridge init failed:', err && err.message || err);
+  }
+}
 
 export function setSuspendGoogleAds(value) {
   _suspendGoogleAds = !!value;
