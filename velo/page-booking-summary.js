@@ -127,10 +127,34 @@ function nightsFromDisplay(ciText, coText) {
   } catch (e) { return 0; }
 }
 
+// Hide editor placeholder values while asynchronous booking/pricing data loads.
+// Using hide() rather than collapse() preserves the finished page layout.
+const INITIAL_SUMMARY_VALUE_IDS = [
+  'checkInDisplay', 'checkOutDisplay', 'accommodationNamesText',
+  'packageName', 'packageLarge', 'packageSummary', 'packageCost',
+  'basePackage', 'adjustedPackage', 'promoAmount', 'promoDiscountText', 'promoDescription',
+  'packageTotal', 'packageTotal2', 'packageTotal3',
+  'packageSubtotal', 'packageSubTotal', 'subtotalNetText', 'additionalFee2',
+  'propertyFeeText', 'propertyFee2', 'totalVatText', 'totalVat2',
+  'vatAccommodationText', 'vatAdventureText', 'vatAcc', 'vatSer',
+  'grandTotal', 'grandTotal1', 'grandTotalText',
+  'totalNightsDisplay', 'totalGuests', 'summaryRoomsRepeater'
+];
+
+function hideInitialSummaryValues() {
+  INITIAL_SUMMARY_VALUE_IDS.forEach(function (id) {
+    try {
+      const el = $w('#' + id);
+      if (typeof el.hide === 'function') el.hide();
+    } catch (e) {}
+  });
+}
+
 function safeText(id, txt) {
+  // Assign first so Wix never paints the Editor placeholder before the real value.
+  try { $w('#' + id).text = txt; } catch (e) {}
   try { const el = $w('#' + id); if (typeof el.expand === 'function') el.expand(); } catch (e) {}
   try { const el = $w('#' + id); if (typeof el.show   === 'function') el.show(); } catch (e) {}
-  try { $w('#' + id).text = txt; } catch (e) {}
 }
 function safeCollapse(id) {
   try { const el = $w('#' + id); if (typeof el.collapse === 'function') el.collapse(); } catch (e) {}
@@ -185,6 +209,7 @@ let _selectedPackageTitle = '';
 let _pricingQuoteToken = '';
 
 $w.onReady(function () {
+  hideInitialSummaryValues();
   initTracking($w);
   initSummary().catch(function (e) { console.log('>>> init error:', e.message); });
 });
@@ -550,11 +575,7 @@ async function renderSummary() {
   } else {
     packageSummaryText = summaryNights + ' ' + nightWord + ' * ' + summaryGuests + ' ' + guestWord;
   }
-  // Force packageSummary visible before assigning text so editor styles stick.
-  try { $w('#packageSummary').expand(); } catch (e) {}
-  try { $w('#packageSummary').show(); } catch (e) {}
   safeText('packageSummary', packageSummaryText);
-  try { $w('#packageSummary').text = packageSummaryText; } catch (e) {}
 
   const packageTotal = Math.round(packageCost * totalGuests * 100) / 100;
   safeText('packageTotal', '$' + fmtCurrency(packageTotal));
@@ -623,23 +644,17 @@ async function renderSummary() {
   safeExpand('box8');
 
   // Ensure invoice summary value elements are visible so values render.
-  const valueIds = ['basePackage', 'packageCost', 'packageTotal', 'packageTotal2', 'packageTotal3',
+  const valueIds = ['packageCost', 'packageTotal', 'packageTotal2', 'packageTotal3',
     'packageSubtotal', 'packageSubTotal', 'subtotalNetText', 'additionalFee2',
-    'promoAmount', 'promoDiscountText', 'adjustedPackage',
     'propertyFeeText', 'propertyFee2', 'totalVatText', 'totalVat2',
     'vatAccommodationText', 'vatAdventureText', 'vatAcc', 'vatSer',
-    'grandTotal', 'grandTotal1', 'grandTotalText', 'totalNightsDisplay', 'totalGuests'];
+    'totalNightsDisplay', 'totalGuests'];
   valueIds.forEach(function (id) { safeExpand(id); });
   const grandTotalTxt = '$' + fmtCurrency(discountedGrandTotal);
   // TOTAL DUE element — user confirms the variable/ID is #grandTotal.
   // We also write to #grandTotal1 and #grandTotalText as defensive fallbacks.
   ['grandTotal', 'grandTotal1', 'grandTotalText'].forEach(function (gtId) {
-    try {
-      const el = $w('#' + gtId);
-      try { if (typeof el.expand === 'function') el.expand(); } catch (e) {}
-      try { if (typeof el.show === 'function') el.show(); } catch (e) {}
-      try { el.text = grandTotalTxt; } catch (e) {}
-    } catch (e) {}
+    safeText(gtId, grandTotalTxt);
   });
   console.log('[WBE-SUMMARY] grandTotal set to:', grandTotalTxt);
 
@@ -683,8 +698,6 @@ async function renderSummary() {
 
     if (pkgTitle) {
       safeExpand('box1');
-      safeExpand('packageName');
-      safeExpand('packageLarge');
       safeText('packageName', pkgTitle);
       safeText('packageLarge', pkgTitle);
       console.log('[WBE] SET packageName/packageLarge to:', pkgTitle);
