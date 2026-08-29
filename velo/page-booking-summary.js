@@ -848,6 +848,9 @@ function wireContinueButton() {
           note: note || '',
           promoCode: _promoCodeApplied,
           promoDiscount: _promoDiscount,
+          gclid: clickIds.gclid,
+          gbraid: clickIds.gbraid,
+          wbraid: clickIds.wbraid,
           msclkid: clickIds.msclkid,
           packageId: _selectedPackageId || '',
           packageTitle: _selectedPackageTitle || '',
@@ -866,6 +869,9 @@ function wireContinueButton() {
             if (summaryRes.items.length > 0) {
               const s = summaryRes.items[0];
               s.notes = note || '';
+              s.gclid = clickIds.gclid || s.gclid || '';
+              s.gbraid = clickIds.gbraid || s.gbraid || '';
+              s.wbraid = clickIds.wbraid || s.wbraid || '';
               s.msclkid = clickIds.msclkid || s.msclkid || '';
               if (s.checkIn) s.checkIn = normalizeDate(s.checkIn);
               if (s.checkOut) s.checkOut = normalizeDate(s.checkOut);
@@ -899,6 +905,9 @@ function wireContinueButton() {
             bookingNumber: sharedBookingNumber,
             promoCode: _promoCodeApplied,
             promoDiscount: _promoDiscount,
+            gclid: clickIds.gclid,
+            gbraid: clickIds.gbraid,
+            wbraid: clickIds.wbraid,
             msclkid: clickIds.msclkid,
             packageId: _selectedPackageId || '',
             packageTitle: _selectedPackageTitle || '',
