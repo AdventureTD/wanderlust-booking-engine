@@ -5,6 +5,7 @@
 // This page never creates bookings or calls an advertising API.
 
 import { local } from 'wix-storage-frontend';
+import wixLocationFrontend from 'wix-location-frontend';
 
 const BRIDGE_ID = '#attributionTestBridge';
 const STATUS_ID = '#attributionStatus';
@@ -44,6 +45,21 @@ function sanitizeAttribution(payload) {
   return hasAnyId ? clean : null;
 }
 
+function readDirectVeloAttribution() {
+  try {
+    const query = wixLocationFrontend.query || {};
+    return {
+      gclid: cleanId(query.gclid),
+      gbraid: cleanId(query.gbraid),
+      wbraid: cleanId(query.wbraid),
+      msclkid: cleanId(query.msclkid),
+      url: cleanId(wixLocationFrontend.url)
+    };
+  } catch (e) {
+    return { gclid: '', gbraid: '', wbraid: '', msclkid: '', url: '' };
+  }
+}
+
 function masked(value) {
   if (!value) return 'No';
   const s = String(value);
@@ -53,6 +69,7 @@ function masked(value) {
 $w.onReady(function () {
   // Clear only the diagnostic Velo key so every run proves a fresh round trip.
   try { local.removeItem(DIAGNOSTIC_STORAGE_KEY); } catch (e) {}
+  const directVelo = readDirectVeloAttribution();
 
   let bridge;
   try {
@@ -113,6 +130,11 @@ $w.onReady(function () {
             'Bridge ready: Yes',
             'Page response received: Yes',
             'STOP — no captured ad IDs were present in page localStorage.',
+            'Velo direct query gclid: ' + masked(directVelo.gclid),
+            'Velo direct query gbraid: ' + masked(directVelo.gbraid),
+            'Velo direct query wbraid: ' + masked(directVelo.wbraid),
+            'Velo direct query msclkid: ' + masked(directVelo.msclkid),
+            'Velo URL still contains a query: ' + (directVelo.url.indexOf('?') >= 0 ? 'Yes' : 'No'),
             'Use the WBE_TEST URL in a fresh incognito window.',
             'Iframe origin observed: ' + (data.iframeOrigin || '(not reported)')
           ]);
@@ -129,6 +151,11 @@ $w.onReady(function () {
           'Google gbraid: ' + masked(readBack.gbraid),
           'Google wbraid: ' + masked(readBack.wbraid),
           'Microsoft msclkid: ' + masked(readBack.msclkid),
+          'Velo direct query gclid: ' + masked(directVelo.gclid),
+          'Velo direct query gbraid: ' + masked(directVelo.gbraid),
+          'Velo direct query wbraid: ' + masked(directVelo.wbraid),
+          'Velo direct query msclkid: ' + masked(directVelo.msclkid),
+          'Velo URL still contains a query: ' + (directVelo.url.indexOf('?') >= 0 ? 'Yes' : 'No'),
           'Captured at: ' + (readBack.capturedAt || '(missing)'),
           'Iframe origin observed: ' + (data.iframeOrigin || '(not reported)'),
           'Stored only under: ' + DIAGNOSTIC_STORAGE_KEY,

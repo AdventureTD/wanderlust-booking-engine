@@ -27,6 +27,10 @@ const page = read('page');
 const iframe = read('iframe');
 const responder = read('responder');
 
+requireText(page, "import wixLocationFrontend from 'wix-location-frontend';", 'page code does not inspect direct Velo location data');
+requireText(page, "wixLocationFrontend.query", 'page code does not read direct Velo query parameters');
+requireText(page, "Velo direct query gclid:", 'status does not report direct gclid visibility');
+requireText(page, "Velo direct query msclkid:", 'status does not report direct msclkid visibility');
 requireText(page, "#attributionTestBridge", 'page code does not target #attributionTestBridge');
 requireText(page, "bridge.onMessage(function (event)", 'page code does not listen to the HTML Component');
 requireText(page, "data.type === 'wbe-attribution-ready'", 'page code does not wait for the ready handshake');
