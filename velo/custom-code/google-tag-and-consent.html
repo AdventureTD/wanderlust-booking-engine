@@ -193,29 +193,6 @@
   // real gtag('event', ...) calls so GA4 actually receives the hits.
   window.addEventListener('message', function (event) {
     var d = event && event.data;
-    // The page context owns the real landing URL and its localStorage. Velo's
-    // worker storage is partitioned, so the hidden HTML component requests the
-    // captured IDs and relays the response back into Velo.
-    if (d && d.source === 'wbe-click-attribution-request') {
-      var attribution = null;
-      try {
-        var rawAttribution = localStorage.getItem('wl_click_attribution');
-        attribution = rawAttribution ? JSON.parse(rawAttribution) : null;
-      } catch (e) {}
-      try {
-        if (event.source && typeof event.source.postMessage === 'function') {
-          event.source.postMessage({
-            type: 'wbe-click-attribution-response',
-            payload: attribution
-          }, '*');
-        }
-      } catch (e) {}
-      return;
-    }
-    if (d && d.source === 'wbe-click-attribution-clear') {
-      try { localStorage.removeItem('wl_click_attribution'); } catch (e) {}
-      return;
-    }
     if (d && d.source === 'wbe-event-bridge' && d.payload) {
       var p = d.payload;
       if (p.event) {

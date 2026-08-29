@@ -20,18 +20,6 @@
           payload: d.payload
         }, '*');
       }
-      if (d && d.type === 'wbe-click-attribution-request') {
-        window.parent.postMessage({ source: 'wbe-click-attribution-request' }, '*');
-      }
-      if (d && d.type === 'wbe-click-attribution-clear') {
-        window.parent.postMessage({ source: 'wbe-click-attribution-clear' }, '*');
-      }
-      if (d && d.type === 'wbe-click-attribution-response') {
-        window.parent.postMessage({
-          type: 'wbe-click-attribution',
-          payload: d.payload || null
-        }, '*');
-      }
     } catch (e) {}
   };
 </script>
