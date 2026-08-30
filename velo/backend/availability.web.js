@@ -765,7 +765,12 @@ async function createBookingImpl(booking) {
   let promoDiscountRate = 0;
   let promoCode = '';
   if (booking.promoCode && String(booking.promoCode).trim()) {
-    const promoResult = await validatePromoCodeImpl(String(booking.promoCode).trim(), nights);
+    const promoResult = await validatePromoCodeImpl(
+      String(booking.promoCode).trim(),
+      nights,
+      checkIn,
+      checkOut
+    );
     if (!promoResult.valid) throw new Error(promoResult.reason || 'Invalid promo code');
     promoDiscountRate = promoResult.discount;
     promoCode = promoResult.code;
@@ -1144,11 +1149,37 @@ export const unblock = webMethod(
   }
 );
 
-async function validatePromoCodeImpl(code, totalGuestNights) {
+function promoDateOnly(value) {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  }
+  const date = value instanceof Date ? value : new Date(value);
+  if (isNaN(date.getTime())) return null;
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function promoStayEligibility(promoStartValue, promoEndValue, checkIn, checkOut) {
+  const promoStart = promoDateOnly(promoStartValue);
+  const promoEnd = promoDateOnly(promoEndValue);
+  const stayStart = promoDateOnly(checkIn);
+  const stayEndExclusive = promoDateOnly(checkOut);
+  if (!stayStart || !stayEndExclusive || stayEndExclusive <= stayStart) {
+    return { valid: false, reason: 'Valid stay dates are required for this promo code.' };
+  }
+  const lastOccupiedNight = new Date(stayEndExclusive);
+  lastOccupiedNight.setUTCDate(lastOccupiedNight.getUTCDate() - 1);
+  if ((promoStart && stayStart < promoStart) || (promoEnd && lastOccupiedNight > promoEnd)) {
+    return { valid: false, reason: 'Promo code is not valid for these stay dates.' };
+  }
+  return { valid: true };
+}
+
+async function validatePromoCodeImpl(code, totalGuestNights, checkIn, checkOut) {
   if (!code || !code.trim()) {
     return { valid: false, reason: 'No promo code provided.' };
   }
-  const now = new Date();
   try {
     const res = await wixData.query('PromoCodes').limit(1000).find({ suppressAuth: true });
     let found = null;
@@ -1162,18 +1193,8 @@ async function validatePromoCodeImpl(code, totalGuestNights) {
     if (!found) {
       return { valid: false, reason: 'Promo code not found.' };
     }
-    const startDate = found.startDate ? new Date(found.startDate) : null;
-    const endDate = found.endDate ? new Date(found.endDate) : null;
-    if (startDate && now < startDate) {
-      return { valid: false, reason: 'Promo code is not yet active.' };
-    }
-    if (endDate) {
-      const endOfDay = new Date(endDate);
-      endOfDay.setHours(23, 59, 59, 999);
-      if (now > endOfDay) {
-        return { valid: false, reason: 'Promo code has expired.' };
-      }
-    }
+    const stayEligibility = promoStayEligibility(found.startDate, found.endDate, checkIn, checkOut);
+    if (!stayEligibility.valid) return stayEligibility;
     const minimumNights = parseInt(found.minimumNights, 10) || 0;
     if (minimumNights > 0 && (totalGuestNights || 0) < minimumNights) {
       return { valid: false, reason: `Promo code requires a minimum of ${minimumNights} nights.` };

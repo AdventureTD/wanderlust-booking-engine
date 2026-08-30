@@ -382,6 +382,7 @@ async function wirePromoCode() {
       _promoDiscount = 0;
       _promoCodeApplied = '';
       safeText('promoStatus', '');
+      safeText('bookingStatus', '');
       await renderSummary();
       return;
     }
@@ -391,11 +392,17 @@ async function wirePromoCode() {
 
       // Guest nights are simply the length of the reservation.
       const totalGuestNights = _summaryNights || 0;
-      const result = await validatePromoCode(code, totalGuestNights);
+      const result = await validatePromoCode(
+        code,
+        totalGuestNights,
+        dateToStr(_summaryCis),
+        dateToStr(_summaryCos)
+      );
       console.log('[WBE-PROMO] validatePromoCode result:', JSON.stringify(result));
       if (result && result.valid) {
         _promoDiscount = parseFloat(result.discount) || 0;
         _promoCodeApplied = code;
+        safeText('bookingStatus', '');
         safeText('promoStatus', code + ' applied! Discount: ' + ((_promoDiscount * 100).toFixed(0)) + '% off');
 
         // Fetch description from PromoCodes if backend didn't return it.
@@ -430,15 +437,12 @@ async function wirePromoCode() {
         safeText('promoDescription', '');
         safeCollapse('promoDescription');
         const reason = (result && result.reason) || '';
-        const notExpiredReasons = ['Promo code is not yet active.', 'Promo code has expired.'];
         if (reason === 'Promo code not found.') {
           safeText('promoStatus', '');
           safeText('bookingStatus', 'Promo code is not valid');
-        } else if (notExpiredReasons.indexOf(reason) >= 0) {
-          safeText('promoStatus', '');
-          safeText('bookingStatus', 'Promo code has expired');
         } else {
-          safeText('promoStatus', reason || 'Invalid or expired promo code.');
+          safeText('promoStatus', '');
+          safeText('bookingStatus', reason || 'Promo code is not valid');
         }
       }
     } catch (e) {
