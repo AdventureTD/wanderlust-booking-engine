@@ -73,17 +73,65 @@ selected package baseRate fallback and priceModifier when applicable).
 A booking for fewer than the base occupancy is rejected.
 
 ### Collection: `Bookings`
-| Field      | Type      | Notes                                   |
-|------------|-----------|-----------------------------------------|
-| roomCode   | Text      | which room type                         |
-| checkIn    | Date      | first night occupied                    |
-| checkOut   | Date      | morning of departure (not a night)      |
-| guests     | Number    |                                         |
-| status     | Text      | confirmed / hold / cancelled / blocked  |
-| quantity   | Number    | how many units this row consumes (default 1; used by blocks) |
-| note       | Text      | e.g. blocked reason                     |
-| alaCarte   | Tags     | array of selected AlaCarte.code strings (e.g. ["whale_watching", "airport_transfer"]) |
-| quote      | Object   | full JSON price breakdown from quotePackage() (nested lineItems, vatByClass, totals) |
+| Field              | Type          | Notes |
+|--------------------|---------------|-------|
+| roomCode           | Text          | room type |
+| checkIn            | Date and Time | first night occupied; normalize to noon UTC |
+| checkOut           | Date and Time | morning of departure (exclusive); normalize to noon UTC |
+| guests             | Number        | guests occupying this physical room |
+| status             | Text          | confirmed / hold / cancelled / blocked |
+| quantity           | Number        | active guest and blocked rows are always 1 physical room |
+| assignedRoom       | Number        | authoritative physical unit number; calendar title shows `Unit <value>` |
+| inventoryKind      | Text          | `guest`, `manual_block`, or `owner_auto` |
+| autoOwnerBlock     | Boolean       | true only for derived owner-protection rows |
+| ownerBlockKey      | Text          | stable key for a derived owner-block interval |
+| calendarEventId    | Text          | Google Calendar event ID for this physical room row |
+| calendarSyncStatus | Text          | pending / synced / deleted / error / not_applicable |
+| calendarSyncError  | Text          | most recent synchronization error |
+| calendarSyncedAt   | Date and Time | most recent successful calendar synchronization |
+| calendarSyncAttempts | Number      | failed synchronization attempt count |
+| calendarNextRetryAt | Date and Time | next scheduled retry time |
+| deferCalendarSync  | Boolean       | true only while a bundle/block build is incomplete |
+| rollbackReason     | Text          | repair detail when deterministic arbitration cancels a row |
+| note               | Text          | e.g. blocked reason |
+| alaCarte           | Tags          | array of selected AlaCarte.code strings |
+| quote              | Object        | full JSON price breakdown from quotePackage() |
+
+Each confirmed physical room is stored as its own `Bookings` row with
+`quantity = 1`, even when a guest selects multiple rooms of the same type.
+This permits independent `assignedRoom` values and calendar events. Manual and
+automatic owner blocks are also stored one physical room per row and create
+Google Calendar events.
+
+Physical unit map enforced by `backend/data.js`:
+
+- Unit 1: Penthouse Apartment
+- Unit 2: Two-Bedroom Apartment
+- Units 3, 4, and 5: Adventure Suites
+
+`BookingSummary` also requires these Text/Date fields for the one-time guest
+invoice capability: `buildState` (Text), `expectedRoomCount` (Number),
+`invoiceCapabilityHash` (Text), `invoiceCapabilityExpiresAt` (Date and Time),
+`invoiceIssueStatus` (Text), and `financialVersion` (Number). The raw capability is returned once to the
+guest page and is never stored.
+
+Create these backend-only collections:
+
+- `BookingLocks`: `ownerId` (Text), `expiresAt` (Date and Time). Its
+  deterministic `owner-block-reconcile` row serializes reconciliation; only
+  the current owner may release it.
+- `BookingOperations`: `operationId`, `bookingNumber`, `state`, `error` (Text),
+  `requestedRoomCount` (Number), `startedAt`/`completedAt` (Date and Time).
+  This makes browser retries resume the same booking instead of duplicating it.
+- `InvoiceClaims`: `claimKey`, `bookingNumber`, `state`, `invoiceNumber`,
+  `invoiceUrl`, `error` (Text); `total` (Number); `createdAt`, `updatedAt`,
+  `issuedAt` (Date and Time). `createdAt` is required by stale-claim recovery.
+  The insert-only claim is the single winner for invoice/email side effects.
+
+Invoice claims intentionally provide at-most-once dispatch. Ambiguous
+`processing` claims become `manual_review` after 30 minutes; they are never
+automatically resent. Render's local idempotency key is defense-in-depth while
+the durable Wix claim is authoritative.
 
 ### Collection: `AlaCarte`
 | Field      | Type   | Notes                                  |
@@ -183,11 +231,41 @@ matching file contents from the `velo/backend/` folder in this repo:
 |-----------------------------|-------------------------------|
 | `wbeConfig.js`              | `velo/backend/wbeConfig.js`     |
 | `availability.web.js`       | `velo/backend/availability.web.js` |
+| `calendarSync.js`           | `velo/backend/calendarSync.js` |
+| `roomAssignmentRules.js`    | `velo/backend/roomAssignmentRules.js` |
+| `roomAssignments.js`        | `velo/backend/roomAssignments.js` |
+| `ownerBlocks.js`            | `velo/backend/ownerBlocks.js` |
+| `wixDataPaging.js`          | `velo/backend/wixDataPaging.js` |
+| `calendarReconciler.web.js` | `velo/backend/calendarReconciler.web.js` |
+| `data.js`                   | `velo/backend/data.js` |
+| `jobs.config`               | `velo/backend/jobs.config` |
 | `seasonal.web.js`           | `velo/backend/seasonal.web.js`  |
 | `messages.web.js`           | `velo/backend/messages.web.js`  |
 
 Note: `.web.js` files are web modules — their exported functions run on the
-server and are callable from page code via `import`.
+server and are callable from page code via `import`. `data.js` contains Wix
+Data hooks and must keep that exact filename.
+
+Room-calendar deployment order:
+
+1. Put booking creation in maintenance mode, export `Bookings`,
+   `BookingSummary`, and `BookingInvoices`, then add every field and all three
+   backend collections listed above: `BookingLocks`, `BookingOperations`, and
+   `InvoiceClaims`.
+2. Set Apps Script property `WBE_CALENDAR_SECRET`, replace the webhook code,
+   and deploy a new version of the existing web app.
+3. Deploy Render and verify `/sync-calendar-room` is available.
+   Confirm `WBE_CALENDAR_WEB_APP_URL` and `WBE_CALENDAR_SECRET` are present.
+4. Migrate every active/future `Bookings` row: split `quantity > 1`, set
+   `quantity = 1`, assign a valid physical unit, normalize dates/status, and
+   verify there are zero active rows with missing/invalid `assignedRoom`.
+5. Add the new Wix backend modules and update `availability.web.js` and
+   `search.web.js`.
+6. Update Booking Summary page code, save, publish, run controlled tests, then
+   remove maintenance mode.
+
+During staged deployment, legacy Wix callers continue receiving the old
+booking-level event until the updated Wix payload sets `room_calendar_sync`.
 
 ---
 

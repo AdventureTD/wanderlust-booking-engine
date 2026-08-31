@@ -13,18 +13,7 @@ CALENDAR_WEB_APP_URL = os.environ.get("WBE_CALENDAR_WEB_APP_URL", "")
 CALENDAR_SECRET = os.environ.get("WBE_CALENDAR_SECRET", "")
 
 
-def create_calendar_event(guest_name: str, check_in: str, check_out: str) -> dict:
-    """
-    Create an all-day Google Calendar event from check-in to check-out.
-
-    Args:
-        guest_name: e.g. "John Smith"
-        check_in: ISO date string e.g. "2026-06-01"
-        check_out: ISO date string e.g. "2026-06-05"
-
-    Returns:
-        {"ok": True, "eventId": "..."} or {"ok": False, "error": "...", "_diagnostics": {...}}
-    """
+def _post_calendar_payload(payload: dict) -> dict:
     _diag = {
         "url_present": bool(CALENDAR_WEB_APP_URL),
         "secret_present": bool(CALENDAR_SECRET),
@@ -37,13 +26,8 @@ def create_calendar_event(guest_name: str, check_in: str, check_out: str) -> dic
             "_diagnostics": _diag,
         }
 
-    payload = {
-        "secret": CALENDAR_SECRET,
-        "summary": f"Wanderlust Caribbean Booking: {guest_name}",
-        "description": f"Wanderlust Booking: {guest_name}",
-        "startDate": check_in,
-        "endDate": check_out,
-    }
+    payload = dict(payload)
+    payload["secret"] = CALENDAR_SECRET
     _diag["payload_sent"] = {k: v for k, v in payload.items() if k != "secret"}
     _diag["payload_secret_present"] = bool(payload.get("secret"))
 
@@ -62,8 +46,13 @@ def create_calendar_event(guest_name: str, check_in: str, check_out: str) -> dic
             _diag["raw_response"] = raw_body[:500]
             result = json.loads(raw_body)
             _diag["parsed_response"] = result
-            if result.get("status") == "created":
-                return {"ok": True, "eventId": result.get("eventId"), "_diagnostics": _diag}
+            if result.get("status") in ("created", "updated", "deleted", "skipped"):
+                return {
+                    "ok": True,
+                    "status": result.get("status"),
+                    "eventId": result.get("eventId", ""),
+                    "_diagnostics": _diag,
+                }
             return {
                 "ok": False,
                 "error": result.get("message", "Unknown response from calendar webhook"),
@@ -72,3 +61,34 @@ def create_calendar_event(guest_name: str, check_in: str, check_out: str) -> dic
     except Exception as e:
         _diag["exception"] = str(e)
         return {"ok": False, "error": str(e), "_diagnostics": _diag}
+
+
+def create_calendar_event(guest_name: str, check_in: str, check_out: str) -> dict:
+    """Create the legacy booking-level all-day event."""
+    return _post_calendar_payload({
+        "summary": f"Wanderlust Caribbean Booking: {guest_name}",
+        "description": f"Wanderlust Booking: {guest_name}",
+        "startDate": check_in,
+        "endDate": check_out,
+    })
+
+
+def sync_room_calendar_event(*, booking_id: str, booking_number: str,
+                             guest_name: str, room_code: str,
+                             assigned_room: str, check_in: str,
+                             check_out: str, status: str,
+                             event_id: str = "", updated_at: str = "") -> dict:
+    """Create, update, or delete one room-level calendar event."""
+    return _post_calendar_payload({
+        "action": "syncRoom",
+        "bookingId": booking_id,
+        "bookingNumber": booking_number,
+        "guestName": guest_name,
+        "roomCode": room_code,
+        "assignedRoom": assigned_room or "",
+        "startDate": check_in,
+        "endDate": check_out,
+        "status": status,
+        "eventId": event_id or "",
+        "updatedAt": updated_at or "",
+    })

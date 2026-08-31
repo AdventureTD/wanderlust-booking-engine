@@ -2,9 +2,9 @@ import wixData from 'wix-data';
 import { Permissions, webMethod } from 'wix-web-module';
 import { getSecret } from 'wix-secrets-backend';
 import { fetch } from 'wix-fetch';
-import { currentUser } from 'wix-users-backend';
-import { searchAvailability } from 'backend/search.web';
-import { issueBookingInvoice } from 'backend/availability.web';
+
+import { validateAssignmentDateChange } from 'backend/roomAssignments';
+import { issueBookingInvoiceAdmin } from 'backend/availability.web';
 import { adjustBookingConversion, isGoogleAdsSuspended } from 'backend/googleAdsConversions.web';
 
 const BOOKINGS = 'Bookings';
@@ -15,19 +15,6 @@ const INVOICE_SERVICE_URL_KEY = 'WBE_INVOICE_SERVICE_URL';
 const SHARED_SECRET_KEY = 'WBE_SHARED_SECRET';
 const MAX_PAYMENT_RECORDS_PER_BOOKING = 4;
 
-// Permissions.Admin on the webMethod restricts calls to signed-in members with
-// admin privileges. This adds an explicit role check as a second layer.
-async function requireAdmin() {
-  try {
-    if (!currentUser.loggedIn) throw new Error('Not signed in');
-    const roles = await currentUser.getRoles();
-    const names = (roles || []).map(function (r) { return (r && (r.title || r.name || r.roleName)) || ''; });
-    const ok = names.some(function (n) { return /admin/i.test(n); });
-    if (!ok) throw new Error('Admin role required. Roles: ' + names.join(','));
-  } catch (e) {
-    throw new Error('Unauthorized: ' + (e && e.message || e));
-  }
-}
 
 function money(n) {
   const v = Number(n);
@@ -84,7 +71,7 @@ function isoDate(d) {
 export const adminListBookings = webMethod(
   Permissions.Admin,
   async ({ search, status, dateFrom, dateTo, sortBy, sortDir, limit }) => {
-    await requireAdmin();
+
     const fromDate = normalizeDate(dateFrom);
     const toDate = normalizeDate(dateTo);
     let q = wixData.query(BOOKING_SUMMARIES).limit(Math.min(limit || 100, 500));
@@ -164,7 +151,7 @@ function sortItems(items, sortBy, sortDir) {
 export const adminGetBooking = webMethod(
   Permissions.Admin,
   async (bookingNumber) => {
-    await requireAdmin();
+
     const sRes = await wixData.query(BOOKING_SUMMARIES)
       .eq('bookingNumber', bookingNumber).limit(1).find();
     if (!sRes.items.length) return { ok: false, error: 'BookingSummary not found' };
@@ -229,7 +216,7 @@ function computeTotals(invoiceOrSummary, payments) {
 export const adminUpdateBooking = webMethod(
   Permissions.Admin,
   async (bookingNumber, changes) => {
-    await requireAdmin();
+
     if (!bookingNumber) throw new Error('bookingNumber required');
     const ch = changes || {};
 
@@ -256,24 +243,29 @@ export const adminUpdateBooking = webMethod(
     const newCi = normalizeDate(rawCi) || summary.checkIn;
     const newCo = normalizeDate(rawCo) || summary.checkOut;
     const datesChanged = (isoDate(newCi) !== isoDate(summary.checkIn)) || (isoDate(newCo) !== isoDate(summary.checkOut));
-    const invoiceTriggerFields = ['checkIn','checkOut','roomTotal','grandTotal','accommodationVat','packageVat','propertyFee','promoCode','promoDiscountAmount'];
-    const invoiceFieldsChanged = invoiceTriggerFields.some(function (k) { return ch[k] !== undefined; });
+    const financialBase = invoice || summary || {};
+    const financialComparisons = [
+      ['roomTotal', money],
+      ['grandTotal', money],
+      ['accommodationVat', money],
+      ['packageVat', money],
+      ['propertyFee', money],
+      ['promoDiscountAmount', money],
+    ];
+    let invoiceFieldsChanged = datesChanged || financialComparisons.some(function (entry) {
+      const key = entry[0];
+      return ch[key] !== undefined && money(ch[key]) !== money(financialBase[key]);
+    });
+    if (ch.promoCode !== undefined && String(ch.promoCode || '') !== String(financialBase.promoCode || '')) {
+      invoiceFieldsChanged = true;
+    }
 
     // Availability check when dates changed (exclude this booking's own rows).
     if (datesChanged) {
-      const av = await searchAvailability(new Date(newCi), new Date(newCo));
-      if (!av.ok) return { ok: false, error: 'Availability check failed: ' + (av.error || '') };
-      const needed = {};
-      rooms.forEach(function (r) { needed[r.roomCode] = (needed[r.roomCode] || 0) + (r.quantity || 1); });
-      for (const rc of Object.keys(needed)) {
-        const row = (av.results || []).find(function (x) { return x.roomCode === rc && x.status === 'full'; });
-        if (!row || row.maxQty < needed[rc]) {
-          return {
-            ok: false,
-            error: 'Room ' + rc + ' not available for ' + newCi + ' to ' + newCo +
-              ' (need ' + needed[rc] + ', found ' + (row ? row.maxQty : 0) + ').',
-          };
-        }
+      try {
+        await validateAssignmentDateChange(rooms, newCi, newCo);
+      } catch (error) {
+        return { ok: false, error: 'Availability check failed: ' + error.message };
       }
     }
 
@@ -302,6 +294,7 @@ export const adminUpdateBooking = webMethod(
     if (ch.googleConversionUploaded !== undefined) sUpd.googleConversionUploaded = ch.googleConversionUploaded;
     if (ch.googleConversionRetracted !== undefined) sUpd.googleConversionRetracted = ch.googleConversionRetracted;
     if (datesChanged) { sUpd.checkIn = newCi instanceof Date ? newCi : new Date(newCi); sUpd.checkOut = newCo instanceof Date ? newCo : new Date(newCo); }
+    if (invoiceFieldsChanged) sUpd.financialVersion = Number(summary.financialVersion || 0) + 1;
     await wixData.update(BOOKING_SUMMARIES, sUpd);
 
     // Apply financial changes to the active/draft BookingInvoices record.
@@ -322,10 +315,10 @@ export const adminUpdateBooking = webMethod(
     let invoiceResult = null;
     if (invoiceFieldsChanged) {
       try {
-        invoiceResult = await issueBookingInvoice(bookingNumber, false);
+        invoiceResult = await issueBookingInvoiceAdmin(bookingNumber, 'edit:' + bookingNumber + ':' + sUpd.financialVersion);
       } catch (invErr) {
         console.log('>>> adminUpdateBooking invoice generation ERROR:', invErr.message);
-        invoiceResult = { error: invErr.message };
+        throw new Error('Booking changes were saved, but replacement invoice generation failed: ' + invErr.message);
       }
     }
 
@@ -336,7 +329,7 @@ export const adminUpdateBooking = webMethod(
 export const adminUpdateInvoice = webMethod(
   Permissions.Admin,
   async (invoiceId, changes) => {
-    await requireAdmin();
+
     if (!invoiceId) return { ok: false, error: 'invoiceId required' };
     const ch = changes || {};
     const invRes = await wixData.query(BOOKING_INVOICES)
@@ -368,7 +361,7 @@ export const adminUpdateInvoice = webMethod(
 export const adminListInvoices = webMethod(
   Permissions.Admin,
   async (bookingNumber) => {
-    await requireAdmin();
+
     const res = await wixData.query(BOOKING_INVOICES)
       .eq('bookingNumber', bookingNumber)
       .descending('_createdDate')
@@ -380,10 +373,11 @@ export const adminListInvoices = webMethod(
 
 export const adminIssueNewInvoice = webMethod(
   Permissions.Admin,
-  async (bookingNumber) => {
-    await requireAdmin();
+  async (bookingNumber, requestId) => {
+
     if (!bookingNumber) throw new Error('bookingNumber required');
-    const result = await issueBookingInvoice(bookingNumber, true);
+    if (!/^[A-Za-z0-9_-]{16,96}$/.test(String(requestId || ''))) throw new Error('Valid invoice request ID required');
+    const result = await issueBookingInvoiceAdmin(bookingNumber, 'manual:' + bookingNumber + ':' + requestId);
     return { ok: true, bookingNumber: bookingNumber, invoiceNumber: result.invoice_number, invoiceUrl: result.invoice_url };
   }
 );
@@ -393,7 +387,7 @@ export const adminIssueNewInvoice = webMethod(
 export const adminCancelBooking = webMethod(
   Permissions.Admin,
   async (bookingNumber, reason) => {
-    await requireAdmin();
+
     if (!bookingNumber) throw new Error('bookingNumber required');
 
     const sRes = await wixData.query(BOOKING_SUMMARIES)
@@ -437,7 +431,7 @@ export const adminCancelBooking = webMethod(
         });
       }
       adsRetraction.result = result;
-      if (result && result.ok) {
+      if (result && result.ok && !result.suspended) {
         summary.googleConversionRetracted = true;
       }
     }
@@ -507,7 +501,7 @@ async function nextPaymentId() {
 export const adminRecordPayment = webMethod(
   Permissions.Admin,
   async ({ bookingNumber, amount, datePaid, paymentMethod, note }) => {
-    await requireAdmin();
+
     if (!bookingNumber) throw new Error('bookingNumber required');
     const amt = money(amount);
     if (amt <= 0) return { ok: false, error: 'Payment amount must be positive' };
@@ -537,7 +531,7 @@ export const adminRecordPayment = webMethod(
 export const adminRecordRefund = webMethod(
   Permissions.Admin,
   async ({ bookingNumber, amount, datePaid, paymentMethod, note }) => {
-    await requireAdmin();
+
     if (!bookingNumber) throw new Error('bookingNumber required');
     const amt = money(amount);
     if (amt <= 0) return { ok: false, error: 'Refund amount must be positive' };
