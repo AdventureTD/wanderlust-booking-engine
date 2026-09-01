@@ -183,10 +183,9 @@ function wireDetailPanel() {
 function populatePaymentTable() {
   const paymentTable = tryFind('paymentInfo');
   if (!paymentTable) return;
-  const rows = _currentPayments.map(function (p, i) {
+  const rows = _currentPayments.map(function (p) {
     const sign = p.paymentAmount < 0 ? '-' : '+';
     return {
-      _id: p._id || ('pay' + i),
       payRowId: p.paymentId || p._id || '',
       payRowDate: dstr(p.datePaid),
       payRowAmount: sign + money(Math.abs(p.paymentAmount)),
