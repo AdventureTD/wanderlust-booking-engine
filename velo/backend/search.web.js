@@ -1,8 +1,6 @@
 import wixData from 'wix-data';
 import { Permissions, webMethod } from 'wix-web-module';
 import { ROOM_UNITS } from 'backend/wbeConfig';
-import { maxAutomaticQuantity } from 'backend/roomAssignments';
-import { findAll } from 'backend/wixDataPaging';
 
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
@@ -111,11 +109,13 @@ export const searchAvailability = webMethod(
     for (let i = 0; i < rq; i++) { nights.push(ad(ci, i)); }
 
     const roomRes = await wixData.query(ROOMS).limit(50).find({ suppressAuth: true });
-    const allBookings = await findAll(wixData.query(BOOKINGS), { suppressAuth: true, consistentRead: true });
+    const bookingRes = await wixData.query(BOOKINGS).limit(1000).find({ suppressAuth: true });
 
     const rooms = roomRes.items;
+    const allBookings = bookingRes.items;
     // Fetch all BookingSummary records once; BookingSummary stores dates as text.
-    const allSummaries = await findAll(wixData.query(BOOKING_SUMMARIES), { suppressAuth: true, consistentRead: true });
+    const summaryAllRes = await wixData.query(BOOKING_SUMMARIES).limit(1000).find({ suppressAuth: true });
+    const allSummaries = summaryAllRes.items;
 
     const normalizedSummaries = [];
     for (const s of allSummaries) {
@@ -186,15 +186,8 @@ export const searchAvailability = webMethod(
         const matched = [];
         for (const bk of rBookings) {
           const s = (bk.status || '').toLowerCase().trim();
-          if (['confirmed', 'hold', 'blocked', 'in-house'].indexOf(s) === -1) continue;
-          if (bk.autoOwnerBlock) continue;
-          let dates = null;
-          if (bk.checkIn && bk.checkOut) {
-            try {
-              dates = { dsCi: ds(bk.checkIn), dsCo: ds(bk.checkOut) };
-            } catch (e) { dates = null; }
-          }
-          if (!dates) dates = summaryMap[String(bk.bookingNumber)];
+          if (s === 'cancelled' || s === 'canceled') continue;
+          const dates = summaryMap[String(bk.bookingNumber)];
           if (dates) {
             if (dates.dsCi < nx && dates.dsCo > nt) {
               const qty = (bk.quantity || 1);
@@ -214,9 +207,7 @@ export const searchAvailability = webMethod(
         if (bpn[i] > maxBooked) maxBooked = bpn[i];
         if (bpn[i] >= units) allAvail = false;
       }
-      const assignmentMaxQty = await maxAutomaticQuantity(code, ci, co);
-      const maxQty = Math.min(units - maxBooked, assignmentMaxQty);
-      if (maxQty < 1) allAvail = false;
+      const maxQty = units - maxBooked;
 
       if (allAvail) {
         out.push(Object.assign({
@@ -240,7 +231,6 @@ export const searchAvailability = webMethod(
         } else { cs = null; cl = 0; }
       }
 
-      let pushedPartial = false;
       if (bs !== null && bl >= MIN_N) {
         let minFreePartial = units;
         for (let i = bs; i < bs + bl; i++) {
@@ -249,23 +239,17 @@ export const searchAvailability = webMethod(
         }
         const aci = nights[bs];
         const aco = ad(nights[bs + bl - 1], 1);
-        const partialAssignmentMax = await maxAutomaticQuantity(code, aci, aco);
-        const partialMaxQty = Math.min(minFreePartial, partialAssignmentMax);
-        if (partialMaxQty > 0) {
-          out.push(Object.assign({
-            roomCode: code, roomName: name, units: units,
-            occupancy: maxOcc, baseOccupancy: baseOcc,
-            maxQty: partialMaxQty, status: 'partial',
-            availableCheckIn: aci.toISOString(),
-            availableCheckOut: aco.toISOString(),
-            availableNights: bl,
-            roomFee: roomFee,
-            mainPhoto: imgUrl(rm.mainPhoto),
-          }, extraFieldsUnavailable));
-          pushedPartial = true;
-        }
-      }
-      if (!pushedPartial) {
+        out.push(Object.assign({
+          roomCode: code, roomName: name, units: units,
+          occupancy: maxOcc, baseOccupancy: baseOcc,
+          maxQty: minFreePartial, status: 'partial',
+          availableCheckIn: aci.toISOString(),
+          availableCheckOut: aco.toISOString(),
+          availableNights: bl,
+          roomFee: roomFee,
+          mainPhoto: imgUrl(rm.mainPhoto),
+        }, extraFieldsUnavailable));
+      } else {
         out.push(Object.assign({
           roomCode: code, roomName: name, units: units,
           occupancy: maxOcc, baseOccupancy: baseOcc,

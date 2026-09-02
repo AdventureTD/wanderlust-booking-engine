@@ -19,7 +19,7 @@ import { getAllSettings } from 'backend/settings';
 import { getRoomNames } from 'backend/rooms';
 import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights, getPackagesByNights } from 'backend/packages';
 import { readPricingQuote } from 'backend/pricingQuotes';
-import { createBookingBundle, issueBookingInvoice, validatePromoCode } from 'backend/availability';
+import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
 import { trackPurchase, getStoredClickIds, clearClickIds, initTracking, setSuspendGoogleAds } from 'public/tracking';
 import { recordBookingConversion } from 'backend/googleAdsConversions.web';
 import { recordMicrosoftBookingConversion } from 'backend/microsoftAdsConversions.web';
@@ -211,7 +211,6 @@ let _selectedPackageStayTotal = 0;
 let _hasSelectedPackageStayTotal = false;
 let _selectedPackageTitle = '';
 let _pricingQuoteToken = '';
-let _bookingOperationId = '';
 
 $w.onReady(function () {
   hideInitialSummaryValues();
@@ -823,10 +822,8 @@ function wireContinueButton() {
     const ci = _summaryCis;
     console.log('[WBE-FRONTEND] continue: rooms=', rooms.length, 'ci=', ci, 'co=', _summaryCos);
     console.log('[WBE-FRONTEND] dateToStr(ci)=', dateToStr(ci), 'dateToStr(_summaryCos)=', dateToStr(_summaryCos));
+    const bookings = [], errors = [];
     let sharedBookingNumber = '';
-    let invoiceCapability = '';
-    let invoiceAlreadyIssued = false;
-    let invoiceRequiresReview = false;
 
     const att = getStoredClickIds() || {};
     const clickIds = {
@@ -837,20 +834,17 @@ function wireContinueButton() {
     };
 
     try {
-      const bundleRooms = rooms.map(function (room) {
-        return {
-          roomCode: room.roomCode,
-          quantity: room.qty || 1,
-          guests: room.numGuests || room.qty || 1,
-          roomFee: room.roomFee || 0,
-        };
-      });
-      const bundleResult = await createBookingBundle({
-        operationId: _bookingOperationId || (_bookingOperationId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2)),
-        rooms: bundleRooms,
-        common: {
+      // Phase 1: book first room to get shared booking number
+      if (rooms.length > 0) {
+        const r0 = rooms[0];
+        const payload0 = {
+          roomCode: r0.roomCode,
           checkIn: dateToStr(ci),
           checkOut: dateToStr(_summaryCos),
+          quantity: r0.qty || 1,
+          guests: r0.numGuests || r0.qty || 1,
+          roomFee: r0.roomFee || 0,
+          status: 'confirmed',
           guestName: name,
           guestEmail: email,
           guestPhone: phone,
@@ -864,16 +858,85 @@ function wireContinueButton() {
           msclkid: clickIds.msclkid,
           packageId: _selectedPackageId || '',
           packageTitle: _selectedPackageTitle || '',
-          pricingQuoteToken: _pricingQuoteToken,
-        }
-      });
-      sharedBookingNumber = bundleResult && bundleResult.bookingNumber || '';
-      invoiceCapability = bundleResult && bundleResult.invoiceCapability || '';
-      invoiceAlreadyIssued = !!(bundleResult && bundleResult.invoiceAlreadyIssued);
-      invoiceRequiresReview = !!(bundleResult && bundleResult.invoiceRequiresReview);
+          pricingQuoteToken: _pricingQuoteToken
+        };
+        console.log('[WBE-FRONTEND] calling createBooking for first room:', payload0.roomCode);
+        const b0 = await createBooking(payload0);
+        console.log('[WBE-FRONTEND] createBooking returned:', JSON.stringify({ ok: !!b0, bookingNumber: b0 && b0.bookingNumber }));
+        bookings.push(b0);
+        if (b0.bookingNumber) sharedBookingNumber = b0.bookingNumber;
 
-      if (!sharedBookingNumber || (!invoiceCapability && !invoiceAlreadyIssued && !invoiceRequiresReview)) {
-        throw new Error('Booking bundle did not return completion authorization');
+        // Persist notes to BookingSummary separately.
+        try {
+          if (sharedBookingNumber) {
+            const summaryRes = await wixData.query('BookingSummary').eq('bookingNumber', sharedBookingNumber).limit(1).find();
+            if (summaryRes.items.length > 0) {
+              const s = summaryRes.items[0];
+              s.notes = note || '';
+              s.gclid = clickIds.gclid || s.gclid || '';
+              s.gbraid = clickIds.gbraid || s.gbraid || '';
+              s.wbraid = clickIds.wbraid || s.wbraid || '';
+              s.msclkid = clickIds.msclkid || s.msclkid || '';
+              if (s.checkIn) s.checkIn = normalizeDate(s.checkIn);
+              if (s.checkOut) s.checkOut = normalizeDate(s.checkOut);
+              if (s.bookingDate) s.bookingDate = normalizeDate(s.bookingDate);
+              await wixData.update('BookingSummary', s);
+              console.log('[WBE-FRONTEND] updated BookingSummary.notes');
+            }
+          }
+        } catch (noteErr) {
+          console.log('[WBE-FRONTEND] update BookingSummary.notes error:', noteErr.message);
+        }
+      }
+
+      // Phase 2: book remaining rooms in parallel
+      if (rooms.length > 1 && sharedBookingNumber) {
+        const restPromises = [];
+        for (let i = 1; i < rooms.length; i++) {
+          const r = rooms[i];
+          const payload = {
+            roomCode: r.roomCode,
+            checkIn: dateToStr(ci),
+            checkOut: dateToStr(_summaryCos),
+            quantity: r.qty || 1,
+            guests: r.numGuests || r.qty || 1,
+            roomFee: r.roomFee || 0,
+            status: 'confirmed',
+            guestName: name,
+            guestEmail: email,
+            guestPhone: phone,
+            marketSource: marketSource,
+            bookingNumber: sharedBookingNumber,
+            promoCode: _promoCodeApplied,
+            promoDiscount: _promoDiscount,
+            gclid: clickIds.gclid,
+            gbraid: clickIds.gbraid,
+            wbraid: clickIds.wbraid,
+            msclkid: clickIds.msclkid,
+            packageId: _selectedPackageId || '',
+            packageTitle: _selectedPackageTitle || '',
+            pricingQuoteToken: _pricingQuoteToken
+          };
+          restPromises.push(
+            createBooking(payload)
+              .then(function (b) { return { ok: true, b: b }; })
+              .catch(function (e) { return { ok: false, err: r.roomCode + ': ' + e.message }; })
+          );
+        }
+        const restResults = await Promise.all(restPromises);
+        for (let j = 0; j < restResults.length; j++) {
+          const res = restResults[j];
+          if (res.ok) {
+            bookings.push(res.b);
+          } else {
+            errors.push(res.err);
+          }
+        }
+      }
+      if (errors.length > 0) {
+        safeText('bookingStatus', 'Some rooms could not be booked: ' + errors.join('; '));
+        safeDisable('btnContinue', false);
+        return;
       }
 
       if (sharedBookingNumber) {
@@ -993,10 +1056,8 @@ function wireContinueButton() {
         // Start invoice creation without blocking the confirmed-booking redirect.
         // The backend request begins immediately and continues server-side while
         // the guest sees confirmation briefly and returns home after two seconds.
-        safeText('bookingStatus', invoiceRequiresReview
-          ? 'Booking confirmed! Our team will email your invoice after review. Taking you home...'
-          : 'Booking confirmed! Your invoice is being emailed. Taking you home...');
-        if (!invoiceAlreadyIssued && !invoiceRequiresReview) issueBookingInvoice(sharedBookingNumber, invoiceCapability)
+        safeText('bookingStatus', 'Booking confirmed! Your invoice is being emailed. Taking you home...');
+        issueBookingInvoice(sharedBookingNumber, false)
           .then(function (invResult) {
             console.log('[WBE-FRONTEND] Invoice service response:', JSON.stringify(invResult));
             if (!invoiceEmailWasAccepted(invResult)) {
@@ -1020,7 +1081,6 @@ function wireContinueButton() {
       }
     } catch (e) {
       console.error('[WBE-FRONTEND] createBooking/invoice flow error:', e.message, e.stack);
-      if (!/network|fetch|timeout/i.test(String(e && e.message || e))) _bookingOperationId = '';
       safeText('bookingStatus', 'Booking error: ' + e.message);
       safeDisable('btnContinue', false);
     }

@@ -526,8 +526,7 @@ async function newInvoice() {
   if (!_currentBooking) return;
   txt('saveStatusText', 'Generating new invoice...');
   try {
-    const requestId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2);
-    const res = await adminIssueNewInvoice(_currentBooking.bookingNumber, requestId);
+    const res = await adminIssueNewInvoice(_currentBooking.bookingNumber);
     if (!res.ok) { txt('saveStatusText', 'Error: ' + (res.error || 'unknown')); return; }
     txt('saveStatusText', 'New invoice ' + res.invoiceNumber + ' generated and sent to info@.');
     await openDetail(_currentBooking.bookingNumber);

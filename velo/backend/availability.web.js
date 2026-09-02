@@ -3,25 +3,17 @@ import wixData from 'wix-data';
 import { Permissions, webMethod } from 'wix-web-module';
 import { fetch } from 'wix-fetch';
 import { getSecret } from 'wix-secrets-backend';
-
-import crypto from 'crypto';
 import { getAllSettings, incrementSetting } from 'backend/settings.web';
 import { adjustBookingConversion, isGoogleAdsSuspended } from 'backend/googleAdsConversions.web';
 import { normalizePriceModifier, roundMoney } from 'backend/rateResolver';
 import { verifyLockedPricingQuote } from 'backend/pricingQuote';
-import { syncBookingCalendarRooms } from 'backend/calendarSync';
-import { planAutomaticAssignments, planManualBlockAssignments, assertCommittedAssignments, assertInventoryMigrationReady } from 'backend/roomAssignments';
-import { reconcileOwnerBlocks } from 'backend/ownerBlocks';
 
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
 const BOOKING_INVOICES = 'BookingInvoices';
-const INVOICE_CLAIMS = 'InvoiceClaims';
-const BOOKING_OPERATIONS = 'BookingOperations';
 const INVOICE_SERVICE_URL_KEY = 'WBE_INVOICE_SERVICE_URL';
 const SHARED_SECRET_KEY = 'WBE_SHARED_SECRET';
-const MAX_ROOMS_PER_BOOKING = 4;
-const ACTIVE_BOOKING_STATUSES = ['confirmed', 'Confirmed', 'hold', 'Hold', 'blocked', 'Blocked', 'In-House', 'in-house'];
+const MAX_ROOMS_PER_BOOKING = 5;
 
 const ROOM_UNITS = {
   adventure_suite: 3,
@@ -50,7 +42,6 @@ const ROOM_DISPLAY_NAMES = {
 function getRoomDisplayName(roomCode) {
   return ROOM_DISPLAY_NAMES[roomCode] || (roomCode || '').replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
 }
-
 
 function activeRoomQuantity(rows) {
   return (rows || []).reduce(function (total, row) {
@@ -175,7 +166,7 @@ async function getAuthoritativeRoomFee(roomCode) {
   return Number.isFinite(fee) && fee > 0 ? fee : 0;
 }
 
-async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoiceNumber, ownerOnly, payments, bookingNumber, idempotencyKey) {
+async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoiceNumber, ownerOnly, payments, bookingNumber) {
   const serviceUrl = await getSecret(INVOICE_SERVICE_URL_KEY);
   const secret = await getSecret(SHARED_SECRET_KEY);
   if (!serviceUrl || !secret) {
@@ -191,8 +182,6 @@ async function callIssueInvoice(guest, quoteBreakdown, dates, sendEmail, invoice
     room_code: Array.isArray(dates.roomCode) ? dates.roomCode.join(', ') : dates.roomCode,
     send_email: sendEmail,
     owner_only: !!ownerOnly,
-    room_calendar_sync: true,
-    idempotency_key: idempotencyKey || '',
   };
   if (invoiceNumber) {
     body.invoice_number = invoiceNumber;
@@ -455,15 +444,10 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
     let notes = '';
 
     for (const row of res.items) {
-      const rowStatus = String(row.status || '').toLowerCase().trim();
-      const active = rowStatus !== 'cancelled' && rowStatus !== 'canceled';
-      if (active) {
-        roomCount += (row.quantity || 1);
-        if (!status && row.status) status = row.status;
-      }
+      roomCount += (row.quantity || 1);
+      if (!status && row.status) status = row.status;
       if (!notes && row.note) notes = row.note;
     }
-    if (!status) status = 'Cancelled';
 
     const att = optAttribution || {};
     const anyGclid = att.gclid || '';
@@ -523,9 +507,6 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       if (existingAtt.googleConversionRetracted) summary.googleConversionRetracted = existingAtt.googleConversionRetracted;
       if (existingAtt.microsoftConversionUploaded) summary.microsoftConversionUploaded = existingAtt.microsoftConversionUploaded;
       if (existingAtt.microsoftConversionRetracted) summary.microsoftConversionRetracted = existingAtt.microsoftConversionRetracted;
-      ['buildState', 'expectedRoomCount', 'invoiceCapabilityHash', 'invoiceCapabilityExpiresAt', 'invoiceIssueStatus', 'financialVersion'].forEach(function (field) {
-        if (existingAtt[field] !== undefined) summary[field] = existingAtt[field];
-      });
       console.log('>>> updateBookingSummary UPDATING row', existing.items[0]._id);
       await wixData.update(BOOKING_SUMMARIES, summary, { suppressAuth: true });
       console.log('>>> updateBookingSummary UPDATE complete');
@@ -542,27 +523,10 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
 async function overlappingCount(roomCode, checkIn, checkOut) {
   let total = 0;
   const seenIds = [];
-  const start = toDate(checkIn) || new Date(checkIn);
-  const end = toDate(checkOut) || new Date(checkOut);
 
-  // Current rows carry their own dates. Query them directly so newly inserted
-  // rows are visible before BookingSummary has been created.
-  const directRes = await wixData.query(BOOKINGS)
-    .eq('roomCode', roomCode)
-    .hasSome('status', ACTIVE_BOOKING_STATUSES)
-    .lt('checkIn', end)
-    .gt('checkOut', start)
-    .limit(1000)
-    .find({ suppressAuth: true });
-  for (const row of directRes.items) {
-    total += (row.quantity || 1);
-    if (row._id) seenIds.push(row._id);
-  }
-
-  // Legacy rows may rely on BookingSummary for dates.
   const summaryRes = await wixData.query(BOOKING_SUMMARIES)
-    .lt('checkIn', end)
-    .gt('checkOut', start)
+    .lt('checkIn', toDate(checkOut) || new Date(checkOut))
+    .gt('checkOut', toDate(checkIn) || new Date(checkIn))
     .limit(1000)
     .find({ suppressAuth: true });
 
@@ -576,12 +540,11 @@ async function overlappingCount(roomCode, checkIn, checkOut) {
   if (overlapNumbers.length > 0) {
     const res = await wixData.query(BOOKINGS)
       .eq('roomCode', roomCode)
-      .hasSome('status', ACTIVE_BOOKING_STATUSES)
+      .hasSome('status', ['confirmed', 'hold', 'blocked'])
       .hasSome('bookingNumber', overlapNumbers)
       .limit(1000)
       .find({ suppressAuth: true });
     for (const row of res.items) {
-      if (row._id && seenIds.indexOf(row._id) !== -1) continue;
       total += (row.quantity || 1);
       if (row._id) seenIds.push(row._id);
     }
@@ -594,25 +557,10 @@ async function overlappingRows(roomCode, checkIn, checkOut) {
   const rows = [];
   const seenIds = [];
   const summaryDateMap = {}; // bookingNumber -> {checkIn, checkOut}
-  const start = toDate(checkIn) || new Date(checkIn);
-  const end = toDate(checkOut) || new Date(checkOut);
 
-  const directRes = await wixData.query(BOOKINGS)
-    .eq('roomCode', roomCode)
-    .hasSome('status', ACTIVE_BOOKING_STATUSES)
-    .lt('checkIn', end)
-    .gt('checkOut', start)
-    .limit(1000)
-    .find({ suppressAuth: true });
-  for (const row of directRes.items) {
-    rows.push(row);
-    if (row._id) seenIds.push(row._id);
-  }
-
-  // Preserve fallback support for legacy rows whose dates live only on summary.
   const summaryRes = await wixData.query(BOOKING_SUMMARIES)
-    .lt('checkIn', end)
-    .gt('checkOut', start)
+    .lt('checkIn', toDate(checkOut) || new Date(checkOut))
+    .gt('checkOut', toDate(checkIn) || new Date(checkIn))
     .limit(1000)
     .find({ suppressAuth: true });
 
@@ -632,12 +580,11 @@ async function overlappingRows(roomCode, checkIn, checkOut) {
   if (overlapNumbers.length > 0) {
     const res = await wixData.query(BOOKINGS)
       .eq('roomCode', roomCode)
-      .hasSome('status', ACTIVE_BOOKING_STATUSES)
+      .hasSome('status', ['confirmed', 'hold', 'blocked'])
       .hasSome('bookingNumber', overlapNumbers)
       .limit(1000)
       .find({ suppressAuth: true });
     for (const row of res.items) {
-      if (row._id && seenIds.indexOf(row._id) !== -1) continue;
       if (!row.checkIn && summaryDateMap[String(row.bookingNumber)]) {
         row.checkIn = summaryDateMap[String(row.bookingNumber)].checkIn;
         row.checkOut = summaryDateMap[String(row.bookingNumber)].checkOut;
@@ -768,7 +715,10 @@ async function createBookingImpl(booking) {
     throw new Error(roomDisplay + ' sleeps ' + ROOM_MAX_OCCUPANCY[roomCode] + '; requested ' + guests);
   }
 
-  const assignedUnits = await planAutomaticAssignments(roomCode, quantity, checkIn, checkOut);
+  const currentlyBooked = await overlappingCount(roomCode, checkIn, checkOut);
+  if (currentlyBooked + quantity > ROOM_UNITS[roomCode]) {
+    throw new Error('Only ' + (ROOM_UNITS[roomCode] - currentlyBooked) + ' ' + roomDisplay + '(s) available for ' + checkIn + ' to ' + checkOut);
+  }
 
   let bookingNumber = providedBookingNumber || '';
   if (!bookingNumber) {
@@ -842,38 +792,15 @@ async function createBookingImpl(booking) {
     roomCode: roomCode,
     guests: guests,
     status: booking.status || 'confirmed',
-    quantity: 1,
+    quantity: quantity,
     roomFee: roomFee,
     bookingNumber: bookingNumber,
     checkIn: toDate(checkIn),
     checkOut: toDate(checkOut),
     note: saveNote || ''
   };
-  console.log('>>> SERVER toInsert keys:', Object.keys(toInsert).join(', '), '| bookingNumber:', toInsert.bookingNumber, '| physical rows:', quantity);
-  const insertedRows = [];
-  try {
-    for (let unitIndex = 0; unitIndex < quantity; unitIndex++) {
-      insertedRows.push(await wixData.insert(BOOKINGS, Object.assign({}, toInsert, {
-        assignedRoom: assignedUnits[unitIndex],
-        inventoryKind: 'guest',
-        deferCalendarSync: true,
-      })));
-    }
-  } catch (insertError) {
-    const rollbackErrors = [];
-    for (const row of insertedRows) {
-      try {
-        await wixData.remove(BOOKINGS, row._id, { suppressHooks: true });
-      } catch (rollbackError) {
-        rollbackErrors.push(row._id + ': ' + rollbackError.message);
-      }
-    }
-    if (rollbackErrors.length) {
-      throw new Error(insertError.message + ' | PARTIAL BOOKING REPAIR REQUIRED: ' + rollbackErrors.join('; '));
-    }
-    throw insertError;
-  }
-  const inserted = insertedRows[0];
+  console.log('>>> SERVER toInsert keys:', Object.keys(toInsert).join(', '), '| bookingNumber:', toInsert.bookingNumber);
+  const inserted = await wixData.insert(BOOKINGS, toInsert);
   inserted.bookingNumber = bookingNumber || inserted.bookingNumber || '';
 
   const packageTitle = packagePricing.packageTitle || booking.packageTitle || '';
@@ -889,29 +816,20 @@ async function createBookingImpl(booking) {
   };
 
   try {
-    await assertCommittedAssignments(insertedRows, checkIn, checkOut);
-  } catch (conflictError) {
-    const rollbackErrors = [];
-    for (const row of insertedRows) {
-      try {
-        await wixData.remove(BOOKINGS, row._id, { suppressHooks: true });
-      } catch (rollbackError) {
-        rollbackErrors.push(row._id + ': ' + rollbackError.message);
-      }
-    }
-    if (rollbackErrors.length) {
-      throw new Error(conflictError.message + ' | PARTIAL BOOKING REPAIR REQUIRED: ' + rollbackErrors.join('; '));
-    }
-    throw new Error(conflictError.message + ' Please retry.');
-  }
-
-  // Financial and summary state must succeed together with inventory. A failure
-  // compensates the entire in-progress booking, including the first room.
-  try {
     await createDraftInvoice(inserted.bookingNumber, financials, checkIn, checkOut, packageTitle);
     console.log('>>> SERVER draft invoice created for', inserted.bookingNumber);
+  } catch (e) {
+    console.log('>>> SERVER createDraftInvoice ERROR:', e.message);
+  }
 
-    console.log('>>> SERVER calling updateBookingSummary for', inserted.bookingNumber);
+  const countNow = await overlappingCount(roomCode, checkIn, checkOut);
+  if (countNow > ROOM_UNITS[roomCode]) {
+    await wixData.remove(BOOKINGS, inserted._id);
+    throw new Error('Booking conflict — ' + roomCode + ' was just taken. Please retry.');
+  }
+
+  console.log('>>> SERVER calling updateBookingSummary for', inserted.bookingNumber);
+  try {
     await updateBookingSummary(inserted.bookingNumber, toDate(checkIn), toDate(checkOut), {
       guestName: guestName || '',
       guestEmail: guestEmail || '',
@@ -923,264 +841,23 @@ async function createBookingImpl(booking) {
       wbraid: booking.wbraid || '',
       msclkid: booking.msclkid || ''
     }, packageTitle);
-  } catch (error) {
-    try {
-      await rollbackBookingBuild(inserted.bookingNumber, error.message);
-      error.bookingRolledBack = true;
-    } catch (rollbackError) {
-      throw new Error(error.message + ' | ' + rollbackError.message);
-    }
-    throw error;
+  } catch (e) {
+    console.log('>>> SERVER updateBookingSummary ERROR:', e.message);
   }
 
   console.log('>>> SERVER createBooking complete. bookingNumber:', inserted.bookingNumber);
   return inserted;
 }
 
-async function rollbackBookingBuild(bookingNumber, reason) {
-  const rowsRes = await wixData.query(BOOKINGS)
-    .eq('bookingNumber', bookingNumber)
-    .limit(100)
-    .find({ suppressAuth: true, consistentRead: true });
-
-  const failures = [];
-  for (const row of rowsRes.items) {
-    try {
-      await wixData.remove(BOOKINGS, row._id, { suppressAuth: true, suppressHooks: true });
-    } catch (error) {
-      failures.push('Bookings/' + row._id + ': ' + error.message);
-    }
-  }
-
-  const invoiceRes = await wixData.query(BOOKING_INVOICES)
-    .eq('bookingNumber', bookingNumber)
-    .eq('status', 'Draft')
-    .limit(100)
-    .find({ suppressAuth: true });
-  for (const invoice of invoiceRes.items) {
-    try {
-      await wixData.remove(BOOKING_INVOICES, invoice._id, { suppressAuth: true, suppressHooks: true });
-    } catch (error) {
-      failures.push('BookingInvoices/' + invoice._id + ': ' + error.message);
-    }
-  }
-
-  const summaryRes = await wixData.query(BOOKING_SUMMARIES)
-    .eq('bookingNumber', bookingNumber)
-    .limit(10)
-    .find({ suppressAuth: true });
-  for (const summary of summaryRes.items) {
-    try {
-      await wixData.remove(BOOKING_SUMMARIES, summary._id, { suppressAuth: true, suppressHooks: true });
-    } catch (error) {
-      failures.push('BookingSummary/' + summary._id + ': ' + error.message);
-    }
-  }
-
-  if (failures.length) {
-    throw new Error('PARTIAL BOOKING REPAIR REQUIRED after ' + reason + ': ' + failures.join('; '));
-  }
-}
-
-function invoiceCapabilityHash(token) {
-  return crypto.createHash('sha256').update(String(token || ''), 'utf8').digest('hex');
-}
-
-function secureCapabilityMatch(token, expectedHash) {
-  const actual = Buffer.from(invoiceCapabilityHash(token), 'utf8');
-  const expected = Buffer.from(String(expectedHash || ''), 'utf8');
-  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
-}
-
-async function acquireInvoiceClaim(claimKey, bookingNumber) {
-  const claimId = 'ic-' + crypto.createHash('sha256').update(claimKey, 'utf8').digest('hex').slice(0, 33);
-  const claim = {
-    _id: claimId,
-    claimKey: claimKey,
-    bookingNumber: bookingNumber,
-    state: 'processing',
-    createdAt: new Date(),
-  };
-  try {
-    return { claim: await wixData.insert(INVOICE_CLAIMS, claim, { suppressAuth: true, suppressHooks: true }), existing: false };
-  } catch (error) {
-    const existing = await wixData.get(INVOICE_CLAIMS, claimId, { suppressAuth: true });
-    if (existing && existing.claimKey === claimKey && existing.state === 'issued') {
-      return { claim: existing, existing: true };
-    }
-    throw new Error('Invoice request is already processing or requires administrator review');
-  }
-}
-
-async function markInvoiceManualReview(claim, summary, error) {
-  claim.state = 'manual_review';
-  claim.error = String(error && error.message || error);
-  claim.updatedAt = new Date();
-  await wixData.update(INVOICE_CLAIMS, claim, { suppressAuth: true, suppressHooks: true });
-  if (summary) {
-    summary.invoiceIssueStatus = 'manual_review';
-    await wixData.update(BOOKING_SUMMARIES, summary, { suppressAuth: true, suppressHooks: true });
-  }
-}
-
-async function bookingBundleCapability(operationId, bookingNumber) {
-  const secret = await getSecret(SHARED_SECRET_KEY);
-  if (!secret) throw new Error('Booking capability secret is not configured');
-  return crypto.createHmac('sha256', String(secret))
-    .update(String(operationId) + '|' + String(bookingNumber), 'utf8')
-    .digest('hex');
-}
-
-async function createBookingBundleImpl(request) {
-  const input = request || {};
-  const operationId = String(input.operationId || '');
-  if (!/^[A-Za-z0-9_-]{16,96}$/.test(operationId)) {
-    throw new Error('A valid booking operation ID is required');
-  }
-  const rooms = Array.isArray(input.rooms) ? input.rooms : [];
-  if (!rooms.length) throw new Error('At least one room is required');
-  const requestedRoomCount = rooms.reduce(function (sum, room) {
-    return sum + Math.max(1, parseInt(room && room.quantity || 1, 10) || 1);
-  }, 0);
-  if (requestedRoomCount > MAX_ROOMS_PER_BOOKING) {
-    throw new Error('A booking can contain a maximum of ' + MAX_ROOMS_PER_BOOKING + ' rooms.');
-  }
-  await assertInventoryMigrationReady();
-
-  const operationDocId = 'op-' + crypto.createHash('sha256').update(operationId, 'utf8').digest('hex').slice(0, 33);
-  let operation = {
-    _id: operationDocId,
-    operationId: operationId,
-    state: 'preparing',
-    requestedRoomCount: requestedRoomCount,
-    startedAt: new Date(),
-  };
-  try {
-    operation = await wixData.insert(BOOKING_OPERATIONS, operation, { suppressAuth: true, suppressHooks: true });
-  } catch (insertError) {
-    const existing = await wixData.get(BOOKING_OPERATIONS, operationDocId, { suppressAuth: true });
-    if (!existing || existing.operationId !== operationId) throw new Error('Booking operation conflict');
-    if (existing.state === 'committed' && existing.bookingNumber) {
-      const existingSummaryRes = await wixData.query(BOOKING_SUMMARIES)
-        .eq('bookingNumber', existing.bookingNumber)
-        .limit(1)
-        .find({ suppressAuth: true, consistentRead: true });
-      const existingSummary = existingSummaryRes.items[0];
-      const alreadyIssued = !!(existingSummary && existingSummary.invoiceIssueStatus === 'issued');
-      const requiresReview = !!(existingSummary && existingSummary.invoiceIssueStatus !== 'ready' && !alreadyIssued);
-      const capability = (alreadyIssued || requiresReview) ? '' : await bookingBundleCapability(operationId, existing.bookingNumber);
-      if (existingSummary && !alreadyIssued && !requiresReview) {
-        existingSummary.invoiceCapabilityHash = invoiceCapabilityHash(capability);
-        existingSummary.invoiceCapabilityExpiresAt = new Date(Date.now() + (15 * 60 * 1000));
-        await wixData.update(BOOKING_SUMMARIES, existingSummary, { suppressAuth: true, suppressHooks: true });
-      }
-      return {
-        bookingNumber: existing.bookingNumber,
-        roomCount: existing.requestedRoomCount,
-        invoiceCapability: capability,
-        invoiceAlreadyIssued: alreadyIssued,
-        invoiceRequiresReview: requiresReview,
-        idempotentReplay: true,
-      };
-    }
-    throw new Error('Booking operation is already processing or previously failed');
-  }
-
-  const bookingNumber = await getNextBookingNumber();
-  operation.bookingNumber = bookingNumber;
-  await wixData.update(BOOKING_OPERATIONS, operation, { suppressAuth: true, suppressHooks: true });
-
-  let summary = null;
-  let capability = '';
-  let committedRows = [];
-  try {
-    for (const room of rooms) {
-      const payload = Object.assign({}, input.common || {}, {
-        roomCode: room && room.roomCode,
-        quantity: room && room.quantity,
-        guests: room && room.guests,
-        roomFee: room && room.roomFee,
-        bookingNumber: bookingNumber,
-        status: 'confirmed',
-      });
-      await createBookingImpl(payload);
-    }
-
-    const summaryRes = await wixData.query(BOOKING_SUMMARIES)
-      .eq('bookingNumber', bookingNumber)
-      .limit(1)
-      .find({ suppressAuth: true, consistentRead: true });
-    if (!summaryRes.items.length) throw new Error('BookingSummary missing after bundle creation');
-
-    capability = await bookingBundleCapability(operationId, bookingNumber);
-    summary = summaryRes.items[0];
-    summary.buildState = 'committed';
-    summary.expectedRoomCount = requestedRoomCount;
-    summary.invoiceCapabilityHash = invoiceCapabilityHash(capability);
-    summary.invoiceCapabilityExpiresAt = new Date(Date.now() + (15 * 60 * 1000));
-    summary.invoiceIssueStatus = 'ready';
-    await wixData.update(BOOKING_SUMMARIES, summary, { suppressAuth: true, suppressHooks: true });
-
-    const committedRowsRes = await wixData.query(BOOKINGS)
-      .eq('bookingNumber', bookingNumber)
-      .limit(100)
-      .find({ suppressAuth: true, consistentRead: true });
-    committedRows = committedRowsRes.items;
-    if (committedRows.length !== requestedRoomCount) {
-      throw new Error('Committed room count does not match requested room count');
-    }
-    for (const row of committedRows) {
-      if (row.deferCalendarSync) {
-        row.deferCalendarSync = false;
-        await wixData.update(BOOKINGS, row, { suppressAuth: true, suppressHooks: true });
-      }
-    }
-
-    operation.state = 'committed';
-    operation.completedAt = new Date();
-    await wixData.update(BOOKING_OPERATIONS, operation, { suppressAuth: true, suppressHooks: true });
-  } catch (error) {
-    let finalError = error;
-    let repairRequired = false;
-    if (!error.bookingRolledBack) {
-      try {
-        await rollbackBookingBuild(bookingNumber, error.message);
-      } catch (rollbackError) {
-        repairRequired = true;
-        finalError = new Error(error.message + ' | ' + rollbackError.message);
-      }
-    }
-    operation.state = repairRequired ? 'repair_required' : 'rolled_back';
-    operation.error = finalError.message;
-    operation.completedAt = new Date();
-    try {
-      await wixData.update(BOOKING_OPERATIONS, operation, { suppressAuth: true, suppressHooks: true });
-    } catch (operationError) {}
-    throw finalError;
-  }
-
-  try {
-    await reconcileOwnerBlocks();
-    await syncBookingCalendarRooms(committedRows, summary);
-  } catch (calendarError) {
-    console.log('>>> createBookingBundle calendar reconciliation ERROR:', calendarError.message);
-  }
-
-  return {
-    bookingNumber: bookingNumber,
-    roomCount: requestedRoomCount,
-    invoiceCapability: capability,
-    invoiceAlreadyIssued: false,
-  };
-}
-
-export const createBookingBundle = webMethod(
+export const createBooking = webMethod(
   Permissions.Anyone,
-  createBookingBundleImpl
+  createBookingImpl
 );
 
 
-async function issueBookingInvoiceImpl(bookingNumber, ownerOnly, accessToken, requestKey) {
+export const issueBookingInvoice = webMethod(
+  Permissions.Anyone,
+  async (bookingNumber, ownerOnly) => {
     ownerOnly = ownerOnly || false;
     if (!bookingNumber) throw new Error('bookingNumber required');
 
@@ -1193,54 +870,22 @@ async function issueBookingInvoiceImpl(bookingNumber, ownerOnly, accessToken, re
       throw new Error('No bookings found for ' + bookingNumber);
     }
 
-    let summaryRow = null;
-    const summaryRes = await wixData.query(BOOKING_SUMMARIES)
-      .eq('bookingNumber', bookingNumber)
-      .limit(1)
-      .find({ suppressAuth: true, consistentRead: true });
-    if (summaryRes.items.length > 0) summaryRow = summaryRes.items[0];
-
-    let claimKey = '';
-    if (ownerOnly) {
-      claimKey = String(requestKey || ('admin:' + bookingNumber + ':' + Number(summaryRow && summaryRow.financialVersion || 0)));
-    } else {
-      const expiresAt = summaryRow && summaryRow.invoiceCapabilityExpiresAt
-        ? new Date(summaryRow.invoiceCapabilityExpiresAt)
-        : null;
-      const authorized = summaryRow && summaryRow.buildState === 'committed' &&
-        summaryRow.invoiceIssueStatus === 'ready' &&
-        expiresAt && expiresAt > new Date() &&
-        secureCapabilityMatch(accessToken, summaryRow.invoiceCapabilityHash);
-      if (!authorized) throw new Error('Unauthorized or expired invoice request');
-      claimKey = 'guest:' + bookingNumber + ':' + Number(summaryRow.financialVersion || 1);
-    }
-
-    const claimResult = await acquireInvoiceClaim(claimKey, bookingNumber);
-    const invoiceClaim = claimResult.claim;
-    if (claimResult.existing) {
-      return {
-        invoice_number: invoiceClaim.invoiceNumber,
-        invoice_url: invoiceClaim.invoiceUrl,
-        total: invoiceClaim.total,
-        emailed: 'already-issued',
-        idempotentReplay: true,
-      };
-    }
-
-    if (!ownerOnly) {
-      // Consume only after the insert-only claim wins. Concurrent replay loses
-      // at the claim insert and cannot reach invoice/email side effects.
-      summaryRow.invoiceCapabilityHash = '';
-      summaryRow.invoiceIssueStatus = 'processing';
-      await wixData.update(BOOKING_SUMMARIES, summaryRow, { suppressAuth: true, suppressHooks: true });
-    }
-
     const firstRow = bookingsRes.items[0];
 
     let checkInDate = '', checkOutDate = '';
-    if (summaryRow) {
-      if (summaryRow.checkIn) checkInDate = new Date(summaryRow.checkIn).toISOString().slice(0, 10);
-      if (summaryRow.checkOut) checkOutDate = new Date(summaryRow.checkOut).toISOString().slice(0, 10);
+    let summaryRow = null;
+    try {
+      const summaryRes = await wixData.query(BOOKING_SUMMARIES)
+        .eq('bookingNumber', bookingNumber)
+        .limit(1)
+        .find({ suppressAuth: true });
+      if (summaryRes.items.length > 0) {
+        summaryRow = summaryRes.items[0];
+        if (summaryRow.checkIn) checkInDate = new Date(summaryRow.checkIn).toISOString().slice(0, 10);
+        if (summaryRow.checkOut) checkOutDate = new Date(summaryRow.checkOut).toISOString().slice(0, 10);
+      }
+    } catch (summaryErr) {
+      console.log('>>> issueBookingInvoice BookingSummary read ERROR:', summaryErr.message);
     }
 
     const activeInvoice = await getActiveInvoice(bookingNumber);
@@ -1298,9 +943,6 @@ async function issueBookingInvoiceImpl(bookingNumber, ownerOnly, accessToken, re
     }));
 
     const invoiceNumber = await getNextInvoiceNumber();
-    invoiceClaim.invoiceNumber = invoiceNumber;
-    invoiceClaim.updatedAt = new Date();
-    await wixData.update(INVOICE_CLAIMS, invoiceClaim, { suppressAuth: true, suppressHooks: true });
 
     // Fetch payments for this booking to show in the Payment Summary section.
     let payments = [];
@@ -1318,28 +960,11 @@ async function issueBookingInvoiceImpl(bookingNumber, ownerOnly, accessToken, re
       console.log('>>> issueBookingInvoice payment fetch error:', payErr.message);
     }
 
-    let result;
-    try {
-      result = await callIssueInvoice(guest, quoteBreakdown, dates, true, invoiceNumber, ownerOnly, payments, bookingNumber, claimKey);
-    } catch (error) {
-      await markInvoiceManualReview(invoiceClaim, summaryRow, error);
-      throw error;
-    }
+    const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, invoiceNumber, ownerOnly, payments, bookingNumber);
     console.log('>>> issueBookingInvoice full service result keys:', Object.keys(result || {}).join(','));
     console.log('>>> issueBookingInvoice full service result:', JSON.stringify(result));
-
-    let roomCalendarResults = [];
-    try {
-      await reconcileOwnerBlocks();
-      roomCalendarResults = await syncBookingCalendarRooms(bookingsRes.items, summaryRow);
-      console.log('>>> ROOM CALENDAR sync results:', JSON.stringify(roomCalendarResults));
-    } catch (calendarErr) {
-      console.log('>>> ROOM CALENDAR sync ERROR:', calendarErr.message);
-      roomCalendarResults = [{ ok: false, error: calendarErr.message }];
-    }
-
     console.log('>>> CALENDAR result from invoice service:', JSON.stringify(
-      roomCalendarResults
+      result._calendar_debug || result.calendar || result.calendar_error || 'no-calendar-field'
     ));
 
     const returnPayload = {
@@ -1347,7 +972,6 @@ async function issueBookingInvoiceImpl(bookingNumber, ownerOnly, accessToken, re
       invoice_url: result.invoice_url,
       total: result.total,
       emailed: result.emailed,
-      room_calendar: roomCalendarResults,
       _calendar_debug: result._calendar_debug || null,
       calendar: result.calendar || null,
       calendar_error: result.calendar_error || null,
@@ -1370,15 +994,8 @@ async function issueBookingInvoiceImpl(bookingNumber, ownerOnly, accessToken, re
     try {
       await recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, totals, toDate(checkInDate), toDate(checkOutDate));
       console.log('>>> issueBookingInvoice recorded invoice', invoiceNumber, 'for booking', bookingNumber);
-
-      invoiceClaim.state = 'issued';
-      invoiceClaim.invoiceUrl = invoiceUrl;
-      invoiceClaim.total = result.total;
-      invoiceClaim.issuedAt = new Date();
-      await wixData.update(INVOICE_CLAIMS, invoiceClaim, { suppressAuth: true, suppressHooks: true });
-    } catch (error) {
-      await markInvoiceManualReview(invoiceClaim, summaryRow, error);
-      throw error;
+    } catch (invErr) {
+      console.log('>>> issueBookingInvoice recordBookingInvoice ERROR:', invErr.message);
     }
 
     // Mirror active invoice dates onto BookingSummary.
@@ -1399,21 +1016,8 @@ async function issueBookingInvoiceImpl(bookingNumber, ownerOnly, accessToken, re
       console.log('>>> issueBookingInvoice mirror dates ERROR:', e.message);
     }
 
-    if (summaryRow) {
-      summaryRow.invoiceIssueStatus = 'issued';
-      await wixData.update(BOOKING_SUMMARIES, summaryRow, { suppressAuth: true, suppressHooks: true });
-    }
     return returnPayload;
-}
-
-export const issueBookingInvoice = webMethod(
-  Permissions.Anyone,
-  async (bookingNumber, accessToken) => issueBookingInvoiceImpl(bookingNumber, false, accessToken, '')
-);
-
-export const issueBookingInvoiceAdmin = webMethod(
-  Permissions.Admin,
-  async (bookingNumber, requestKey) => issueBookingInvoiceImpl(bookingNumber, true, '', requestKey)
+  }
 );
 
 export const cancelBooking = webMethod(
@@ -1421,26 +1025,10 @@ export const cancelBooking = webMethod(
   async (bookingId) => {
     const b = await wixData.get(BOOKINGS, bookingId);
     if (!b) throw new Error('No booking ' + bookingId);
-    if (b.bookingNumber) {
-      const activeSiblings = await wixData.query(BOOKINGS)
-        .eq('bookingNumber', b.bookingNumber)
-        .hasSome('status', ACTIVE_BOOKING_STATUSES)
-        .limit(100)
-        .find({ suppressAuth: true, consistentRead: true });
-      if (activeSiblings.items.length > 1) {
-        throw new Error('Room-level cancellation is not supported for multi-room reservations. Use the Admin Console whole-booking cancellation.');
-      }
-    }
     b.status = 'Cancelled';
     const updated = await wixData.update(BOOKINGS, b);
 
     if (b.bookingNumber) {
-      const remainingRes = await wixData.query(BOOKINGS)
-        .eq('bookingNumber', b.bookingNumber)
-        .hasSome('status', ACTIVE_BOOKING_STATUSES)
-        .limit(100)
-        .find({ suppressAuth: true, consistentRead: true });
-      const noActiveRoomsRemain = remainingRes.items.length === 0;
       try {
         await updateBookingSummary(b.bookingNumber);
       } catch (e) {
@@ -1454,10 +1042,7 @@ export const cancelBooking = webMethod(
           .find({ suppressAuth: true });
         if (summaryRes.items.length > 0) {
           const summary = summaryRes.items[0];
-          if (!noActiveRoomsRemain) {
-            summary.status = remainingRes.items[0].status || 'confirmed';
-            await wixData.update(BOOKING_SUMMARIES, summary);
-          } else if (summary.googleConversionUploaded === true && summary.googleConversionRetracted !== true) {
+          if (summary.googleConversionUploaded === true && summary.googleConversionRetracted !== true) {
             let adjResult;
             if (await isGoogleAdsSuspended()) {
               console.log('[WBE-CANCEL] skipping Google Ads conversion retraction — suspendGoogleAds is enabled');
@@ -1476,7 +1061,7 @@ export const cancelBooking = webMethod(
               });
             }
             console.log('>>> SERVER cancelBooking adjustment result:', JSON.stringify(adjResult).substring(0, 300));
-            if (adjResult && adjResult.ok && !adjResult.suspended) {
+            if (adjResult && adjResult.ok) {
               summary.googleConversionRetracted = true;
               summary.status = 'In Process';
               await wixData.update(BOOKING_SUMMARIES, summary);
@@ -1495,60 +1080,61 @@ export const cancelBooking = webMethod(
 export const blockRoom = webMethod(
   Permissions.Admin,
   async (roomCode, checkIn, checkOut, quantity, note) => {
-    quantity = Math.max(1, Number(quantity) || 1);
+    quantity = quantity || 1;
     note = note || '';
     const roomDisplay = getRoomDisplayName(roomCode);
     if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomDisplay + '\'');
     if (nightsBetween(checkIn, checkOut) <= 0) throw new Error('checkOut must be after checkIn');
+    if (quantity < 1) throw new Error('quantity must be >= 1');
 
-    const assignedUnits = await planManualBlockAssignments(roomCode, quantity, checkIn, checkOut);
-    const bookingNumber = await getNextBookingNumber();
-    const insertedRows = [];
-    try {
-      for (let unitIndex = 0; unitIndex < assignedUnits.length; unitIndex++) {
-        insertedRows.push(await wixData.insert(BOOKINGS, {
-          roomCode: roomCode,
-          guests: 0,
-          status: 'blocked',
-          quantity: 1,
-          assignedRoom: assignedUnits[unitIndex],
-          inventoryKind: 'manual_block',
-          deferCalendarSync: true,
-          note: note,
-          checkIn: toDate(checkIn),
-          checkOut: toDate(checkOut),
-          bookingNumber: bookingNumber,
-        }));
-      }
-      await assertCommittedAssignments(insertedRows, checkIn, checkOut);
-    } catch (error) {
-      const rollbackErrors = [];
-      for (const row of insertedRows) {
-        try {
-          await wixData.remove(BOOKINGS, row._id, { suppressAuth: true, suppressHooks: true });
-        } catch (rollbackError) {
-          rollbackErrors.push(row._id + ': ' + rollbackError.message);
+    let minFree = ROOM_UNITS[roomCode];
+    const rows = await overlappingRows(roomCode, checkIn, checkOut);
+    const nights = nightsBetween(checkIn, checkOut);
+    for (let d = 0; d < nights; d++) {
+      const probe = new Date(checkIn);
+      probe.setDate(probe.getDate() + d);
+      let bookedThatNight = 0;
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        if (new Date(row.checkIn) <= probe && probe < new Date(row.checkOut)) {
+          bookedThatNight += (row.quantity || 1);
         }
       }
-      if (rollbackErrors.length) {
-        throw new Error(error.message + ' | MANUAL BLOCK REPAIR REQUIRED: ' + rollbackErrors.join('; '));
-      }
-      throw error;
+      minFree = Math.min(minFree, ROOM_UNITS[roomCode] - bookedThatNight);
     }
+
+    const actual = Math.min(quantity, minFree);
+    const warnings = [];
+    if (actual < quantity) {
+      warnings.push(
+        roomDisplay + ': requested ' + quantity + ' unit(s) blocked, but only ' + actual + ' available for the full range (' + checkIn + ' to ' + checkOut + '). Reduced to ' + actual + '.'
+      );
+    }
+    if (actual < 1) {
+      throw new Error(
+        'Cannot block ' + roomDisplay + ': all units already booked for the requested period (' + checkIn + ' to ' + checkOut + ').'
+      );
+    }
+
+    const toInsert = {
+      roomCode: roomCode,
+      guests: 1,
+      status: 'blocked',
+      quantity: actual,
+      note: note,
+      checkIn: toDate(checkIn),
+      checkOut: toDate(checkOut),
+      bookingNumber: await getNextBookingNumber(),
+    };
+    const inserted = await wixData.insert(BOOKINGS, toInsert);
 
     try {
-      for (const row of insertedRows) {
-        row.deferCalendarSync = false;
-        await wixData.update(BOOKINGS, row, { suppressAuth: true, suppressHooks: true });
-      }
-      await updateBookingSummary(bookingNumber, checkIn, checkOut);
-      await syncBookingCalendarRooms(insertedRows, null);
-      await reconcileOwnerBlocks();
+      await updateBookingSummary(inserted.bookingNumber, checkIn, checkOut);
     } catch (e) {
-      console.log('>>> blockRoom synchronization ERROR:', e.message);
+      console.log('>>> blockRoom updateBookingSummary ERROR:', e.message);
     }
 
-    return { booking: insertedRows[0], bookings: insertedRows, warnings: [] };
+    return { booking: inserted, warnings: warnings };
   }
 );
 
@@ -1557,11 +1143,9 @@ export const unblock = webMethod(
   async (bookingId) => {
     const b = await wixData.get(BOOKINGS, bookingId);
     if (!b) throw new Error('No booking ' + bookingId);
-    if (String(b.status || '').toLowerCase() !== 'blocked') {
-      throw new Error('Booking ' + bookingId + ' is not a block (status=' + b.status + ')');
-    }
-    b.status = 'Cancelled';
-    return await wixData.update(BOOKINGS, b);
+    if (b.status !== 'blocked') throw new Error('Booking ' + bookingId + ' is not a block (status=' + b.status + ')');
+    await wixData.remove(BOOKINGS, bookingId);
+    return b;
   }
 );
 
