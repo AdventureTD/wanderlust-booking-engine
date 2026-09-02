@@ -76,7 +76,11 @@ const statusSnapshot = context.rules.buildInventorySnapshot([
   { _id: 'cancelled', status: 'Cancelled', assignedRoom: 5, checkIn: '2027-11-05', checkOut: '2027-11-08' },
   { _id: 'pending-confirmation', status: 'Pending Confirmation', assignedRoom: 5, checkIn: '2027-11-05', checkOut: '2027-11-08' },
   { _id: 'pending', status: 'pending', assignedRoom: 5, checkIn: '2027-11-05', checkOut: '2027-11-08' },
-  { _id: 'unknown', status: 'Checked In', assignedRoom: 5, checkIn: '2027-11-05', checkOut: '2027-11-08' }
+  { _id: 'checked-out', status: '  Checked-Out  ', assignedRoom: 5, checkIn: '2027-11-05', checkOut: '2027-11-08' },
+  { _id: 'unknown', status: 'Checked In', assignedRoom: 5, checkIn: '2027-11-05', checkOut: '2027-11-08' },
+  { _id: 'blank-status', status: '  ', assignedRoom: 5, checkIn: '2027-11-05', checkOut: '2027-11-08' },
+  { _id: 'missing-status', assignedRoom: 5, checkIn: '2027-11-05', checkOut: '2027-11-08' },
+  { _id: 'unknown-invalid-dates', status: 'Checked In', assignedRoom: 5 }
 ], '2027-11-05', '2027-11-08');
 
 assertEqual(
@@ -87,8 +91,8 @@ assertEqual(
 
 assertEqual(
   statusSnapshot.unknownStatusRows.map(function(row) { return row._id; }),
-  ['unknown'],
-  'unknown nonterminal statuses are surfaced without being counted as occupancy'
+  ['unknown', 'blank-status', 'missing-status', 'unknown-invalid-dates'],
+  'every unknown or blank inventory status is surfaced without being counted as occupancy'
 );
 
 const ownerSplitSnapshot = context.rules.buildInventorySnapshot([

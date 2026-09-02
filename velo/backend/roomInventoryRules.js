@@ -5,7 +5,7 @@ import { roomCodeForUnit } from 'backend/roomAssignmentRules';
 
 const DAY_MS = 86400000;
 const ACTIVE_STATUSES = ['confirmed', 'hold', 'blocked', 'in-house'];
-const INACTIVE_STATUSES = ['cancelled', 'canceled', 'pending', 'pending confirmation'];
+const INACTIVE_STATUSES = ['cancelled', 'canceled', 'pending', 'pending confirmation', 'checked-out'];
 
 function inventoryStatus(value) {
   return String(value || '').trim().toLowerCase();
@@ -80,13 +80,7 @@ export function buildInventorySnapshot(rows, checkIn, checkOut) {
   const unknownStatusRows = sourceRows.filter(function(row) {
     if (!row) return false;
     const status = inventoryStatus(row.status);
-    if (!status || ACTIVE_STATUSES.indexOf(status) !== -1 || INACTIVE_STATUSES.indexOf(status) !== -1) {
-      return false;
-    }
-    const rowStartDay = inventoryDay(row.checkIn);
-    const rowEndDay = inventoryDay(row.checkOut);
-    return rowStartDay !== null && rowEndDay !== null && rowEndDay > rowStartDay &&
-      rowStartDay < endDay && rowEndDay > startDay;
+    return ACTIVE_STATUSES.indexOf(status) === -1 && INACTIVE_STATUSES.indexOf(status) === -1;
   });
   const overlappingRows = activeRows.filter(function(row) {
     const rowStartDay = inventoryDay(row.checkIn);
