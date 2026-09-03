@@ -1,6 +1,7 @@
 import wixData from 'wix-data';
 import { Permissions, webMethod } from 'wix-web-module';
 import { ROOM_UNITS } from 'backend/wbeConfig';
+import { loadRoomAvailability } from 'backend/roomAvailability';
 
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
@@ -82,6 +83,82 @@ function nb(a, b) {
   return Math.round((ds(b) - ds(a)) / DAY);
 }
 
+const PHYSICAL_MAX_QUANTITY = {
+  penthouse_apartment: 1,
+  two_bedroom_apartment: 1,
+  adventure_suite: 3
+};
+const PHYSICAL_ROOM_CODE_ORDER = [
+  'penthouse_apartment',
+  'two_bedroom_apartment',
+  'adventure_suite'
+];
+
+function physicalCapMap(rows) {
+  if (!Array.isArray(rows) || Object.getPrototypeOf(rows) !== Array.prototype) {
+    throw new Error('Invalid physical availability');
+  }
+  const rowDescriptors = Object.getOwnPropertyDescriptors(rows);
+  const expectedRowKeys = ['0', '1', '2', 'length'];
+  const rowKeys = Reflect.ownKeys(rowDescriptors);
+  if (rowKeys.length !== expectedRowKeys.length || rowKeys.some(function(key) {
+    return typeof key !== 'string' || expectedRowKeys.indexOf(key) === -1;
+  })) {
+    throw new Error('Invalid physical availability');
+  }
+  const lengthDescriptor = rowDescriptors.length;
+  if (!lengthDescriptor || !Object.prototype.hasOwnProperty.call(lengthDescriptor, 'value') ||
+    lengthDescriptor.value !== 3) {
+    throw new Error('Invalid physical availability');
+  }
+  const caps = Object.create(null);
+  const expectedFields = ['available', 'maxQuantity', 'roomCode'];
+  for (let index = 0; index < lengthDescriptor.value; index++) {
+    const rowDescriptor = rowDescriptors[String(index)];
+    if (!rowDescriptor || rowDescriptor.enumerable !== true ||
+      !Object.prototype.hasOwnProperty.call(rowDescriptor, 'value')) {
+      throw new Error('Invalid physical availability');
+    }
+    const row = rowDescriptor.value;
+    const rowPrototype = row && typeof row === 'object' ? Object.getPrototypeOf(row) : null;
+    if (!row || typeof row !== 'object' || Array.isArray(row) || rowPrototype !== Object.prototype) {
+      throw new Error('Invalid physical availability');
+    }
+    const descriptors = Object.getOwnPropertyDescriptors(row);
+    const descriptorKeys = Reflect.ownKeys(descriptors);
+    if (descriptorKeys.length !== expectedFields.length || descriptorKeys.some(function(key) {
+      return typeof key !== 'string' || expectedFields.indexOf(key) === -1;
+    })) {
+      throw new Error('Invalid physical availability');
+    }
+    const roomCodeDescriptor = descriptors.roomCode;
+    const availableDescriptor = descriptors.available;
+    const maxQuantityDescriptor = descriptors.maxQuantity;
+    if (!roomCodeDescriptor || !availableDescriptor || !maxQuantityDescriptor ||
+      roomCodeDescriptor.enumerable !== true || availableDescriptor.enumerable !== true ||
+      maxQuantityDescriptor.enumerable !== true ||
+      !Object.prototype.hasOwnProperty.call(roomCodeDescriptor, 'value') ||
+      !Object.prototype.hasOwnProperty.call(availableDescriptor, 'value') ||
+      !Object.prototype.hasOwnProperty.call(maxQuantityDescriptor, 'value')) {
+      throw new Error('Invalid physical availability');
+    }
+    const code = roomCodeDescriptor.value;
+    const available = availableDescriptor.value;
+    const maxQuantity = maxQuantityDescriptor.value;
+    if (typeof code !== 'string' || code !== PHYSICAL_ROOM_CODE_ORDER[index] ||
+      !Object.prototype.hasOwnProperty.call(PHYSICAL_MAX_QUANTITY, code) ||
+      Object.prototype.hasOwnProperty.call(caps, code) ||
+      !Number.isInteger(maxQuantity) || maxQuantity < 0 ||
+      maxQuantity > PHYSICAL_MAX_QUANTITY[code] ||
+      typeof available !== 'boolean' || available !== (maxQuantity > 0)) {
+      throw new Error('Invalid physical availability');
+    }
+    caps[code] = maxQuantity;
+  }
+  if (Object.keys(caps).length !== 3) throw new Error('Invalid physical availability');
+  return caps;
+}
+
 export const searchAvailability = webMethod(
   Permissions.Anyone,
   async (checkIn, checkOut) => {
@@ -105,6 +182,30 @@ export const searchAvailability = webMethod(
       };
     }
 
+    const physicalAvailabilityByWindow = Object.create(null);
+    async function physicalAvailabilityFor(startDate, endDate) {
+      const key = startDate.toISOString() + '|' + endDate.toISOString();
+      if (!Object.prototype.hasOwnProperty.call(physicalAvailabilityByWindow, key)) {
+        const coordinatorStartDate = new Date(startDate.getTime());
+        const coordinatorEndDate = new Date(endDate.getTime());
+        physicalAvailabilityByWindow[key] = Promise.resolve()
+          .then(function() { return loadRoomAvailability(coordinatorStartDate, coordinatorEndDate); })
+          .then(physicalCapMap);
+      }
+      return physicalAvailabilityByWindow[key];
+    }
+
+    let physicalCaps = null;
+    try {
+      physicalCaps = await physicalAvailabilityFor(ci, co);
+    } catch (error) {
+      return {
+        ok: false,
+        error: 'Unable to check room availability. Please try again.',
+        requestedNights: rq,
+        results: []
+      };
+    }
     const nights = [];
     for (let i = 0; i < rq; i++) { nights.push(ad(ci, i)); }
 
@@ -113,6 +214,22 @@ export const searchAvailability = webMethod(
 
     const rooms = roomRes.items;
     const allBookings = bookingRes.items;
+    const seenRoomCodes = Object.create(null);
+    const normalizedRooms = [];
+    for (const room of rooms) {
+      const roomCode = room && room.roomCode;
+      normalizedRooms.push({ room: room, roomCode: roomCode });
+      if (typeof roomCode !== 'string') continue;
+      if (Object.prototype.hasOwnProperty.call(seenRoomCodes, roomCode)) {
+        return {
+          ok: false,
+          error: 'Unable to check room availability. Please try again.',
+          requestedNights: rq,
+          results: []
+        };
+      }
+      seenRoomCodes[roomCode] = true;
+    }
     // Fetch all BookingSummary records once; BookingSummary stores dates as text.
     const summaryAllRes = await wixData.query(BOOKING_SUMMARIES).limit(1000).find({ suppressAuth: true });
     const allSummaries = summaryAllRes.items;
@@ -134,9 +251,9 @@ export const searchAvailability = webMethod(
 
     const out = [];
 
-    for (let r = 0; r < rooms.length; r++) {
-      const rm = rooms[r];
-      const code = rm.roomCode;
+    for (let r = 0; r < normalizedRooms.length; r++) {
+      const rm = normalizedRooms[r].room;
+      const code = normalizedRooms[r].roomCode;
       const name = rm.name || code;
       const units = ROOM_UNITS[code] != null ? ROOM_UNITS[code] : (rm.units != null ? rm.units : 1);
       const maxOcc = rm.maxOccupancy || 2;
@@ -207,7 +324,10 @@ export const searchAvailability = webMethod(
         if (bpn[i] > maxBooked) maxBooked = bpn[i];
         if (bpn[i] >= units) allAvail = false;
       }
-      const maxQty = units - maxBooked;
+      const physicalMaxQty = Object.prototype.hasOwnProperty.call(physicalCaps, code)
+        ? physicalCaps[code] : 0;
+      const maxQty = Math.min(units - maxBooked, physicalMaxQty);
+      if (maxQty < 1) allAvail = false;
 
       if (allAvail) {
         out.push(Object.assign({
@@ -231,6 +351,7 @@ export const searchAvailability = webMethod(
         } else { cs = null; cl = 0; }
       }
 
+      let pushedPartial = false;
       if (bs !== null && bl >= MIN_N) {
         let minFreePartial = units;
         for (let i = bs; i < bs + bl; i++) {
@@ -239,17 +360,35 @@ export const searchAvailability = webMethod(
         }
         const aci = nights[bs];
         const aco = ad(nights[bs + bl - 1], 1);
-        out.push(Object.assign({
-          roomCode: code, roomName: name, units: units,
-          occupancy: maxOcc, baseOccupancy: baseOcc,
-          maxQty: minFreePartial, status: 'partial',
-          availableCheckIn: aci.toISOString(),
-          availableCheckOut: aco.toISOString(),
-          availableNights: bl,
-          roomFee: roomFee,
-          mainPhoto: imgUrl(rm.mainPhoto),
-        }, extraFieldsUnavailable));
-      } else {
+        let partialCaps = null;
+        try {
+          partialCaps = await physicalAvailabilityFor(aci, aco);
+        } catch (error) {
+          return {
+            ok: false,
+            error: 'Unable to check room availability. Please try again.',
+            requestedNights: rq,
+            results: []
+          };
+        }
+        const partialPhysicalMax = Object.prototype.hasOwnProperty.call(partialCaps, code)
+          ? partialCaps[code] : 0;
+        const partialMaxQty = Math.min(minFreePartial, partialPhysicalMax);
+        if (partialMaxQty > 0) {
+          out.push(Object.assign({
+            roomCode: code, roomName: name, units: units,
+            occupancy: maxOcc, baseOccupancy: baseOcc,
+            maxQty: partialMaxQty, status: 'partial',
+            availableCheckIn: aci.toISOString(),
+            availableCheckOut: aco.toISOString(),
+            availableNights: bl,
+            roomFee: roomFee,
+            mainPhoto: imgUrl(rm.mainPhoto),
+          }, extraFieldsUnavailable));
+          pushedPartial = true;
+        }
+      }
+      if (!pushedPartial) {
         out.push(Object.assign({
           roomCode: code, roomName: name, units: units,
           occupancy: maxOcc, baseOccupancy: baseOcc,

@@ -32,9 +32,15 @@ check(!/roomAssignments|wixDataPaging|ownerBlocks|calendar|adminConsole|search\.
 check(exportStatements.length === 1 && /loadRoomAvailability$/.test(exportStatements[0]),
   'coordinator exports only loadRoomAvailability');
 
+const searchPath = path.join(root, 'velo', 'backend', 'search.web.js');
+const search = fs.readFileSync(searchPath, 'utf8');
+const searchImports = search.match(/^import[^\n;]+from ['"]backend\/roomAvailability['"];?\s*$/gm) || [];
+check(searchImports.length === 1 &&
+  /import \{ loadRoomAvailability \}/.test(searchImports[0]),
+  'Search is the sole approved consumer and imports only loadRoomAvailability');
+
 const protectedFiles = [
   path.join(root, 'velo', 'page-booking-search.js'),
-  path.join(root, 'velo', 'backend', 'search.web.js'),
   path.join(root, 'velo', 'backend', 'availability.web.js'),
   path.join(root, 'velo', 'backend', 'adminConsole.web.js'),
   path.join(root, 'velo', 'backend', 'roomInventory.js'),
