@@ -134,6 +134,27 @@ function buildEvidence(operationId, checkIn, checkOut, units) {
       JSON.stringify(call.options) === JSON.stringify({ suppressAuth: true, consistentRead: true, suppressHooks: true });
   }), true, 'every evidence get is authoritative and hook-free');
 
+  const markedEvidence = buildEvidence('markedloaderoperation1', '2027-11-05', '2027-11-06', [3]);
+  markedEvidence.identity.decisionFenceVersion = 1;
+  markedEvidence.completion.decisionFenceVersion = 1;
+  const markedRows = Object.create(null);
+  markedRows[markedEvidence.identity._id] = markedEvidence.identity;
+  markedEvidence.acquisitions.forEach(function(event) { markedRows[event._id] = event; });
+  markedRows[markedEvidence.completion._id] = markedEvidence.completion;
+  const markedReadIds = [];
+  context.wixData = {
+    get: async function(collection, id) {
+      markedReadIds.push(id);
+      return Object.prototype.hasOwnProperty.call(markedRows, id)
+        ? markedRows[id] : null;
+    }
+  };
+  await assertRecovery(function() { return context.loader(markedEvidence.identity.operationId); },
+    markedEvidence.identity.operationId,
+    'marker-bearing completed evidence remains recovery-required until a commit-rows decision is verified');
+  assertEqual(markedReadIds, [markedEvidence.identity._id],
+    'unfenced marker-bearing evidence stops before acquisition reads');
+
   const metadataEvidence = buildEvidence('metadata12345678901234', '2027-11-05', '2027-11-06', [3]);
   const metadataRows = Object.create(null);
   function withWixMetadata(record, sequence) {
@@ -221,6 +242,92 @@ function buildEvidence(operationId, checkIn, checkOut, units) {
     };
     return { rows, readCalls };
   }
+
+  const markedIdentityLegacyCompletion = buildEvidence(
+    'mixedmarkeridentity1', '2027-11-05', '2027-11-06', [3]);
+  markedIdentityLegacyCompletion.identity.decisionFenceVersion = 1;
+  installEvidence(markedIdentityLegacyCompletion);
+  await assertRecovery(function() {
+    return context.loader(markedIdentityLegacyCompletion.identity.operationId);
+  }, markedIdentityLegacyCompletion.identity.operationId,
+  'marked identity cannot accept a legacy completion');
+
+  const legacyIdentityMarkedCompletion = buildEvidence(
+    'mixedmarkercomplete1', '2027-11-05', '2027-11-06', [3]);
+  legacyIdentityMarkedCompletion.completion.decisionFenceVersion = 1;
+  installEvidence(legacyIdentityMarkedCompletion);
+  await assertRecovery(function() {
+    return context.loader(legacyIdentityMarkedCompletion.identity.operationId);
+  }, legacyIdentityMarkedCompletion.identity.operationId,
+  'legacy identity cannot gain a marked completion');
+
+  for (const malformedMarker of [undefined, null, 0, 2, '1', true, 1.1, NaN, Infinity, new Number(1)]) {
+    const malformedMarkerEvidence = buildEvidence(
+      'malformedloadmarker1', '2027-11-05', '2027-11-06', [3]);
+    malformedMarkerEvidence.identity.decisionFenceVersion = malformedMarker;
+    malformedMarkerEvidence.completion.decisionFenceVersion = malformedMarker;
+    installEvidence(malformedMarkerEvidence);
+    await assertRecovery(function() {
+      return context.loader(malformedMarkerEvidence.identity.operationId);
+    }, malformedMarkerEvidence.identity.operationId,
+    'malformed evidence marker fails closed: ' + String(malformedMarker));
+  }
+
+  for (const malformedCompletionMarker of [
+    undefined, null, 0, 2, '1', true, 1.1, NaN, Infinity, new Number(1)
+  ]) {
+    const malformedCompletionEvidence = buildEvidence(
+      'badcompletionmarker1', '2027-11-05', '2027-11-06', [3]);
+    malformedCompletionEvidence.identity.decisionFenceVersion = 1;
+    malformedCompletionEvidence.completion.decisionFenceVersion = malformedCompletionMarker;
+    installEvidence(malformedCompletionEvidence);
+    await assertRecovery(function() {
+      return context.loader(malformedCompletionEvidence.identity.operationId);
+    }, malformedCompletionEvidence.identity.operationId,
+    'malformed completion marker fails closed: ' + String(malformedCompletionMarker));
+  }
+
+  const resourceMarkerEvidence = buildEvidence(
+    'resourcemarkerloader1', '2027-11-05', '2027-11-06', [3]);
+  resourceMarkerEvidence.acquisitions[0].decisionFenceVersion = 1;
+  installEvidence(resourceMarkerEvidence);
+  await assertRecovery(function() {
+    return context.loader(resourceMarkerEvidence.identity.operationId);
+  }, resourceMarkerEvidence.identity.operationId,
+  'resource acquisition evidence rejects the decision fence marker');
+
+  const accessorMarkerEvidence = buildEvidence(
+    'accessormarkerloader1', '2027-11-05', '2027-11-06', [3]);
+  let fenceGetterCalls = 0;
+  Object.defineProperty(accessorMarkerEvidence.identity, 'decisionFenceVersion', {
+    enumerable: true,
+    get: function() {
+      fenceGetterCalls += 1;
+      return 1;
+    }
+  });
+  installEvidence(accessorMarkerEvidence);
+  await assertRecovery(function() {
+    return context.loader(accessorMarkerEvidence.identity.operationId);
+  }, accessorMarkerEvidence.identity.operationId,
+  'decision fence marker accessors fail closed');
+  assertEqual(fenceGetterCalls, 0,
+    'decision fence marker accessors are rejected without executing hooks');
+
+  let coercionCalls = 0;
+  const coercibleMarkerEvidence = buildEvidence(
+    'coerciblemarkerload1', '2027-11-05', '2027-11-06', [3]);
+  coercibleMarkerEvidence.identity.decisionFenceVersion = {
+    valueOf: function() { coercionCalls += 1; return 1; },
+    toString: function() { coercionCalls += 1; return '1'; }
+  };
+  installEvidence(coercibleMarkerEvidence);
+  await assertRecovery(function() {
+    return context.loader(coercibleMarkerEvidence.identity.operationId);
+  }, coercibleMarkerEvidence.identity.operationId,
+  'coercible decision fence marker objects fail closed');
+  assertEqual(coercionCalls, 0,
+    'coercible decision fence marker objects are rejected without executing hooks');
 
   function shouldRunB1(index) {
     return !process.env.B1_MUTATION_INDEX || Number(process.env.B1_MUTATION_INDEX) === index;

@@ -111,6 +111,7 @@ const IDENTITY_EVIDENCE_FIELDS = [
   'manifestCheckIn', 'manifestCheckOut', 'manifestRoomCode', 'manifestUnits',
   'manifestBookingRowIds', 'manifestResourceClaimIds'
 ];
+const MARKED_IDENTITY_EVIDENCE_FIELDS = IDENTITY_EVIDENCE_FIELDS.concat(['decisionFenceVersion']);
 const CAPACITY_EVIDENCE_FIELDS = [
   '_id', 'protocolVersion', 'claimKey', 'generation', 'eventType', 'claimType',
   'night', 'capacitySlot', 'operationId', 'bookingRowId', 'bookingNumber', 'payloadDigest'
@@ -124,6 +125,7 @@ const COMPLETION_EVIDENCE_FIELDS = [
   'operationId', 'bookingRowId', 'bookingNumber', 'payloadDigest', 'completionState',
   'confirmedResourceCount'
 ];
+const MARKED_COMPLETION_EVIDENCE_FIELDS = COMPLETION_EVIDENCE_FIELDS.concat(['decisionFenceVersion']);
 const WIX_SYSTEM_METADATA_FIELDS = ['_owner', '_createdDate', '_updatedDate'];
 
 function isOrdinaryRecordPrototype(prototype) {
@@ -189,7 +191,7 @@ function validWixSystemMetadata(key, firstDescriptor, secondDescriptor) {
   }
 }
 
-function snapshotExactPrimitiveRecord(value, fields) {
+function snapshotExactPrimitiveRecord(value, fields, markedFields) {
   if (!value || typeof value !== 'object' || SAFE_ARRAY_IS_ARRAY(value)) return null;
   let prototype;
   let first;
@@ -202,6 +204,9 @@ function snapshotExactPrimitiveRecord(value, fields) {
     second = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(value);
   } catch (error) {
     return null;
+  }
+  if (markedFields && SAFE_OBJECT_HAS_OWN_PROPERTY(first, 'decisionFenceVersion')) {
+    fields = markedFields;
   }
   if (!isOrdinaryRecordPrototype(prototype) || !sameOwnKeySequence(keys, first) ||
       !sameOwnKeySequence(keys, second) || keys.length < fields.length ||
@@ -266,11 +271,41 @@ function hasOnlyClaimFields(event) {
     'bookingRowId', 'releaseReason', 'manifestVersion', 'manifestCheckIn',
     'manifestCheckOut', 'manifestRoomCode', 'manifestUnits',
     'manifestBookingRowIds', 'manifestResourceClaimIds', 'completionState',
-    'confirmedResourceCount'
+    'confirmedResourceCount', 'decisionFenceVersion'
   ];
   return Object.keys(event).every(function(key) {
     return key.charAt(0) === '_' || allowed.indexOf(key) !== -1;
   });
+}
+
+function decisionFenceVersion(event) {
+  let descriptors;
+  let prototype;
+  try {
+    descriptors = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(event);
+    prototype = SAFE_OBJECT_GET_PROTOTYPE_OF(event);
+    for (let depth = 0; prototype !== null && depth < 64; depth += 1) {
+      const prototypeDescriptors = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(prototype);
+      if (SAFE_OBJECT_HAS_OWN_PROPERTY(prototypeDescriptors, 'decisionFenceVersion')) {
+        return { valid: false, present: false };
+      }
+      prototype = SAFE_OBJECT_GET_PROTOTYPE_OF(prototype);
+    }
+    if (prototype !== null) return { valid: false, present: false };
+  } catch (error) {
+    return { valid: false, present: false };
+  }
+  if (!SAFE_OBJECT_HAS_OWN_PROPERTY(descriptors, 'decisionFenceVersion')) {
+    return { valid: true, present: false };
+  }
+  const descriptor = descriptors.decisionFenceVersion;
+  return {
+    valid: !!descriptor && SAFE_OBJECT_HAS_OWN_PROPERTY(descriptor, 'value') &&
+      descriptor.enumerable === true && descriptor.value === 1 &&
+      SAFE_NUMBER_IS_INTEGER(descriptor.value),
+    present: true,
+    value: descriptor && descriptor.value
+  };
 }
 
 function isCanonicalText(value, maxLength) {
@@ -474,7 +509,8 @@ function loaderParseManifest(event) {
 }
 
 function loaderValidIdentity(identity, operationId) {
-  return !!identity && identity.protocolVersion === 1 && identity.generation === 1 &&
+  const fenceVersion = identity && decisionFenceVersion(identity);
+  return !!identity && fenceVersion.valid && identity.protocolVersion === 1 && identity.generation === 1 &&
     identity.eventType === 'acquire' && identity.claimType === 'operation' &&
     identity.operationId === operationId && identity._id === 'rc1-op-' + operationId + '-a' &&
     identity.claimKey === 'operation:' + operationId &&
@@ -518,7 +554,12 @@ function loaderValidAcquisition(identity, manifest, acquisition, index) {
 }
 
 function loaderValidCompletion(completion, identity, resourceCount) {
-  return !!completion && completion.protocolVersion === 1 && completion.generation === 1 &&
+  const completionFence = completion && decisionFenceVersion(completion);
+  const identityFence = identity && decisionFenceVersion(identity);
+  return !!completion && completionFence.valid && identityFence.valid &&
+    completionFence.present === identityFence.present &&
+    completionFence.value === identityFence.value &&
+    completion.protocolVersion === 1 && completion.generation === 1 &&
     completion.eventType === 'complete' && completion.claimType === 'operation-completion' &&
     completion.operationId === identity.operationId &&
     completion._id === 'rc1-op-' + identity.operationId + '-c' &&
@@ -554,8 +595,12 @@ export async function loadCompletedRoomClaimSet(operationId) {
   try {
     const identityId = 'rc1-op-' + operationId + '-a';
     const storedIdentity = await read(identityId);
-    const identity = snapshotExactPrimitiveRecord(storedIdentity, IDENTITY_EVIDENCE_FIELDS);
-    const manifest = loaderValidIdentity(identity, operationId) && loaderParseManifest(identity);
+    const identity = snapshotExactPrimitiveRecord(
+      storedIdentity, IDENTITY_EVIDENCE_FIELDS, MARKED_IDENTITY_EVIDENCE_FIELDS);
+    if (!loaderValidIdentity(identity, operationId) || identity.decisionFenceVersion !== undefined) {
+      throw recoveryRequired(operationId);
+    }
+    const manifest = loaderParseManifest(identity);
     if (!manifest) throw recoveryRequired(operationId);
 
     const acquisitions = new SAFE_ARRAY(manifest.resourceIds.length);
@@ -578,7 +623,8 @@ export async function loadCompletedRoomClaimSet(operationId) {
 
     const completionId = 'rc1-op-' + operationId + '-c';
     const storedCompletion = await read(completionId);
-    const completion = snapshotExactPrimitiveRecord(storedCompletion, COMPLETION_EVIDENCE_FIELDS);
+    const completion = snapshotExactPrimitiveRecord(
+      storedCompletion, COMPLETION_EVIDENCE_FIELDS, MARKED_COMPLETION_EVIDENCE_FIELDS);
     if (!loaderValidCompletion(completion, identity, manifest.resourceIds.length)) {
       throw recoveryRequired(operationId);
     }
@@ -704,6 +750,7 @@ function isValidStoredEvent(event) {
     /^[1-9]\d*$/.test(event.bookingRowId.slice(expectedRowPrefix.length));
   if (!validBookingRowId) return false;
   if (event.claimType === 'operation-completion') {
+    const fenceVersion = decisionFenceVersion(event);
     return event.eventType === 'complete' && event.generation === 1 &&
       event._id === 'rc1-op-' + event.operationId + '-c' &&
       event.claimKey === 'operation:' + event.operationId + ':completion' &&
@@ -713,25 +760,28 @@ function isValidStoredEvent(event) {
       (event.completionState === 'complete' || event.completionState === 'stopped') &&
       Number.isInteger(event.confirmedResourceCount) &&
       event.confirmedResourceCount >= 0 && event.confirmedResourceCount <= 6400 &&
+      fenceVersion.valid &&
       event.manifestVersion === undefined &&
       event.manifestCheckIn === undefined && event.manifestCheckOut === undefined &&
       event.manifestRoomCode === undefined && event.manifestUnits === undefined &&
       event.manifestBookingRowIds === undefined && event.manifestResourceClaimIds === undefined;
   }
   if (event.claimType === 'operation') {
+    const fenceVersion = decisionFenceVersion(event);
     return event.eventType === 'acquire' && event.generation === 1 &&
       event._id === 'rc1-op-' + event.operationId + '-a' &&
       event.claimKey === 'operation:' + event.operationId &&
       event.bookingRowId === expectedRowPrefix + '1' &&
       event.night === undefined && event.capacitySlot === undefined && event.unit === undefined &&
       event.releaseReason === undefined && event.completionState === undefined &&
-      event.confirmedResourceCount === undefined && !!parseOperationManifest(event);
+      event.confirmedResourceCount === undefined && fenceVersion.valid && !!parseOperationManifest(event);
   }
-  if ([
+  const resourceFenceVersion = decisionFenceVersion(event);
+  if (!resourceFenceVersion.valid || resourceFenceVersion.present || [
     'manifestVersion', 'manifestCheckIn', 'manifestCheckOut', 'manifestRoomCode',
     'manifestUnits', 'manifestBookingRowIds', 'manifestResourceClaimIds',
-    'completionState', 'confirmedResourceCount'
-  ].some(function(key) { return event[key] !== undefined; })) return false;
+    'completionState', 'confirmedResourceCount', 'decisionFenceVersion'
+  ].some(function(key) { return SAFE_OBJECT_HAS_OWN_PROPERTY(event, key); })) return false;
   if (!isCanonicalNight(event.night)) return false;
   const validReleaseReason = event.eventType === 'release'
     ? isCanonicalText(event.releaseReason, 256)
@@ -759,7 +809,7 @@ function operationCompletionEvent(identity, completionState, confirmedResourceCo
   const count = confirmedResourceCount === undefined
     ? (manifest ? manifest.resourceIds.length : -1)
     : confirmedResourceCount;
-  return {
+  const event = {
     _id: 'rc1-op-' + identity.operationId + '-c',
     protocolVersion: 1,
     claimKey: 'operation:' + identity.operationId + ':completion',
@@ -773,6 +823,9 @@ function operationCompletionEvent(identity, completionState, confirmedResourceCo
     completionState: state,
     confirmedResourceCount: count
   };
+  const fenceVersion = decisionFenceVersion(identity);
+  if (fenceVersion.valid && fenceVersion.present) event.decisionFenceVersion = fenceVersion.value;
+  return event;
 }
 
 function matchesOperationCompletion(stored, identity, acquisitions) {

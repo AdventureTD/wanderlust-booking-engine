@@ -138,11 +138,31 @@ function hasOnlyClaimFields(event) {
     'bookingRowId', 'releaseReason', 'manifestVersion', 'manifestCheckIn',
     'manifestCheckOut', 'manifestRoomCode', 'manifestUnits',
     'manifestBookingRowIds', 'manifestResourceClaimIds', 'completionState',
-    'confirmedResourceCount'
+    'confirmedResourceCount', 'decisionFenceVersion'
   ];
   return Object.keys(event).every(function(key) {
     return key.charAt(0) === '_' || allowed.indexOf(key) !== -1;
   });
+}
+
+function hasValidDecisionFenceVersion(event) {
+  let descriptor;
+  let prototype;
+  try {
+    descriptor = Object.getOwnPropertyDescriptor(event, 'decisionFenceVersion');
+    prototype = Object.getPrototypeOf(event);
+    for (let depth = 0; prototype !== null && depth < 64; depth += 1) {
+      if (Object.getOwnPropertyDescriptor(prototype, 'decisionFenceVersion')) return false;
+      prototype = Object.getPrototypeOf(prototype);
+    }
+    if (prototype !== null) return false;
+  } catch (error) {
+    return false;
+  }
+  return !descriptor ||
+    (Object.prototype.hasOwnProperty.call(descriptor, 'value') &&
+      descriptor.enumerable === true && descriptor.value === 1 &&
+      Number.isSafeInteger(descriptor.value));
 }
 
 function isValidClaimEvent(event) {
@@ -167,6 +187,7 @@ function isValidClaimEvent(event) {
     (event.completionState === 'complete' || event.completionState === 'stopped') &&
     Number.isInteger(event.confirmedResourceCount) &&
     event.confirmedResourceCount >= 0 && event.confirmedResourceCount <= 6400 &&
+    hasValidDecisionFenceVersion(event) &&
     event.manifestVersion === undefined && event.manifestCheckIn === undefined &&
     event.manifestCheckOut === undefined && event.manifestRoomCode === undefined &&
     event.manifestUnits === undefined && event.manifestBookingRowIds === undefined &&
@@ -179,13 +200,16 @@ function isValidClaimEvent(event) {
     event.bookingRowId === 'pb1-' + event.operationId + '-r1' &&
     event.night === undefined && event.capacitySlot === undefined && event.unit === undefined &&
     event.releaseReason === undefined && event.completionState === undefined &&
-    event.confirmedResourceCount === undefined && !!parseOperationManifest(event);
+    event.confirmedResourceCount === undefined && hasValidDecisionFenceVersion(event) &&
+    !!parseOperationManifest(event);
   if (operationClaim) return true;
-  if ([
+  if (!hasValidDecisionFenceVersion(event) || [
     'manifestVersion', 'manifestCheckIn', 'manifestCheckOut', 'manifestRoomCode',
     'manifestUnits', 'manifestBookingRowIds', 'manifestResourceClaimIds',
-    'completionState', 'confirmedResourceCount'
-  ].some(function(key) { return event[key] !== undefined; })) return false;
+    'completionState', 'confirmedResourceCount', 'decisionFenceVersion'
+  ].some(function(key) {
+    return Object.prototype.hasOwnProperty.call(event, key);
+  })) return false;
   if (canonicalDay(event.night) === null) return false;
   const validReleaseReason = event.eventType === 'release'
     ? isCanonicalText(event.releaseReason, 256)
@@ -315,6 +339,9 @@ function validateClaimLedger(claimLedger) {
       if (completion.payloadDigest !== identity.payloadDigest ||
           completion.bookingNumber !== identity.bookingNumber ||
           completion.bookingRowId !== identity.bookingRowId ||
+          Object.prototype.hasOwnProperty.call(completion, 'decisionFenceVersion') !==
+            Object.prototype.hasOwnProperty.call(identity, 'decisionFenceVersion') ||
+          completion.decisionFenceVersion !== identity.decisionFenceVersion ||
           completion.confirmedResourceCount !== actualIds.length ||
           (completion.completionState === 'complete' &&
             actualIds.length !== manifest.resourceIds.length) ||
@@ -490,6 +517,7 @@ function operationIdentityEvent(request, bookingRows, resourceAcquisitions) {
     bookingRowId: 'pb1-' + request.operationId + '-r1',
     bookingNumber: request.bookingNumber,
     payloadDigest: request.payloadDigest,
+    decisionFenceVersion: 1,
     manifestVersion: 1,
     manifestCheckIn: request.checkIn,
     manifestCheckOut: request.checkOut,

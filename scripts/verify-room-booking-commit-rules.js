@@ -79,6 +79,7 @@ assertEqual(firstPlan.acquisitions[0]._id,
   'rc1-op-abcdefghijklmnopqrstu1-a',
   'operation identity is acquired before capacity and unit claims');
 assertEqual({
+  decisionFenceVersion: firstPlan.acquisitions[0].decisionFenceVersion,
   manifestVersion: firstPlan.acquisitions[0].manifestVersion,
   manifestCheckIn: firstPlan.acquisitions[0].manifestCheckIn,
   manifestCheckOut: firstPlan.acquisitions[0].manifestCheckOut,
@@ -87,6 +88,7 @@ assertEqual({
   manifestBookingRowIds: firstPlan.acquisitions[0].manifestBookingRowIds,
   manifestResourceClaimIds: firstPlan.acquisitions[0].manifestResourceClaimIds
 }, {
+  decisionFenceVersion: 1,
   manifestVersion: 1,
   manifestCheckIn: '2027-11-05',
   manifestCheckOut: '2027-11-07',
@@ -102,7 +104,7 @@ assertEqual({
 }, 'operation identity permanently declares the complete deterministic commit manifest');
 
 function operationCompletion(identity, completionState, confirmedResourceCount) {
-  return {
+  const completion = {
     _id: 'rc1-op-' + identity.operationId + '-c',
     protocolVersion: 1,
     claimKey: 'operation:' + identity.operationId + ':completion',
@@ -116,6 +118,10 @@ function operationCompletion(identity, completionState, confirmedResourceCount) 
     completionState: completionState,
     confirmedResourceCount: confirmedResourceCount
   };
+  if (Object.prototype.hasOwnProperty.call(identity, 'decisionFenceVersion')) {
+    completion.decisionFenceVersion = identity.decisionFenceVersion;
+  }
+  return completion;
 }
 
 const firstCompletion = operationCompletion(
@@ -171,6 +177,40 @@ assertThrows(function() {
       payloadDigest: '2424242424242424242424242424242424242424242424242424242424242424'
     });
 }, 'Invalid claim ledger', 'an operation can have only one immutable completion fence');
+
+const markedIdentityWithLegacyCompletion = Object.assign({}, firstPlan.acquisitions[0]);
+const legacyCompletionForMarkedIdentity = operationCompletion(
+  markedIdentityWithLegacyCompletion, 'complete', firstPlan.acquisitions.length - 1);
+delete legacyCompletionForMarkedIdentity.decisionFenceVersion;
+assertThrows(function() {
+  context.rulesInternal.validateClaimLedger(firstPlan.acquisitions.concat([
+    legacyCompletionForMarkedIdentity
+  ]));
+}, 'Invalid claim ledger', 'a marked identity rejects a legacy unmarked completion');
+
+const legacyIdentityForMixedHistory = Object.assign({}, firstPlan.acquisitions[0]);
+delete legacyIdentityForMixedHistory.decisionFenceVersion;
+const markedCompletionForLegacyIdentity = operationCompletion(
+  legacyIdentityForMixedHistory, 'complete', firstPlan.acquisitions.length - 1);
+markedCompletionForLegacyIdentity.decisionFenceVersion = 1;
+assertThrows(function() {
+  context.rulesInternal.validateClaimLedger([
+    legacyIdentityForMixedHistory
+  ].concat(firstPlan.acquisitions.slice(1), [markedCompletionForLegacyIdentity]));
+}, 'Invalid claim ledger', 'a legacy identity rejects a marked completion');
+
+for (const malformedCompletionMarker of [undefined, null, 0, 2, '1', true, 1.1, NaN, Infinity, new Number(1)]) {
+  const malformedCompletion = operationCompletion(
+    firstPlan.acquisitions[0], 'complete', firstPlan.acquisitions.length - 1);
+  malformedCompletion.decisionFenceVersion = malformedCompletionMarker;
+  assertThrows(function() {
+    context.rulesInternal.validateClaimLedger(firstPlan.acquisitions.concat([
+      malformedCompletion
+    ]));
+  }, 'Invalid claim ledger',
+  'operation completion rejects malformed decision fence marker ' +
+    String(malformedCompletionMarker));
+}
 
 const competingPlan = context.rules.buildPhysicalCommitPlan(emptySnapshot, [], {
   roomCode: 'adventure_suite',
@@ -318,6 +358,89 @@ assertThrows(function() {
   });
 }, 'Invalid claim ledger',
 'manifest metadata is exclusive to the permanent operation identity event');
+
+for (const malformedFenceVersion of [undefined, null, 0, 2, '1', true, 1.1, NaN, Infinity, new Number(1)]) {
+  assertThrows(function() {
+    const malformedIdentity = Object.assign({}, firstPlan.acquisitions[0], {
+      decisionFenceVersion: malformedFenceVersion
+    });
+    context.rulesInternal.validateClaimLedger([
+      malformedIdentity
+    ].concat(firstPlan.acquisitions.slice(1)));
+  }, 'Invalid claim ledger',
+  'operation identity rejects malformed decision fence marker ' + String(malformedFenceVersion));
+}
+
+let decisionFenceGetterCalls = 0;
+const accessorFenceIdentity = Object.assign({}, firstPlan.acquisitions[0]);
+Object.defineProperty(accessorFenceIdentity, 'decisionFenceVersion', {
+  enumerable: true,
+  get: function() {
+    decisionFenceGetterCalls += 1;
+    return 1;
+  }
+});
+assertThrows(function() {
+  context.rulesInternal.validateClaimLedger([
+    accessorFenceIdentity
+  ].concat(firstPlan.acquisitions.slice(1)));
+}, 'Invalid claim ledger', 'decision fence marker accessors fail closed');
+assertEqual(decisionFenceGetterCalls, 0,
+  'decision fence marker accessors are rejected without executing hooks');
+
+let inheritedDecisionFenceGetterCalls = 0;
+const inheritedDecisionFencePrototype = Object.create(Object.prototype);
+Object.defineProperty(inheritedDecisionFencePrototype, 'decisionFenceVersion', {
+  enumerable: true,
+  configurable: true,
+  get: function() {
+    inheritedDecisionFenceGetterCalls += 1;
+    return 1;
+  }
+});
+const inheritedFenceIdentityData = Object.assign({}, firstPlan.acquisitions[0]);
+delete inheritedFenceIdentityData.decisionFenceVersion;
+const inheritedFenceIdentity = Object.assign(
+  Object.create(inheritedDecisionFencePrototype), inheritedFenceIdentityData);
+const inheritedFenceCompletion = Object.assign(
+  Object.create(inheritedDecisionFencePrototype),
+  operationCompletion(inheritedFenceIdentityData, 'complete', firstPlan.acquisitions.length - 1));
+assertThrows(function() {
+  context.rulesInternal.validateClaimLedger([
+    inheritedFenceIdentity
+  ].concat(firstPlan.acquisitions.slice(1), [inheritedFenceCompletion]));
+}, 'Invalid claim ledger', 'inherited decision fence marker accessors fail closed');
+assertEqual(inheritedDecisionFenceGetterCalls, 0,
+  'inherited decision fence marker accessors are rejected without executing hooks');
+
+for (const inheritedResourceMarker of [
+  ['data', { value: 1, writable: true, enumerable: true, configurable: true }],
+  ['accessor', { enumerable: true, configurable: true, get: function() { return 1; } }]
+]) {
+  assertThrows(function() {
+    const inheritedResourcePrototype = Object.create(Object.prototype);
+    Object.defineProperty(inheritedResourcePrototype, 'decisionFenceVersion', inheritedResourceMarker[1]);
+    const inheritedResource = Object.assign(
+      Object.create(inheritedResourcePrototype), firstPlan.acquisitions[1]);
+    context.rulesInternal.validateClaimLedger([
+      firstPlan.acquisitions[0], inheritedResource
+    ].concat(firstPlan.acquisitions.slice(2)));
+  }, 'Invalid claim ledger',
+  'resource events reject inherited decision fence marker ' + inheritedResourceMarker[0] + ' properties');
+}
+
+for (const resourceFenceVersion of [1, undefined]) {
+  assertThrows(function() {
+    const markedResourceLedger = firstPlan.acquisitions.map(function(event, index) {
+      return index === 1
+        ? Object.assign({}, event, { decisionFenceVersion: resourceFenceVersion })
+        : event;
+    });
+    context.rulesInternal.validateClaimLedger(markedResourceLedger);
+  }, 'Invalid claim ledger',
+  'resource events reject decision fence marker presence even when value is ' +
+    String(resourceFenceVersion));
+}
 
 assertThrows(function() {
   const invalidUnitFiveManifest = firstPlan.acquisitions.map(function(event) {

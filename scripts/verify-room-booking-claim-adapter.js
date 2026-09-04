@@ -401,6 +401,77 @@ vm.runInContext(source, context);
   await confirmManifestBatch(multiNightBatch,
     'adapter confirms a canonical two-row two-night globally ordered manifest batch');
 
+  const markedBatch = buildManifestBatch(
+    'decisionfencecomplete1', '2027-11-05', '2027-11-06', [3]);
+  markedBatch[0].decisionFenceVersion = 1;
+  const markedStore = new Map();
+  context.wixData = {
+    insert: async function(collection, item) {
+      markedStore.set(item._id, Object.assign({}, item));
+      return item;
+    },
+    get: async function(collection, id) { return markedStore.get(id) || null; }
+  };
+  const markedResult = await context.adapter.appendRoomClaimEvents(markedBatch);
+  assertEqual({
+    state: markedResult.state,
+    completionMarker: markedStore.get('rc1-op-decisionfencecomplete1-c') &&
+      markedStore.get('rc1-op-decisionfencecomplete1-c').decisionFenceVersion,
+    resourceMarkers: markedBatch.slice(1).filter(function(item) {
+      return Object.prototype.hasOwnProperty.call(item, 'decisionFenceVersion');
+    }).length
+  }, { state: 'CONFIRMED', completionMarker: 1, resourceMarkers: 0 },
+  'a marked identity propagates decision fence version 1 only to its complete terminal');
+
+  const markedResourceBatch = buildManifestBatch(
+    'resourcefencerejected1', '2027-11-05', '2027-11-06', [3]);
+  Object.defineProperty(markedResourceBatch[1], 'decisionFenceVersion', {
+    value: undefined, writable: true, enumerable: true, configurable: true
+  });
+  let markedResourceIo = 0;
+  context.wixData = {
+    insert: async function() { markedResourceIo += 1; return {}; },
+    get: async function() { markedResourceIo += 1; return null; }
+  };
+  assertEqual(await context.adapter.appendRoomClaimEvents(markedResourceBatch), {
+    state: 'STOPPED',
+    confirmed: [],
+    failed: { index: 1, eventId: markedResourceBatch[1]._id, classification: 'INTEGRITY' }
+  }, 'resource events reject decision fence marker field presence');
+  assertEqual(markedResourceIo, 0,
+    'resource decision fence markers fail before Wix persistence');
+
+  const markedStoppedBatch = buildManifestBatch(
+    'decisionfencestopped1', '2027-11-05', '2027-11-06', [3]);
+  markedStoppedBatch[0].decisionFenceVersion = 1;
+  const markedStoppedStore = new Map();
+  markedStoppedStore.set(markedStoppedBatch[2]._id, Object.assign({}, markedStoppedBatch[2], {
+    operationId: 'foreignstoppedowner1',
+    bookingRowId: 'pb1-foreignstoppedowner1-r1',
+    bookingNumber: 'WC-FOREIGN-STOPPED',
+    payloadDigest: '9'.repeat(64)
+  }));
+  context.wixData = {
+    insert: async function(collection, item) {
+      if (markedStoppedStore.has(item._id)) throw new Error('WDE0074');
+      markedStoppedStore.set(item._id, Object.assign({}, item));
+      return item;
+    },
+    get: async function(collection, id) { return markedStoppedStore.get(id) || null; }
+  };
+  const markedStoppedResult = await context.adapter.appendRoomClaimEvents(markedStoppedBatch);
+  assertEqual({
+    state: markedStoppedResult.state,
+    classification: markedStoppedResult.failed && markedStoppedResult.failed.classification,
+    completionState: markedStoppedStore.get('rc1-op-decisionfencestopped1-c') &&
+      markedStoppedStore.get('rc1-op-decisionfencestopped1-c').completionState,
+    completionMarker: markedStoppedStore.get('rc1-op-decisionfencestopped1-c') &&
+      markedStoppedStore.get('rc1-op-decisionfencestopped1-c').decisionFenceVersion
+  }, {
+    state: 'STOPPED', classification: 'CONTENTION',
+    completionState: 'stopped', completionMarker: 1
+  }, 'a marked identity propagates decision fence version 1 to its stopped terminal');
+
   async function rejectCompleteManifestBatch(batch, message, failedIndex) {
     const index = failedIndex === undefined ? 0 : failedIndex;
     let io = 0;
@@ -415,6 +486,57 @@ vm.runInContext(source, context);
     }, message);
     assertEqual(io, 0, message + ' before Wix persistence');
   }
+
+  for (const malformedFenceVersion of [undefined, null, 0, 2, '1', true, 1.1, NaN, Infinity, new Number(1)]) {
+    const malformedMarkerBatch = buildManifestBatch(
+      'malformedfencevalue1', '2027-11-05', '2027-11-06', [3]);
+    malformedMarkerBatch[0].decisionFenceVersion = malformedFenceVersion;
+    await rejectCompleteManifestBatch(malformedMarkerBatch,
+      'adapter rejects malformed decision fence marker ' + String(malformedFenceVersion));
+  }
+
+  const accessorMarkerBatch = buildManifestBatch(
+    'accessorfencevalue01', '2027-11-05', '2027-11-06', [3]);
+  let accessorMarkerCalls = 0;
+  Object.defineProperty(accessorMarkerBatch[0], 'decisionFenceVersion', {
+    enumerable: true,
+    get: function() {
+      accessorMarkerCalls += 1;
+      return 1;
+    }
+  });
+  await rejectCompleteManifestBatch(accessorMarkerBatch,
+    'adapter rejects decision fence marker accessors');
+  assertEqual(accessorMarkerCalls, 0,
+    'adapter rejects decision fence marker accessors without executing hooks');
+
+  const inheritedAccessorMarkerBatch = buildManifestBatch(
+    'inheritedfencevalue1', '2027-11-05', '2027-11-06', [3]);
+  let inheritedAccessorMarkerCalls = 0;
+  const inheritedAccessorMarkerPrototype = Object.create(Object.prototype);
+  Object.defineProperty(inheritedAccessorMarkerPrototype, 'decisionFenceVersion', {
+    enumerable: true,
+    configurable: true,
+    get: function() {
+      inheritedAccessorMarkerCalls += 1;
+      return 1;
+    }
+  });
+  Object.setPrototypeOf(inheritedAccessorMarkerBatch[0], inheritedAccessorMarkerPrototype);
+  await rejectCompleteManifestBatch(inheritedAccessorMarkerBatch,
+    'adapter rejects inherited decision fence marker accessors');
+  assertEqual(inheritedAccessorMarkerCalls, 0,
+    'adapter rejects inherited decision fence marker accessors without executing hooks');
+
+  const inheritedDataMarkerBatch = buildManifestBatch(
+    'inheritedfencedata01', '2027-11-05', '2027-11-06', [3]);
+  const inheritedDataMarkerPrototype = Object.create(Object.prototype);
+  Object.defineProperty(inheritedDataMarkerPrototype, 'decisionFenceVersion', {
+    value: 1, writable: true, enumerable: true, configurable: true
+  });
+  Object.setPrototypeOf(inheritedDataMarkerBatch[1], inheritedDataMarkerPrototype);
+  await rejectCompleteManifestBatch(inheritedDataMarkerBatch,
+    'adapter rejects inherited decision fence marker data properties', 1);
 
   const shuffledMultiNightBatch = [
     multiNightBatch[0],
