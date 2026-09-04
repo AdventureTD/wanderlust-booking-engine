@@ -36,7 +36,7 @@ const backendDir = path.join(__dirname, '..', 'velo', 'backend');
 const source = fs.readFileSync(path.join(backendDir, 'roomBookingCommit.js'), 'utf8')
   .replace(/^import .*;\s*$/gm, '')
   .replace(/export async function /g, 'async function ')
-  + '\nthis.adapter = { loadRoomClaimLedger, appendRoomClaimEvents: typeof appendRoomClaimEvents === "function" ? appendRoomClaimEvents : null };';
+  + '\nthis.adapter = { loadRoomClaimLedger, appendRoomClaimEvents: typeof appendRoomClaimEvents === "function" ? appendRoomClaimEvents : null, appendRoomOperationDecision: typeof appendRoomOperationDecision === "function" ? appendRoomOperationDecision : null };';
 
 const calls = { collections: [], limits: [], finds: [] };
 const wixData = {
@@ -232,6 +232,7 @@ vm.runInContext(source, context);
     bookingRowId: 'pb1-abcdefghijklmnopqrstuv-r1',
     bookingNumber: 'WC-3001',
     payloadDigest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    decisionFenceVersion: 1,
     manifestVersion: 1,
     manifestCheckIn: '2027-11-05',
     manifestCheckOut: '2027-11-06',
@@ -417,11 +418,12 @@ vm.runInContext(source, context);
     state: markedResult.state,
     completionMarker: markedStore.get('rc1-op-decisionfencecomplete1-c') &&
       markedStore.get('rc1-op-decisionfencecomplete1-c').decisionFenceVersion,
+    decisionPresent: markedStore.has('rc1-op-decisionfencecomplete1-d'),
     resourceMarkers: markedBatch.slice(1).filter(function(item) {
       return Object.prototype.hasOwnProperty.call(item, 'decisionFenceVersion');
     }).length
-  }, { state: 'CONFIRMED', completionMarker: 1, resourceMarkers: 0 },
-  'a marked identity propagates decision fence version 1 only to its complete terminal');
+  }, { state: 'CONFIRMED', completionMarker: 1, decisionPresent: false, resourceMarkers: 0 },
+  'an acquisition-only batch records no operation decision');
 
   const markedResourceBatch = buildManifestBatch(
     'resourcefencerejected1', '2027-11-05', '2027-11-06', [3]);
@@ -800,6 +802,284 @@ vm.runInContext(source, context);
   assertEqual(completedRetryStore.has('rc1-op-' + operationEvent.operationId + '-c'), true,
     'a reconciled complete acquisition receives its immutable completion fence');
 
+  const capturedRetryStore = new Map([
+    operationEvent, event, orphanUnitEvent
+  ].map(function(item) { return [item._id, Object.assign({}, item)]; }));
+  let capturedRetryReads = 0;
+  let redirectedRetryReads = 0;
+  const capturedRetryPort = {
+    insert: async function(collection, item) {
+      if (capturedRetryStore.has(item._id)) throw new Error('already exists');
+      capturedRetryStore.set(item._id, Object.assign({}, item));
+      return item;
+    },
+    get: function(collection, id) {
+      capturedRetryReads += 1;
+      const value = capturedRetryStore.get(id) || null;
+      if (id !== operationEvent._id) return Promise.resolve(value);
+      return {
+        then: function(resolve) {
+          context.wixData = {
+            insert: async function() { throw new Error('redirected insert'); },
+            get: async function() { redirectedRetryReads += 1; return null; }
+          };
+          resolve(value);
+        }
+      };
+    }
+  };
+  context.wixData = capturedRetryPort;
+  assertEqual((await context.adapter.appendRoomClaimEvents([
+    operationEvent, event, orphanUnitEvent
+  ])).state, 'CONFIRMED',
+  'existing-identity reconciliation remains bound to the Wix Data port captured before its first read');
+  assertEqual({ capturedRetryReads: capturedRetryReads, redirectedRetryReads: redirectedRetryReads }, {
+    capturedRetryReads: 4, redirectedRetryReads: 0
+  }, 'existing-identity reconciliation never redirects later reads after an awaited thenable');
+
+  const intrinsicRetryStore = new Map([
+    operationEvent, event, orphanUnitEvent
+  ].map(function(item) { return [item._id, Object.assign({}, item)]; }));
+  context.__savedObjectKeys = vm.runInContext('Object.keys', context);
+  context.wixData = {
+    insert: async function(collection, item) {
+      if (intrinsicRetryStore.has(item._id)) throw new Error('already exists');
+      intrinsicRetryStore.set(item._id, Object.assign({}, item));
+      return item;
+    },
+    get: function(collection, id) {
+      const value = intrinsicRetryStore.get(id) || null;
+      if (id !== operationEvent._id) return Promise.resolve(value);
+      return {
+        then: function(resolve) {
+          vm.runInContext("Object.keys = function() { throw new Error('mutated Object.keys'); }", context);
+          resolve(value);
+        }
+      };
+    }
+  };
+  let intrinsicRetryResult;
+  let intrinsicRetryError = null;
+  try {
+    intrinsicRetryResult = await context.adapter.appendRoomClaimEvents([
+      operationEvent, event, orphanUnitEvent
+    ]);
+  } catch (error) {
+    intrinsicRetryError = error;
+  } finally {
+    vm.runInContext('Object.keys = __savedObjectKeys', context);
+    delete context.__savedObjectKeys;
+  }
+  assertEqual({
+    error: intrinsicRetryError && intrinsicRetryError.message,
+    state: intrinsicRetryResult && intrinsicRetryResult.state
+  }, { error: null, state: 'CONFIRMED' },
+  'existing-identity reconciliation uses captured Object.keys after an awaited thenable');
+
+  const immutableSnapshotStore = new Map();
+  context.wixData = {
+    insert: function(collection, item) {
+      return {
+        then: function(resolve) {
+          if (item.claimType === 'operation') item.bookingNumber = 'WC-MUTATED-BY-PORT';
+          immutableSnapshotStore.set(item._id, Object.assign({}, item));
+          resolve(item);
+        }
+      };
+    },
+    get: async function(collection, id) { return immutableSnapshotStore.get(id) || null; }
+  };
+  const immutableSnapshotResult = await context.adapter.appendRoomClaimEvents([
+    operationEvent, event, orphanUnitEvent
+  ]);
+  assertEqual({
+    state: immutableSnapshotResult.state,
+    identityBookingNumber: immutableSnapshotStore.get(operationEvent._id).bookingNumber,
+    capacityBookingNumber: immutableSnapshotStore.get(event._id).bookingNumber,
+    completionBookingNumber: immutableSnapshotStore.get(
+      'rc1-op-' + operationEvent.operationId + '-c').bookingNumber
+  }, {
+    state: 'CONFIRMED',
+    identityBookingNumber: operationEvent.bookingNumber,
+    capacityBookingNumber: event.bookingNumber,
+    completionBookingNumber: operationEvent.bookingNumber
+  }, 'a persistence callback cannot mutate the validated identity snapshot used by later claims or completion');
+
+  async function withReplacedVmIntrinsic(targetSource, run) {
+    context.__savedIntrinsic = vm.runInContext(targetSource, context);
+    const replacementSource = targetSource +
+      " = function() { throw new Error('mutated " + targetSource + "'); }";
+    try {
+      return await run(replacementSource);
+    } finally {
+      vm.runInContext(targetSource + ' = __savedIntrinsic', context);
+      delete context.__savedIntrinsic;
+    }
+  }
+
+  async function runIdentityInsertIntrinsicProbe(targetSource, contention) {
+    return withReplacedVmIntrinsic(targetSource, async function(replacementSource) {
+      const store = new Map();
+      context.wixData = {
+        insert: function(collection, item) {
+          if (item.claimType === 'capacity' && contention) {
+            store.set(item._id, Object.assign({}, item, {
+              operationId: 'differentoperation1',
+              bookingRowId: 'pb1-differentoperation1-r1'
+            }));
+            return Promise.resolve(item);
+          }
+          store.set(item._id, Object.assign({}, item));
+          if (item.claimType !== 'operation') return Promise.resolve(item);
+          return {
+            then: function(resolve) {
+              vm.runInContext(replacementSource, context);
+              resolve(item);
+            }
+          };
+        },
+        get: async function(collection, id) { return store.get(id) || null; }
+      };
+      let result;
+      let error = null;
+      try {
+        result = await context.adapter.appendRoomClaimEvents([operationEvent, event, orphanUnitEvent]);
+      } catch (caught) {
+        error = caught;
+      }
+      return {
+        error: error && error.message,
+        state: result && result.state,
+        classification: result && result.failed && result.failed.classification
+      };
+    });
+  }
+
+  const confirmedArrayIntrinsicProbes = [
+    'Array.prototype.every',
+    'Array.prototype.indexOf',
+    'Array.prototype.map',
+    'Array.prototype.some',
+    'Array.prototype.push',
+    'Array.prototype.slice',
+    'Array.prototype[Symbol.iterator]'
+  ];
+  const confirmedArrayProbeResults = [];
+  for (const targetSource of confirmedArrayIntrinsicProbes) {
+    confirmedArrayProbeResults.push({
+      targetSource: targetSource,
+      outcome: await runIdentityInsertIntrinsicProbe(targetSource, false)
+    });
+  }
+  assertEqual(confirmedArrayProbeResults, confirmedArrayIntrinsicProbes.map(function(targetSource) {
+    return {
+      targetSource: targetSource,
+      outcome: { error: null, state: 'CONFIRMED', classification: undefined }
+    };
+  }), 'post-await confirmed claims use captured Array intrinsic dispatch');
+  const contentionArrayIntrinsicProbes = [
+    'Array.prototype.filter',
+    'Array.prototype.find'
+  ];
+  const contentionArrayProbeResults = [];
+  for (const targetSource of contentionArrayIntrinsicProbes) {
+    contentionArrayProbeResults.push({
+      targetSource: targetSource,
+      outcome: await runIdentityInsertIntrinsicProbe(targetSource, true)
+    });
+  }
+  assertEqual(contentionArrayProbeResults, contentionArrayIntrinsicProbes.map(function(targetSource) {
+    return {
+      targetSource: targetSource,
+      outcome: { error: null, state: 'STOPPED', classification: 'CONTENTION' }
+    };
+  }), 'post-await stopped-prefix claims use captured Array intrinsic dispatch');
+
+  const confirmedObjectStringIntrinsicProbes = [
+    'Array.isArray',
+    'Object.keys',
+    'Object.assign',
+    'Object.prototype.hasOwnProperty',
+    'Array.prototype.join',
+    'String.prototype.charAt',
+    'String.prototype.indexOf',
+    'String.prototype.slice',
+    'String.prototype.trim',
+    'String.prototype.split',
+    'String.prototype.replace',
+    'String.prototype.padStart',
+    'Date',
+    'Date.prototype.getTime',
+    'Date.prototype.toISOString',
+    'Number',
+    'Number.isInteger',
+    'Number.isNaN',
+    'RegExp',
+    'RegExp.prototype.exec',
+    'Set',
+    'Set.prototype.has',
+    'Math.floor',
+    'Promise.resolve',
+    'Reflect.apply',
+    'Reflect.ownKeys',
+    'Object.create',
+    'Object.defineProperty',
+    'Object.defineProperties',
+    'Object.freeze',
+    'Object.getPrototypeOf',
+    'Object.getOwnPropertyDescriptors'
+  ];
+  const confirmedObjectStringProbeResults = [];
+  for (const targetSource of confirmedObjectStringIntrinsicProbes) {
+    confirmedObjectStringProbeResults.push({
+      targetSource: targetSource,
+      outcome: await runIdentityInsertIntrinsicProbe(targetSource, false)
+    });
+  }
+  assertEqual(confirmedObjectStringProbeResults,
+    confirmedObjectStringIntrinsicProbes.map(function(targetSource) {
+      return {
+        targetSource: targetSource,
+        outcome: { error: null, state: 'CONFIRMED', classification: undefined }
+      };
+    }), 'post-await claims use captured Object, String, RegExp, and Math intrinsic dispatch');
+
+  const existingIdentityIteratorOutcome = await withReplacedVmIntrinsic(
+    'Array.prototype[Symbol.iterator]', async function(replacementSource) {
+      const store = new Map([
+        operationEvent, event, orphanUnitEvent
+      ].map(function(item) { return [item._id, Object.assign({}, item)]; }));
+      context.wixData = {
+        insert: async function(collection, item) {
+          if (store.has(item._id)) throw new Error('already exists');
+          store.set(item._id, Object.assign({}, item));
+          return item;
+        },
+        get: function(collection, id) {
+          const value = store.get(id) || null;
+          if (id !== operationEvent._id) return Promise.resolve(value);
+          return {
+            then: function(resolve) {
+              vm.runInContext(replacementSource, context);
+              resolve(value);
+            }
+          };
+        }
+      };
+      let result;
+      let error = null;
+      try {
+        result = await context.adapter.appendRoomClaimEvents([
+          operationEvent, event, orphanUnitEvent
+        ]);
+      } catch (caught) {
+        error = caught;
+      }
+      return { error: error && error.message, state: result && result.state };
+    });
+  assertEqual(existingIdentityIteratorOutcome, { error: null, state: 'CONFIRMED' },
+    'existing-identity retry does not dispatch through a replaced Array iterator after identity read');
+
   const mismatchedManifest = Object.assign({}, operationEvent, {
     manifestUnits: '4',
     manifestResourceClaimIds: 'rc1-20271105-s1-000001-a|rc1-20271105-u4-000001-a'
@@ -937,6 +1217,7 @@ vm.runInContext(source, context);
     bookingRowId: operationEvent.bookingRowId,
     bookingNumber: operationEvent.bookingNumber,
     payloadDigest: operationEvent.payloadDigest,
+    decisionFenceVersion: 1,
     completionState: 'stopped',
     confirmedResourceCount: 1
   }, 'a conclusive partial writer records an exact stopped-prefix fence');
@@ -1535,6 +1816,7 @@ vm.runInContext(source, context);
     bookingRowId: operationEvent.bookingRowId,
     bookingNumber: operationEvent.bookingNumber,
     payloadDigest: operationEvent.payloadDigest,
+    decisionFenceVersion: 1,
     completionState: 'stopped',
     confirmedResourceCount: 1
   };
@@ -1607,7 +1889,7 @@ vm.runInContext(source, context);
   let forwardReleaseWrites = 0;
   context.wixData = {
     insert: async function(collection, item) {
-      forwardReleaseWrites += 1;
+      if (item.eventType === 'release') forwardReleaseWrites += 1;
       forwardReleaseStore.set(item._id, Object.assign({}, item));
       return item;
     },
@@ -1645,6 +1927,340 @@ vm.runInContext(source, context);
   ])).state, 'CONFIRMED',
   'a completed operation can be compensated in reverse resource-acquisition order');
 
+  const markedReleaseIdentity = Object.assign({}, operationEvent, { decisionFenceVersion: 1 });
+  const markedReleaseCompletion = Object.assign({}, fullReleaseFence, { decisionFenceVersion: 1 });
+  const markedReleaseStore = new Map([
+    markedReleaseIdentity, event, orphanUnitEvent, markedReleaseCompletion
+  ].map(function(item) { return [item._id, Object.assign({}, item)]; }));
+  const markedReleaseInsertOrder = [];
+  context.wixData = {
+    insert: async function(collection, item) {
+      markedReleaseInsertOrder.push(item._id);
+      if (markedReleaseStore.has(item._id)) throw new Error('WDE0074');
+      markedReleaseStore.set(item._id, Object.assign({}, item));
+      return item;
+    },
+    get: async function(collection, id) { return markedReleaseStore.get(id) || null; }
+  };
+  const markedReleaseResult = await context.adapter.appendRoomClaimEvents([
+    reverseUnitRelease, reverseCapacityRelease
+  ]);
+  assertEqual({
+    state: markedReleaseResult.state,
+    insertOrder: markedReleaseInsertOrder,
+    decisionState: markedReleaseStore.get('rc1-op-' + operationEvent.operationId + '-d') &&
+      markedReleaseStore.get('rc1-op-' + operationEvent.operationId + '-d').decisionState
+  }, {
+    state: 'CONFIRMED',
+    insertOrder: [
+      'rc1-op-' + operationEvent.operationId + '-d',
+      reverseUnitRelease._id,
+      reverseCapacityRelease._id
+    ],
+    decisionState: 'compensate'
+  }, 'a multi-release batch fences compensation exactly once before every release write');
+
+  async function runHostileDecisionAwaitReleaseProbe(onDecisionAwait) {
+    const store = new Map([
+      markedReleaseIdentity, event, orphanUnitEvent, markedReleaseCompletion
+    ].map(function(item) { return [item._id, Object.assign({}, item)]; }));
+    let originalReleaseWrites = 0;
+    let replacementReleaseWrites = 0;
+    const originalPort = {
+      insert: function(collection, item) {
+        if (item.claimType === 'operation-decision') {
+          store.set(item._id, Object.assign({}, item));
+          return {
+            then: function(resolve) {
+              onDecisionAwait(store, hostileRelease);
+              resolve(item);
+            }
+          };
+        }
+        if (item.eventType === 'release') originalReleaseWrites += 1;
+        if (store.has(item._id)) throw new Error('WDE0074');
+        store.set(item._id, Object.assign({}, item));
+        return Promise.resolve(item);
+      },
+      get: async function(collection, id) { return store.get(id) || null; }
+    };
+    context.wixData = originalPort;
+    const hostileRelease = Object.assign({}, reverseUnitRelease, {
+      releaseReason: 'validated-before-decision'
+    });
+    const replacementPort = {
+      insert: async function(collection, item) {
+        if (item.eventType === 'release') replacementReleaseWrites += 1;
+        store.set(item._id, Object.assign({}, item));
+        return item;
+      },
+      get: async function(collection, id) { return store.get(id) || null; }
+    };
+    return {
+      result: await context.adapter.appendRoomClaimEvents([hostileRelease]),
+      store: store,
+      hostileRelease: hostileRelease,
+      originalPort: originalPort,
+      replacementPort: replacementPort,
+      originalReleaseWrites: function() { return originalReleaseWrites; },
+      replacementReleaseWrites: function() { return replacementReleaseWrites; }
+    };
+  }
+
+  async function runDecisionLoadIntrinsicProbe(targetSource) {
+    return withReplacedVmIntrinsic(targetSource, async function(replacementSource) {
+      const store = new Map([
+        markedReleaseIdentity, event, orphanUnitEvent, markedReleaseCompletion
+      ].map(function(item) { return [item._id, Object.assign({}, item)]; }));
+      let poisoned = false;
+      context.wixData = {
+        insert: async function(collection, item) {
+          if (store.has(item._id)) throw new Error('WDE0074');
+          store.set(item._id, Object.assign({}, item));
+          return item;
+        },
+        get: function(collection, id) {
+          const value = store.get(id) || null;
+          if (id !== markedReleaseIdentity._id || poisoned) return Promise.resolve(value);
+          poisoned = true;
+          return {
+            then: function(resolve) {
+              vm.runInContext(replacementSource, context);
+              resolve(value);
+            }
+          };
+        }
+      };
+      let result;
+      let error = null;
+      try {
+        result = await context.adapter.appendRoomOperationDecision(
+          markedReleaseIdentity.operationId, 'compensate');
+      } catch (caught) {
+        error = caught;
+      }
+      return {
+        error: error && error.message,
+        state: result && result.state,
+        classification: result && result.failed && result.failed.classification
+      };
+    });
+  }
+
+  const decisionLoadIntrinsicTargets = [
+    'Object.create',
+    'Object.defineProperty',
+    'Object.defineProperties',
+    'Reflect.ownKeys',
+    'Promise.prototype.then',
+    'Array',
+    'String',
+    'RegExp.prototype.exec'
+  ];
+  const decisionLoadIntrinsicResults = [];
+  for (const targetSource of decisionLoadIntrinsicTargets) {
+    decisionLoadIntrinsicResults.push({
+      targetSource: targetSource,
+      outcome: await runDecisionLoadIntrinsicProbe(targetSource)
+    });
+  }
+  assertEqual(decisionLoadIntrinsicResults, decisionLoadIntrinsicTargets.map(function(targetSource) {
+    return {
+      targetSource: targetSource,
+      outcome: { error: null, state: 'CONFIRMED', classification: undefined }
+    };
+  }), 'decision evidence loading uses captured snapshot, Promise, Array, String, and RegExp intrinsics');
+
+  async function runPostDecisionReleaseIntrinsicProbe(targetSource) {
+    return withReplacedVmIntrinsic(targetSource, async function(replacementSource) {
+      let probe;
+      let error = null;
+      try {
+        probe = await runHostileDecisionAwaitReleaseProbe(function() {
+          vm.runInContext(replacementSource, context);
+        });
+      } catch (caught) {
+        error = caught;
+      }
+      return {
+        error: error && error.message,
+        state: probe && probe.result && probe.result.state,
+        classification: probe && probe.result && probe.result.failed && probe.result.failed.classification
+      };
+    });
+  }
+
+  const safePostDecisionReleaseTargets = ['Object.assign', 'Math.floor'];
+  const safePostDecisionReleaseResults = [];
+  for (const targetSource of safePostDecisionReleaseTargets) {
+    safePostDecisionReleaseResults.push({
+      targetSource: targetSource,
+      outcome: await runPostDecisionReleaseIntrinsicProbe(targetSource)
+    });
+  }
+  assertEqual(safePostDecisionReleaseResults,
+    safePostDecisionReleaseTargets.map(function(targetSource) {
+      return {
+        targetSource: targetSource,
+        outcome: { error: null, state: 'CONFIRMED', classification: undefined }
+      };
+    }), 'post-decision release validation uses captured Object.assign and Math.floor');
+
+  const blockedPostDecisionReleaseTargets = ['String.prototype.match', 'Number'];
+  const blockedPostDecisionReleaseResults = [];
+  for (const targetSource of blockedPostDecisionReleaseTargets) {
+    blockedPostDecisionReleaseResults.push({
+      targetSource: targetSource,
+      outcome: await runPostDecisionReleaseIntrinsicProbe(targetSource)
+    });
+  }
+  // Asserted with the generation-path blocker outcomes below so both current
+  // live-dispatch defects are reported by one focused verifier run.
+
+  let redirectReplacement;
+  const redirectedRelease = await runHostileDecisionAwaitReleaseProbe(function(store) {
+    redirectReplacement = {
+      insert: async function(collection, item) {
+        if (item.eventType === 'release') redirectReplacement.releaseWrites += 1;
+        store.set(item._id, Object.assign({}, item));
+        return item;
+      },
+      get: async function(collection, id) { return store.get(id) || null; },
+      releaseWrites: 0
+    };
+    context.wixData = redirectReplacement;
+  });
+  assertEqual({
+    state: redirectedRelease.result.state,
+    originalWrites: redirectedRelease.originalReleaseWrites(),
+    replacementWrites: redirectReplacement.releaseWrites
+  }, {
+    state: 'CONFIRMED', originalWrites: 1, replacementWrites: 0
+  }, 'release persistence remains bound to the Wix Data owner captured before decision confirmation');
+
+  let mutableRelease;
+  const mutationProtectedRelease = await runHostileDecisionAwaitReleaseProbe(function(store, release) {
+    mutableRelease = release;
+    release.releaseReason = 'mutated-after-validation';
+  });
+  assertEqual(mutationProtectedRelease.store.get(mutableRelease._id).releaseReason,
+    'validated-before-decision',
+    'release persistence uses an immutable event snapshot captured before decision confirmation');
+
+  const exactCompensateDecision = Object.assign({},
+    markedReleaseStore.get('rc1-op-' + operationEvent.operationId + '-d'));
+  async function rejectMarkedReleaseWithDecision(decision, classification, message) {
+    const store = new Map([
+      markedReleaseIdentity, event, orphanUnitEvent, markedReleaseCompletion, decision
+    ].filter(Boolean).map(function(item) { return [item._id, Object.assign({}, item)]; }));
+    const insertedTypes = [];
+    context.wixData = {
+      insert: async function(collection, item) {
+        insertedTypes.push(item.eventType);
+        if (store.has(item._id)) throw new Error('WDE0074');
+        store.set(item._id, Object.assign({}, item));
+        return item;
+      },
+      get: async function(collection, id) { return store.get(id) || null; }
+    };
+    assertEqual(await context.adapter.appendRoomClaimEvents([reverseUnitRelease]), {
+      state: 'STOPPED', confirmed: [],
+      failed: { index: 0, eventId: reverseUnitRelease._id, classification: classification }
+    }, message);
+    assertEqual(insertedTypes.filter(function(type) { return type === 'release'; }).length, 0,
+      message + ' with zero release writes');
+  }
+
+  await rejectMarkedReleaseWithDecision(Object.assign({}, exactCompensateDecision, {
+    decisionState: 'commit-rows'
+  }), 'DECISION_CONFLICT', 'an exact commit decision prevents compensation');
+  await rejectMarkedReleaseWithDecision(Object.assign({}, exactCompensateDecision, {
+    operationCompletionId: 'malformed'
+  }), 'INTEGRITY', 'a malformed decision prevents compensation');
+
+  const unresolvedReleaseStore = new Map([
+    markedReleaseIdentity, event, orphanUnitEvent, markedReleaseCompletion
+  ].map(function(item) { return [item._id, Object.assign({}, item)]; }));
+  let unresolvedReleaseWrites = 0;
+  context.wixData = {
+    insert: async function(collection, item) {
+      if (item.eventType === 'release') unresolvedReleaseWrites += 1;
+      throw new Error('decision insert timeout');
+    },
+    get: async function(collection, id) {
+      if (id === exactCompensateDecision._id) throw new Error('decision read timeout');
+      return unresolvedReleaseStore.get(id) || null;
+    }
+  };
+  assertEqual(await context.adapter.appendRoomClaimEvents([reverseUnitRelease]), {
+    state: 'STOPPED', confirmed: [],
+    failed: { index: 0, eventId: reverseUnitRelease._id, classification: 'UNRESOLVED' }
+  }, 'an unresolved decision prevents compensation');
+  assertEqual(unresolvedReleaseWrites, 0,
+    'an unresolved decision causes zero release writes');
+
+  const legacyReleaseIdentity = Object.assign({}, markedReleaseIdentity);
+  delete legacyReleaseIdentity.decisionFenceVersion;
+  let legacyReleaseWrites = 0;
+  context.wixData = {
+    insert: async function(collection, item) {
+      if (item.eventType === 'release') legacyReleaseWrites += 1;
+      return item;
+    },
+    get: async function(collection, id) {
+      return id === legacyReleaseIdentity._id ? legacyReleaseIdentity : null;
+    }
+  };
+  assertEqual(await context.adapter.appendRoomClaimEvents([reverseUnitRelease]), {
+    state: 'STOPPED', confirmed: [],
+    failed: { index: 0, eventId: reverseUnitRelease._id, classification: 'LEGACY_UNFENCED' }
+  }, 'legacy unfenced evidence prevents new compensation writes');
+  assertEqual(legacyReleaseWrites, 0,
+    'legacy unfenced evidence causes zero release writes');
+
+  const existingCompensateStore = new Map([
+    markedReleaseIdentity, event, orphanUnitEvent, markedReleaseCompletion,
+    exactCompensateDecision, reverseUnitRelease
+  ].map(function(item) { return [item._id, Object.assign({}, item)]; }));
+  context.wixData = {
+    insert: async function(collection, item) {
+      if (existingCompensateStore.has(item._id)) throw new Error('WDE0074');
+      existingCompensateStore.set(item._id, Object.assign({}, item));
+      return item;
+    },
+    get: async function(collection, id) { return existingCompensateStore.get(id) || null; }
+  };
+  assertEqual((await context.adapter.appendRoomClaimEvents([reverseCapacityRelease])).state,
+    'CONFIRMED', 'an existing exact compensate decision permits a partial reverse-release retry');
+
+  const mixedStore = new Map([
+    markedReleaseIdentity, event, orphanUnitEvent, markedReleaseCompletion,
+    exactCompensateDecision
+  ].map(function(item) { return [item._id, Object.assign({}, item)]; }));
+  let mixedBatchResourceWrites = 0;
+  context.wixData = {
+    query: function() {
+      return { limit: function() { return this; }, find: async function() {
+        return { items: [], hasNext: function() { return false; } };
+      } };
+    },
+    insert: async function(collection, item) {
+      if (item.eventType === 'acquire' || item.eventType === 'release') mixedBatchResourceWrites += 1;
+      if (mixedStore.has(item._id)) throw new Error('WDE0074');
+      mixedStore.set(item._id, Object.assign({}, item));
+      return item;
+    },
+    get: async function(collection, id) { return mixedStore.get(id) || null; }
+  };
+  assertEqual(await context.adapter.appendRoomClaimEvents([
+    markedReleaseIdentity, event, orphanUnitEvent, reverseUnitRelease
+  ]), {
+    state: 'STOPPED', confirmed: [],
+    failed: { index: 3, eventId: reverseUnitRelease._id, classification: 'INTEGRITY' }
+  }, 'a mixed acquisition and release batch fails atomically at its first release');
+  assertEqual(mixedBatchResourceWrites, 0,
+    'a mixed acquisition and release batch performs zero acquisition or release writes');
+
   async function appendReleases(releaseEvents) {
     const releaseWixData = context.wixData;
     const owner = releaseEvents[0];
@@ -1667,8 +2283,28 @@ vm.runInContext(source, context);
       bookingRowId: 'pb1-' + owner.operationId + '-r1',
       bookingNumber: owner.bookingNumber,
       payloadDigest: owner.payloadDigest,
+      decisionFenceVersion: 1,
       completionState: 'complete',
       confirmedResourceCount: releaseIdentity.manifestResourceClaimIds.split('|').length
+    };
+    const releaseDecision = {
+      _id: 'rc1-op-' + owner.operationId + '-d',
+      protocolVersion: 1,
+      claimKey: 'operation:' + owner.operationId + ':decision',
+      generation: 1,
+      eventType: 'decide',
+      claimType: 'operation-decision',
+      operationId: owner.operationId,
+      bookingRowId: releaseIdentity.bookingRowId,
+      bookingNumber: owner.bookingNumber,
+      payloadDigest: owner.payloadDigest,
+      decisionFenceVersion: 1,
+      operationIdentityId: releaseIdentity._id,
+      operationCompletionId: releaseCompletion._id,
+      manifestVersion: 1,
+      completionState: 'complete',
+      confirmedResourceCount: releaseCompletion.confirmedResourceCount,
+      decisionState: 'compensate'
     };
     const priorUnitReleaseForCapacity = Object.assign({}, orphanUnitEvent, {
       _id: orphanUnitEvent._id.slice(0, -1) + 'r',
@@ -1686,6 +2322,7 @@ vm.runInContext(source, context);
       get: async function(collection, id, options) {
         if (id === releaseIdentity._id) return releaseIdentity;
         if (id === releaseCompletion._id) return releaseCompletion;
+        if (id === releaseDecision._id) return releaseDecision;
         if (owner.claimType === 'capacity' && id === priorUnitReleaseForCapacity._id) {
           return priorUnitReleaseForCapacity;
         }
@@ -1730,11 +2367,11 @@ vm.runInContext(source, context);
   context.wixData = {
     insert: async function() { return { _id: unitReleaseEvent._id }; },
     get: async function(collection, id) {
-      if (id === event._id) return Object.assign({ _createdDate: 'system-field' }, event);
+      if (id === event._id) return Object.assign({ _createdDate: new Date('2027-11-05T00:00:00.000Z') }, event);
       if (id === orphanUnitEvent._id) {
-        return Object.assign({ _createdDate: 'system-field' }, orphanUnitEvent);
+        return Object.assign({ _createdDate: new Date('2027-11-05T00:00:00.000Z') }, orphanUnitEvent);
       }
-      return Object.assign({ _createdDate: 'system-field' }, unitReleaseEvent);
+      return Object.assign({ _createdDate: new Date('2027-11-05T00:00:00.000Z') }, unitReleaseEvent);
     }
   };
   assertEqual(await appendReleases([unitReleaseEvent]), {
@@ -2012,12 +2649,33 @@ vm.runInContext(source, context);
     bookingRowId: priorOperation.bookingRowId,
     bookingNumber: priorOperation.bookingNumber,
     payloadDigest: priorOperation.payloadDigest,
+    decisionFenceVersion: 1,
     completionState: 'complete',
     confirmedResourceCount: priorOperation.manifestResourceClaimIds.split('|').length
+  };
+  const priorDecision = {
+    _id: 'rc1-op-' + priorOperation.operationId + '-d',
+    protocolVersion: 1,
+    claimKey: 'operation:' + priorOperation.operationId + ':decision',
+    generation: 1,
+    eventType: 'decide',
+    claimType: 'operation-decision',
+    operationId: priorOperation.operationId,
+    bookingRowId: priorOperation.bookingRowId,
+    bookingNumber: priorOperation.bookingNumber,
+    payloadDigest: priorOperation.payloadDigest,
+    decisionFenceVersion: 1,
+    operationIdentityId: priorOperation._id,
+    operationCompletionId: priorCompletion._id,
+    manifestVersion: 1,
+    completionState: priorCompletion.completionState,
+    confirmedResourceCount: priorCompletion.confirmedResourceCount,
+    decisionState: 'compensate'
   };
   const validGenerationStore = new Map([
     priorOperation,
     priorCompletion,
+    priorDecision,
     priorCapacity,
     priorCapacityRelease,
     priorUnit,
@@ -2058,6 +2716,11 @@ vm.runInContext(source, context);
     priorOperation, priorCapacity, priorCapacityRelease, priorUnit, priorUnitRelease
   ], 'released history without its operation completion fence cannot authorize generation two');
 
+  await verifyRejectedGenerationHistory([
+    priorOperation, priorCompletion, priorCapacity, priorCapacityRelease,
+    priorUnit, priorUnitRelease
+  ], 'marked released history without its compensate decision cannot authorize generation two');
+
   const mismatchedPriorOperation = Object.assign({}, priorOperation, {
     manifestResourceClaimIds: 'rc1-20271105-s2-000001-a|rc1-20271105-u3-000001-a'
   });
@@ -2077,6 +2740,150 @@ vm.runInContext(source, context);
   await verifyRejectedGenerationHistory([
     nonPrefixPriorOperation, priorCapacity, priorCapacityRelease, priorUnit, priorUnitRelease
   ], 'non-prefix released operation history cannot authorize generation two');
+
+  async function runGenerationIntrinsicProbe(targetSource) {
+    return withReplacedVmIntrinsic(targetSource, async function(replacementSource) {
+      const store = new Map(Array.from(validGenerationStore.entries()).map(function(entry) {
+        return [entry[0], Object.assign({}, entry[1])];
+      }));
+      context.wixData = {
+        query: function() {
+          return {
+            limit: function() { return this; },
+            find: function() {
+              return {
+                then: function(resolve) {
+                  vm.runInContext(replacementSource, context);
+                  resolve({
+                    items: Array.from(store.values()),
+                    hasNext: function() { return false; }
+                  });
+                }
+              };
+            }
+          };
+        },
+        insert: async function(collection, item) {
+          store.set(item._id, Object.assign({}, item));
+          return item;
+        },
+        get: async function(collection, id) { return store.get(id) || null; }
+      };
+      let result;
+      let error = null;
+      try {
+        result = await context.adapter.appendRoomClaimEvents([
+          generationTwoOperation, generationTwoCapacity, generationTwoUnit
+        ]);
+      } catch (caught) {
+        error = caught;
+      }
+      return {
+        error: error && error.message,
+        state: result && result.state,
+        classification: result && result.failed && result.failed.classification
+      };
+    });
+  }
+
+  const safeGenerationIntrinsicTargets = [
+    'Object.assign', 'Math.floor', 'Set', 'Set.prototype.has'
+  ];
+  const safeGenerationIntrinsicResults = [];
+  for (const targetSource of safeGenerationIntrinsicTargets) {
+    safeGenerationIntrinsicResults.push({
+      targetSource: targetSource,
+      outcome: await runGenerationIntrinsicProbe(targetSource)
+    });
+  }
+  assertEqual(safeGenerationIntrinsicResults,
+    safeGenerationIntrinsicTargets.map(function(targetSource) {
+      return {
+        targetSource: targetSource,
+        outcome: { error: null, state: 'CONFIRMED', classification: undefined }
+      };
+    }), 'post-ledger generation validation uses captured Object.assign, Math.floor, Set, and Set.has');
+
+  const blockedGenerationIntrinsicTargets = ['String.prototype.match', 'Number'];
+  const blockedGenerationIntrinsicResults = [];
+  for (const targetSource of blockedGenerationIntrinsicTargets) {
+    blockedGenerationIntrinsicResults.push({
+      targetSource: targetSource,
+      outcome: await runGenerationIntrinsicProbe(targetSource)
+    });
+  }
+  const liveDispatchBlockerResults = {
+    postDecisionRelease: blockedPostDecisionReleaseResults,
+    generationHistory: blockedGenerationIntrinsicResults
+  };
+  const expectedCapturedDispatchResults = {
+    postDecisionRelease: blockedPostDecisionReleaseTargets.map(function(targetSource) {
+      return {
+        targetSource: targetSource,
+        outcome: { error: null, state: 'CONFIRMED', classification: undefined }
+      };
+    }),
+    generationHistory: blockedGenerationIntrinsicTargets.map(function(targetSource) {
+      return {
+        targetSource: targetSource,
+        outcome: { error: null, state: 'CONFIRMED', classification: undefined }
+      };
+    })
+  };
+  assertEqual(liveDispatchBlockerResults, expectedCapturedDispatchResults,
+    'release and generation validation do not dispatch through live String.match or Number');
+
+  const generationArrayIntrinsicProbes = [
+    'Array.prototype.slice',
+    'Array.prototype.forEach'
+  ];
+  const generationArrayProbeResults = [];
+  for (const targetSource of generationArrayIntrinsicProbes) {
+    generationArrayProbeResults.push({
+      targetSource: targetSource,
+      outcome: await withReplacedVmIntrinsic(targetSource, async function(replacementSource) {
+        const store = new Map(Array.from(validGenerationStore.entries()).map(function(entry) {
+          return [entry[0], Object.assign({}, entry[1])];
+        }));
+        context.wixData = {
+          query: function() {
+            return {
+              limit: function() { return this; },
+              find: function() {
+                return {
+                  then: function(resolve) {
+                    vm.runInContext(replacementSource, context);
+                    resolve({
+                      items: Array.from(store.values()),
+                      hasNext: function() { return false; }
+                    });
+                  }
+                };
+              }
+            };
+          },
+          insert: async function(collection, item) {
+            store.set(item._id, Object.assign({}, item));
+            return item;
+          },
+          get: async function(collection, id) { return store.get(id) || null; }
+        };
+        let result;
+        let error = null;
+        try {
+          result = await context.adapter.appendRoomClaimEvents([
+            generationTwoOperation, generationTwoCapacity, generationTwoUnit
+          ]);
+        } catch (caught) {
+          error = caught;
+        }
+        return { error: error && error.message, state: result && result.state };
+      })
+    });
+  }
+  assertEqual(generationArrayProbeResults, generationArrayIntrinsicProbes.map(function(targetSource) {
+    return { targetSource: targetSource, outcome: { error: null, state: 'CONFIRMED' } };
+  }), 'post-await generation-history validation uses captured Array intrinsic dispatch');
 
   let validGenerationWrites = 0;
   context.wixData = {

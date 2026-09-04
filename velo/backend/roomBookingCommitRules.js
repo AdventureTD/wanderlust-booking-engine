@@ -138,7 +138,8 @@ function hasOnlyClaimFields(event) {
     'bookingRowId', 'releaseReason', 'manifestVersion', 'manifestCheckIn',
     'manifestCheckOut', 'manifestRoomCode', 'manifestUnits',
     'manifestBookingRowIds', 'manifestResourceClaimIds', 'completionState',
-    'confirmedResourceCount', 'decisionFenceVersion'
+    'confirmedResourceCount', 'decisionFenceVersion', 'operationIdentityId',
+    'operationCompletionId', 'decisionState'
   ];
   return Object.keys(event).every(function(key) {
     return key.charAt(0) === '_' || allowed.indexOf(key) !== -1;
@@ -165,11 +166,89 @@ function hasValidDecisionFenceVersion(event) {
       Number.isSafeInteger(descriptor.value));
 }
 
+function hasExactDecisionShape(event) {
+  const fields = [
+    '_id', 'protocolVersion', 'claimKey', 'generation', 'eventType', 'claimType',
+    'operationId', 'bookingRowId', 'bookingNumber', 'payloadDigest', 'decisionFenceVersion',
+    'operationIdentityId', 'operationCompletionId', 'manifestVersion', 'completionState',
+    'confirmedResourceCount', 'decisionState'
+  ];
+  const metadata = ['_owner', '_createdDate', '_updatedDate'];
+  let prototype;
+  let parent;
+  let prototypeKeys;
+  let first;
+  let keys;
+  let second;
+  try {
+    prototype = Object.getPrototypeOf(event);
+    parent = prototype && Object.getPrototypeOf(prototype);
+    prototypeKeys = prototype && Reflect.ownKeys(prototype);
+    first = Object.getOwnPropertyDescriptors(event);
+    keys = Reflect.ownKeys(event);
+    second = Object.getOwnPropertyDescriptors(event);
+  } catch (error) {
+    return false;
+  }
+  const ordinaryNames = [
+    'constructor', '__defineGetter__', '__defineSetter__', 'hasOwnProperty',
+    '__lookupGetter__', '__lookupSetter__', 'isPrototypeOf', 'propertyIsEnumerable',
+    'toString', 'valueOf', '__proto__', 'toLocaleString'
+  ];
+  if (!prototype || parent !== null || prototypeKeys.length !== ordinaryNames.length ||
+      prototypeKeys.some(function(key) { return ordinaryNames.indexOf(key) === -1; }) ||
+      keys.length < fields.length || keys.length > fields.length + metadata.length ||
+      Reflect.ownKeys(first).length !== keys.length || Reflect.ownKeys(second).length !== keys.length) {
+    return false;
+  }
+  for (let index = 0; index < keys.length; index += 1) {
+    if (Reflect.ownKeys(first)[index] !== keys[index] || Reflect.ownKeys(second)[index] !== keys[index]) {
+      return false;
+    }
+    const key = keys[index];
+    const left = first[key];
+    const right = second[key];
+    if (typeof key !== 'string' || !left || !right ||
+        !Object.prototype.hasOwnProperty.call(left, 'value') ||
+        !Object.prototype.hasOwnProperty.call(right, 'value') ||
+        left.value !== right.value || left.enumerable !== true || right.enumerable !== true ||
+        left.configurable !== right.configurable || left.writable !== right.writable) return false;
+    if (fields.indexOf(key) !== -1) {
+      if ((left.value !== null && typeof left.value === 'object') ||
+          typeof left.value === 'function' || typeof left.value === 'symbol' ||
+          typeof left.value === 'bigint') return false;
+      continue;
+    }
+    if (key === '_owner') {
+      if (typeof left.value !== 'string') return false;
+      continue;
+    }
+    if (key !== '_createdDate' && key !== '_updatedDate') return false;
+    try {
+      if (Number.isNaN(Date.prototype.getTime.call(left.value))) return false;
+    } catch (error) {
+      return false;
+    }
+  }
+  return fields.every(function(key) { return Object.prototype.hasOwnProperty.call(first, key); });
+}
+
 function isValidClaimEvent(event) {
-  if (!event || typeof event !== 'object' || Array.isArray(event) ||
-      !hasOnlyClaimFields(event) || event.protocolVersion !== 1 || typeof event.claimKey !== 'string' ||
+  if (!event || typeof event !== 'object' || Array.isArray(event)) return false;
+  let claimTypeDescriptor;
+  try {
+    claimTypeDescriptor = Object.getOwnPropertyDescriptor(event, 'claimType');
+  } catch (error) {
+    return false;
+  }
+  if (!claimTypeDescriptor || !Object.prototype.hasOwnProperty.call(claimTypeDescriptor, 'value') ||
+      claimTypeDescriptor.enumerable !== true || typeof claimTypeDescriptor.value !== 'string') {
+    return false;
+  }
+  const claimType = claimTypeDescriptor.value;
+  if (!hasOnlyClaimFields(event) || event.protocolVersion !== 1 || typeof event.claimKey !== 'string' ||
       (event.eventType !== 'acquire' && event.eventType !== 'release' &&
-       event.eventType !== 'complete') ||
+       event.eventType !== 'complete' && event.eventType !== 'decide') ||
       !/^[A-Za-z0-9_-]{16,64}$/.test(event.operationId || '') ||
       !validBookingRowId(event) ||
       !isCanonicalText(event.bookingNumber, 128) ||
@@ -177,7 +256,27 @@ function isValidClaimEvent(event) {
       !Number.isInteger(event.generation) || event.generation < 1 || event.generation > 999999) {
     return false;
   }
-  const completionClaim = event.claimType === 'operation-completion' &&
+  const decisionClaim = claimType === 'operation-decision' &&
+    hasExactDecisionShape(event) &&
+    event.eventType === 'decide' && event.generation === 1 &&
+    event.claimKey === 'operation:' + event.operationId + ':decision' &&
+    event._id === 'rc1-op-' + event.operationId + '-d' &&
+    event.bookingRowId === 'pb1-' + event.operationId + '-r1' &&
+    event.decisionFenceVersion === 1 &&
+    event.operationIdentityId === 'rc1-op-' + event.operationId + '-a' &&
+    event.operationCompletionId === 'rc1-op-' + event.operationId + '-c' &&
+    event.manifestVersion === 1 &&
+    (event.completionState === 'complete' || event.completionState === 'stopped') &&
+    Number.isInteger(event.confirmedResourceCount) &&
+    event.confirmedResourceCount >= 0 && event.confirmedResourceCount <= 6400 &&
+    (event.decisionState === 'commit-rows' || event.decisionState === 'compensate') &&
+    event.night === undefined && event.capacitySlot === undefined && event.unit === undefined &&
+    event.releaseReason === undefined && event.manifestCheckIn === undefined &&
+    event.manifestCheckOut === undefined && event.manifestRoomCode === undefined &&
+    event.manifestUnits === undefined && event.manifestBookingRowIds === undefined &&
+    event.manifestResourceClaimIds === undefined;
+  if (decisionClaim) return true;
+  const completionClaim = claimType === 'operation-completion' &&
     event.eventType === 'complete' && event.generation === 1 &&
     event.claimKey === 'operation:' + event.operationId + ':completion' &&
     event._id === 'rc1-op-' + event.operationId + '-c' &&
@@ -193,7 +292,7 @@ function isValidClaimEvent(event) {
     event.manifestUnits === undefined && event.manifestBookingRowIds === undefined &&
     event.manifestResourceClaimIds === undefined;
   if (completionClaim) return true;
-  const operationClaim = event.claimType === 'operation' &&
+  const operationClaim = claimType === 'operation' &&
     event.eventType === 'acquire' && event.generation === 1 &&
     event.claimKey === 'operation:' + event.operationId &&
     event._id === 'rc1-op-' + event.operationId + '-a' &&
@@ -206,7 +305,8 @@ function isValidClaimEvent(event) {
   if (!hasValidDecisionFenceVersion(event) || [
     'manifestVersion', 'manifestCheckIn', 'manifestCheckOut', 'manifestRoomCode',
     'manifestUnits', 'manifestBookingRowIds', 'manifestResourceClaimIds',
-    'completionState', 'confirmedResourceCount', 'decisionFenceVersion'
+    'completionState', 'confirmedResourceCount', 'decisionFenceVersion',
+    'operationIdentityId', 'operationCompletionId', 'decisionState'
   ].some(function(key) {
     return Object.prototype.hasOwnProperty.call(event, key);
   })) return false;
@@ -215,11 +315,11 @@ function isValidClaimEvent(event) {
     ? isCanonicalText(event.releaseReason, 256)
     : event.releaseReason === undefined;
   if (!validReleaseReason) return false;
-  const capacityClaim = event.claimType === 'capacity' &&
+  const capacityClaim = claimType === 'capacity' &&
     Number.isInteger(event.capacitySlot) && event.capacitySlot >= 1 && event.capacitySlot <= 4 &&
     event.unit === undefined &&
     event.claimKey === 'capacity:' + event.night + ':' + event.capacitySlot;
-  const unitClaim = event.claimType === 'unit' &&
+  const unitClaim = claimType === 'unit' &&
     Number.isInteger(event.unit) && event.unit >= 1 && event.unit <= 5 &&
     event.capacitySlot === undefined &&
     event.claimKey === 'unit:' + event.night + ':' + event.unit;
@@ -249,6 +349,7 @@ function validateClaimLedger(claimLedger) {
     }
     operationBookingNumbers[event.operationId] = event.bookingNumber;
     if (event.claimType !== 'operation-completion' &&
+        event.claimType !== 'operation-decision' &&
         claimKeys.indexOf(event.claimKey) === -1) claimKeys.push(event.claimKey);
     if (event.eventType !== 'release') continue;
     const matchingAcquire = claimLedger.some(function(candidate) {
@@ -270,7 +371,8 @@ function validateClaimLedger(claimLedger) {
     manifests[event.operationId] = parseOperationManifest(event);
   }
   for (const event of claimLedger) {
-    if (event.claimType === 'operation' || event.claimType === 'operation-completion') continue;
+    if (event.claimType === 'operation' || event.claimType === 'operation-completion' ||
+        event.claimType === 'operation-decision') continue;
     const operationIdentity = claimLedger.find(function(candidate) {
       return candidate && candidate.claimType === 'operation' &&
         candidate.operationId === event.operationId;
@@ -297,6 +399,11 @@ function validateClaimLedger(claimLedger) {
   })) {
     if (!manifests[completion.operationId]) throw new Error('Invalid claim ledger');
   }
+  for (const decision of claimLedger.filter(function(event) {
+    return event.claimType === 'operation-decision';
+  })) {
+    if (!manifests[decision.operationId]) throw new Error('Invalid claim ledger');
+  }
   for (const operationId of Object.keys(manifests)) {
     const manifest = manifests[operationId];
     const actualIds = claimLedger.filter(function(event) {
@@ -318,6 +425,27 @@ function validateClaimLedger(claimLedger) {
     const releases = claimLedger.filter(function(event) {
       return event.operationId === operationId && event.eventType === 'release';
     });
+    const decisions = claimLedger.filter(function(event) {
+      return event.claimType === 'operation-decision' && event.operationId === operationId;
+    });
+    if (decisions.length > 1 || (decisions.length === 1 && (
+        completions.length !== 1 || identity.decisionFenceVersion !== 1 ||
+        completions[0].decisionFenceVersion !== 1 ||
+        decisions[0].operationIdentityId !== identity._id ||
+        decisions[0].operationCompletionId !== completions[0]._id ||
+        decisions[0].bookingRowId !== identity.bookingRowId ||
+        decisions[0].bookingNumber !== identity.bookingNumber ||
+        decisions[0].payloadDigest !== identity.payloadDigest ||
+        decisions[0].manifestVersion !== identity.manifestVersion ||
+        decisions[0].completionState !== completions[0].completionState ||
+        decisions[0].confirmedResourceCount !== completions[0].confirmedResourceCount ||
+        (decisions[0].decisionState === 'commit-rows' &&
+          decisions[0].completionState !== 'complete')
+      ))) throw new Error('Invalid claim ledger');
+    if (identity.decisionFenceVersion === 1 && releases.length &&
+        (decisions.length !== 1 || decisions[0].decisionState !== 'compensate')) {
+      throw new Error('Invalid claim ledger');
+    }
     if (completions.length > 1 || (releases.length && completions.length !== 1)) {
       throw new Error('Invalid claim ledger');
     }
@@ -411,7 +539,7 @@ function claimState(claimLedger, claimKey) {
   let released = false;
   let acquisition = null;
   for (const event of claimLedger) {
-    if (!event || event.claimKey !== claimKey) continue;
+    if (!event || event.claimType === 'operation-decision' || event.claimKey !== claimKey) continue;
     if (event.generation > generation) {
       generation = event.generation;
       acquired = false;

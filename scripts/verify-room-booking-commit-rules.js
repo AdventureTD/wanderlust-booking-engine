@@ -124,8 +124,176 @@ function operationCompletion(identity, completionState, confirmedResourceCount) 
   return completion;
 }
 
+function operationDecision(identity, completion, decisionState) {
+  return {
+    _id: 'rc1-op-' + identity.operationId + '-d',
+    protocolVersion: 1,
+    claimKey: 'operation:' + identity.operationId + ':decision',
+    generation: 1,
+    eventType: 'decide',
+    claimType: 'operation-decision',
+    operationId: identity.operationId,
+    bookingRowId: identity.bookingRowId,
+    bookingNumber: identity.bookingNumber,
+    payloadDigest: identity.payloadDigest,
+    decisionFenceVersion: 1,
+    operationIdentityId: identity._id,
+    operationCompletionId: completion._id,
+    manifestVersion: identity.manifestVersion,
+    completionState: completion.completionState,
+    confirmedResourceCount: completion.confirmedResourceCount,
+    decisionState: decisionState
+  };
+}
+
+function decisionWithPrototype(decision, kind) {
+  const ordinaryNames = Reflect.ownKeys(Object.prototype);
+  const prototypeNames = kind === 'short'
+    ? ordinaryNames.slice(0, -1)
+    : kind === 'alien'
+      ? ordinaryNames.slice(0, -1).concat(['evil'])
+      : ordinaryNames;
+  const prototype = Object.create(kind === 'parent' ? {} : null);
+  prototypeNames.forEach(function(key) {
+    Object.defineProperty(prototype, key, key === 'evil'
+      ? { value: true }
+      : Object.getOwnPropertyDescriptor(Object.prototype, key));
+  });
+  Object.setPrototypeOf(decision, prototype);
+  return decision;
+}
+
+function unstableDecision(decision, mode) {
+  if (mode === 'non-enumerable') {
+    Object.defineProperty(decision, 'decisionState', {
+      value: 'commit-rows', enumerable: false, writable: true, configurable: true
+    });
+  }
+  if (mode === 'object-value') decision.decisionState = {};
+  if (mode === 'owner-type') decision._owner = 7;
+  if (mode === 'invalid-date') decision._createdDate = new Date(NaN);
+  if (mode === 'missing-field') {
+    delete decision.decisionState;
+    decision._owner = 'owner';
+  }
+  let ownKeysCalls = 0;
+  return new Proxy(decision, {
+    get: function(target, key, receiver) {
+      if ((mode === 'object-value' || mode === 'missing-field') && key === 'decisionState') {
+        return 'commit-rows';
+      }
+      return Reflect.get(target, key, receiver);
+    },
+    ownKeys: function(target) {
+      ownKeysCalls += 1;
+      const keys = Reflect.ownKeys(target);
+      if ((mode === 'first-count' && ownKeysCalls === 2) ||
+          (mode === 'second-count' && ownKeysCalls === 4)) return keys.concat(['_extra']);
+      if ((mode === 'first-order' && ownKeysCalls === 2) ||
+          (mode === 'second-order' && ownKeysCalls === 4)) {
+        [keys[0], keys[1]] = [keys[1], keys[0]];
+      }
+      return keys;
+    },
+    getOwnPropertyDescriptor: function(target, key) {
+      const descriptor = Reflect.getOwnPropertyDescriptor(target, key);
+      if (key === '_extra') {
+        return { value: 'x', enumerable: true, writable: true, configurable: true };
+      }
+      if (key === 'decisionState' && mode === 'value' && ownKeysCalls === 2) {
+        return Object.assign({}, descriptor, { value: 'compensate' });
+      }
+      if (key === 'decisionState' && mode === 'configurable' && ownKeysCalls === 4) {
+        Object.defineProperty(target, key, Object.assign({}, descriptor, { configurable: false }));
+        return Reflect.getOwnPropertyDescriptor(target, key);
+      }
+      if (key === 'decisionState' && mode === 'writable' && ownKeysCalls === 4) {
+        Object.defineProperty(target, key, Object.assign({}, descriptor, { writable: false }));
+        return Reflect.getOwnPropertyDescriptor(target, key);
+      }
+      return descriptor;
+    }
+  });
+}
+
 const firstCompletion = operationCompletion(
   firstPlan.acquisitions[0], 'complete', firstPlan.acquisitions.length - 1);
+
+function completeDecisionLedger(decision) {
+  return firstPlan.acquisitions.concat([firstCompletion, decision]);
+}
+
+function assertInvalidDecision(decision, message) {
+  assertThrows(function() {
+    context.rulesInternal.validateClaimLedger(completeDecisionLedger(decision));
+  }, 'Invalid claim ledger', message);
+}
+
+const firstDecision = operationDecision(
+  firstPlan.acquisitions[0], firstCompletion, 'commit-rows');
+
+assertThrows(function() {
+  context.rulesInternal.validateClaimLedger([firstDecision]);
+}, 'Invalid claim ledger', 'a decision must be included in its declared operation ledger');
+
+assertThrows(function() {
+  context.rulesInternal.validateClaimLedger(
+    completeDecisionLedger(firstDecision).concat([operationDecision(
+      firstPlan.acquisitions[0], firstCompletion, 'commit-rows')])
+  );
+}, 'Invalid claim ledger', 'an operation ledger admits exactly one decision');
+
+assertThrows(function() {
+  context.rulesInternal.validateClaimLedger([firstPlan.acquisitions[0], firstDecision]);
+}, 'Invalid claim ledger', 'a decision without a completion fails with a normalized ledger error');
+
+assertInvalidDecision(Object.assign({}, firstDecision, {
+  decisionState: 'compensate', completionState: 'stopped'
+}), 'a decision completion state must match its bound completion');
+
+assertInvalidDecision(Object.assign({}, firstDecision, {
+  confirmedResourceCount: firstDecision.confirmedResourceCount - 1
+}), 'a decision resource count must match its bound completion');
+
+const stoppedCommitDecision = operationDecision(
+  firstPlan.acquisitions[0],
+  operationCompletion(firstPlan.acquisitions[0], 'stopped', 1),
+  'commit-rows');
+assertThrows(function() {
+  context.rulesInternal.validateClaimLedger([
+    firstPlan.acquisitions[0], firstPlan.acquisitions[1],
+    operationCompletion(firstPlan.acquisitions[0], 'stopped', 1),
+    stoppedCommitDecision
+  ]);
+}, 'Invalid claim ledger', 'commit eligibility requires a complete decision state');
+
+const nullPrototypeDecision = Object.assign(Object.create(null), firstDecision);
+assertInvalidDecision(nullPrototypeDecision,
+  'a null-prototype decision fails with a normalized ledger error');
+assertInvalidDecision(decisionWithPrototype(Object.assign({}, firstDecision), 'parent'),
+  'a decision prototype must have a null parent');
+assertInvalidDecision(decisionWithPrototype(Object.assign({}, firstDecision), 'short'),
+  'a decision prototype must expose the complete ordinary key set');
+assertInvalidDecision(decisionWithPrototype(Object.assign({}, firstDecision), 'alien'),
+  'a decision prototype rejects substituted ordinary keys');
+
+[
+  ['first-count', 'a decision rejects first descriptor snapshot key-count drift'],
+  ['second-count', 'a decision rejects second descriptor snapshot key-count drift'],
+  ['first-order', 'a decision rejects first descriptor snapshot key-order drift'],
+  ['second-order', 'a decision rejects second descriptor snapshot key-order drift'],
+  ['value', 'a decision rejects descriptor value drift'],
+  ['non-enumerable', 'every decision field must remain enumerable'],
+  ['configurable', 'a decision rejects descriptor configurability drift'],
+  ['writable', 'a decision rejects descriptor writability drift'],
+  ['object-value', 'decision descriptor values must be immutable primitives'],
+  ['owner-type', 'decision owner metadata must be a string'],
+  ['invalid-date', 'decision date metadata must contain a valid date'],
+  ['missing-field', 'every mandatory decision field must have an own descriptor']
+].forEach(function(testCase) {
+  assertInvalidDecision(unstableDecision(Object.assign({}, firstDecision), testCase[0]), testCase[1]);
+});
+
 assertThrows(function() {
   context.rules.buildPhysicalCommitPlan(emptySnapshot,
     firstPlan.acquisitions.concat([firstCompletion]), {
@@ -319,12 +487,15 @@ const unpairedHistoricalRelease = Object.assign({}, unpairedHistoricalCapacity, 
   releaseReason: 'adversarial-unpaired-history'
 });
 const stoppedPrefixCompletion = operationCompletion(firstPlan.acquisitions[0], 'stopped', 1);
+const stoppedPrefixCompensateDecision = operationDecision(
+  firstPlan.acquisitions[0], stoppedPrefixCompletion, 'compensate');
 assertThrows(function() {
   context.rules.buildPhysicalCommitPlan(emptySnapshot, [
     firstPlan.acquisitions[0],
     unpairedHistoricalCapacity,
     unpairedHistoricalRelease,
-    stoppedPrefixCompletion
+    stoppedPrefixCompletion,
+    stoppedPrefixCompensateDecision
   ], {
     roomCode: 'adventure_suite',
     quantity: 1,
@@ -336,6 +507,22 @@ assertThrows(function() {
   });
 }, 'Operation requires reconciliation',
 'declared partial acquisition history remains valid and reconciliation-only after release');
+
+for (const invalidReleaseDecision of [
+  null,
+  operationDecision(firstPlan.acquisitions[0], stoppedPrefixCompletion, 'commit-rows'),
+  Object.assign({}, stoppedPrefixCompensateDecision, { operationCompletionId: 'malformed' })
+]) {
+  assertThrows(function() {
+    context.rulesInternal.validateClaimLedger([
+      firstPlan.acquisitions[0], unpairedHistoricalCapacity,
+      unpairedHistoricalRelease, stoppedPrefixCompletion
+    ].concat(invalidReleaseDecision ? [invalidReleaseDecision] : []));
+  }, 'Invalid claim ledger',
+  'marked release history rejects ' + (!invalidReleaseDecision ? 'missing' :
+    invalidReleaseDecision.decisionState === 'commit-rows' ? 'commit' : 'malformed') +
+    ' operation decision');
+}
 
 assertThrows(function() {
   const resourceWithManifestField = firstPlan.acquisitions.map(function(event, index) {
@@ -528,7 +715,8 @@ const planAfterDeclaredCompensation = context.rules.buildPhysicalCommitPlan(empt
   firstPlan.acquisitions[0],
   unpairedHistoricalCapacity,
   unpairedHistoricalRelease,
-  stoppedPrefixCompletion
+  stoppedPrefixCompletion,
+  stoppedPrefixCompensateDecision
 ], {
   roomCode: 'adventure_suite',
   quantity: 1,

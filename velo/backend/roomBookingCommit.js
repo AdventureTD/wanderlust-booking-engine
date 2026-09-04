@@ -12,21 +12,45 @@ const SAFE_OBJECT_DEFINE_PROPERTY = Object.defineProperty;
 const SAFE_OBJECT_DEFINE_PROPERTIES = Object.defineProperties;
 const SAFE_OBJECT_GET_PROTOTYPE_OF = Object.getPrototypeOf;
 const SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS = Object.getOwnPropertyDescriptors;
+const SAFE_OBJECT_FREEZE = Object.freeze;
+const SAFE_OBJECT_KEYS = Object.keys;
 const SAFE_OBJECT_HAS_OWN_PROPERTY = Function.prototype.call.bind(Object.prototype.hasOwnProperty);
 const SAFE_REFLECT_OWN_KEYS = Reflect.ownKeys;
 const SAFE_REFLECT_APPLY = Reflect.apply;
+const SAFE_PROMISE_RESOLVE = Function.prototype.call.bind(Promise.resolve, Promise);
+const SAFE_PROMISE_THEN = Promise.prototype.then;
 const SAFE_ARRAY = Array;
 const SAFE_ARRAY_IS_ARRAY = Array.isArray;
+const SAFE_ARRAY_CONCAT = Function.prototype.call.bind(Array.prototype.concat);
+const SAFE_ARRAY_EVERY = Function.prototype.call.bind(Array.prototype.every);
+const SAFE_ARRAY_FILTER = Function.prototype.call.bind(Array.prototype.filter);
+const SAFE_ARRAY_FIND = Function.prototype.call.bind(Array.prototype.find);
+const SAFE_ARRAY_FIND_INDEX = Function.prototype.call.bind(Array.prototype.findIndex);
+const SAFE_ARRAY_FOR_EACH = Function.prototype.call.bind(Array.prototype.forEach);
+const SAFE_ARRAY_INDEX_OF = Function.prototype.call.bind(Array.prototype.indexOf);
+const SAFE_ARRAY_MAP = Function.prototype.call.bind(Array.prototype.map);
+const SAFE_ARRAY_PUSH = Function.prototype.call.bind(Array.prototype.push);
+const SAFE_ARRAY_SLICE = Function.prototype.call.bind(Array.prototype.slice);
+const SAFE_ARRAY_SOME = Function.prototype.call.bind(Array.prototype.some);
 const SAFE_ERROR = Error;
 const SAFE_DATE = Date;
 const SAFE_DATE_GET_TIME = Function.prototype.call.bind(Date.prototype.getTime);
 const SAFE_DATE_TO_ISO_STRING = Function.prototype.call.bind(Date.prototype.toISOString);
+const SAFE_MATH_FLOOR = Math.floor;
 const SAFE_NUMBER = Number;
 const SAFE_NUMBER_IS_INTEGER = Number.isInteger;
 const SAFE_NUMBER_IS_NAN = Number.isNaN;
+const SAFE_OBJECT_ASSIGN = Object.assign;
+const SAFE_REGEXP = RegExp;
+const SAFE_SET = Set;
+const SAFE_SET_HAS = Function.prototype.call.bind(Set.prototype.has);
 const SAFE_STRING = String;
 const SAFE_REGEXP_EXEC = Function.prototype.call.bind(RegExp.prototype.exec);
 const SAFE_REGEXP_TEST = function(pattern, value) { return SAFE_REGEXP_EXEC(pattern, value) !== null; };
+const SAFE_STRING_CHAR_AT = Function.prototype.call.bind(String.prototype.charAt);
+const SAFE_STRING_INDEX_OF = Function.prototype.call.bind(String.prototype.indexOf);
+const SAFE_STRING_JOIN = Function.prototype.call.bind(Array.prototype.join);
+const SAFE_STRING_LAST_INDEX_OF = Function.prototype.call.bind(String.prototype.lastIndexOf);
 const SAFE_STRING_PAD_START = Function.prototype.call.bind(String.prototype.padStart);
 const SAFE_STRING_REPLACE = Function.prototype.call.bind(String.prototype.replace);
 const SAFE_STRING_SLICE = Function.prototype.call.bind(String.prototype.slice);
@@ -66,19 +90,20 @@ export async function loadRoomClaimLedger() {
     throw new Error('Claim ledger paging returned no page');
   }
   while (page) {
-    if (pages.indexOf(page) !== -1) {
+    if (SAFE_ARRAY_INDEX_OF(pages, page) !== -1) {
       throw new Error('Claim ledger paging repeated a page');
     }
-    pages.push(page);
-    if (!Array.isArray(page.items)) {
+    SAFE_ARRAY_PUSH(pages, page);
+    if (!SAFE_ARRAY_IS_ARRAY(page.items)) {
       throw new Error('Claim ledger paging result has invalid items');
     }
-    for (const item of page.items) {
-      if (eventIds.indexOf(item && item._id) !== -1) {
+    for (let itemIndex = 0; itemIndex < page.items.length; itemIndex += 1) {
+      const item = page.items[itemIndex];
+      if (SAFE_ARRAY_INDEX_OF(eventIds, item && item._id) !== -1) {
         throw new Error('Claim ledger contains duplicate event IDs');
       }
-      eventIds.push(item && item._id);
-      items.push(item);
+      SAFE_ARRAY_PUSH(eventIds, item && item._id);
+      SAFE_ARRAY_PUSH(items, item);
     }
     if (typeof page.hasNext !== 'function') {
       throw new Error('Claim ledger paging result is missing hasNext()');
@@ -97,11 +122,11 @@ export async function loadRoomClaimLedger() {
 
 function matchesEvent(stored, expected) {
   return stored && typeof stored === 'object' &&
-    Object.keys(expected).every(function(key) {
+    SAFE_ARRAY_EVERY(SAFE_OBJECT_KEYS(expected), function(key) {
       return stored[key] === expected[key];
     }) &&
-    Object.keys(stored).every(function(key) {
-      return key.charAt(0) === '_' || Object.prototype.hasOwnProperty.call(expected, key);
+    SAFE_ARRAY_EVERY(SAFE_OBJECT_KEYS(stored), function(key) {
+      return SAFE_STRING_CHAR_AT(key, 0) === '_' || SAFE_OBJECT_HAS_OWN_PROPERTY(expected, key);
     });
 }
 
@@ -111,7 +136,8 @@ const IDENTITY_EVIDENCE_FIELDS = [
   'manifestCheckIn', 'manifestCheckOut', 'manifestRoomCode', 'manifestUnits',
   'manifestBookingRowIds', 'manifestResourceClaimIds'
 ];
-const MARKED_IDENTITY_EVIDENCE_FIELDS = IDENTITY_EVIDENCE_FIELDS.concat(['decisionFenceVersion']);
+const MARKED_IDENTITY_EVIDENCE_FIELDS = SAFE_ARRAY_CONCAT(
+  IDENTITY_EVIDENCE_FIELDS, ['decisionFenceVersion']);
 const CAPACITY_EVIDENCE_FIELDS = [
   '_id', 'protocolVersion', 'claimKey', 'generation', 'eventType', 'claimType',
   'night', 'capacitySlot', 'operationId', 'bookingRowId', 'bookingNumber', 'payloadDigest'
@@ -125,8 +151,103 @@ const COMPLETION_EVIDENCE_FIELDS = [
   'operationId', 'bookingRowId', 'bookingNumber', 'payloadDigest', 'completionState',
   'confirmedResourceCount'
 ];
-const MARKED_COMPLETION_EVIDENCE_FIELDS = COMPLETION_EVIDENCE_FIELDS.concat(['decisionFenceVersion']);
+const MARKED_COMPLETION_EVIDENCE_FIELDS = SAFE_ARRAY_CONCAT(
+  COMPLETION_EVIDENCE_FIELDS, ['decisionFenceVersion']);
+const DECISION_EVIDENCE_FIELDS = [
+  '_id', 'protocolVersion', 'claimKey', 'generation', 'eventType', 'claimType',
+  'operationId', 'bookingRowId', 'bookingNumber', 'payloadDigest', 'decisionFenceVersion',
+  'operationIdentityId', 'operationCompletionId', 'manifestVersion', 'completionState',
+  'confirmedResourceCount', 'decisionState'
+];
 const WIX_SYSTEM_METADATA_FIELDS = ['_owner', '_createdDate', '_updatedDate'];
+const CLAIM_EVENT_INPUT_FIELDS = [
+  '_id', 'protocolVersion', 'claimKey', 'eventType', 'claimType', 'generation',
+  'night', 'capacitySlot', 'unit', 'operationId', 'payloadDigest', 'bookingNumber',
+  'bookingRowId', 'releaseReason', 'manifestVersion', 'manifestCheckIn',
+  'manifestCheckOut', 'manifestRoomCode', 'manifestUnits',
+  'manifestBookingRowIds', 'manifestResourceClaimIds', 'completionState',
+  'confirmedResourceCount', 'decisionFenceVersion', 'operationIdentityId',
+  'operationCompletionId', 'decisionState'
+];
+
+function snapshotClaimEventInput(value) {
+  if (!value || typeof value !== 'object' || SAFE_ARRAY_IS_ARRAY(value)) return null;
+  let prototype;
+  let first;
+  let keys;
+  let second;
+  try {
+    prototype = SAFE_OBJECT_GET_PROTOTYPE_OF(value);
+    first = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(value);
+    keys = SAFE_REFLECT_OWN_KEYS(value);
+    second = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(value);
+  } catch (error) {
+    return null;
+  }
+  if (!isOrdinaryRecordPrototype(prototype) || !sameOwnKeySequence(keys, first) ||
+      !sameOwnKeySequence(keys, second)) return null;
+  const copy = SAFE_OBJECT_CREATE(SAFE_OBJECT_PROTOTYPE);
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index];
+    if (typeof key !== 'string' || SAFE_ARRAY_INDEX_OF(CLAIM_EVENT_INPUT_FIELDS, key) === -1 ||
+        !sameDataDescriptor(first[key], second[key]) || first[key].enumerable !== true ||
+        (first[key].value !== null && typeof first[key].value === 'object') ||
+        typeof first[key].value === 'function' || typeof first[key].value === 'symbol' ||
+        typeof first[key].value === 'bigint') return null;
+    SAFE_OBJECT_DEFINE_PROPERTY(copy, key, {
+      value: first[key].value, writable: true, enumerable: true, configurable: true
+    });
+  }
+  return SAFE_OBJECT_FREEZE(copy);
+}
+
+function invalidClaimEventSnapshot(value) {
+  const copy = SAFE_OBJECT_CREATE(SAFE_OBJECT_PROTOTYPE);
+  if (!value || typeof value !== 'object') return copy;
+  let first;
+  let second;
+  try {
+    first = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(value);
+    second = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(value);
+  } catch (error) {
+    return copy;
+  }
+  if (sameDataDescriptor(first._id, second._id) && first._id.enumerable === true &&
+      typeof first._id.value === 'string') {
+    SAFE_OBJECT_DEFINE_PROPERTY(copy, '_id', {
+      value: first._id.value, writable: true, enumerable: true, configurable: true
+    });
+  }
+  return copy;
+}
+
+function snapshotClaimEventBatch(value) {
+  if (!SAFE_ARRAY_IS_ARRAY(value)) return null;
+  let first;
+  let keys;
+  let second;
+  try {
+    first = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(value);
+    keys = SAFE_REFLECT_OWN_KEYS(value);
+    second = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(value);
+  } catch (error) {
+    return null;
+  }
+  if (!sameOwnKeySequence(keys, first) || !sameOwnKeySequence(keys, second) ||
+      !sameDataDescriptor(first.length, second.length) ||
+      !SAFE_NUMBER_IS_INTEGER(first.length.value) || first.length.value < 0 ||
+      keys.length !== first.length.value + 1) return null;
+  const copy = new SAFE_ARRAY(first.length.value);
+  for (let index = 0; index < first.length.value; index += 1) {
+    const key = SAFE_STRING(index);
+    if (keys[index] !== key || !sameDataDescriptor(first[key], second[key]) ||
+        first[key].enumerable !== true) return null;
+    copy[index] = snapshotClaimEventInput(first[key].value) ||
+      invalidClaimEventSnapshot(first[key].value);
+  }
+  if (keys[keys.length - 1] !== 'length') return null;
+  return copy;
+}
 
 function isOrdinaryRecordPrototype(prototype) {
   if (prototype === null) return false;
@@ -259,9 +380,10 @@ function recoveryRequired(operationId) {
 }
 
 function isCanonicalNight(value) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(value + 'T00:00:00.000Z');
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  if (typeof value !== 'string' || !SAFE_REGEXP_TEST(/^\d{4}-\d{2}-\d{2}$/, value)) return false;
+  const date = new SAFE_DATE(value + 'T00:00:00.000Z');
+  return !SAFE_NUMBER_IS_NAN(SAFE_DATE_GET_TIME(date)) &&
+    SAFE_STRING_SLICE(SAFE_DATE_TO_ISO_STRING(date), 0, 10) === value;
 }
 
 function hasOnlyClaimFields(event) {
@@ -271,10 +393,11 @@ function hasOnlyClaimFields(event) {
     'bookingRowId', 'releaseReason', 'manifestVersion', 'manifestCheckIn',
     'manifestCheckOut', 'manifestRoomCode', 'manifestUnits',
     'manifestBookingRowIds', 'manifestResourceClaimIds', 'completionState',
-    'confirmedResourceCount', 'decisionFenceVersion'
+    'confirmedResourceCount', 'decisionFenceVersion', 'operationIdentityId',
+    'operationCompletionId', 'decisionState'
   ];
-  return Object.keys(event).every(function(key) {
-    return key.charAt(0) === '_' || allowed.indexOf(key) !== -1;
+  return SAFE_ARRAY_EVERY(SAFE_OBJECT_KEYS(event), function(key) {
+    return SAFE_STRING_CHAR_AT(key, 0) === '_' || SAFE_ARRAY_INDEX_OF(allowed, key) !== -1;
   });
 }
 
@@ -310,69 +433,80 @@ function decisionFenceVersion(event) {
 
 function isCanonicalText(value, maxLength) {
   return typeof value === 'string' && !!value && value.length <= maxLength &&
-    value.trim() === value && !/[\u0000-\u001f\u007f]/.test(value);
+    SAFE_STRING_TRIM(value) === value && !SAFE_REGEXP_TEST(/[\u0000-\u001f\u007f]/, value);
 }
 
 function parseOperationManifest(event) {
   if (event.manifestVersion !== 1 || !isCanonicalNight(event.manifestCheckIn) ||
       !isCanonicalNight(event.manifestCheckOut) ||
-      new Date(event.manifestCheckOut + 'T00:00:00.000Z').getTime() <=
-        new Date(event.manifestCheckIn + 'T00:00:00.000Z').getTime() ||
+      SAFE_DATE_GET_TIME(new SAFE_DATE(event.manifestCheckOut + 'T00:00:00.000Z')) <=
+        SAFE_DATE_GET_TIME(new SAFE_DATE(event.manifestCheckIn + 'T00:00:00.000Z')) ||
       !isCanonicalText(event.manifestRoomCode, 128) ||
       !isCanonicalText(event.manifestUnits, 16) ||
       !isCanonicalText(event.manifestBookingRowIds, 512) ||
       !isCanonicalText(event.manifestResourceClaimIds, 60000)) {
     return null;
   }
-  if (!/^[1-5](,[1-5]){0,3}$/.test(event.manifestUnits)) return null;
-  const units = event.manifestUnits.split(',').map(function(value) { return Number(value); });
-  const rowIds = event.manifestBookingRowIds.split('|');
-  const resourceIds = event.manifestResourceClaimIds.split('|');
+  if (!SAFE_REGEXP_TEST(/^[1-5](,[1-5]){0,3}$/, event.manifestUnits)) return null;
+  const unitTexts = SAFE_STRING_SPLIT(event.manifestUnits, ',');
+  const units = SAFE_ARRAY_MAP(unitTexts, function(value) { return SAFE_NUMBER(value); });
+  const rowIds = SAFE_STRING_SPLIT(event.manifestBookingRowIds, '|');
+  const resourceIds = SAFE_STRING_SPLIT(event.manifestResourceClaimIds, '|');
   const allowedAssignments = {
     penthouse_apartment: ['1'],
     two_bedroom_apartment: ['2'],
     adventure_suite: ['3', '4', '3,4', '3,4,5']
   }[event.manifestRoomCode];
   if (!allowedAssignments || !units.length || units.length > 4 || rowIds.length !== units.length ||
-      allowedAssignments.indexOf(units.join(',')) === -1 ||
-      units.some(function(unit, index) {
-        return !Number.isInteger(unit) ||
+      SAFE_ARRAY_INDEX_OF(allowedAssignments, SAFE_STRING_JOIN(units, ',')) === -1 ||
+      SAFE_ARRAY_SOME(units, function(unit, index) {
+        return !SAFE_NUMBER_IS_INTEGER(unit) ||
           (index > 0 && units[index - 1] >= unit);
       }) ||
-      rowIds.some(function(rowId, index) {
+      SAFE_ARRAY_SOME(rowIds, function(rowId, index) {
         return rowId !== 'pb1-' + event.operationId + '-r' + (index + 1);
       }) ||
-      resourceIds.some(function(id, index, all) { return all.indexOf(id) !== index; })) {
+      SAFE_ARRAY_SOME(resourceIds, function(id, index, all) {
+        return SAFE_ARRAY_INDEX_OF(all, id) !== index;
+      })) {
     return null;
   }
-  const start = new Date(event.manifestCheckIn + 'T00:00:00.000Z').getTime();
-  const end = new Date(event.manifestCheckOut + 'T00:00:00.000Z').getTime();
+  const start = SAFE_DATE_GET_TIME(new SAFE_DATE(event.manifestCheckIn + 'T00:00:00.000Z'));
+  const end = SAFE_DATE_GET_TIME(new SAFE_DATE(event.manifestCheckOut + 'T00:00:00.000Z'));
   const calendarNightCount = (end - start) / 86400000;
   const declaredNightCount = resourceIds.length / (units.length * 2);
-  if (!Number.isInteger(declaredNightCount) || declaredNightCount < 1 ||
+  if (!SAFE_NUMBER_IS_INTEGER(declaredNightCount) || declaredNightCount < 1 ||
       declaredNightCount > MAX_MANIFEST_NIGHTS || calendarNightCount !== declaredNightCount) {
     return null;
   }
   const nights = [];
   for (let index = 0; index < declaredNightCount; index += 1) {
-    nights.push(new Date(start + index * 86400000).toISOString().slice(0, 10));
+    SAFE_ARRAY_PUSH(nights,
+      SAFE_STRING_SLICE(SAFE_DATE_TO_ISO_STRING(new SAFE_DATE(start + index * 86400000)), 0, 10));
   }
   let resourceIndex = 0;
-  for (const night of nights) {
+  for (let nightIndex = 0; nightIndex < nights.length; nightIndex += 1) {
+    const night = nights[nightIndex];
     let priorSlot = 0;
     for (let rowIndex = 0; rowIndex < units.length; rowIndex += 1) {
-      const match = resourceIds[resourceIndex++].match(new RegExp(
-        '^rc1-' + night.replace(/-/g, '') + '-s([1-4])-(\\d{6})-a$'));
-      const slot = match ? Number(match[1]) : 0;
-      if (!match || !Number(match[2]) || slot <= priorSlot) return null;
+      const match = SAFE_REGEXP_EXEC(new SAFE_REGEXP(
+        '^rc1-' + SAFE_STRING_JOIN(SAFE_STRING_SPLIT(night, '-'), '') + '-s([1-4])-(\\d{6})-a$'),
+      resourceIds[resourceIndex]);
+      resourceIndex += 1;
+      const slot = match ? SAFE_NUMBER(match[1]) : 0;
+      if (!match || !SAFE_NUMBER(match[2]) || slot <= priorSlot) return null;
       priorSlot = slot;
     }
   }
-  for (const night of nights) {
+  for (let nightIndex = 0; nightIndex < nights.length; nightIndex += 1) {
+    const night = nights[nightIndex];
     for (let rowIndex = 0; rowIndex < units.length; rowIndex += 1) {
-      const match = resourceIds[resourceIndex++].match(new RegExp(
-        '^rc1-' + night.replace(/-/g, '') + '-u' + units[rowIndex] + '-(\\d{6})-a$'));
-      if (!match || !Number(match[1])) return null;
+      const match = SAFE_REGEXP_EXEC(new SAFE_REGEXP(
+        '^rc1-' + SAFE_STRING_JOIN(SAFE_STRING_SPLIT(night, '-'), '') +
+          '-u' + units[rowIndex] + '-(\\d{6})-a$'),
+      resourceIds[resourceIndex]);
+      resourceIndex += 1;
+      if (!match || !SAFE_NUMBER(match[1])) return null;
     }
   }
   return { nights: nights, units: units, rowIds: rowIds, resourceIds: resourceIds };
@@ -383,22 +517,23 @@ function manifestDeclaresResource(identity, resource) {
   if (!manifest || !resource || identity.operationId !== resource.operationId ||
       identity.bookingNumber !== resource.bookingNumber ||
       identity.payloadDigest !== resource.payloadDigest) return false;
-  const index = manifest.resourceIds.indexOf(resource._id);
+  const index = SAFE_ARRAY_INDEX_OF(manifest.resourceIds, resource._id);
   if (index === -1) return false;
   const claimsPerType = manifest.nights.length * manifest.units.length;
   const typeIndex = index < claimsPerType ? index : index - claimsPerType;
-  const night = manifest.nights[Math.floor(typeIndex / manifest.units.length)];
+  const night = manifest.nights[SAFE_MATH_FLOOR(typeIndex / manifest.units.length)];
   const rowIndex = typeIndex % manifest.units.length;
   if (resource.night !== night || resource.bookingRowId !== manifest.rowIds[rowIndex]) return false;
   if (index < claimsPerType) {
-    const match = resource._id.match(/-s([1-4])-(\d{6})-a$/);
+    const match = SAFE_REGEXP_EXEC(/-s([1-4])-(\d{6})-a$/, resource._id);
     return resource.claimType === 'capacity' && !!match &&
-      resource.capacitySlot === Number(match[1]) && resource.generation === Number(match[2]);
+      resource.capacitySlot === SAFE_NUMBER(match[1]) &&
+      resource.generation === SAFE_NUMBER(match[2]);
   }
-  const match = resource._id.match(/-u([1-5])-(\d{6})-a$/);
+  const match = SAFE_REGEXP_EXEC(/-u([1-5])-(\d{6})-a$/, resource._id);
   return resource.claimType === 'unit' && !!match &&
-    resource.unit === manifest.units[rowIndex] && resource.unit === Number(match[1]) &&
-    resource.generation === Number(match[2]);
+    resource.unit === manifest.units[rowIndex] && resource.unit === SAFE_NUMBER(match[1]) &&
+    resource.generation === SAFE_NUMBER(match[2]);
 }
 
 const LOADER_OPERATION_ID_PATTERN = /^[A-Za-z0-9_-]{16,64}$/;
@@ -642,47 +777,57 @@ export async function loadCompletedRoomClaimSet(operationId) {
 
 function hasValidManifestPrefix(events, identity) {
   const manifest = isValidStoredEvent(identity) && parseOperationManifest(identity);
-  if (!manifest || !Array.isArray(events)) return false;
-  const acquisitions = events.filter(function(event) {
+  if (!manifest || !SAFE_ARRAY_IS_ARRAY(events)) return false;
+  const acquisitions = SAFE_ARRAY_FILTER(events, function(event) {
     return event && event.eventType === 'acquire' && event.claimType !== 'operation' &&
       event.operationId === identity.operationId;
   });
   if (acquisitions.length > manifest.resourceIds.length ||
-      acquisitions.some(function(event) {
+      SAFE_ARRAY_SOME(acquisitions, function(event) {
         return !isValidStoredEvent(event) || !manifestDeclaresResource(identity, event);
       })) return false;
-  const actualIds = new Set(acquisitions.map(function(event) { return event._id; }));
-  const expectedPrefix = manifest.resourceIds.slice(0, acquisitions.length);
+  const actualIds = new SAFE_SET(SAFE_ARRAY_MAP(acquisitions, function(event) { return event._id; }));
+  const expectedPrefix = SAFE_ARRAY_SLICE(manifest.resourceIds, 0, acquisitions.length);
   return actualIds.size === acquisitions.length &&
-    expectedPrefix.every(function(id) { return actualIds.has(id); });
+    SAFE_ARRAY_EVERY(expectedPrefix, function(id) { return SAFE_SET_HAS(actualIds, id); });
 }
 
 function hasCompletedManifestHistory(events, identity) {
   const manifest = isValidStoredEvent(identity) && parseOperationManifest(identity);
   if (!manifest || !hasValidManifestPrefix(events, identity)) return false;
-  const acquisitions = events.filter(function(event) {
+  const acquisitions = SAFE_ARRAY_FILTER(events, function(event) {
     return event && event.eventType === 'acquire' && event.claimType !== 'operation' &&
       event.operationId === identity.operationId;
   });
-  const completions = events.filter(function(event) {
+  const completions = SAFE_ARRAY_FILTER(events, function(event) {
     return event && event.claimType === 'operation-completion' &&
       event.operationId === identity.operationId;
   });
-  const byId = Object.create(null);
-  acquisitions.forEach(function(event) { byId[event._id] = event; });
-  return completions.length === 1 &&
-    matchesOperationCompletion(completions[0], identity, byId);
+  const byId = SAFE_OBJECT_CREATE(null);
+  SAFE_ARRAY_FOR_EACH(acquisitions, function(event) { byId[event._id] = event; });
+  if (completions.length !== 1 ||
+      !matchesOperationCompletion(completions[0], identity, byId)) return false;
+  const identityFence = decisionFenceVersion(identity);
+  if (!identityFence.valid) return false;
+  if (!identityFence.present) return true;
+  const decisions = SAFE_ARRAY_FILTER(events, function(event) {
+    return event && event.claimType === 'operation-decision' &&
+      event.operationId === identity.operationId;
+  });
+  return decisions.length === 1 && exactDecisionState(
+    decisions[0], operationDecisionEvent(identity, completions[0], 'compensate')) === 'MATCH';
 }
 
-async function loadAuthoritativeManifestPrefix(identity) {
+async function loadAuthoritativeManifestPrefix(identity, readEvent) {
   const manifest = isValidStoredEvent(identity) && parseOperationManifest(identity);
-  if (!manifest) return { state: 'INTEGRITY', acquisitions: Object.create(null) };
-  const acquisitions = Object.create(null);
+  if (!manifest) return { state: 'INTEGRITY', acquisitions: SAFE_OBJECT_CREATE(null) };
+  const acquisitions = SAFE_OBJECT_CREATE(null);
   let foundMissing = false;
-  for (const eventId of manifest.resourceIds) {
+  for (let eventIndex = 0; eventIndex < manifest.resourceIds.length; eventIndex += 1) {
+    const eventId = manifest.resourceIds[eventIndex];
     let stored;
     try {
-      stored = await wixData.get(CLAIM_COLLECTION, eventId, READ_OPTIONS);
+      stored = await readEvent(eventId);
     } catch (error) {
       return { state: 'UNRESOLVED', acquisitions: acquisitions };
     }
@@ -704,24 +849,24 @@ async function loadAuthoritativeManifestPrefix(identity) {
   return { state: 'CONFIRMED', acquisitions: acquisitions };
 }
 
-async function validateReverseRelease(identity, acquisitions, acquireId) {
+async function validateReverseRelease(identity, acquisitions, acquireId, readEvent) {
   const manifest = parseOperationManifest(identity);
   if (!manifest) return 'INTEGRITY';
-  const acquiredIds = manifest.resourceIds.filter(function(id) {
-    return Object.prototype.hasOwnProperty.call(acquisitions, id);
+  const acquiredIds = SAFE_ARRAY_FILTER(manifest.resourceIds, function(id) {
+    return SAFE_OBJECT_HAS_OWN_PROPERTY(acquisitions, id);
   });
-  const targetIndex = acquiredIds.indexOf(acquireId);
+  const targetIndex = SAFE_ARRAY_INDEX_OF(acquiredIds, acquireId);
   if (targetIndex === -1) return 'INTEGRITY';
   for (let index = acquiredIds.length - 1; index > targetIndex; index -= 1) {
     const laterAcquire = acquisitions[acquiredIds[index]];
-    const releaseId = laterAcquire._id.slice(0, -1) + 'r';
+    const releaseId = SAFE_STRING_SLICE(laterAcquire._id, 0, -1) + 'r';
     let storedRelease;
     try {
-      storedRelease = await wixData.get(CLAIM_COLLECTION, releaseId, READ_OPTIONS);
+      storedRelease = await readEvent(releaseId);
     } catch (error) {
       return 'UNRESOLVED';
     }
-    const expectedRelease = Object.assign({}, laterAcquire, {
+    const expectedRelease = SAFE_OBJECT_ASSIGN({}, laterAcquire, {
       _id: releaseId,
       eventType: 'release',
       releaseReason: storedRelease && storedRelease.releaseReason
@@ -733,22 +878,41 @@ async function validateReverseRelease(identity, acquisitions, acquireId) {
 }
 
 function isValidStoredEvent(event) {
-  if (!event || typeof event !== 'object' || Array.isArray(event) ||
+  if (!event || typeof event !== 'object' || SAFE_ARRAY_IS_ARRAY(event) ||
       !hasOnlyClaimFields(event) ||
       event.protocolVersion !== 1 ||
-      !Number.isInteger(event.generation) || event.generation < 1 || event.generation > 999999 ||
+      !SAFE_NUMBER_IS_INTEGER(event.generation) || event.generation < 1 || event.generation > 999999 ||
       (event.eventType !== 'acquire' && event.eventType !== 'release' &&
-       event.eventType !== 'complete') ||
-      !/^[A-Za-z0-9_-]{16,64}$/.test(event.operationId || '') ||
+       event.eventType !== 'complete' && event.eventType !== 'decide') ||
+      !SAFE_REGEXP_TEST(/^[A-Za-z0-9_-]{16,64}$/, event.operationId || '') ||
       !isCanonicalText(event.bookingNumber, 128) ||
-      !/^[0-9a-f]{64}$/.test(event.payloadDigest || '')) {
+      !SAFE_REGEXP_TEST(/^[0-9a-f]{64}$/, event.payloadDigest || '')) {
     return false;
   }
   const expectedRowPrefix = 'pb1-' + event.operationId + '-r';
   const validBookingRowId = typeof event.bookingRowId === 'string' &&
-    event.bookingRowId.indexOf(expectedRowPrefix) === 0 &&
-    /^[1-9]\d*$/.test(event.bookingRowId.slice(expectedRowPrefix.length));
+    SAFE_STRING_INDEX_OF(event.bookingRowId, expectedRowPrefix) === 0 &&
+    SAFE_REGEXP_TEST(/^[1-9]\d*$/, SAFE_STRING_SLICE(event.bookingRowId, expectedRowPrefix.length));
   if (!validBookingRowId) return false;
+  if (event.claimType === 'operation-decision') {
+    return event.eventType === 'decide' && event.generation === 1 &&
+      event._id === 'rc1-op-' + event.operationId + '-d' &&
+      event.claimKey === 'operation:' + event.operationId + ':decision' &&
+      event.bookingRowId === expectedRowPrefix + '1' &&
+      event.decisionFenceVersion === 1 &&
+      event.operationIdentityId === 'rc1-op-' + event.operationId + '-a' &&
+      event.operationCompletionId === 'rc1-op-' + event.operationId + '-c' &&
+      event.manifestVersion === 1 &&
+      (event.completionState === 'complete' || event.completionState === 'stopped') &&
+      SAFE_NUMBER_IS_INTEGER(event.confirmedResourceCount) &&
+      event.confirmedResourceCount >= 0 && event.confirmedResourceCount <= 6400 &&
+      (event.decisionState === 'commit-rows' || event.decisionState === 'compensate') &&
+      event.night === undefined && event.capacitySlot === undefined && event.unit === undefined &&
+      event.releaseReason === undefined && event.manifestCheckIn === undefined &&
+      event.manifestCheckOut === undefined && event.manifestRoomCode === undefined &&
+      event.manifestUnits === undefined && event.manifestBookingRowIds === undefined &&
+      event.manifestResourceClaimIds === undefined;
+  }
   if (event.claimType === 'operation-completion') {
     const fenceVersion = decisionFenceVersion(event);
     return event.eventType === 'complete' && event.generation === 1 &&
@@ -758,7 +922,7 @@ function isValidStoredEvent(event) {
       event.night === undefined && event.capacitySlot === undefined && event.unit === undefined &&
       event.releaseReason === undefined &&
       (event.completionState === 'complete' || event.completionState === 'stopped') &&
-      Number.isInteger(event.confirmedResourceCount) &&
+      SAFE_NUMBER_IS_INTEGER(event.confirmedResourceCount) &&
       event.confirmedResourceCount >= 0 && event.confirmedResourceCount <= 6400 &&
       fenceVersion.valid &&
       event.manifestVersion === undefined &&
@@ -777,29 +941,32 @@ function isValidStoredEvent(event) {
       event.confirmedResourceCount === undefined && fenceVersion.valid && !!parseOperationManifest(event);
   }
   const resourceFenceVersion = decisionFenceVersion(event);
-  if (!resourceFenceVersion.valid || resourceFenceVersion.present || [
+  if (!resourceFenceVersion.valid || resourceFenceVersion.present || SAFE_ARRAY_SOME([
     'manifestVersion', 'manifestCheckIn', 'manifestCheckOut', 'manifestRoomCode',
     'manifestUnits', 'manifestBookingRowIds', 'manifestResourceClaimIds',
-    'completionState', 'confirmedResourceCount', 'decisionFenceVersion'
-  ].some(function(key) { return SAFE_OBJECT_HAS_OWN_PROPERTY(event, key); })) return false;
+    'completionState', 'confirmedResourceCount', 'decisionFenceVersion',
+    'operationIdentityId', 'operationCompletionId', 'decisionState'
+  ], function(key) { return SAFE_OBJECT_HAS_OWN_PROPERTY(event, key); })) return false;
   if (!isCanonicalNight(event.night)) return false;
   const validReleaseReason = event.eventType === 'release'
     ? isCanonicalText(event.releaseReason, 256)
     : event.releaseReason === undefined;
   if (!validReleaseReason) return false;
   const capacityClaim = event.claimType === 'capacity' &&
-    Number.isInteger(event.capacitySlot) && event.capacitySlot >= 1 && event.capacitySlot <= 4 &&
+    SAFE_NUMBER_IS_INTEGER(event.capacitySlot) && event.capacitySlot >= 1 && event.capacitySlot <= 4 &&
     event.unit === undefined &&
     event.claimKey === 'capacity:' + event.night + ':' + event.capacitySlot;
   const unitClaim = event.claimType === 'unit' &&
-    Number.isInteger(event.unit) && event.unit >= 1 && event.unit <= 5 &&
+    SAFE_NUMBER_IS_INTEGER(event.unit) && event.unit >= 1 && event.unit <= 5 &&
     event.capacitySlot === undefined &&
     event.claimKey === 'unit:' + event.night + ':' + event.unit;
   if (!capacityClaim && !unitClaim) return false;
   const claimNumber = capacityClaim ? event.capacitySlot : event.unit;
   const marker = capacityClaim ? 's' : 'u';
-  const expectedId = 'rc1-' + event.night.replace(/-/g, '') + '-' + marker + claimNumber + '-' +
-    String(event.generation).padStart(6, '0') + '-' + (event.eventType === 'acquire' ? 'a' : 'r');
+  const expectedId = 'rc1-' + SAFE_STRING_JOIN(SAFE_STRING_SPLIT(event.night, '-'), '') +
+    '-' + marker + claimNumber + '-' +
+    SAFE_STRING_PAD_START(SAFE_STRING(event.generation), 6, '0') + '-' +
+    (event.eventType === 'acquire' ? 'a' : 'r');
   return event._id === expectedId;
 }
 
@@ -832,8 +999,8 @@ function matchesOperationCompletion(stored, identity, acquisitions) {
   const manifest = isValidStoredEvent(identity) && parseOperationManifest(identity);
   if (!manifest || !isValidStoredEvent(stored) ||
       stored.claimType !== 'operation-completion') return false;
-  const count = Object.keys(acquisitions || {}).length;
-  const expected = Object.assign({}, operationCompletionEvent(identity), {
+  const count = SAFE_OBJECT_KEYS(acquisitions || {}).length;
+  const expected = SAFE_OBJECT_ASSIGN({}, operationCompletionEvent(identity), {
     completionState: stored.completionState,
     confirmedResourceCount: stored.confirmedResourceCount
   });
@@ -842,18 +1009,19 @@ function matchesOperationCompletion(stored, identity, acquisitions) {
      (stored.completionState === 'stopped' && count < manifest.resourceIds.length));
 }
 
-async function confirmOperationCompletion(identity, completionState, confirmedResourceCount) {
+async function confirmOperationCompletion(identity, completionState, confirmedResourceCount,
+    insertEvent, readEvent) {
   const expected = operationCompletionEvent(identity, completionState, confirmedResourceCount);
   let insertResolved = false;
   try {
-    await wixData.insert(CLAIM_COLLECTION, expected, WRITE_OPTIONS);
+    await insertEvent(expected);
     insertResolved = true;
   } catch (error) {
     // Reconcile deterministic completion-fence collisions authoritatively.
   }
   let stored;
   try {
-    stored = await wixData.get(CLAIM_COLLECTION, expected._id, READ_OPTIONS);
+    stored = await readEvent(expected._id);
   } catch (error) {
     return { state: 'UNRESOLVED', event: expected };
   }
@@ -882,16 +1050,326 @@ function classifyStoredMismatch(stored, expected) {
   return 'INTEGRITY';
 }
 
+function decisionReadOptions() {
+  return SAFE_OBJECT_FREEZE({
+    suppressAuth: true, consistentRead: true, suppressHooks: true
+  });
+}
+
+function decisionWriteOptions() {
+  return SAFE_OBJECT_FREEZE({ suppressAuth: true, suppressHooks: true });
+}
+
+function decisionStopped(eventId, classification) {
+  return {
+    state: 'STOPPED',
+    confirmed: [],
+    failed: { index: 0, eventId: eventId, classification: classification }
+  };
+}
+
+function exactOwnDataDescriptors(value, keys) {
+  if (!value || typeof value !== 'object' || SAFE_ARRAY_IS_ARRAY(value)) return null;
+  let prototype;
+  let first;
+  let second;
+  let ownKeys;
+  try {
+    prototype = SAFE_OBJECT_GET_PROTOTYPE_OF(value);
+    first = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(value);
+    ownKeys = SAFE_REFLECT_OWN_KEYS(value);
+    second = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(value);
+  } catch (error) {
+    return null;
+  }
+  if (!isOrdinaryRecordPrototype(prototype) || ownKeys.length !== keys.length ||
+      !sameOwnKeySequence(ownKeys, first) || !sameOwnKeySequence(ownKeys, second)) return null;
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index];
+    if (ownKeys[index] !== key || !sameDataDescriptor(first[key], second[key]) ||
+        first[key].enumerable !== true) return null;
+  }
+  return first;
+}
+
+function exactSingleDecisionConfirmation(value, eventId) {
+  const result = exactOwnDataDescriptors(value, ['state', 'confirmed']);
+  if (!result || result.state.value !== 'CONFIRMED') return false;
+  const confirmed = result.confirmed.value;
+  let descriptors;
+  let keys;
+  try {
+    if (!SAFE_ARRAY_IS_ARRAY(confirmed)) return false;
+    descriptors = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(confirmed);
+    keys = SAFE_REFLECT_OWN_KEYS(confirmed);
+  } catch (error) {
+    return false;
+  }
+  if (keys.length !== 2 || keys[0] !== '0' || keys[1] !== 'length' ||
+      !descriptors.length || descriptors.length.value !== 1 ||
+      !SAFE_OBJECT_HAS_OWN_PROPERTY(descriptors[0], 'value')) return false;
+  const item = snapshotExactPrimitiveRecord(descriptors[0].value, ['eventId', 'disposition']);
+  return !!item && item.eventId === eventId &&
+    (item.disposition === 'inserted' || item.disposition === 'already-present');
+}
+
+function exactDecisionFailureClassification(value, eventId) {
+  const result = exactOwnDataDescriptors(value, ['state', 'confirmed', 'failed']);
+  if (!result || result.state.value !== 'STOPPED') return null;
+  const confirmed = result.confirmed.value;
+  let confirmedKeys;
+  let confirmedLength;
+  try {
+    if (!SAFE_ARRAY_IS_ARRAY(confirmed)) return null;
+    confirmedKeys = SAFE_REFLECT_OWN_KEYS(confirmed);
+    confirmedLength = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(confirmed).length;
+  } catch (error) {
+    return null;
+  }
+  if (confirmedKeys.length !== 1 || confirmedKeys[0] !== 'length' ||
+      !confirmedLength || confirmedLength.value !== 0) return null;
+  const failed = snapshotExactPrimitiveRecord(
+    result.failed.value, ['index', 'eventId', 'classification']);
+  if (!failed || failed.index !== 0 || failed.eventId !== eventId ||
+      SAFE_ARRAY_INDEX_OF([
+        'DECISION_CONFLICT', 'IDEMPOTENCY_CONFLICT', 'INTEGRITY', 'LEGACY_UNFENCED',
+        'UNRESOLVED'
+      ], failed.classification) === -1) return null;
+  return failed.classification;
+}
+
+function operationDecisionEvent(identity, completion, decisionState) {
+  return SAFE_OBJECT_FREEZE({
+    _id: 'rc1-op-' + identity.operationId + '-d',
+    protocolVersion: 1,
+    claimKey: 'operation:' + identity.operationId + ':decision',
+    generation: 1,
+    eventType: 'decide',
+    claimType: 'operation-decision',
+    operationId: identity.operationId,
+    bookingRowId: identity.bookingRowId,
+    bookingNumber: identity.bookingNumber,
+    payloadDigest: identity.payloadDigest,
+    decisionFenceVersion: 1,
+    operationIdentityId: identity._id,
+    operationCompletionId: completion._id,
+    manifestVersion: 1,
+    completionState: completion.completionState,
+    confirmedResourceCount: completion.confirmedResourceCount,
+    decisionState: decisionState
+  });
+}
+
+function decisionMatches(stored, expected, alternateState) {
+  for (let index = 0; index < DECISION_EVIDENCE_FIELDS.length; index += 1) {
+    const key = DECISION_EVIDENCE_FIELDS[index];
+    const expectedValue = key === 'decisionState' && alternateState !== undefined
+      ? alternateState : expected[key];
+    if (stored[key] !== expectedValue) return false;
+  }
+  return true;
+}
+
+function validDecisionRecord(stored) {
+  return stored.protocolVersion === 1 && stored.generation === 1 &&
+    stored.eventType === 'decide' && stored.claimType === 'operation-decision' &&
+    SAFE_REGEXP_TEST(LOADER_OPERATION_ID_PATTERN, stored.operationId) &&
+    stored._id === 'rc1-op-' + stored.operationId + '-d' &&
+    stored.claimKey === 'operation:' + stored.operationId + ':decision' &&
+    stored.bookingRowId === 'pb1-' + stored.operationId + '-r1' &&
+    loaderCanonicalText(stored.bookingNumber, 128) &&
+    SAFE_REGEXP_TEST(LOADER_DIGEST_PATTERN, stored.payloadDigest) &&
+    stored.decisionFenceVersion === 1 &&
+    stored.operationIdentityId === 'rc1-op-' + stored.operationId + '-a' &&
+    stored.operationCompletionId === 'rc1-op-' + stored.operationId + '-c' &&
+    stored.manifestVersion === 1 &&
+    (stored.completionState === 'complete' || stored.completionState === 'stopped') &&
+    SAFE_NUMBER_IS_INTEGER(stored.confirmedResourceCount) &&
+    stored.confirmedResourceCount >= 0 && stored.confirmedResourceCount <= 6400 &&
+    (stored.decisionState === 'commit-rows' || stored.decisionState === 'compensate');
+}
+
+function exactDecisionState(storedValue, expected) {
+  const stored = snapshotExactPrimitiveRecord(storedValue, DECISION_EVIDENCE_FIELDS);
+  if (!stored) return 'INTEGRITY';
+  if (stored.operationId === expected.operationId &&
+      (stored.bookingNumber !== expected.bookingNumber ||
+       stored.payloadDigest !== expected.payloadDigest)) return 'IDEMPOTENCY_CONFLICT';
+  if (!validDecisionRecord(stored)) return 'INTEGRITY';
+  if (decisionMatches(stored, expected)) return 'MATCH';
+  const opposite = expected.decisionState === 'commit-rows' ? 'compensate' : 'commit-rows';
+  if (decisionMatches(stored, expected, opposite)) return 'DECISION_CONFLICT';
+  return 'INTEGRITY';
+}
+
+// Disconnected single-winner decision fence. Every binding is reconstructed
+// from exact authoritative identity, manifest, acquisition, and completion evidence.
+export async function appendRoomOperationDecision(operationId, decisionState) {
+  const eventId = typeof operationId === 'string' ? 'rc1-op-' + operationId + '-d' : 'rc1-op-invalid-d';
+  if (typeof operationId !== 'string' || !SAFE_REGEXP_TEST(LOADER_OPERATION_ID_PATTERN, operationId) ||
+      (decisionState !== 'commit-rows' && decisionState !== 'compensate')) {
+    return decisionStopped(eventId, 'INTEGRITY');
+  }
+
+  // Capture the owner, both I/O functions, and all transitive call machinery
+  // before the first await so live global replacement cannot redirect a run.
+  const owner = wixData;
+  const getFunction = owner && owner.get;
+  const insertFunction = owner && owner.insert;
+  if (typeof getFunction !== 'function' || typeof insertFunction !== 'function') {
+    return decisionStopped(eventId, 'UNRESOLVED');
+  }
+  const read = function(id) {
+    let result;
+    try {
+      result = SAFE_REFLECT_APPLY(getFunction, owner,
+        [CLAIM_COLLECTION, id, decisionReadOptions()]);
+    } catch (error) {
+      return SAFE_PROMISE_RESOLVE({ ok: false });
+    }
+    return SAFE_REFLECT_APPLY(SAFE_PROMISE_THEN, SAFE_PROMISE_RESOLVE(result), [
+      function(value) { return { ok: true, value: value }; },
+      function() { return { ok: false }; }
+    ]);
+  };
+
+  const identityRead = await read('rc1-op-' + operationId + '-a');
+  if (!identityRead.ok) return decisionStopped(eventId, 'UNRESOLVED');
+  const identity = snapshotExactPrimitiveRecord(
+    identityRead.value, IDENTITY_EVIDENCE_FIELDS, MARKED_IDENTITY_EVIDENCE_FIELDS);
+  if (!identity) return decisionStopped(eventId, 'INTEGRITY');
+  const identityFence = decisionFenceVersion(identity);
+  if (identityFence.valid && !identityFence.present) {
+    return decisionStopped(eventId, 'LEGACY_UNFENCED');
+  }
+  if (!loaderValidIdentity(identity, operationId) || identityFence.value !== 1) {
+    return decisionStopped(eventId, 'INTEGRITY');
+  }
+  const manifest = loaderParseManifest(identity);
+  if (!manifest) return decisionStopped(eventId, 'INTEGRITY');
+
+  const acquisitions = new SAFE_ARRAY(manifest.resourceIds.length);
+  let prefixCount = 0;
+  let missingSeen = false;
+  for (let index = 0; index < manifest.resourceIds.length; index += 1) {
+    const acquisitionRead = await read(manifest.resourceIds[index]);
+    if (!acquisitionRead.ok) return decisionStopped(eventId, 'UNRESOLVED');
+    if (acquisitionRead.value === null || acquisitionRead.value === undefined) {
+      missingSeen = true;
+      continue;
+    }
+    const acquisition = snapshotExactPrimitiveRecord(acquisitionRead.value, CAPACITY_EVIDENCE_FIELDS) ||
+      snapshotExactPrimitiveRecord(acquisitionRead.value, UNIT_EVIDENCE_FIELDS);
+    if (acquisition && isValidStoredEvent(acquisition) &&
+        acquisition._id === manifest.resourceIds[index] &&
+        acquisition.eventType === 'acquire' && acquisition.operationId !== identity.operationId) {
+      missingSeen = true;
+      continue;
+    }
+    if (missingSeen || !loaderValidAcquisition(identity, manifest, acquisition, index)) {
+      return decisionStopped(eventId, 'INTEGRITY');
+    }
+    loaderDefineArrayValue(acquisitions, prefixCount, acquisition);
+    prefixCount += 1;
+  }
+
+  const completionRead = await read('rc1-op-' + operationId + '-c');
+  if (!completionRead.ok) return decisionStopped(eventId, 'UNRESOLVED');
+  const completion = snapshotExactPrimitiveRecord(
+    completionRead.value, COMPLETION_EVIDENCE_FIELDS, MARKED_COMPLETION_EVIDENCE_FIELDS);
+  if (!completion) return decisionStopped(eventId, 'INTEGRITY');
+  const completionFence = decisionFenceVersion(completion);
+  if (completionFence.valid && !completionFence.present) {
+    return decisionStopped(eventId, 'LEGACY_UNFENCED');
+  }
+  if (completion.protocolVersion !== 1 || completion.generation !== 1 ||
+      completion.eventType !== 'complete' || completion.claimType !== 'operation-completion' ||
+      completion._id !== 'rc1-op-' + operationId + '-c' ||
+      completion.claimKey !== 'operation:' + operationId + ':completion' ||
+      completionFence.value !== 1 || completion.operationId !== identity.operationId ||
+      completion.bookingRowId !== identity.bookingRowId ||
+      completion.bookingNumber !== identity.bookingNumber ||
+      completion.payloadDigest !== identity.payloadDigest ||
+      (completion.completionState !== 'complete' && completion.completionState !== 'stopped') ||
+      !SAFE_NUMBER_IS_INTEGER(completion.confirmedResourceCount) ||
+      completion.confirmedResourceCount !== prefixCount ||
+      (completion.completionState === 'complete' && prefixCount !== manifest.resourceIds.length) ||
+      (completion.completionState === 'stopped' && prefixCount >= manifest.resourceIds.length) ||
+      (decisionState === 'commit-rows' && completion.completionState !== 'complete')) {
+    return decisionStopped(eventId, 'INTEGRITY');
+  }
+
+  const expected = operationDecisionEvent(identity, completion, decisionState);
+  const existingRead = await read(eventId);
+  if (!existingRead.ok) return decisionStopped(eventId, 'UNRESOLVED');
+  let existingState = null;
+  if (existingRead.value !== null && existingRead.value !== undefined) {
+    existingState = exactDecisionState(existingRead.value, expected);
+    if (existingState !== 'MATCH') return decisionStopped(eventId, existingState);
+    if (decisionState === 'compensate') {
+      return { state: 'CONFIRMED', confirmed: [{ eventId: eventId, disposition: 'already-present' }] };
+    }
+  }
+
+  for (let index = 0; index < prefixCount; index += 1) {
+    const releaseId = SAFE_STRING_SLICE(acquisitions[index]._id, 0, -1) + 'r';
+    const releaseRead = await read(releaseId);
+    if (!releaseRead.ok) return decisionStopped(eventId, 'UNRESOLVED');
+    if (releaseRead.value !== null && releaseRead.value !== undefined) {
+      return decisionStopped(eventId, 'INTEGRITY');
+    }
+  }
+  if (existingState === 'MATCH') {
+    return { state: 'CONFIRMED', confirmed: [{ eventId: eventId, disposition: 'already-present' }] };
+  }
+
+  let insertResolved = false;
+  try {
+    const inserted = SAFE_REFLECT_APPLY(insertFunction, owner,
+      [CLAIM_COLLECTION, expected, decisionWriteOptions()]);
+    await SAFE_PROMISE_RESOLVE(inserted);
+    insertResolved = true;
+  } catch (error) {
+    // Every outcome is reconciled from the deterministic ID below.
+  }
+  const readback = await read(eventId);
+  if (!readback.ok || readback.value === null || readback.value === undefined) {
+    return decisionStopped(eventId, 'UNRESOLVED');
+  }
+  const readbackState = exactDecisionState(readback.value, expected);
+  if (readbackState !== 'MATCH') return decisionStopped(eventId, readbackState);
+  return {
+    state: 'CONFIRMED',
+    confirmed: [{ eventId: eventId, disposition: insertResolved ? 'inserted' : 'already-present' }]
+  };
+}
+
 export async function appendRoomClaimEvents(events) {
-  if (!Array.isArray(events)) throw new Error('Invalid claim event batch');
-  const operationDigests = Object.create(null);
-  const operationBookingNumbers = Object.create(null);
-  const operationIdentities = Object.create(null);
-  const ownedOperationIdentities = Object.create(null);
-  const eventIds = Object.create(null);
+  events = snapshotClaimEventBatch(events);
+  if (!events) throw new SAFE_ERROR('Invalid claim event batch');
+  const persistenceOwner = wixData;
+  const insertFunction = persistenceOwner && persistenceOwner.insert;
+  const getFunction = persistenceOwner && persistenceOwner.get;
+  if (typeof insertFunction !== 'function' || typeof getFunction !== 'function') {
+    throw new SAFE_ERROR('Invalid claim persistence port');
+  }
+  const insertEvent = async function(event) {
+    return await SAFE_PROMISE_RESOLVE(SAFE_REFLECT_APPLY(
+      insertFunction, persistenceOwner, [CLAIM_COLLECTION, event, decisionWriteOptions()]));
+  };
+  const readEvent = async function(eventId) {
+    return await SAFE_PROMISE_RESOLVE(SAFE_REFLECT_APPLY(
+      getFunction, persistenceOwner, [CLAIM_COLLECTION, eventId, decisionReadOptions()]));
+  };
+  const operationDigests = SAFE_OBJECT_CREATE(null);
+  const operationBookingNumbers = SAFE_OBJECT_CREATE(null);
+  const operationIdentities = SAFE_OBJECT_CREATE(null);
+  const ownedOperationIdentities = SAFE_OBJECT_CREATE(null);
+  const eventIds = SAFE_OBJECT_CREATE(null);
   for (let index = 0; index < events.length; index += 1) {
     if (!isValidStoredEvent(events[index]) ||
-        events[index].claimType === 'operation-completion') {
+        (events[index].claimType === 'operation-completion' ||
+         events[index].claimType === 'operation-decision')) {
       return {
         state: 'STOPPED',
         confirmed: [],
@@ -903,7 +1381,7 @@ export async function appendRoomClaimEvents(events) {
       };
     }
     const event = events[index];
-    if (Object.prototype.hasOwnProperty.call(eventIds, event._id)) {
+    if (SAFE_OBJECT_HAS_OWN_PROPERTY(eventIds, event._id)) {
       return {
         state: 'STOPPED',
         confirmed: [],
@@ -931,7 +1409,7 @@ export async function appendRoomClaimEvents(events) {
         };
       }
       if (event.claimType === 'unit') {
-        const matchingCapacity = events.slice(0, index).filter(function(candidate) {
+        const matchingCapacity = SAFE_ARRAY_FILTER(SAFE_ARRAY_SLICE(events, 0, index), function(candidate) {
           return candidate && candidate.eventType === 'acquire' && candidate.claimType === 'capacity' &&
             candidate.night === event.night && candidate.operationId === event.operationId &&
             candidate.bookingRowId === event.bookingRowId &&
@@ -947,7 +1425,7 @@ export async function appendRoomClaimEvents(events) {
         }
       }
     }
-    if (Object.prototype.hasOwnProperty.call(operationDigests, event.operationId) &&
+    if (SAFE_OBJECT_HAS_OWN_PROPERTY(operationDigests, event.operationId) &&
         operationDigests[event.operationId] !== event.payloadDigest) {
       return {
         state: 'STOPPED',
@@ -956,7 +1434,7 @@ export async function appendRoomClaimEvents(events) {
       };
     }
     operationDigests[event.operationId] = event.payloadDigest;
-    if (Object.prototype.hasOwnProperty.call(operationBookingNumbers, event.operationId) &&
+    if (SAFE_OBJECT_HAS_OWN_PROPERTY(operationBookingNumbers, event.operationId) &&
         operationBookingNumbers[event.operationId] !== event.bookingNumber) {
       return {
         state: 'STOPPED',
@@ -966,10 +1444,10 @@ export async function appendRoomClaimEvents(events) {
     }
     operationBookingNumbers[event.operationId] = event.bookingNumber;
   }
-  const batchOperationIds = Object.keys(operationDigests);
+  const batchOperationIds = SAFE_OBJECT_KEYS(operationDigests);
   if (batchOperationIds.length > 1) {
     const firstOperationId = events[0] && events[0].operationId;
-    const index = events.findIndex(function(event) {
+    const index = SAFE_ARRAY_FIND_INDEX(events, function(event) {
       return event.operationId !== firstOperationId;
     });
     return {
@@ -983,27 +1461,29 @@ export async function appendRoomClaimEvents(events) {
     };
   }
   const topologyKeys = [];
-  events.forEach(function(event) {
+  SAFE_ARRAY_FOR_EACH(events, function(event) {
     if (event.eventType !== 'acquire' ||
         (event.claimType !== 'capacity' && event.claimType !== 'unit')) return;
     const key = event.operationId + '|' + event.night;
-    if (topologyKeys.indexOf(key) === -1) topologyKeys.push(key);
+    if (SAFE_ARRAY_INDEX_OF(topologyKeys, key) === -1) SAFE_ARRAY_PUSH(topologyKeys, key);
   });
-  for (const key of topologyKeys) {
-    const separator = key.lastIndexOf('|');
-    const operationId = key.slice(0, separator);
-    const night = key.slice(separator + 1);
-    const capacities = events.filter(function(event) {
+  for (let topologyIndex = 0; topologyIndex < topologyKeys.length; topologyIndex += 1) {
+    const key = topologyKeys[topologyIndex];
+    const separator = SAFE_STRING_LAST_INDEX_OF(key, '|');
+    const operationId = SAFE_STRING_SLICE(key, 0, separator);
+    const night = SAFE_STRING_SLICE(key, separator + 1);
+    const capacities = SAFE_ARRAY_FILTER(events, function(event) {
       return event.eventType === 'acquire' && event.claimType === 'capacity' &&
         event.operationId === operationId && event.night === night;
     });
-    const units = events.filter(function(event) {
+    const units = SAFE_ARRAY_FILTER(events, function(event) {
       return event.eventType === 'acquire' && event.claimType === 'unit' &&
         event.operationId === operationId && event.night === night;
     });
     const firstResource = capacities[0] || units[0];
     let validTopology = capacities.length > 0 && capacities.length === units.length &&
-      events.indexOf(capacities[capacities.length - 1]) < events.indexOf(units[0]);
+      SAFE_ARRAY_INDEX_OF(events, capacities[capacities.length - 1]) <
+        SAFE_ARRAY_INDEX_OF(events, units[0]);
     for (let index = 0; validTopology && index < capacities.length; index += 1) {
       const expectedRowId = 'pb1-' + operationId + '-r' + (index + 1);
       validTopology = capacities[index].bookingRowId === expectedRowId &&
@@ -1012,7 +1492,7 @@ export async function appendRoomClaimEvents(events) {
         (index === 0 || units[index - 1].unit < units[index].unit);
     }
     if (!validTopology) {
-      const index = events.indexOf(firstResource);
+      const index = SAFE_ARRAY_INDEX_OF(events, firstResource);
       return {
         state: 'STOPPED',
         confirmed: [],
@@ -1020,31 +1500,36 @@ export async function appendRoomClaimEvents(events) {
       };
     }
   }
-  const allCapacityEvents = events.filter(function(event) {
+  const allCapacityEvents = SAFE_ARRAY_FILTER(events, function(event) {
     return event.eventType === 'acquire' && event.claimType === 'capacity';
   });
-  const allUnitEvents = events.filter(function(event) {
+  const allUnitEvents = SAFE_ARRAY_FILTER(events, function(event) {
     return event.eventType === 'acquire' && event.claimType === 'unit';
   });
   if (allCapacityEvents.length && allUnitEvents.length &&
-      events.indexOf(allCapacityEvents[allCapacityEvents.length - 1]) > events.indexOf(allUnitEvents[0])) {
-    const index = events.indexOf(allUnitEvents[0]);
+      SAFE_ARRAY_INDEX_OF(events, allCapacityEvents[allCapacityEvents.length - 1]) >
+        SAFE_ARRAY_INDEX_OF(events, allUnitEvents[0])) {
+    const index = SAFE_ARRAY_INDEX_OF(events, allUnitEvents[0]);
     return {
       state: 'STOPPED',
       confirmed: [],
       failed: { index: index, eventId: allUnitEvents[0]._id, classification: 'INTEGRITY' }
     };
   }
-  for (const operationId of Object.keys(operationIdentities)) {
+  const identityOperationIds = SAFE_OBJECT_KEYS(operationIdentities);
+  for (let operationIndex = 0; operationIndex < identityOperationIds.length; operationIndex += 1) {
+    const operationId = identityOperationIds[operationIndex];
     const identity = operationIdentities[operationId];
     const manifest = parseOperationManifest(identity);
-    const requestedResourceIds = events.filter(function(event) {
+    const requestedResourceIds = SAFE_ARRAY_MAP(SAFE_ARRAY_FILTER(events, function(event) {
       return event.operationId === operationId && event.eventType === 'acquire' &&
         event.claimType !== 'operation';
-    }).map(function(event) { return event._id; });
+    }), function(event) { return event._id; });
     if (!manifest || manifest.resourceIds.length !== requestedResourceIds.length ||
-        manifest.resourceIds.some(function(id, index) { return requestedResourceIds[index] !== id; })) {
-      const index = events.indexOf(identity);
+        SAFE_ARRAY_SOME(manifest.resourceIds, function(id, index) {
+          return requestedResourceIds[index] !== id;
+        })) {
+      const index = SAFE_ARRAY_INDEX_OF(events, identity);
       return {
         state: 'STOPPED',
         confirmed: [],
@@ -1052,7 +1537,7 @@ export async function appendRoomClaimEvents(events) {
       };
     }
   }
-  const reacquisitions = events.filter(function(event) {
+  const reacquisitions = SAFE_ARRAY_FILTER(events, function(event) {
     return event.eventType === 'acquire' && event.claimType !== 'operation' && event.generation > 1;
   });
   if (reacquisitions.length) {
@@ -1064,17 +1549,21 @@ export async function appendRoomClaimEvents(events) {
       return {
         state: 'STOPPED',
         confirmed: [],
-        failed: { index: events.indexOf(event), eventId: event._id, classification: 'UNRESOLVED' }
+        failed: { index: SAFE_ARRAY_INDEX_OF(events, event), eventId: event._id, classification: 'UNRESOLVED' }
       };
     }
-    for (const event of reacquisitions) {
+    for (let reacquisitionIndex = 0; reacquisitionIndex < reacquisitions.length;
+        reacquisitionIndex += 1) {
+      const event = reacquisitions[reacquisitionIndex];
       for (let generation = 1; generation < event.generation; generation += 1) {
-        const history = ledger.filter(function(candidate) {
+        const history = SAFE_ARRAY_FILTER(ledger, function(candidate) {
           return candidate && candidate.claimKey === event.claimKey && candidate.generation === generation;
         });
-        const acquires = history.filter(function(candidate) { return candidate.eventType === 'acquire'; });
-        const releases = history.filter(function(candidate) { return candidate.eventType === 'release'; });
-        const identities = acquires.length === 1 ? ledger.filter(function(candidate) {
+        const acquires = SAFE_ARRAY_FILTER(history,
+          function(candidate) { return candidate.eventType === 'acquire'; });
+        const releases = SAFE_ARRAY_FILTER(history,
+          function(candidate) { return candidate.eventType === 'release'; });
+        const identities = acquires.length === 1 ? SAFE_ARRAY_FILTER(ledger, function(candidate) {
           return candidate && candidate.claimType === 'operation' &&
             candidate.operationId === acquires[0].operationId;
         }) : [];
@@ -1083,8 +1572,8 @@ export async function appendRoomClaimEvents(events) {
           isValidStoredEvent(releases[0]) && manifestDeclaresResource(identities[0], acquires[0]) &&
           hasCompletedManifestHistory(ledger, identities[0]);
         if (validHistory) {
-          const expectedRelease = Object.assign({}, acquires[0], {
-            _id: acquires[0]._id.slice(0, -1) + 'r',
+          const expectedRelease = SAFE_OBJECT_ASSIGN({}, acquires[0], {
+            _id: SAFE_STRING_SLICE(acquires[0]._id, 0, -1) + 'r',
             eventType: 'release',
             releaseReason: releases[0].releaseReason
           });
@@ -1094,19 +1583,57 @@ export async function appendRoomClaimEvents(events) {
           return {
             state: 'STOPPED',
             confirmed: [],
-            failed: { index: events.indexOf(event), eventId: event._id, classification: 'INTEGRITY' }
+            failed: {
+              index: SAFE_ARRAY_INDEX_OF(events, event),
+              eventId: event._id,
+              classification: 'INTEGRITY'
+            }
           };
         }
       }
     }
   }
+  const releases = SAFE_ARRAY_FILTER(events, function(event) { return event.eventType === 'release'; });
+  if (releases.length) {
+    const firstRelease = releases[0];
+    const firstReleaseIndex = SAFE_ARRAY_INDEX_OF(events, firstRelease);
+    if (SAFE_ARRAY_SOME(events, function(event) { return event.eventType === 'acquire'; })) {
+      return {
+        state: 'STOPPED', confirmed: [],
+        failed: {
+          index: firstReleaseIndex,
+          eventId: firstRelease._id,
+          classification: 'INTEGRITY'
+        }
+      };
+    }
+    const decisionId = 'rc1-op-' + firstRelease.operationId + '-d';
+    let decisionResult;
+    try {
+      decisionResult = await appendRoomOperationDecision(firstRelease.operationId, 'compensate');
+    } catch (error) {
+      decisionResult = null;
+    }
+    if (!exactSingleDecisionConfirmation(decisionResult, decisionId)) {
+      return {
+        state: 'STOPPED',
+        confirmed: [],
+        failed: {
+          index: firstReleaseIndex,
+          eventId: firstRelease._id,
+          classification: exactDecisionFailureClassification(decisionResult, decisionId) || 'INTEGRITY'
+        }
+      };
+    }
+  }
   const confirmed = [];
-  for (const event of events) {
+  for (let eventIndex = 0; eventIndex < events.length; eventIndex += 1) {
+    const event = events[eventIndex];
     if (event.eventType === 'release') {
       const identityId = 'rc1-op-' + event.operationId + '-a';
       let storedIdentity;
       try {
-        storedIdentity = await wixData.get(CLAIM_COLLECTION, identityId, READ_OPTIONS);
+        storedIdentity = await readEvent(identityId);
       } catch (error) {
         return {
           state: 'STOPPED',
@@ -1114,13 +1641,13 @@ export async function appendRoomClaimEvents(events) {
           failed: { index: confirmed.length, eventId: event._id, classification: 'UNRESOLVED' }
         };
       }
-      const acquireId = event._id.slice(0, -1) + 'a';
-      const expectedAcquire = Object.assign({}, event, {
+      const acquireId = SAFE_STRING_SLICE(event._id, 0, -1) + 'a';
+      const expectedAcquire = SAFE_OBJECT_ASSIGN({}, event, {
         _id: acquireId,
         eventType: 'acquire'
       });
       delete expectedAcquire.releaseReason;
-      const prefix = await loadAuthoritativeManifestPrefix(storedIdentity);
+      const prefix = await loadAuthoritativeManifestPrefix(storedIdentity, readEvent);
       if (prefix.state !== 'CONFIRMED') {
         return {
           state: 'STOPPED',
@@ -1131,7 +1658,7 @@ export async function appendRoomClaimEvents(events) {
       const expectedCompletion = operationCompletionEvent(storedIdentity);
       let storedCompletion;
       try {
-        storedCompletion = await wixData.get(CLAIM_COLLECTION, expectedCompletion._id, READ_OPTIONS);
+        storedCompletion = await readEvent(expectedCompletion._id);
       } catch (error) {
         return {
           state: 'STOPPED',
@@ -1155,7 +1682,7 @@ export async function appendRoomClaimEvents(events) {
         };
       }
       const releaseOrderState = await validateReverseRelease(
-        storedIdentity, prefix.acquisitions, acquireId);
+        storedIdentity, prefix.acquisitions, acquireId, readEvent);
       if (releaseOrderState !== 'CONFIRMED') {
         return {
           state: 'STOPPED',
@@ -1170,7 +1697,7 @@ export async function appendRoomClaimEvents(events) {
     }
     let insertResolved = false;
     try {
-      await wixData.insert(CLAIM_COLLECTION, event, WRITE_OPTIONS);
+      await insertEvent(event);
       insertResolved = true;
     } catch (error) {
       // A deterministic-ID collision and an ambiguous write failure are both
@@ -1178,7 +1705,7 @@ export async function appendRoomClaimEvents(events) {
     }
     let stored;
     try {
-      stored = await wixData.get(CLAIM_COLLECTION, event._id, READ_OPTIONS);
+      stored = await readEvent(event._id);
     } catch (error) {
       return {
         state: 'STOPPED',
@@ -1190,15 +1717,15 @@ export async function appendRoomClaimEvents(events) {
       const classification = classifyStoredMismatch(stored, event);
       const ownedIdentity = ownedOperationIdentities[event.operationId];
       if (ownedIdentity && event.claimType !== 'operation' && classification !== 'UNRESOLVED') {
-        const confirmedResourceCount = confirmed.filter(function(item) {
-          const confirmedEvent = events.find(function(candidate) {
+        const confirmedResourceCount = SAFE_ARRAY_FILTER(confirmed, function(item) {
+          const confirmedEvent = SAFE_ARRAY_FIND(events, function(candidate) {
             return candidate._id === item.eventId;
           });
           return confirmedEvent && confirmedEvent.operationId === event.operationId &&
             confirmedEvent.eventType === 'acquire' && confirmedEvent.claimType !== 'operation';
         }).length;
         const terminal = await confirmOperationCompletion(
-          ownedIdentity, 'stopped', confirmedResourceCount);
+          ownedIdentity, 'stopped', confirmedResourceCount, insertEvent, readEvent);
         if (terminal.state !== 'CONFIRMED') {
           return {
             state: 'STOPPED',
@@ -1229,7 +1756,7 @@ export async function appendRoomClaimEvents(events) {
       for (let index = 1; index < events.length; index += 1) {
         let storedEvent;
         try {
-          storedEvent = await wixData.get(CLAIM_COLLECTION, events[index]._id, READ_OPTIONS);
+          storedEvent = await readEvent(events[index]._id);
         } catch (error) {
           return {
             state: 'STOPPED',
@@ -1250,9 +1777,11 @@ export async function appendRoomClaimEvents(events) {
             }
           };
         }
-        reconciled.push({ eventId: events[index]._id, disposition: 'already-present' });
+        SAFE_ARRAY_PUSH(reconciled, {
+          eventId: events[index]._id, disposition: 'already-present'
+        });
       }
-      const completion = await confirmOperationCompletion(event);
+      const completion = await confirmOperationCompletion(event, undefined, undefined, insertEvent, readEvent);
       if (completion.state !== 'CONFIRMED') {
         return {
           state: 'STOPPED',
@@ -1266,13 +1795,16 @@ export async function appendRoomClaimEvents(events) {
       }
       return { state: 'CONFIRMED', confirmed: reconciled };
     }
-    confirmed.push({
+    SAFE_ARRAY_PUSH(confirmed, {
       eventId: event._id,
       disposition: insertResolved ? 'inserted' : 'already-present'
     });
   }
-  for (const operationId of Object.keys(operationIdentities)) {
-    const completion = await confirmOperationCompletion(operationIdentities[operationId]);
+  const completionOperationIds = SAFE_OBJECT_KEYS(operationIdentities);
+  for (let operationIndex = 0; operationIndex < completionOperationIds.length; operationIndex += 1) {
+    const operationId = completionOperationIds[operationIndex];
+    const completion = await confirmOperationCompletion(
+      operationIdentities[operationId], undefined, undefined, insertEvent, readEvent);
     if (completion.state !== 'CONFIRMED') {
       return {
         state: 'STOPPED',
