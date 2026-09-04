@@ -3,6 +3,7 @@ import wixData from 'wix-data';
 // Backend-only append-only claim-event persistence. This module is intentionally
 // disconnected from public web methods, booking writes, Search, and side effects.
 const CLAIM_COLLECTION = 'RoomBookingClaimEvents';
+const MAX_MANIFEST_NIGHTS = 800;
 const READ_OPTIONS = { suppressAuth: true, consistentRead: true, suppressHooks: true };
 const WRITE_OPTIONS = { suppressAuth: true, suppressHooks: true };
 
@@ -64,7 +65,10 @@ function hasOnlyClaimFields(event) {
   const allowed = [
     '_id', 'protocolVersion', 'claimKey', 'eventType', 'claimType', 'generation',
     'night', 'capacitySlot', 'unit', 'operationId', 'payloadDigest', 'bookingNumber',
-    'bookingRowId', 'releaseReason'
+    'bookingRowId', 'releaseReason', 'manifestVersion', 'manifestCheckIn',
+    'manifestCheckOut', 'manifestRoomCode', 'manifestUnits',
+    'manifestBookingRowIds', 'manifestResourceClaimIds', 'completionState',
+    'confirmedResourceCount'
   ];
   return Object.keys(event).every(function(key) {
     return key.charAt(0) === '_' || allowed.indexOf(key) !== -1;
@@ -76,12 +80,193 @@ function isCanonicalText(value, maxLength) {
     value.trim() === value && !/[\u0000-\u001f\u007f]/.test(value);
 }
 
+function parseOperationManifest(event) {
+  if (event.manifestVersion !== 1 || !isCanonicalNight(event.manifestCheckIn) ||
+      !isCanonicalNight(event.manifestCheckOut) ||
+      new Date(event.manifestCheckOut + 'T00:00:00.000Z').getTime() <=
+        new Date(event.manifestCheckIn + 'T00:00:00.000Z').getTime() ||
+      !isCanonicalText(event.manifestRoomCode, 128) ||
+      !isCanonicalText(event.manifestUnits, 16) ||
+      !isCanonicalText(event.manifestBookingRowIds, 512) ||
+      !isCanonicalText(event.manifestResourceClaimIds, 60000)) {
+    return null;
+  }
+  if (!/^[1-5](,[1-5]){0,3}$/.test(event.manifestUnits)) return null;
+  const units = event.manifestUnits.split(',').map(function(value) { return Number(value); });
+  const rowIds = event.manifestBookingRowIds.split('|');
+  const resourceIds = event.manifestResourceClaimIds.split('|');
+  const allowedAssignments = {
+    penthouse_apartment: ['1'],
+    two_bedroom_apartment: ['2'],
+    adventure_suite: ['3', '4', '3,4', '3,4,5']
+  }[event.manifestRoomCode];
+  if (!allowedAssignments || !units.length || units.length > 4 || rowIds.length !== units.length ||
+      allowedAssignments.indexOf(units.join(',')) === -1 ||
+      units.some(function(unit, index) {
+        return !Number.isInteger(unit) ||
+          (index > 0 && units[index - 1] >= unit);
+      }) ||
+      rowIds.some(function(rowId, index) {
+        return rowId !== 'pb1-' + event.operationId + '-r' + (index + 1);
+      }) ||
+      resourceIds.some(function(id, index, all) { return all.indexOf(id) !== index; })) {
+    return null;
+  }
+  const start = new Date(event.manifestCheckIn + 'T00:00:00.000Z').getTime();
+  const end = new Date(event.manifestCheckOut + 'T00:00:00.000Z').getTime();
+  const calendarNightCount = (end - start) / 86400000;
+  const declaredNightCount = resourceIds.length / (units.length * 2);
+  if (!Number.isInteger(declaredNightCount) || declaredNightCount < 1 ||
+      declaredNightCount > MAX_MANIFEST_NIGHTS || calendarNightCount !== declaredNightCount) {
+    return null;
+  }
+  const nights = [];
+  for (let index = 0; index < declaredNightCount; index += 1) {
+    nights.push(new Date(start + index * 86400000).toISOString().slice(0, 10));
+  }
+  let resourceIndex = 0;
+  for (const night of nights) {
+    let priorSlot = 0;
+    for (let rowIndex = 0; rowIndex < units.length; rowIndex += 1) {
+      const match = resourceIds[resourceIndex++].match(new RegExp(
+        '^rc1-' + night.replace(/-/g, '') + '-s([1-4])-(\\d{6})-a$'));
+      const slot = match ? Number(match[1]) : 0;
+      if (!match || !Number(match[2]) || slot <= priorSlot) return null;
+      priorSlot = slot;
+    }
+  }
+  for (const night of nights) {
+    for (let rowIndex = 0; rowIndex < units.length; rowIndex += 1) {
+      const match = resourceIds[resourceIndex++].match(new RegExp(
+        '^rc1-' + night.replace(/-/g, '') + '-u' + units[rowIndex] + '-(\\d{6})-a$'));
+      if (!match || !Number(match[1])) return null;
+    }
+  }
+  return { nights: nights, units: units, rowIds: rowIds, resourceIds: resourceIds };
+}
+
+function manifestDeclaresResource(identity, resource) {
+  const manifest = isValidStoredEvent(identity) && parseOperationManifest(identity);
+  if (!manifest || !resource || identity.operationId !== resource.operationId ||
+      identity.bookingNumber !== resource.bookingNumber ||
+      identity.payloadDigest !== resource.payloadDigest) return false;
+  const index = manifest.resourceIds.indexOf(resource._id);
+  if (index === -1) return false;
+  const claimsPerType = manifest.nights.length * manifest.units.length;
+  const typeIndex = index < claimsPerType ? index : index - claimsPerType;
+  const night = manifest.nights[Math.floor(typeIndex / manifest.units.length)];
+  const rowIndex = typeIndex % manifest.units.length;
+  if (resource.night !== night || resource.bookingRowId !== manifest.rowIds[rowIndex]) return false;
+  if (index < claimsPerType) {
+    const match = resource._id.match(/-s([1-4])-(\d{6})-a$/);
+    return resource.claimType === 'capacity' && !!match &&
+      resource.capacitySlot === Number(match[1]) && resource.generation === Number(match[2]);
+  }
+  const match = resource._id.match(/-u([1-5])-(\d{6})-a$/);
+  return resource.claimType === 'unit' && !!match &&
+    resource.unit === manifest.units[rowIndex] && resource.unit === Number(match[1]) &&
+    resource.generation === Number(match[2]);
+}
+
+function hasValidManifestPrefix(events, identity) {
+  const manifest = isValidStoredEvent(identity) && parseOperationManifest(identity);
+  if (!manifest || !Array.isArray(events)) return false;
+  const acquisitions = events.filter(function(event) {
+    return event && event.eventType === 'acquire' && event.claimType !== 'operation' &&
+      event.operationId === identity.operationId;
+  });
+  if (acquisitions.length > manifest.resourceIds.length ||
+      acquisitions.some(function(event) {
+        return !isValidStoredEvent(event) || !manifestDeclaresResource(identity, event);
+      })) return false;
+  const actualIds = new Set(acquisitions.map(function(event) { return event._id; }));
+  const expectedPrefix = manifest.resourceIds.slice(0, acquisitions.length);
+  return actualIds.size === acquisitions.length &&
+    expectedPrefix.every(function(id) { return actualIds.has(id); });
+}
+
+function hasCompletedManifestHistory(events, identity) {
+  const manifest = isValidStoredEvent(identity) && parseOperationManifest(identity);
+  if (!manifest || !hasValidManifestPrefix(events, identity)) return false;
+  const acquisitions = events.filter(function(event) {
+    return event && event.eventType === 'acquire' && event.claimType !== 'operation' &&
+      event.operationId === identity.operationId;
+  });
+  const completions = events.filter(function(event) {
+    return event && event.claimType === 'operation-completion' &&
+      event.operationId === identity.operationId;
+  });
+  const byId = Object.create(null);
+  acquisitions.forEach(function(event) { byId[event._id] = event; });
+  return completions.length === 1 &&
+    matchesOperationCompletion(completions[0], identity, byId);
+}
+
+async function loadAuthoritativeManifestPrefix(identity) {
+  const manifest = isValidStoredEvent(identity) && parseOperationManifest(identity);
+  if (!manifest) return { state: 'INTEGRITY', acquisitions: Object.create(null) };
+  const acquisitions = Object.create(null);
+  let foundMissing = false;
+  for (const eventId of manifest.resourceIds) {
+    let stored;
+    try {
+      stored = await wixData.get(CLAIM_COLLECTION, eventId, READ_OPTIONS);
+    } catch (error) {
+      return { state: 'UNRESOLVED', acquisitions: acquisitions };
+    }
+    if (!stored) {
+      foundMissing = true;
+      continue;
+    }
+    if (isValidStoredEvent(stored) && stored._id === eventId &&
+        stored.eventType === 'acquire' && stored.operationId !== identity.operationId) {
+      foundMissing = true;
+      continue;
+    }
+    if (foundMissing || !isValidStoredEvent(stored) ||
+        !manifestDeclaresResource(identity, stored)) {
+      return { state: 'INTEGRITY', acquisitions: acquisitions };
+    }
+    acquisitions[eventId] = stored;
+  }
+  return { state: 'CONFIRMED', acquisitions: acquisitions };
+}
+
+async function validateReverseRelease(identity, acquisitions, acquireId) {
+  const manifest = parseOperationManifest(identity);
+  if (!manifest) return 'INTEGRITY';
+  const acquiredIds = manifest.resourceIds.filter(function(id) {
+    return Object.prototype.hasOwnProperty.call(acquisitions, id);
+  });
+  const targetIndex = acquiredIds.indexOf(acquireId);
+  if (targetIndex === -1) return 'INTEGRITY';
+  for (let index = acquiredIds.length - 1; index > targetIndex; index -= 1) {
+    const laterAcquire = acquisitions[acquiredIds[index]];
+    const releaseId = laterAcquire._id.slice(0, -1) + 'r';
+    let storedRelease;
+    try {
+      storedRelease = await wixData.get(CLAIM_COLLECTION, releaseId, READ_OPTIONS);
+    } catch (error) {
+      return 'UNRESOLVED';
+    }
+    const expectedRelease = Object.assign({}, laterAcquire, {
+      _id: releaseId,
+      eventType: 'release',
+      releaseReason: storedRelease && storedRelease.releaseReason
+    });
+    if (!isValidStoredEvent(storedRelease) ||
+        !matchesEvent(storedRelease, expectedRelease)) return 'INTEGRITY';
+  }
+  return 'CONFIRMED';
+}
+
 function isValidStoredEvent(event) {
   if (!event || typeof event !== 'object' || Array.isArray(event) ||
       !hasOnlyClaimFields(event) ||
       event.protocolVersion !== 1 ||
       !Number.isInteger(event.generation) || event.generation < 1 || event.generation > 999999 ||
-      (event.eventType !== 'acquire' && event.eventType !== 'release') ||
+      (event.eventType !== 'acquire' && event.eventType !== 'release' &&
+       event.eventType !== 'complete') ||
       !/^[A-Za-z0-9_-]{16,64}$/.test(event.operationId || '') ||
       !isCanonicalText(event.bookingNumber, 128) ||
       !/^[0-9a-f]{64}$/.test(event.payloadDigest || '')) {
@@ -92,14 +277,35 @@ function isValidStoredEvent(event) {
     event.bookingRowId.indexOf(expectedRowPrefix) === 0 &&
     /^[1-9]\d*$/.test(event.bookingRowId.slice(expectedRowPrefix.length));
   if (!validBookingRowId) return false;
+  if (event.claimType === 'operation-completion') {
+    return event.eventType === 'complete' && event.generation === 1 &&
+      event._id === 'rc1-op-' + event.operationId + '-c' &&
+      event.claimKey === 'operation:' + event.operationId + ':completion' &&
+      event.bookingRowId === expectedRowPrefix + '1' &&
+      event.night === undefined && event.capacitySlot === undefined && event.unit === undefined &&
+      event.releaseReason === undefined &&
+      (event.completionState === 'complete' || event.completionState === 'stopped') &&
+      Number.isInteger(event.confirmedResourceCount) &&
+      event.confirmedResourceCount >= 0 && event.confirmedResourceCount <= 6400 &&
+      event.manifestVersion === undefined &&
+      event.manifestCheckIn === undefined && event.manifestCheckOut === undefined &&
+      event.manifestRoomCode === undefined && event.manifestUnits === undefined &&
+      event.manifestBookingRowIds === undefined && event.manifestResourceClaimIds === undefined;
+  }
   if (event.claimType === 'operation') {
     return event.eventType === 'acquire' && event.generation === 1 &&
       event._id === 'rc1-op-' + event.operationId + '-a' &&
       event.claimKey === 'operation:' + event.operationId &&
       event.bookingRowId === expectedRowPrefix + '1' &&
       event.night === undefined && event.capacitySlot === undefined && event.unit === undefined &&
-      event.releaseReason === undefined;
+      event.releaseReason === undefined && event.completionState === undefined &&
+      event.confirmedResourceCount === undefined && !!parseOperationManifest(event);
   }
+  if ([
+    'manifestVersion', 'manifestCheckIn', 'manifestCheckOut', 'manifestRoomCode',
+    'manifestUnits', 'manifestBookingRowIds', 'manifestResourceClaimIds',
+    'completionState', 'confirmedResourceCount'
+  ].some(function(key) { return event[key] !== undefined; })) return false;
   if (!isCanonicalNight(event.night)) return false;
   const validReleaseReason = event.eventType === 'release'
     ? isCanonicalText(event.releaseReason, 256)
@@ -119,6 +325,67 @@ function isValidStoredEvent(event) {
   const expectedId = 'rc1-' + event.night.replace(/-/g, '') + '-' + marker + claimNumber + '-' +
     String(event.generation).padStart(6, '0') + '-' + (event.eventType === 'acquire' ? 'a' : 'r');
   return event._id === expectedId;
+}
+
+function operationCompletionEvent(identity, completionState, confirmedResourceCount) {
+  const manifest = parseOperationManifest(identity);
+  const state = completionState || 'complete';
+  const count = confirmedResourceCount === undefined
+    ? (manifest ? manifest.resourceIds.length : -1)
+    : confirmedResourceCount;
+  return {
+    _id: 'rc1-op-' + identity.operationId + '-c',
+    protocolVersion: 1,
+    claimKey: 'operation:' + identity.operationId + ':completion',
+    generation: 1,
+    eventType: 'complete',
+    claimType: 'operation-completion',
+    operationId: identity.operationId,
+    bookingRowId: identity.bookingRowId,
+    bookingNumber: identity.bookingNumber,
+    payloadDigest: identity.payloadDigest,
+    completionState: state,
+    confirmedResourceCount: count
+  };
+}
+
+function matchesOperationCompletion(stored, identity, acquisitions) {
+  const manifest = isValidStoredEvent(identity) && parseOperationManifest(identity);
+  if (!manifest || !isValidStoredEvent(stored) ||
+      stored.claimType !== 'operation-completion') return false;
+  const count = Object.keys(acquisitions || {}).length;
+  const expected = Object.assign({}, operationCompletionEvent(identity), {
+    completionState: stored.completionState,
+    confirmedResourceCount: stored.confirmedResourceCount
+  });
+  return matchesEvent(stored, expected) && stored.confirmedResourceCount === count &&
+    ((stored.completionState === 'complete' && count === manifest.resourceIds.length) ||
+     (stored.completionState === 'stopped' && count < manifest.resourceIds.length));
+}
+
+async function confirmOperationCompletion(identity, completionState, confirmedResourceCount) {
+  const expected = operationCompletionEvent(identity, completionState, confirmedResourceCount);
+  let insertResolved = false;
+  try {
+    await wixData.insert(CLAIM_COLLECTION, expected, WRITE_OPTIONS);
+    insertResolved = true;
+  } catch (error) {
+    // Reconcile deterministic completion-fence collisions authoritatively.
+  }
+  let stored;
+  try {
+    stored = await wixData.get(CLAIM_COLLECTION, expected._id, READ_OPTIONS);
+  } catch (error) {
+    return { state: 'UNRESOLVED', event: expected };
+  }
+  if (!isValidStoredEvent(stored) || !matchesEvent(stored, expected)) {
+    return { state: classifyStoredMismatch(stored, expected), event: expected };
+  }
+  return {
+    state: 'CONFIRMED',
+    event: expected,
+    disposition: insertResolved ? 'inserted' : 'already-present'
+  };
 }
 
 function classifyStoredMismatch(stored, expected) {
@@ -141,9 +408,11 @@ export async function appendRoomClaimEvents(events) {
   const operationDigests = Object.create(null);
   const operationBookingNumbers = Object.create(null);
   const operationIdentities = Object.create(null);
+  const ownedOperationIdentities = Object.create(null);
   const eventIds = Object.create(null);
   for (let index = 0; index < events.length; index += 1) {
-    if (!isValidStoredEvent(events[index])) {
+    if (!isValidStoredEvent(events[index]) ||
+        events[index].claimType === 'operation-completion') {
       return {
         state: 'STOPPED',
         confirmed: [],
@@ -218,6 +487,22 @@ export async function appendRoomClaimEvents(events) {
     }
     operationBookingNumbers[event.operationId] = event.bookingNumber;
   }
+  const batchOperationIds = Object.keys(operationDigests);
+  if (batchOperationIds.length > 1) {
+    const firstOperationId = events[0] && events[0].operationId;
+    const index = events.findIndex(function(event) {
+      return event.operationId !== firstOperationId;
+    });
+    return {
+      state: 'STOPPED',
+      confirmed: [],
+      failed: {
+        index: index,
+        eventId: events[index] && events[index]._id,
+        classification: 'INTEGRITY'
+      }
+    };
+  }
   const topologyKeys = [];
   events.forEach(function(event) {
     if (event.eventType !== 'acquire' ||
@@ -271,6 +556,23 @@ export async function appendRoomClaimEvents(events) {
       failed: { index: index, eventId: allUnitEvents[0]._id, classification: 'INTEGRITY' }
     };
   }
+  for (const operationId of Object.keys(operationIdentities)) {
+    const identity = operationIdentities[operationId];
+    const manifest = parseOperationManifest(identity);
+    const requestedResourceIds = events.filter(function(event) {
+      return event.operationId === operationId && event.eventType === 'acquire' &&
+        event.claimType !== 'operation';
+    }).map(function(event) { return event._id; });
+    if (!manifest || manifest.resourceIds.length !== requestedResourceIds.length ||
+        manifest.resourceIds.some(function(id, index) { return requestedResourceIds[index] !== id; })) {
+      const index = events.indexOf(identity);
+      return {
+        state: 'STOPPED',
+        confirmed: [],
+        failed: { index: index, eventId: identity._id, classification: 'INTEGRITY' }
+      };
+    }
+  }
   const reacquisitions = events.filter(function(event) {
     return event.eventType === 'acquire' && event.claimType !== 'operation' && event.generation > 1;
   });
@@ -293,8 +595,14 @@ export async function appendRoomClaimEvents(events) {
         });
         const acquires = history.filter(function(candidate) { return candidate.eventType === 'acquire'; });
         const releases = history.filter(function(candidate) { return candidate.eventType === 'release'; });
+        const identities = acquires.length === 1 ? ledger.filter(function(candidate) {
+          return candidate && candidate.claimType === 'operation' &&
+            candidate.operationId === acquires[0].operationId;
+        }) : [];
         let validHistory = acquires.length === 1 && releases.length === 1 && history.length === 2 &&
-          isValidStoredEvent(acquires[0]) && isValidStoredEvent(releases[0]);
+          identities.length === 1 && isValidStoredEvent(acquires[0]) &&
+          isValidStoredEvent(releases[0]) && manifestDeclaresResource(identities[0], acquires[0]) &&
+          hasCompletedManifestHistory(ledger, identities[0]);
         if (validHistory) {
           const expectedRelease = Object.assign({}, acquires[0], {
             _id: acquires[0]._id.slice(0, -1) + 'r',
@@ -316,21 +624,10 @@ export async function appendRoomClaimEvents(events) {
   const confirmed = [];
   for (const event of events) {
     if (event.eventType === 'release') {
-      const expectedIdentity = {
-        _id: 'rc1-op-' + event.operationId + '-a',
-        protocolVersion: 1,
-        claimKey: 'operation:' + event.operationId,
-        generation: 1,
-        eventType: 'acquire',
-        claimType: 'operation',
-        operationId: event.operationId,
-        bookingRowId: 'pb1-' + event.operationId + '-r1',
-        bookingNumber: event.bookingNumber,
-        payloadDigest: event.payloadDigest
-      };
+      const identityId = 'rc1-op-' + event.operationId + '-a';
       let storedIdentity;
       try {
-        storedIdentity = await wixData.get(CLAIM_COLLECTION, expectedIdentity._id, READ_OPTIONS);
+        storedIdentity = await wixData.get(CLAIM_COLLECTION, identityId, READ_OPTIONS);
       } catch (error) {
         return {
           state: 'STOPPED',
@@ -338,21 +635,24 @@ export async function appendRoomClaimEvents(events) {
           failed: { index: confirmed.length, eventId: event._id, classification: 'UNRESOLVED' }
         };
       }
-      if (!isValidStoredEvent(storedIdentity) || !matchesEvent(storedIdentity, expectedIdentity)) {
-        return {
-          state: 'STOPPED',
-          confirmed: confirmed,
-          failed: { index: confirmed.length, eventId: event._id, classification: 'INTEGRITY' }
-        };
-      }
+      const acquireId = event._id.slice(0, -1) + 'a';
       const expectedAcquire = Object.assign({}, event, {
-        _id: event._id.slice(0, -1) + 'a',
+        _id: acquireId,
         eventType: 'acquire'
       });
       delete expectedAcquire.releaseReason;
-      let storedAcquire;
+      const prefix = await loadAuthoritativeManifestPrefix(storedIdentity);
+      if (prefix.state !== 'CONFIRMED') {
+        return {
+          state: 'STOPPED',
+          confirmed: confirmed,
+          failed: { index: confirmed.length, eventId: event._id, classification: prefix.state }
+        };
+      }
+      const expectedCompletion = operationCompletionEvent(storedIdentity);
+      let storedCompletion;
       try {
-        storedAcquire = await wixData.get(CLAIM_COLLECTION, expectedAcquire._id, READ_OPTIONS);
+        storedCompletion = await wixData.get(CLAIM_COLLECTION, expectedCompletion._id, READ_OPTIONS);
       } catch (error) {
         return {
           state: 'STOPPED',
@@ -360,11 +660,32 @@ export async function appendRoomClaimEvents(events) {
           failed: { index: confirmed.length, eventId: event._id, classification: 'UNRESOLVED' }
         };
       }
-      if (!isValidStoredEvent(storedAcquire) || !matchesEvent(storedAcquire, expectedAcquire)) {
+      if (!matchesOperationCompletion(storedCompletion, storedIdentity, prefix.acquisitions)) {
         return {
           state: 'STOPPED',
           confirmed: confirmed,
           failed: { index: confirmed.length, eventId: event._id, classification: 'INTEGRITY' }
+        };
+      }
+      const storedAcquire = prefix.acquisitions[acquireId];
+      if (!storedAcquire || !matchesEvent(storedAcquire, expectedAcquire)) {
+        return {
+          state: 'STOPPED',
+          confirmed: confirmed,
+          failed: { index: confirmed.length, eventId: event._id, classification: 'INTEGRITY' }
+        };
+      }
+      const releaseOrderState = await validateReverseRelease(
+        storedIdentity, prefix.acquisitions, acquireId);
+      if (releaseOrderState !== 'CONFIRMED') {
+        return {
+          state: 'STOPPED',
+          confirmed: confirmed,
+          failed: {
+            index: confirmed.length,
+            eventId: event._id,
+            classification: releaseOrderState
+          }
         };
       }
     }
@@ -387,15 +708,42 @@ export async function appendRoomClaimEvents(events) {
       };
     }
     if (!isValidStoredEvent(stored) || !matchesEvent(stored, event)) {
+      const classification = classifyStoredMismatch(stored, event);
+      const ownedIdentity = ownedOperationIdentities[event.operationId];
+      if (ownedIdentity && event.claimType !== 'operation' && classification !== 'UNRESOLVED') {
+        const confirmedResourceCount = confirmed.filter(function(item) {
+          const confirmedEvent = events.find(function(candidate) {
+            return candidate._id === item.eventId;
+          });
+          return confirmedEvent && confirmedEvent.operationId === event.operationId &&
+            confirmedEvent.eventType === 'acquire' && confirmedEvent.claimType !== 'operation';
+        }).length;
+        const terminal = await confirmOperationCompletion(
+          ownedIdentity, 'stopped', confirmedResourceCount);
+        if (terminal.state !== 'CONFIRMED') {
+          return {
+            state: 'STOPPED',
+            confirmed: confirmed,
+            failed: {
+              index: confirmed.length,
+              eventId: terminal.event._id,
+              classification: terminal.state
+            }
+          };
+        }
+      }
       return {
         state: 'STOPPED',
         confirmed: confirmed,
         failed: {
           index: confirmed.length,
           eventId: event._id,
-          classification: classifyStoredMismatch(stored, event)
+          classification: classification
         }
       };
+    }
+    if (event.claimType === 'operation' && insertResolved) {
+      ownedOperationIdentities[event.operationId] = event;
     }
     if (event.claimType === 'operation' && !insertResolved && events.length > 1) {
       const reconciled = [{ eventId: event._id, disposition: 'already-present' }];
@@ -425,12 +773,38 @@ export async function appendRoomClaimEvents(events) {
         }
         reconciled.push({ eventId: events[index]._id, disposition: 'already-present' });
       }
+      const completion = await confirmOperationCompletion(event);
+      if (completion.state !== 'CONFIRMED') {
+        return {
+          state: 'STOPPED',
+          confirmed: reconciled,
+          failed: {
+            index: events.length,
+            eventId: completion.event._id,
+            classification: completion.state
+          }
+        };
+      }
       return { state: 'CONFIRMED', confirmed: reconciled };
     }
     confirmed.push({
       eventId: event._id,
       disposition: insertResolved ? 'inserted' : 'already-present'
     });
+  }
+  for (const operationId of Object.keys(operationIdentities)) {
+    const completion = await confirmOperationCompletion(operationIdentities[operationId]);
+    if (completion.state !== 'CONFIRMED') {
+      return {
+        state: 'STOPPED',
+        confirmed: confirmed,
+        failed: {
+          index: events.length,
+          eventId: completion.event._id,
+          classification: completion.state
+        }
+      };
+    }
   }
   return { state: 'CONFIRMED', confirmed: confirmed };
 }

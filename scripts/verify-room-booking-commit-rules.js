@@ -49,7 +49,7 @@ const source = [
   .replace(/^import .*;\s*$/gm, '')
   .replace(/export function /g, 'function ')
   + '\nthis.rules = { buildPhysicalCommitPlan, validatePhysicalCommit, planPhysicalRollback };'
-  + '\nthis.rulesInternal = { claimState };';
+  + '\nthis.rulesInternal = { claimState, validateClaimLedger };';
 
 const context = { Date };
 vm.createContext(context);
@@ -78,6 +78,100 @@ const firstPlan = context.rules.buildPhysicalCommitPlan(emptySnapshot, [], {
 assertEqual(firstPlan.acquisitions[0]._id,
   'rc1-op-abcdefghijklmnopqrstu1-a',
   'operation identity is acquired before capacity and unit claims');
+assertEqual({
+  manifestVersion: firstPlan.acquisitions[0].manifestVersion,
+  manifestCheckIn: firstPlan.acquisitions[0].manifestCheckIn,
+  manifestCheckOut: firstPlan.acquisitions[0].manifestCheckOut,
+  manifestRoomCode: firstPlan.acquisitions[0].manifestRoomCode,
+  manifestUnits: firstPlan.acquisitions[0].manifestUnits,
+  manifestBookingRowIds: firstPlan.acquisitions[0].manifestBookingRowIds,
+  manifestResourceClaimIds: firstPlan.acquisitions[0].manifestResourceClaimIds
+}, {
+  manifestVersion: 1,
+  manifestCheckIn: '2027-11-05',
+  manifestCheckOut: '2027-11-07',
+  manifestRoomCode: 'adventure_suite',
+  manifestUnits: '3',
+  manifestBookingRowIds: 'pb1-abcdefghijklmnopqrstu1-r1',
+  manifestResourceClaimIds: [
+    'rc1-20271105-s1-000001-a',
+    'rc1-20271106-s1-000001-a',
+    'rc1-20271105-u3-000001-a',
+    'rc1-20271106-u3-000001-a'
+  ].join('|')
+}, 'operation identity permanently declares the complete deterministic commit manifest');
+
+function operationCompletion(identity, completionState, confirmedResourceCount) {
+  return {
+    _id: 'rc1-op-' + identity.operationId + '-c',
+    protocolVersion: 1,
+    claimKey: 'operation:' + identity.operationId + ':completion',
+    generation: 1,
+    eventType: 'complete',
+    claimType: 'operation-completion',
+    operationId: identity.operationId,
+    bookingRowId: identity.bookingRowId,
+    bookingNumber: identity.bookingNumber,
+    payloadDigest: identity.payloadDigest,
+    completionState: completionState,
+    confirmedResourceCount: confirmedResourceCount
+  };
+}
+
+const firstCompletion = operationCompletion(
+  firstPlan.acquisitions[0], 'complete', firstPlan.acquisitions.length - 1);
+assertThrows(function() {
+  context.rules.buildPhysicalCommitPlan(emptySnapshot,
+    firstPlan.acquisitions.concat([firstCompletion]), {
+      roomCode: 'adventure_suite', quantity: 1,
+      checkIn: '2027-11-05', checkOut: '2027-11-07', bookingNumber: 'WC-2001',
+      operationId: 'abcdefghijklmnopqrstu1',
+      payloadDigest: '1111111111111111111111111111111111111111111111111111111111111111'
+    });
+}, 'Operation requires reconciliation',
+'an exact completion fence is valid permanent history for its fully acquired manifest');
+
+assertThrows(function() {
+  context.rulesInternal.validateClaimLedger(firstPlan.acquisitions.concat([
+    operationCompletion(firstPlan.acquisitions[0], 'complete',
+      firstPlan.acquisitions.length - 2)
+  ]));
+}, 'Invalid claim ledger',
+'a complete fence count must equal the full manifest acquisition count');
+
+assertThrows(function() {
+  context.rulesInternal.validateClaimLedger(firstPlan.acquisitions.concat([
+    operationCompletion(firstPlan.acquisitions[0], 'stopped',
+      firstPlan.acquisitions.length - 1)
+  ]));
+}, 'Invalid claim ledger',
+'a stopped fence cannot certify a fully acquired manifest');
+
+assertThrows(function() {
+  context.rules.buildPhysicalCommitPlan(emptySnapshot, [
+    firstPlan.acquisitions[0], firstPlan.acquisitions[1],
+    operationCompletion(firstPlan.acquisitions[0], 'complete', 1)
+  ], {
+    roomCode: 'adventure_suite', quantity: 1,
+    checkIn: '2027-11-05', checkOut: '2027-11-07', bookingNumber: 'WC-OTHER',
+    operationId: 'premature-completion1',
+    payloadDigest: '2323232323232323232323232323232323232323232323232323232323232323'
+  });
+}, 'Invalid claim ledger', 'a complete fence cannot certify a partial manifest prefix');
+
+assertThrows(function() {
+  context.rules.buildPhysicalCommitPlan(emptySnapshot,
+    firstPlan.acquisitions.concat([
+      firstCompletion,
+      Object.assign({}, firstCompletion, { completionState: 'stopped' })
+    ]), {
+      roomCode: 'adventure_suite', quantity: 1,
+      checkIn: '2027-11-05', checkOut: '2027-11-07', bookingNumber: 'WC-OTHER',
+      operationId: 'duplicate-completion1',
+      payloadDigest: '2424242424242424242424242424242424242424242424242424242424242424'
+    });
+}, 'Invalid claim ledger', 'an operation can have only one immutable completion fence');
+
 const competingPlan = context.rules.buildPhysicalCommitPlan(emptySnapshot, [], {
   roomCode: 'adventure_suite',
   quantity: 1,
@@ -184,22 +278,167 @@ const unpairedHistoricalRelease = Object.assign({}, unpairedHistoricalCapacity, 
   eventType: 'release',
   releaseReason: 'adversarial-unpaired-history'
 });
+const stoppedPrefixCompletion = operationCompletion(firstPlan.acquisitions[0], 'stopped', 1);
 assertThrows(function() {
   context.rules.buildPhysicalCommitPlan(emptySnapshot, [
     firstPlan.acquisitions[0],
     unpairedHistoricalCapacity,
-    unpairedHistoricalRelease
+    unpairedHistoricalRelease,
+    stoppedPrefixCompletion
   ], {
     roomCode: 'adventure_suite',
     quantity: 1,
     checkIn: '2027-11-05',
     checkOut: '2027-11-07',
-    bookingNumber: 'WC-HISTORY-PAIR',
-    operationId: 'historypaircheck001',
-    payloadDigest: '1313131313131313131313131313131313131313131313131313131313131313'
+    bookingNumber: 'WC-2001',
+    operationId: 'abcdefghijklmnopqrstu1',
+    payloadDigest: '1111111111111111111111111111111111111111111111111111111111111111'
+  });
+}, 'Operation requires reconciliation',
+'declared partial acquisition history remains valid and reconciliation-only after release');
+
+assertThrows(function() {
+  const resourceWithManifestField = firstPlan.acquisitions.map(function(event, index) {
+    return index === 1 ? Object.assign({}, event, { manifestVersion: 1 }) : event;
+  });
+  context.rules.buildPhysicalCommitPlan(Object.assign({}, emptySnapshot, {
+    occupiedUnits: [3],
+    occupiedUnitsByNight: {
+      '2027-11-05': [3],
+      '2027-11-06': [3]
+    }
+  }), resourceWithManifestField, {
+    roomCode: 'adventure_suite',
+    quantity: 1,
+    checkIn: '2027-11-05',
+    checkOut: '2027-11-07',
+    bookingNumber: 'WC-2001',
+    operationId: 'abcdefghijklmnopqrstu1',
+    payloadDigest: '1111111111111111111111111111111111111111111111111111111111111111'
   });
 }, 'Invalid claim ledger',
-'historical capacity acquisitions require matching unit acquisitions');
+'manifest metadata is exclusive to the permanent operation identity event');
+
+assertThrows(function() {
+  const invalidUnitFiveManifest = firstPlan.acquisitions.map(function(event) {
+    if (event.claimType === 'operation') {
+      return Object.assign({}, event, {
+        manifestUnits: '5',
+        manifestResourceClaimIds: event.manifestResourceClaimIds.replace(/-u3-/g, '-u5-')
+      });
+    }
+    if (event.claimType !== 'unit') return event;
+    return Object.assign({}, event, {
+      _id: event._id.replace('-u3-', '-u5-'),
+      claimKey: event.claimKey.replace(':3', ':5'),
+      unit: 5
+    });
+  });
+  context.rules.buildPhysicalCommitPlan(Object.assign({}, emptySnapshot, {
+    occupiedUnits: [5],
+    occupiedUnitsByNight: {
+      '2027-11-05': [5],
+      '2027-11-06': [5]
+    }
+  }), invalidUnitFiveManifest, {
+    roomCode: 'adventure_suite',
+    quantity: 1,
+    checkIn: '2027-11-05',
+    checkOut: '2027-11-07',
+    bookingNumber: 'WC-2001',
+    operationId: 'abcdefghijklmnopqrstu1',
+    payloadDigest: '1111111111111111111111111111111111111111111111111111111111111111'
+  });
+}, 'Invalid claim ledger',
+'operation manifests cannot declare an impossible automatic room assignment');
+
+const malformedHistoricalManifests = [
+  ['missing manifest version', function(identity) { delete identity.manifestVersion; }],
+  ['ten-thousand-year date range', function(identity) {
+    identity.manifestCheckIn = '0000-01-01';
+    identity.manifestCheckOut = '9999-12-31';
+  }],
+  ['reversed dates', function(identity) { identity.manifestCheckOut = identity.manifestCheckIn; }],
+  ['unknown room code', function(identity) { identity.manifestRoomCode = 'unknown_room'; }],
+  ['noncanonical units 03', function(identity) { identity.manifestUnits = '03'; }],
+  ['noncanonical units +3', function(identity) { identity.manifestUnits = '+3'; }],
+  ['noncanonical units 3e0', function(identity) { identity.manifestUnits = '3e0'; }],
+  ['noncanonical units 0x3', function(identity) { identity.manifestUnits = '0x3'; }],
+  ['noncanonical units leading space', function(identity) { identity.manifestUnits = ' 3'; }],
+  ['noncanonical units trailing space', function(identity) { identity.manifestUnits = '3 '; }],
+  ['noncanonical units trailing comma', function(identity) { identity.manifestUnits = '3,'; }],
+  ['malformed row IDs', function(identity) { identity.manifestBookingRowIds = 'row-1'; }],
+  ['resource count mismatch', function(identity) {
+    identity.manifestResourceClaimIds = identity.manifestResourceClaimIds.split('|')[0];
+  }],
+  ['duplicate resource IDs', function(identity) {
+    const id = identity.manifestResourceClaimIds.split('|')[0];
+    identity.manifestResourceClaimIds = id + '|' + id;
+  }],
+  ['zero generation', function(identity) {
+    identity.manifestResourceClaimIds =
+      identity.manifestResourceClaimIds.replace('-000001-a', '-000000-a');
+  }]
+];
+for (const malformedHistoricalManifest of malformedHistoricalManifests) {
+  assertThrows(function() {
+    const ledger = firstPlan.acquisitions.map(function(event, index) {
+      if (index !== 0) return event;
+      const identity = Object.assign({}, event);
+      malformedHistoricalManifest[1](identity);
+      return identity;
+    });
+    context.rules.buildPhysicalCommitPlan(emptySnapshot, ledger, {
+      roomCode: 'adventure_suite',
+      quantity: 1,
+      checkIn: '2027-11-05',
+      checkOut: '2027-11-07',
+      bookingNumber: 'WC-2001',
+      operationId: 'abcdefghijklmnopqrstu1',
+      payloadDigest: '1111111111111111111111111111111111111111111111111111111111111111'
+    });
+  }, 'Invalid claim ledger',
+  'historical ledger rejects ' + malformedHistoricalManifest[0]);
+}
+
+const planAfterDeclaredCompensation = context.rules.buildPhysicalCommitPlan(emptySnapshot, [
+  firstPlan.acquisitions[0],
+  unpairedHistoricalCapacity,
+  unpairedHistoricalRelease,
+  stoppedPrefixCompletion
+], {
+  roomCode: 'adventure_suite',
+  quantity: 1,
+  checkIn: '2027-11-05',
+  checkOut: '2027-11-07',
+  bookingNumber: 'WC-AFTER-COMPENSATION',
+  operationId: 'aftercompensation001',
+  payloadDigest: '1313131313131313131313131313131313131313131313131313131313131313'
+});
+assertEqual(planAfterDeclaredCompensation.acquisitions.slice(1).map(function(event) {
+  return event._id;
+}), [
+  'rc1-20271105-s1-000002-a',
+  'rc1-20271106-s1-000001-a',
+  'rc1-20271105-u3-000001-a',
+  'rc1-20271106-u3-000001-a'
+], 'declared compensated prefixes free resources without erasing generation history');
+
+assertThrows(function() {
+  context.rules.buildPhysicalCommitPlan(emptySnapshot, [
+    firstPlan.acquisitions[0],
+    firstPlan.acquisitions[2]
+  ], {
+    roomCode: 'adventure_suite',
+    quantity: 1,
+    checkIn: '2027-11-05',
+    checkOut: '2027-11-07',
+    bookingNumber: 'WC-NONPREFIX',
+    operationId: 'nonprefixobserver001',
+    payloadDigest: '1414141414141414141414141414141414141414141414141414141414141414'
+  });
+}, 'Invalid claim ledger',
+'undeclared holes in acquisition order remain invalid ledger corruption');
 
 const turnoverSnapshot = {
   occupiedUnits: [],
@@ -293,6 +532,66 @@ assertThrows(function() {
   });
 }, 'Invalid commit dates', 'impossible calendar dates fail before claims are planned');
 
+const oversizedSnapshot = {
+  occupiedUnits: [],
+  occupiedUnitsByNight: {},
+  migrationIssueRows: [],
+  duplicateUnitClaims: [],
+  unknownStatusRows: []
+};
+for (let day = new Date(Date.UTC(2027, 0, 1));
+  day < new Date(Date.UTC(2028, 5, 1));
+  day.setUTCDate(day.getUTCDate() + 1)) {
+  oversizedSnapshot.occupiedUnitsByNight[day.toISOString().slice(0, 10)] = [];
+}
+assertThrows(function() {
+  context.rules.buildPhysicalCommitPlan(oversizedSnapshot, [], {
+    roomCode: 'adventure_suite',
+    quantity: 3,
+    checkIn: '2027-01-01',
+    checkOut: '2028-06-01',
+    bookingNumber: 'WC-2005-LONG',
+    operationId: 'oversizedmanifest001',
+    payloadDigest: '1515151515151515151515151515151515151515151515151515151515151515'
+  });
+}, 'Commit manifest exceeds storage limit',
+'oversized operation manifests fail before a persistence plan is returned');
+
+const maximumStaySnapshot = {
+  occupiedUnits: [],
+  occupiedUnitsByNight: {},
+  migrationIssueRows: [],
+  duplicateUnitClaims: [],
+  unknownStatusRows: []
+};
+for (let day = new Date(Date.UTC(2027, 0, 1));
+  day < new Date(Date.UTC(2029, 2, 11));
+  day.setUTCDate(day.getUTCDate() + 1)) {
+  maximumStaySnapshot.occupiedUnitsByNight[day.toISOString().slice(0, 10)] = [];
+}
+const maximumStayPlan = context.rules.buildPhysicalCommitPlan(maximumStaySnapshot, [], {
+  roomCode: 'adventure_suite',
+  quantity: 1,
+  checkIn: '2027-01-01',
+  checkOut: '2029-03-11',
+  bookingNumber: 'WC-2005-MAX',
+  operationId: 'maximummanifest0001',
+  payloadDigest: '1616161616161616161616161616161616161616161616161616161616161616'
+});
+assertEqual(maximumStayPlan.bookingRows.length, 1,
+  'the exact 800-night manifest protocol boundary remains plannable');
+assertThrows(function() {
+  context.rules.buildPhysicalCommitPlan(maximumStaySnapshot, [], {
+    roomCode: 'adventure_suite',
+    quantity: 1,
+    checkIn: '2027-01-01',
+    checkOut: '2029-03-12',
+    bookingNumber: 'WC-2005-OVER',
+    operationId: 'maximummanifest0002',
+    payloadDigest: '1717171717171717171717171717171717171717171717171717171717171717'
+  });
+}, 'Invalid commit dates', 'the 801-night manifest protocol boundary fails before planning');
+
 assertThrows(function() {
   context.rules.buildPhysicalCommitPlan(emptySnapshot, [], {
     roomCode: 'adventure_suite',
@@ -325,6 +624,33 @@ assertEqual(capacityPlan.acquisitions.map(function(event) { return event._id; })
   'rc1-20271106-u3-000001-a',
   'rc1-20271106-u4-000001-a'
 ], 'all capacity claims are acquired before any physical-unit claim across the stay');
+assertEqual({
+  manifestVersion: capacityPlan.acquisitions[0].manifestVersion,
+  manifestCheckIn: capacityPlan.acquisitions[0].manifestCheckIn,
+  manifestCheckOut: capacityPlan.acquisitions[0].manifestCheckOut,
+  manifestRoomCode: capacityPlan.acquisitions[0].manifestRoomCode,
+  manifestUnits: capacityPlan.acquisitions[0].manifestUnits,
+  manifestBookingRowIds: capacityPlan.acquisitions[0].manifestBookingRowIds,
+  manifestResourceClaimIds: capacityPlan.acquisitions[0].manifestResourceClaimIds
+}, {
+  manifestVersion: 1,
+  manifestCheckIn: '2027-11-05',
+  manifestCheckOut: '2027-11-07',
+  manifestRoomCode: 'adventure_suite',
+  manifestUnits: '3,4',
+  manifestBookingRowIds:
+    'pb1-abcdefghijklmnopqrstuv-r1|pb1-abcdefghijklmnopqrstuv-r2',
+  manifestResourceClaimIds: [
+    'rc1-20271105-s1-000001-a',
+    'rc1-20271105-s2-000001-a',
+    'rc1-20271106-s1-000001-a',
+    'rc1-20271106-s2-000001-a',
+    'rc1-20271105-u3-000001-a',
+    'rc1-20271105-u4-000001-a',
+    'rc1-20271106-u3-000001-a',
+    'rc1-20271106-u4-000001-a'
+  ].join('|')
+}, 'multi-room multi-night manifest binds exact row and global resource order');
 
 const oneOccupiedSnapshot = {
   occupiedUnits: [3],
@@ -369,7 +695,14 @@ const occupiedLedger = [{
   operationId: 'existingoperationtoken1',
   bookingRowId: 'pb1-existingoperationtoken1-r1',
   bookingNumber: 'WC-1999',
-  payloadDigest: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+  payloadDigest: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  manifestVersion: 1,
+  manifestCheckIn: '2027-11-05',
+  manifestCheckOut: '2027-11-06',
+  manifestRoomCode: 'adventure_suite',
+  manifestUnits: '3',
+  manifestBookingRowIds: 'pb1-existingoperationtoken1-r1',
+  manifestResourceClaimIds: 'rc1-20271105-s1-000001-a|rc1-20271105-u3-000001-a'
 }];
 const lowestFreeSlotPlan = context.rules.buildPhysicalCommitPlan(oneOccupiedSnapshot, occupiedLedger, {
   roomCode: 'adventure_suite',
@@ -438,6 +771,7 @@ const releasedLedger = [
   occupiedLedger[0],
   occupiedLedger[1],
   occupiedLedger[2],
+  operationCompletion(occupiedLedger[0], 'complete', 2),
   {
     _id: 'rc1-20271105-s1-000001-r',
     protocolVersion: 1,
@@ -469,6 +803,46 @@ const releasedLedger = [
     releaseReason: 'rollback'
   }
 ];
+assertThrows(function() {
+  context.rulesInternal.validateClaimLedger([
+    occupiedLedger[2], occupiedLedger[0], occupiedLedger[1],
+    releasedLedger[5], releasedLedger[4]
+  ]);
+}, 'Invalid claim ledger',
+'released manifest history requires exactly one operation terminal fence');
+const invalidForwardReleaseLedger = [
+  occupiedLedger[0],
+  occupiedLedger[1],
+  occupiedLedger[2],
+  operationCompletion(occupiedLedger[0], 'complete', 2),
+  releasedLedger[4]
+];
+assertThrows(function() {
+  context.rules.buildPhysicalCommitPlan({
+    occupiedUnits: [],
+    occupiedUnitsByNight: { '2027-11-05': [] },
+    migrationIssueRows: [], duplicateUnitClaims: [], unknownStatusRows: []
+  }, invalidForwardReleaseLedger, {
+    roomCode: 'adventure_suite', quantity: 1,
+    checkIn: '2027-11-05', checkOut: '2027-11-06',
+    bookingNumber: 'WC-FORWARD-RELEASE', operationId: 'forwardreleaseaudit1',
+    payloadDigest: '2525252525252525252525252525252525252525252525252525252525252525'
+  });
+}, 'Invalid claim ledger',
+'a released prefix must be a suffix of acquisitions so compensation remains reverse ordered');
+
+const shuffledForwardReleaseLedger = [
+  occupiedLedger[2],
+  occupiedLedger[1],
+  occupiedLedger[0],
+  operationCompletion(occupiedLedger[0], 'complete', 2),
+  releasedLedger[4]
+];
+assertThrows(function() {
+  context.rulesInternal.validateClaimLedger(shuffledForwardReleaseLedger);
+}, 'Invalid claim ledger',
+'release suffix validation follows immutable manifest order, not ledger query order');
+
 const releasedSlotPlan = context.rules.buildPhysicalCommitPlan({
   occupiedUnits: [],
   occupiedUnitsByNight: { '2027-11-05': [] },
@@ -489,6 +863,20 @@ assertEqual(releasedSlotPlan.acquisitions.map(function(event) { return event._id
   'rc1-20271105-s1-000002-a',
   'rc1-20271105-u3-000002-a'
 ], 'released capacity and unit claims are reused only through the next append-only generation');
+
+const unreleasedPriorGenerationLedger = [
+  occupiedLedger[2],
+  occupiedLedger[0],
+  occupiedLedger[1],
+  operationCompletion(occupiedLedger[2], 'complete', 2),
+  releasedLedger[5]
+].concat(releasedSlotPlan.acquisitions, [
+  operationCompletion(releasedSlotPlan.acquisitions[0], 'complete', 2)
+]);
+assertThrows(function() {
+  context.rulesInternal.validateClaimLedger(unreleasedPriorGenerationLedger);
+}, 'Invalid claim ledger',
+'a later generation requires the immediately preceding acquisition to be released');
 
 assertEqual(capacityPlan.acquisitions[1], {
   _id: 'rc1-20271105-s1-000001-a',
@@ -573,7 +961,7 @@ assertThrows(function() {
     migrationIssueRows: [],
     duplicateUnitClaims: [],
     unknownStatusRows: []
-  }, [releasedLedger[3]], {
+  }, [releasedLedger[4]], {
     roomCode: 'adventure_suite',
     quantity: 1,
     checkIn: '2027-11-05',
@@ -602,7 +990,7 @@ assertThrows(function() {
 
 const mismatchedReleaseLedger = [
   occupiedLedger[0],
-  Object.assign({}, releasedLedger[3], { operationId: 'differentoperationtok1' })
+  Object.assign({}, releasedLedger[4], { operationId: 'differentoperationtok1' })
 ];
 assertThrows(function() {
   context.rules.buildPhysicalCommitPlan({
@@ -709,6 +1097,64 @@ assertEqual(
   'post-write validation accepts complete matching rows and acquisitions regardless of read order'
 );
 
+const forgedManifestPlan = Object.assign({}, capacityPlan, {
+  acquisitions: capacityPlan.acquisitions.map(function(event, index) {
+    if (index !== 0) return event;
+    const forgedIds = event.manifestResourceClaimIds.split('|').map(function(id) {
+      return id.replace(/-u([34])-/, function(match, unit) {
+        return '-u' + (Number(unit) + 1) + '-';
+      });
+    });
+    return Object.assign({}, event, {
+      manifestUnits: '4,5',
+      manifestResourceClaimIds: forgedIds.join('|')
+    });
+  })
+});
+assertThrows(function() {
+  context.rules.validatePhysicalCommit(
+    forgedManifestPlan,
+    capacityPlan.bookingRows,
+    forgedManifestPlan.acquisitions
+  );
+}, 'Physical commit verification failed',
+'post-write validation binds the immutable manifest to exact rows and resource claims');
+
+const alternateManifestGenerationPlan = Object.assign({}, capacityPlan, {
+  acquisitions: capacityPlan.acquisitions.map(function(event, index) {
+    if (index !== 0) return event;
+    return Object.assign({}, event, {
+      manifestResourceClaimIds: event.manifestResourceClaimIds.replace(/000001-a/g, '000002-a')
+    });
+  })
+});
+assertThrows(function() {
+  context.rules.validatePhysicalCommit(
+    alternateManifestGenerationPlan,
+    capacityPlan.bookingRows,
+    alternateManifestGenerationPlan.acquisitions
+  );
+}, 'Physical commit verification failed',
+'a valid alternative manifest generation cannot disagree with unchanged rows and resource claims');
+
+const alternativeResourceGenerationPlan = Object.assign({}, capacityPlan, {
+  acquisitions: capacityPlan.acquisitions.map(function(event, index) {
+    if (index === 0) return event;
+    return Object.assign({}, event, {
+      _id: event._id.replace('000001-a', '000002-a'),
+      generation: 2
+    });
+  })
+});
+assertThrows(function() {
+  context.rules.validatePhysicalCommit(
+    alternativeResourceGenerationPlan,
+    capacityPlan.bookingRows,
+    alternativeResourceGenerationPlan.acquisitions
+  );
+}, 'Physical commit verification failed',
+'a self-consistent alternative resource generation cannot bypass the original identity manifest');
+
 const wixDateRows = capacityPlan.bookingRows.map(function(row) {
   return Object.assign({}, row, {
     checkIn: new Date(row.checkIn + 'T12:00:00.000Z'),
@@ -789,19 +1235,10 @@ assertThrows(function() {
   ], 'booking-row-write-failed');
 }, 'Invalid rollback request', 'rollback planning cannot combine acquisitions from different operations');
 
-const activeUnitClaim = capacityPlan.acquisitions.filter(function(event) {
-  return event.claimKey === 'unit:2027-11-05:3';
-})[0];
 assertThrows(function() {
   context.rules.buildPhysicalCommitPlan(Object.assign({}, emptySnapshot, {
     occupiedUnitsByNight: { '2027-11-05': [] }
-  }), [
-    capacityPlan.acquisitions[0],
-    capacityPlan.acquisitions.filter(function(event) {
-      return event.claimKey === 'capacity:2027-11-05:1';
-    })[0],
-    activeUnitClaim
-  ], {
+  }), capacityPlan.acquisitions, {
     roomCode: 'adventure_suite',
     quantity: 1,
     checkIn: '2027-11-05',
@@ -1214,7 +1651,7 @@ const exhaustedAcquire = Object.assign({}, occupiedLedger[0], {
   _id: 'rc1-20271105-s1-999999-a',
   generation: 999999
 });
-const exhaustedRelease = Object.assign({}, releasedLedger[3], {
+const exhaustedRelease = Object.assign({}, releasedLedger[4], {
   _id: 'rc1-20271105-s1-999999-r',
   generation: 999999
 });
@@ -1223,7 +1660,7 @@ assertThrows(function() {
 }, 'Claim generation exhausted',
 'fully released generation 999999 fails closed before an unpersistable next generation is planned');
 
-const releaseWithoutReason = Object.assign({}, releasedLedger[3]);
+const releaseWithoutReason = Object.assign({}, releasedLedger[4]);
 delete releaseWithoutReason.releaseReason;
 assertThrows(function() {
   context.rules.buildPhysicalCommitPlan({

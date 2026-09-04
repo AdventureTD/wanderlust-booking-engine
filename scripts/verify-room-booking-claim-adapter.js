@@ -231,16 +231,242 @@ vm.runInContext(source, context);
     operationId: 'abcdefghijklmnopqrstuv',
     bookingRowId: 'pb1-abcdefghijklmnopqrstuv-r1',
     bookingNumber: 'WC-3001',
-    payloadDigest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+    payloadDigest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    manifestVersion: 1,
+    manifestCheckIn: '2027-11-05',
+    manifestCheckOut: '2027-11-06',
+    manifestRoomCode: 'adventure_suite',
+    manifestUnits: '3',
+    manifestBookingRowIds: 'pb1-abcdefghijklmnopqrstuv-r1',
+    manifestResourceClaimIds: 'rc1-20271105-s1-000001-a|rc1-20271105-u3-000001-a'
   };
+
+  function buildManifestBatch(operationId, checkIn, checkOut, units) {
+    const nights = [];
+    for (let day = new Date(checkIn + 'T00:00:00.000Z');
+      day < new Date(checkOut + 'T00:00:00.000Z');
+      day.setUTCDate(day.getUTCDate() + 1)) {
+      nights.push(day.toISOString().slice(0, 10));
+    }
+    const bookingNumber = 'WC-' + operationId;
+    const payloadDigest = 'd'.repeat(64);
+    const rowIds = units.map(function(unit, index) {
+      return 'pb1-' + operationId + '-r' + (index + 1);
+    });
+    const capacities = [];
+    const unitEvents = [];
+    nights.forEach(function(night) {
+      units.forEach(function(unit, index) {
+        const slot = index + 1;
+        capacities.push({
+          _id: 'rc1-' + night.replace(/-/g, '') + '-s' + slot + '-000001-a',
+          protocolVersion: 1,
+          claimKey: 'capacity:' + night + ':' + slot,
+          generation: 1,
+          eventType: 'acquire',
+          claimType: 'capacity',
+          night: night,
+          capacitySlot: slot,
+          operationId: operationId,
+          bookingRowId: rowIds[index],
+          bookingNumber: bookingNumber,
+          payloadDigest: payloadDigest
+        });
+        unitEvents.push({
+          _id: 'rc1-' + night.replace(/-/g, '') + '-u' + unit + '-000001-a',
+          protocolVersion: 1,
+          claimKey: 'unit:' + night + ':' + unit,
+          generation: 1,
+          eventType: 'acquire',
+          claimType: 'unit',
+          night: night,
+          unit: unit,
+          operationId: operationId,
+          bookingRowId: rowIds[index],
+          bookingNumber: bookingNumber,
+          payloadDigest: payloadDigest
+        });
+      });
+    });
+    const resources = capacities.concat(unitEvents);
+    return [
+      {
+        _id: 'rc1-op-' + operationId + '-a',
+        protocolVersion: 1,
+        claimKey: 'operation:' + operationId,
+        generation: 1,
+        eventType: 'acquire',
+        claimType: 'operation',
+        operationId: operationId,
+        bookingRowId: rowIds[0],
+        bookingNumber: bookingNumber,
+        payloadDigest: payloadDigest,
+        manifestVersion: 1,
+        manifestCheckIn: checkIn,
+        manifestCheckOut: checkOut,
+        manifestRoomCode: 'adventure_suite',
+        manifestUnits: units.join(','),
+        manifestBookingRowIds: rowIds.join('|'),
+        manifestResourceClaimIds: resources.map(function(event) { return event._id; }).join('|')
+      }
+    ].concat(resources);
+  }
+
+  for (const noncanonicalUnits of ['03', '+3', '3e0', '0x3', ' 3', '3 ', '3,']) {
+    let manifestEncodingIo = 0;
+    context.wixData = {
+      insert: async function() { manifestEncodingIo += 1; return {}; },
+      get: async function() { manifestEncodingIo += 1; return null; }
+    };
+    const noncanonicalIdentity = Object.assign({}, operationEvent, {
+      manifestUnits: noncanonicalUnits
+    });
+    assertEqual(await context.adapter.appendRoomClaimEvents([noncanonicalIdentity]), {
+      state: 'STOPPED',
+      confirmed: [],
+      failed: { index: 0, eventId: operationEvent._id, classification: 'INTEGRITY' }
+    }, 'operation manifest rejects noncanonical unit encoding ' + JSON.stringify(noncanonicalUnits));
+    assertEqual(manifestEncodingIo, 0,
+      'noncanonical unit encoding cannot reach Wix persistence');
+  }
+
+  const malformedManifests = [
+    ['missing version', function(identity) { delete identity.manifestVersion; }],
+    ['impossible check-in', function(identity) { identity.manifestCheckIn = '2027-02-30'; }],
+    ['reversed dates', function(identity) { identity.manifestCheckOut = '2027-11-04'; }],
+    ['ten-thousand-year date range', function(identity) {
+      identity.manifestCheckIn = '0000-01-01';
+      identity.manifestCheckOut = '9999-12-31';
+    }],
+    ['unknown room code', function(identity) { identity.manifestRoomCode = 'unknown_room'; }],
+    ['descending units', function(identity) { identity.manifestUnits = '4,3'; }],
+    ['malformed booking-row IDs', function(identity) { identity.manifestBookingRowIds = 'row-1'; }],
+    ['missing resource claim', function(identity) {
+      identity.manifestResourceClaimIds = 'rc1-20271105-s1-000001-a';
+    }],
+    ['duplicate resource claims', function(identity) {
+      identity.manifestResourceClaimIds =
+        'rc1-20271105-s1-000001-a|rc1-20271105-s1-000001-a';
+    }],
+    ['zero claim generation', function(identity) {
+      identity.manifestResourceClaimIds =
+        'rc1-20271105-s1-000000-a|rc1-20271105-u3-000001-a';
+    }],
+    ['overflow claim generation', function(identity) {
+      identity.manifestResourceClaimIds =
+        'rc1-20271105-s1-1000000-a|rc1-20271105-u3-000001-a';
+    }]
+  ];
+  for (const malformedManifest of malformedManifests) {
+    let malformedManifestIo = 0;
+    const identity = Object.assign({}, operationEvent);
+    malformedManifest[1](identity);
+    context.wixData = {
+      insert: async function() { malformedManifestIo += 1; return {}; },
+      get: async function() { malformedManifestIo += 1; return null; }
+    };
+    assertEqual(await context.adapter.appendRoomClaimEvents([identity]), {
+      state: 'STOPPED',
+      confirmed: [],
+      failed: { index: 0, eventId: operationEvent._id, classification: 'INTEGRITY' }
+    }, 'operation manifest rejects ' + malformedManifest[0]);
+    assertEqual(malformedManifestIo, 0,
+      malformedManifest[0] + ' manifest cannot reach Wix persistence');
+  }
+
+  async function confirmManifestBatch(batch, message) {
+    const store = new Map();
+    let writes = 0;
+    context.wixData = {
+      insert: async function(collection, item) {
+        writes += 1;
+        store.set(item._id, Object.assign({}, item));
+        return item;
+      },
+      get: async function(collection, id) { return store.get(id) || null; }
+    };
+    const result = await context.adapter.appendRoomClaimEvents(batch);
+    assertEqual({
+      state: result.state,
+      confirmed: result.confirmed.length,
+      writes: writes,
+      completionFence: store.has('rc1-op-' + batch[0].operationId + '-c')
+    }, {
+      state: 'CONFIRMED', confirmed: batch.length, writes: batch.length + 1, completionFence: true
+    }, message);
+  }
+
+  const multiNightBatch = buildManifestBatch(
+    'multinightmanifest01', '2027-11-05', '2027-11-07', [3, 4]);
+  await confirmManifestBatch(multiNightBatch,
+    'adapter confirms a canonical two-row two-night globally ordered manifest batch');
+
+  async function rejectCompleteManifestBatch(batch, message, failedIndex) {
+    const index = failedIndex === undefined ? 0 : failedIndex;
+    let io = 0;
+    context.wixData = {
+      insert: async function() { io += 1; return {}; },
+      get: async function() { io += 1; return null; }
+    };
+    assertEqual(await context.adapter.appendRoomClaimEvents(batch), {
+      state: 'STOPPED',
+      confirmed: [],
+      failed: { index: index, eventId: batch[index]._id, classification: 'INTEGRITY' }
+    }, message);
+    assertEqual(io, 0, message + ' before Wix persistence');
+  }
+
+  const shuffledMultiNightBatch = [
+    multiNightBatch[0],
+    multiNightBatch[3], multiNightBatch[4],
+    multiNightBatch[1], multiNightBatch[2]
+  ].concat(multiNightBatch.slice(5));
+  await rejectCompleteManifestBatch(shuffledMultiNightBatch,
+    'adapter rejects a complete multi-night batch whose resources are out of manifest order');
+
+  const noncanonicalCompleteBatch = buildManifestBatch(
+    'noncanonicalbatch001', '2027-11-05', '2027-11-07', [3, 4]);
+  noncanonicalCompleteBatch[0] = Object.assign({}, noncanonicalCompleteBatch[0], {
+    manifestUnits: '03,4'
+  });
+  await rejectCompleteManifestBatch(noncanonicalCompleteBatch,
+    'adapter rejects noncanonical unit aliases in an otherwise complete valid batch');
+
+  const maximumManifestBatch = buildManifestBatch(
+    'boundarymanifest0800', '2027-01-01', '2029-03-11', [3]);
+  await confirmManifestBatch(maximumManifestBatch,
+    'adapter accepts the exact 800-night manifest boundary');
+
+  const overflowManifestBatch = buildManifestBatch(
+    'boundarymanifest0801', '2027-01-01', '2029-03-12', [3]);
+  let overflowManifestIo = 0;
   context.wixData = {
-    insert: async function() { return { _id: operationEvent._id }; },
-    get: async function() { return operationEvent; }
+    insert: async function() { overflowManifestIo += 1; return {}; },
+    get: async function() { overflowManifestIo += 1; return null; }
+  };
+  assertEqual(await context.adapter.appendRoomClaimEvents(overflowManifestBatch), {
+    state: 'STOPPED',
+    confirmed: [],
+    failed: {
+      index: 0,
+      eventId: overflowManifestBatch[0]._id,
+      classification: 'INTEGRITY'
+    }
+  }, 'adapter rejects the 801-night manifest boundary');
+  assertEqual(overflowManifestIo, 0,
+    'the 801-night manifest boundary fails before Wix persistence');
+
+  let identityOnlyIo = 0;
+  context.wixData = {
+    insert: async function() { identityOnlyIo += 1; return { _id: operationEvent._id }; },
+    get: async function() { identityOnlyIo += 1; return operationEvent; }
   };
   assertEqual(await context.adapter.appendRoomClaimEvents([operationEvent]), {
-    state: 'CONFIRMED',
-    confirmed: [{ eventId: operationEvent._id, disposition: 'inserted' }]
-  }, 'a permanent operation identity event is authoritatively persisted');
+    state: 'STOPPED',
+    confirmed: [],
+    failed: { index: 0, eventId: operationEvent._id, classification: 'INTEGRITY' }
+  }, 'callers cannot intentionally persist an identity without its complete manifest batch');
+  assertEqual(identityOnlyIo, 0, 'identity-only batches fail before Wix persistence');
 
   let resourceOnlyWrites = 0;
   context.wixData = {
@@ -268,10 +494,10 @@ vm.runInContext(source, context);
   assertEqual(orphanCapacityWrites, 0, 'orphan capacity acquisition cannot reach Wix Data');
 
   const orphanUnitEvent = Object.assign({}, event, {
-    _id: 'rc1-20271105-u5-000001-a',
-    claimKey: 'unit:2027-11-05:5',
+    _id: 'rc1-20271105-u3-000001-a',
+    claimKey: 'unit:2027-11-05:3',
     claimType: 'unit',
-    unit: 5
+    unit: 3
   });
   delete orphanUnitEvent.capacitySlot;
   let orphanUnitWrites = 0;
@@ -373,9 +599,10 @@ vm.runInContext(source, context);
     night: '2027-11-06'
   });
   const secondNightUnit = Object.assign({}, orphanUnitEvent, {
-    _id: 'rc1-20271106-u5-000001-a',
-    claimKey: 'unit:2027-11-06:5',
-    night: '2027-11-06'
+    _id: 'rc1-20271106-u3-000001-a',
+    claimKey: 'unit:2027-11-06:3',
+    night: '2027-11-06',
+    unit: 3
   });
   let nightlyInterleavedWrites = 0;
   context.wixData = {
@@ -429,7 +656,11 @@ vm.runInContext(source, context);
     orphanUnitEvent
   ].map(function(item) { return [item._id, item]; }));
   context.wixData = {
-    insert: async function() { throw new Error('already exists'); },
+    insert: async function(collection, item) {
+      if (item._id !== 'rc1-op-' + operationEvent.operationId + '-c') throw new Error('already exists');
+      completedRetryStore.set(item._id, Object.assign({}, item));
+      return item;
+    },
     get: async function(collection, id) { return completedRetryStore.get(id) || null; }
   };
   assertEqual(await context.adapter.appendRoomClaimEvents([
@@ -444,10 +675,201 @@ vm.runInContext(source, context);
       { eventId: orphanUnitEvent._id, disposition: 'already-present' }
     ]
   }, 'an existing identity reconciles an entirely pre-existing exact batch');
+  assertEqual(completedRetryStore.has('rc1-op-' + operationEvent.operationId + '-c'), true,
+    'a reconciled complete acquisition receives its immutable completion fence');
+
+  const mismatchedManifest = Object.assign({}, operationEvent, {
+    manifestUnits: '4',
+    manifestResourceClaimIds: 'rc1-20271105-s1-000001-a|rc1-20271105-u4-000001-a'
+  });
+  let mismatchedManifestWrites = 0;
+  context.wixData = {
+    insert: async function() { mismatchedManifestWrites += 1; throw new Error('must not write'); },
+    get: async function() { mismatchedManifestWrites += 1; return null; }
+  };
+  assertEqual(await context.adapter.appendRoomClaimEvents([
+    mismatchedManifest,
+    event,
+    orphanUnitEvent
+  ]), {
+    state: 'STOPPED',
+    confirmed: [],
+    failed: { index: 0, eventId: mismatchedManifest._id, classification: 'INTEGRITY' }
+  }, 'operation manifest must exactly bind the resource acquisition batch');
+  assertEqual(mismatchedManifestWrites, 0,
+    'manifest and acquisition disagreement fails before Wix persistence');
+
+  const acquisitionRaceStore = new Map();
+  let releaseBlockedUnitInsert;
+  const blockedUnitInsert = new Promise(function(resolve) { releaseBlockedUnitInsert = resolve; });
+  let announceBlockedUnit;
+  const blockedUnitStarted = new Promise(function(resolve) { announceBlockedUnit = resolve; });
+  let unitWasBlocked = false;
+  context.wixData = {
+    insert: async function(collection, item) {
+      if (acquisitionRaceStore.has(item._id)) throw new Error('WDE0074');
+      if (item._id === orphanUnitEvent._id && !unitWasBlocked) {
+        unitWasBlocked = true;
+        announceBlockedUnit();
+        await blockedUnitInsert;
+      }
+      acquisitionRaceStore.set(item._id, Object.assign({}, item));
+      return { _id: item._id };
+    },
+    get: async function(collection, id) { return acquisitionRaceStore.get(id) || null; }
+  };
+  const racingAcquisition = context.adapter.appendRoomClaimEvents([
+    operationEvent, event, orphanUnitEvent
+  ]);
+  await blockedUnitStarted;
+  const racingReleaseEvent = Object.assign({}, event, {
+    _id: event._id.slice(0, -1) + 'r',
+    eventType: 'release',
+    releaseReason: 'concurrent-compensation-attempt'
+  });
+  const racingRelease = await context.adapter.appendRoomClaimEvents([racingReleaseEvent]);
+  releaseBlockedUnitInsert();
+  const racingAcquisitionResult = await racingAcquisition;
+  assertEqual(racingRelease, {
+    state: 'STOPPED',
+    confirmed: [],
+    failed: { index: 0, eventId: racingReleaseEvent._id, classification: 'INTEGRITY' }
+  }, 'compensation cannot race an acquisition before its completion fence');
+  assertEqual({
+    acquisitionState: racingAcquisitionResult.state,
+    hasCapacityRelease: acquisitionRaceStore.has(racingReleaseEvent._id),
+    hasUnitAcquire: acquisitionRaceStore.has(orphanUnitEvent._id),
+    hasCompletionFence: acquisitionRaceStore.has('rc1-op-' + operationEvent.operationId + '-c')
+  }, {
+    acquisitionState: 'CONFIRMED',
+    hasCapacityRelease: false,
+    hasUnitAcquire: true,
+    hasCompletionFence: true
+  }, 'the acquisition completes without an interleaved release and records its completion fence');
+
+  async function verifyCompletionFailure(storedCompletion, classification, message) {
+    const store = new Map();
+    const completionId = 'rc1-op-' + operationEvent.operationId + '-c';
+    context.wixData = {
+      insert: async function(collection, item) {
+        if (item._id === completionId) {
+          if (storedCompletion) store.set(completionId, Object.assign({}, storedCompletion));
+          return { _id: completionId };
+        }
+        store.set(item._id, Object.assign({}, item));
+        return item;
+      },
+      get: async function(collection, id) { return store.get(id) || null; }
+    };
+    const result = await context.adapter.appendRoomClaimEvents([
+      operationEvent, event, orphanUnitEvent
+    ]);
+    assertEqual(result, {
+      state: 'STOPPED',
+      confirmed: [
+        { eventId: operationEvent._id, disposition: 'inserted' },
+        { eventId: event._id, disposition: 'inserted' },
+        { eventId: orphanUnitEvent._id, disposition: 'inserted' }
+      ],
+      failed: { index: 3, eventId: completionId, classification: classification }
+    }, message);
+  }
+  await verifyCompletionFailure(null, 'UNRESOLVED',
+    'a missing authoritative completion-fence read leaves the acquired prefix unresolved');
+  await verifyCompletionFailure(Object.assign({},
+    acquisitionRaceStore.get('rc1-op-' + operationEvent.operationId + '-c'), {
+      completionState: 'stopped', confirmedResourceCount: 2
+    }), 'INTEGRITY',
+  'a conflicting deterministic completion fence fails the completed acquisition closed');
+
+  const partialStopStore = new Map();
+  const contendingUnit = Object.assign({}, orphanUnitEvent, {
+    operationId: 'partialstopcompetitor1',
+    bookingRowId: 'pb1-partialstopcompetitor1-r1',
+    bookingNumber: 'WC-PARTIAL-COMPETITOR',
+    payloadDigest: '2626262626262626262626262626262626262626262626262626262626262626'
+  });
+  partialStopStore.set(contendingUnit._id, contendingUnit);
+  context.wixData = {
+    insert: async function(collection, item) {
+      if (partialStopStore.has(item._id)) throw new Error('WDE0074');
+      partialStopStore.set(item._id, Object.assign({}, item));
+      return item;
+    },
+    get: async function(collection, id) { return partialStopStore.get(id) || null; }
+  };
+  const partialStopResult = await context.adapter.appendRoomClaimEvents([
+    operationEvent, event, orphanUnitEvent
+  ]);
+  assertEqual(partialStopResult.failed, {
+    index: 2, eventId: orphanUnitEvent._id, classification: 'CONTENTION'
+  }, 'a conclusive partial acquisition stops at the contended resource');
+  assertEqual(partialStopStore.get('rc1-op-' + operationEvent.operationId + '-c'), {
+    _id: 'rc1-op-' + operationEvent.operationId + '-c',
+    protocolVersion: 1,
+    claimKey: 'operation:' + operationEvent.operationId + ':completion',
+    generation: 1,
+    eventType: 'complete',
+    claimType: 'operation-completion',
+    operationId: operationEvent.operationId,
+    bookingRowId: operationEvent.bookingRowId,
+    bookingNumber: operationEvent.bookingNumber,
+    payloadDigest: operationEvent.payloadDigest,
+    completionState: 'stopped',
+    confirmedResourceCount: 1
+  }, 'a conclusive partial writer records an exact stopped-prefix fence');
+  const stoppedCapacityRelease = Object.assign({}, event, {
+    _id: event._id.slice(0, -1) + 'r',
+    eventType: 'release',
+    releaseReason: 'compensate-conclusive-partial-stop'
+  });
+  assertEqual((await context.adapter.appendRoomClaimEvents([
+    stoppedCapacityRelease
+  ])).state, 'CONFIRMED',
+  'a conclusively stopped acquisition prefix can be compensated safely');
+
+  async function verifyStoppedFenceFailure(storedFence, classification, message) {
+    const store = new Map([[contendingUnit._id, Object.assign({}, contendingUnit)]]);
+    const completionId = 'rc1-op-' + operationEvent.operationId + '-c';
+    context.wixData = {
+      insert: async function(collection, item) {
+        if (item._id === completionId) {
+          if (storedFence) store.set(completionId, Object.assign({}, storedFence));
+          return { _id: completionId };
+        }
+        if (store.has(item._id)) throw new Error('WDE0074');
+        store.set(item._id, Object.assign({}, item));
+        return item;
+      },
+      get: async function(collection, id) { return store.get(id) || null; }
+    };
+    assertEqual(await context.adapter.appendRoomClaimEvents([
+      operationEvent, event, orphanUnitEvent
+    ]), {
+      state: 'STOPPED',
+      confirmed: [
+        { eventId: operationEvent._id, disposition: 'inserted' },
+        { eventId: event._id, disposition: 'inserted' }
+      ],
+      failed: { index: 2, eventId: completionId, classification: classification }
+    }, message);
+  }
+
+  await verifyStoppedFenceFailure(null, 'UNRESOLVED',
+    'an unresolved stopped-fence readback supersedes the resource contention result');
+  await verifyStoppedFenceFailure(Object.assign({},
+    partialStopStore.get('rc1-op-' + operationEvent.operationId + '-c'), {
+      completionState: 'complete', confirmedResourceCount: 2
+    }), 'INTEGRITY',
+    'a conflicting stopped fence supersedes the resource contention result');
 
   const competingOperation = Object.assign({}, operationEvent, {
     bookingNumber: 'WC-3002',
-    payloadDigest: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+    payloadDigest: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    manifestCheckIn: '2027-11-06',
+    manifestCheckOut: '2027-11-07',
+    manifestUnits: '4',
+    manifestResourceClaimIds: 'rc1-20271106-s1-000001-a|rc1-20271106-u4-000001-a'
   });
   const disjointResource = Object.assign({}, event, {
     _id: 'rc1-20271106-s1-000001-a',
@@ -464,6 +886,72 @@ vm.runInContext(source, context);
     bookingNumber: competingOperation.bookingNumber,
     payloadDigest: competingOperation.payloadDigest
   });
+
+  const secondOperationId = 'multioperationbatch02';
+  const secondOperationIdentity = Object.assign({}, operationEvent, {
+    _id: 'rc1-op-' + secondOperationId + '-a',
+    claimKey: 'operation:' + secondOperationId,
+    operationId: secondOperationId,
+    bookingRowId: 'pb1-' + secondOperationId + '-r1',
+    bookingNumber: 'WC-MULTI-OP-2',
+    payloadDigest: '2727272727272727272727272727272727272727272727272727272727272727',
+    manifestCheckIn: '2027-11-06',
+    manifestCheckOut: '2027-11-07',
+    manifestUnits: '4',
+    manifestBookingRowIds: 'pb1-' + secondOperationId + '-r1',
+    manifestResourceClaimIds: 'rc1-20271106-s1-000001-a|rc1-20271106-u4-000001-a'
+  });
+  const multiBatchCapacity = Object.assign({}, event, {
+    _id: 'rc1-20271106-s1-000001-a',
+    claimKey: 'capacity:2027-11-06:1',
+    night: '2027-11-06',
+    operationId: secondOperationId,
+    bookingRowId: secondOperationIdentity.bookingRowId,
+    bookingNumber: secondOperationIdentity.bookingNumber,
+    payloadDigest: secondOperationIdentity.payloadDigest
+  });
+  const multiBatchUnit = Object.assign({}, orphanUnitEvent, {
+    _id: 'rc1-20271106-u4-000001-a',
+    claimKey: 'unit:2027-11-06:4',
+    night: '2027-11-06',
+    unit: 4,
+    operationId: secondOperationId,
+    bookingRowId: secondOperationIdentity.bookingRowId,
+    bookingNumber: secondOperationIdentity.bookingNumber,
+    payloadDigest: secondOperationIdentity.payloadDigest
+  });
+  const foreignSecondUnit = Object.assign({}, multiBatchUnit, {
+    operationId: 'multioperationforeign1',
+    bookingRowId: 'pb1-multioperationforeign1-r1',
+    bookingNumber: 'WC-MULTI-FOREIGN',
+    payloadDigest: '2828282828282828282828282828282828282828282828282828282828282828'
+  });
+  const multiOperationStore = new Map([[foreignSecondUnit._id, foreignSecondUnit]]);
+  let multiOperationIo = 0;
+  context.wixData = {
+    insert: async function(collection, item) {
+      multiOperationIo += 1;
+      if (multiOperationStore.has(item._id)) throw new Error('WDE0074');
+      multiOperationStore.set(item._id, Object.assign({}, item));
+      return item;
+    },
+    get: async function(collection, id) {
+      multiOperationIo += 1;
+      return multiOperationStore.get(id) || null;
+    }
+  };
+  assertEqual(await context.adapter.appendRoomClaimEvents([
+    operationEvent, secondOperationIdentity,
+    event, multiBatchCapacity,
+    orphanUnitEvent, multiBatchUnit
+  ]), {
+    state: 'STOPPED',
+    confirmed: [],
+    failed: { index: 1, eventId: secondOperationIdentity._id, classification: 'INTEGRITY' }
+  }, 'one append batch cannot contain more than one operation');
+  assertEqual(multiOperationIo, 0,
+    'multi-operation batches fail before an earlier operation can be stranded without a fence');
+
   const concurrentStore = new Map();
   context.wixData = {
     insert: async function(collection, item) {
@@ -498,8 +986,44 @@ vm.runInContext(source, context);
     const operationId = 'capacityowner000' + ownerNumber;
     const bookingNumber = 'WC-CAPACITY-' + ownerNumber;
     const payloadDigest = String(ownerNumber).repeat(64);
-    const bookingRowId = 'pb1-' + operationId + '-r1';
-    return [{
+    const units = unit === 5 ? [3, 4, 5] : [unit];
+    const slots = unit === 5 ? [1, 2, 3] : [slot];
+    const rowIds = units.map(function(value, index) {
+      return 'pb1-' + operationId + '-r' + (index + 1);
+    });
+    const capacities = slots.map(function(capacitySlot, index) {
+      return {
+        _id: 'rc1-20271108-s' + capacitySlot + '-000001-a',
+        protocolVersion: 1,
+        claimKey: 'capacity:2027-11-08:' + capacitySlot,
+        generation: 1,
+        eventType: 'acquire',
+        claimType: 'capacity',
+        night: '2027-11-08',
+        capacitySlot: capacitySlot,
+        operationId: operationId,
+        bookingRowId: rowIds[index],
+        bookingNumber: bookingNumber,
+        payloadDigest: payloadDigest
+      };
+    });
+    const unitEvents = units.map(function(assignedUnit, index) {
+      return {
+        _id: 'rc1-20271108-u' + assignedUnit + '-000001-a',
+        protocolVersion: 1,
+        claimKey: 'unit:2027-11-08:' + assignedUnit,
+        generation: 1,
+        eventType: 'acquire',
+        claimType: 'unit',
+        night: '2027-11-08',
+        unit: assignedUnit,
+        operationId: operationId,
+        bookingRowId: rowIds[index],
+        bookingNumber: bookingNumber,
+        payloadDigest: payloadDigest
+      };
+    });
+    const identity = {
       _id: 'rc1-op-' + operationId + '-a',
       protocolVersion: 1,
       claimKey: 'operation:' + operationId,
@@ -507,36 +1031,21 @@ vm.runInContext(source, context);
       eventType: 'acquire',
       claimType: 'operation',
       operationId: operationId,
-      bookingRowId: bookingRowId,
+      bookingRowId: rowIds[0],
       bookingNumber: bookingNumber,
-      payloadDigest: payloadDigest
-    }, {
-      _id: 'rc1-20271108-s' + slot + '-000001-a',
-      protocolVersion: 1,
-      claimKey: 'capacity:2027-11-08:' + slot,
-      generation: 1,
-      eventType: 'acquire',
-      claimType: 'capacity',
-      night: '2027-11-08',
-      capacitySlot: slot,
-      operationId: operationId,
-      bookingRowId: bookingRowId,
-      bookingNumber: bookingNumber,
-      payloadDigest: payloadDigest
-    }, {
-      _id: 'rc1-20271108-u' + unit + '-000001-a',
-      protocolVersion: 1,
-      claimKey: 'unit:2027-11-08:' + unit,
-      generation: 1,
-      eventType: 'acquire',
-      claimType: 'unit',
-      night: '2027-11-08',
-      unit: unit,
-      operationId: operationId,
-      bookingRowId: bookingRowId,
-      bookingNumber: bookingNumber,
-      payloadDigest: payloadDigest
-    }];
+      payloadDigest: payloadDigest,
+      manifestVersion: 1,
+      manifestCheckIn: '2027-11-08',
+      manifestCheckOut: '2027-11-09',
+      manifestRoomCode: unit === 1 ? 'penthouse_apartment' :
+        (unit === 2 ? 'two_bedroom_apartment' : 'adventure_suite'),
+      manifestUnits: units.join(','),
+      manifestBookingRowIds: rowIds.join('|'),
+      manifestResourceClaimIds: capacities.concat(unitEvents).map(function(item) {
+        return item._id;
+      }).join('|')
+    };
+    return [identity].concat(capacities, unitEvents);
   }
   const capacityRaceStore = new Map();
   context.wixData = {
@@ -581,32 +1090,74 @@ vm.runInContext(source, context);
           candidate.payloadDigest === resource.payloadDigest;
       });
       if (hasUnit) return;
+      const rowNumber = Number(resource.bookingRowId.slice(resource.bookingRowId.lastIndexOf('r') + 1));
+      const syntheticUnit = Math.min(5, 2 + rowNumber);
       const synthetic = Object.assign({}, resource, {
-        _id: 'rc1-' + resource.night.replace(/-/g, '') + '-u5-' +
+        _id: 'rc1-' + resource.night.replace(/-/g, '') + '-u' + syntheticUnit + '-' +
           String(resource.generation).padStart(6, '0') + '-a',
-        claimKey: 'unit:' + resource.night + ':5',
+        claimKey: 'unit:' + resource.night + ':' + syntheticUnit,
         claimType: 'unit',
-        unit: 5
+        unit: syntheticUnit
       });
       delete synthetic.capacitySlot;
       syntheticUnits.push(synthetic);
     });
     const syntheticById = Object.create(null);
     syntheticUnits.forEach(function(item) { syntheticById[item._id] = item; });
+    const completeResources = resourceEvents.concat(syntheticUnits);
+    const manifestResources = completeResources.filter(function(item, index, all) {
+      return all.findIndex(function(candidate) { return candidate._id === item._id; }) === index;
+    });
+    const manifestNights = manifestResources.map(function(item) { return item.night; })
+      .filter(function(night, index, all) { return all.indexOf(night) === index; })
+      .sort();
+    const manifestRows = manifestResources.map(function(item) { return item.bookingRowId; })
+      .filter(function(rowId, index, all) { return all.indexOf(rowId) === index; })
+      .sort(function(left, right) {
+        return Number(left.slice(left.lastIndexOf('r') + 1)) - Number(right.slice(right.lastIndexOf('r') + 1));
+      });
+    const manifestUnits = manifestRows.map(function(rowId) {
+      const unitEventForRow = manifestResources.find(function(item) {
+        return item.claimType === 'unit' && item.bookingRowId === rowId;
+      });
+      return unitEventForRow.unit;
+    });
+    const manifestRoomCode = manifestUnits.every(function(unit) { return unit >= 3; })
+      ? 'adventure_suite'
+      : (manifestUnits.length === 1 && manifestUnits[0] === 2
+        ? 'two_bedroom_apartment'
+        : 'penthouse_apartment');
+    const manifestEnd = new Date(manifestNights[manifestNights.length - 1] + 'T00:00:00.000Z');
+    manifestEnd.setUTCDate(manifestEnd.getUTCDate() + 1);
+    const syntheticIdentity = Object.assign({}, operationEvent, {
+      manifestCheckIn: manifestNights[0],
+      manifestCheckOut: manifestEnd.toISOString().slice(0, 10),
+      manifestRoomCode: manifestRoomCode,
+      manifestUnits: manifestUnits.join(','),
+      manifestBookingRowIds: manifestRows.join('|'),
+      manifestResourceClaimIds: manifestResources.map(function(item) { return item._id; }).join('|')
+    });
+    const completionStore = new Map();
     context.wixData = {
       insert: async function(collection, item, options) {
-        if (item._id === operationEvent._id || syntheticById[item._id]) return { _id: item._id };
+        if (item.claimType === 'operation-completion') {
+          if (completionStore.has(item._id)) throw new Error('WDE0074');
+          completionStore.set(item._id, Object.assign({}, item));
+          return { _id: item._id };
+        }
+        if (item._id === syntheticIdentity._id || syntheticById[item._id]) return { _id: item._id };
         return resourceWixData.insert(collection, item, options);
       },
       get: async function(collection, id, options) {
-        if (id === operationEvent._id) return operationEvent;
+        if (completionStore.has(id)) return completionStore.get(id);
+        if (id === syntheticIdentity._id) return syntheticIdentity;
         if (syntheticById[id]) return syntheticById[id];
         return resourceWixData.get(collection, id, options);
       }
     };
     try {
       const result = await context.adapter.appendRoomClaimEvents(
-        [operationEvent].concat(resourceEvents, syntheticUnits)
+        [syntheticIdentity].concat(completeResources)
       );
       result.confirmed = result.confirmed.filter(function(item) {
         return item.eventId !== operationEvent._id && !syntheticById[item.eventId];
@@ -806,27 +1357,216 @@ vm.runInContext(source, context);
     gets: [operationEvent._id]
   }, 'missing operation identity stops compensation before acquire lookup');
 
+  const manifestOmittingReleaseAcquire = Object.assign({}, operationEvent, {
+    manifestResourceClaimIds: 'rc1-20271105-s2-000001-a|rc1-20271105-u3-000001-a'
+  });
+  const omittedAcquireCalls = { inserts: 0, gets: [] };
+  context.wixData = {
+    insert: async function() { omittedAcquireCalls.inserts += 1; return releaseEvent; },
+    get: async function(collection, id) {
+      omittedAcquireCalls.gets.push(id);
+      return id === operationEvent._id ? manifestOmittingReleaseAcquire : event;
+    }
+  };
+  assertEqual(await context.adapter.appendRoomClaimEvents([releaseEvent]), {
+    state: 'STOPPED',
+    confirmed: [],
+    failed: { index: 0, eventId: releaseEvent._id, classification: 'INTEGRITY' }
+  }, 'compensation requires the exact acquire to be declared by its operation manifest');
+  assertEqual(omittedAcquireCalls, {
+    inserts: 0,
+    gets: [operationEvent._id, 'rc1-20271105-s2-000001-a']
+  }, 'manifest authorization fails while reading the declared prefix before release insertion');
+
+  const unitReleaseEvent = Object.assign({}, orphanUnitEvent, {
+    _id: orphanUnitEvent._id.slice(0, -1) + 'r',
+    eventType: 'release',
+    releaseReason: 'non-prefix-recovery-attempt'
+  });
+  const nonPrefixReleaseCalls = { inserts: 0, gets: [] };
+  context.wixData = {
+    insert: async function() { nonPrefixReleaseCalls.inserts += 1; return unitReleaseEvent; },
+    get: async function(collection, id) {
+      nonPrefixReleaseCalls.gets.push(id);
+      if (id === operationEvent._id) return operationEvent;
+      if (id === orphanUnitEvent._id) return orphanUnitEvent;
+      if (id === unitReleaseEvent._id) return unitReleaseEvent;
+      return null;
+    }
+  };
+  assertEqual(await context.adapter.appendRoomClaimEvents([unitReleaseEvent]), {
+    state: 'STOPPED',
+    confirmed: [],
+    failed: { index: 0, eventId: unitReleaseEvent._id, classification: 'INTEGRITY' }
+  }, 'release rejects a stored acquisition that is not an exact operation-manifest prefix');
+  assertEqual(nonPrefixReleaseCalls.inserts, 0,
+    'non-prefix release authorization cannot reach persistence');
+
+  const stoppedPrefixFence = {
+    _id: 'rc1-op-' + operationEvent.operationId + '-c',
+    protocolVersion: 1,
+    claimKey: 'operation:' + operationEvent.operationId + ':completion',
+    generation: 1,
+    eventType: 'complete',
+    claimType: 'operation-completion',
+    operationId: operationEvent.operationId,
+    bookingRowId: operationEvent.bookingRowId,
+    bookingNumber: operationEvent.bookingNumber,
+    payloadDigest: operationEvent.payloadDigest,
+    completionState: 'stopped',
+    confirmedResourceCount: 1
+  };
+  const stoppedPrefixStore = new Map([
+    operationEvent, event, stoppedPrefixFence
+  ].map(function(item) { return [item._id, Object.assign({}, item)]; }));
+  context.wixData = {
+    insert: async function(collection, item) {
+      if (stoppedPrefixStore.has(item._id)) throw new Error('WDE0074');
+      stoppedPrefixStore.set(item._id, Object.assign({}, item));
+      return item;
+    },
+    get: async function(collection, id) { return stoppedPrefixStore.get(id) || null; }
+  };
+  assertEqual(await context.adapter.appendRoomClaimEvents([releaseEvent]), {
+    state: 'CONFIRMED',
+    confirmed: [{ eventId: releaseEvent._id, disposition: 'inserted' }]
+  }, 'an exact stopped acquisition prefix can be compensated after its terminal fence');
+
+  let injectedCompletionIo = 0;
+  context.wixData = {
+    insert: async function() { injectedCompletionIo += 1; return stoppedPrefixFence; },
+    get: async function() { injectedCompletionIo += 1; return stoppedPrefixFence; }
+  };
+  assertEqual(await context.adapter.appendRoomClaimEvents([stoppedPrefixFence]), {
+    state: 'STOPPED',
+    confirmed: [],
+    failed: { index: 0, eventId: stoppedPrefixFence._id, classification: 'INTEGRITY' }
+  }, 'normal append callers cannot inject operation terminal fences');
+  assertEqual(injectedCompletionIo, 0,
+    'caller-supplied terminal fences fail before Wix persistence');
+
+  const fullReleaseFence = acquisitionRaceStore.get(
+    'rc1-op-' + operationEvent.operationId + '-c');
+
+  async function rejectInvalidFullReleaseFence(fenceMutation, message) {
+    const fence = Object.assign({}, fullReleaseFence);
+    fenceMutation(fence);
+    const store = new Map([
+      operationEvent, event, orphanUnitEvent, fence
+    ].map(function(item) { return [item._id, Object.assign({}, item)]; }));
+    let inserts = 0;
+    context.wixData = {
+      insert: async function() { inserts += 1; return {}; },
+      get: async function(collection, id) { return store.get(id) || null; }
+    };
+    const unitRelease = Object.assign({}, orphanUnitEvent, {
+      _id: orphanUnitEvent._id.slice(0, -1) + 'r',
+      eventType: 'release',
+      releaseReason: 'terminal-fence-probe'
+    });
+    assertEqual(await context.adapter.appendRoomClaimEvents([unitRelease]), {
+      state: 'STOPPED',
+      confirmed: [],
+      failed: { index: 0, eventId: unitRelease._id, classification: 'INTEGRITY' }
+    }, message);
+    assertEqual(inserts, 0, message + ' before release insertion');
+  }
+
+  await rejectInvalidFullReleaseFence(function(fence) {
+    fence.confirmedResourceCount = 1;
+  }, 'release rejects a completion fence whose count differs from its full acquisition prefix');
+  await rejectInvalidFullReleaseFence(function(fence) {
+    fence.completionState = 'stopped';
+  }, 'release rejects a stopped fence that claims a full manifest');
+
+  const forwardReleaseStore = new Map([
+    operationEvent, event, orphanUnitEvent, fullReleaseFence
+  ].map(function(item) { return [item._id, Object.assign({}, item)]; }));
+  let forwardReleaseWrites = 0;
+  context.wixData = {
+    insert: async function(collection, item) {
+      forwardReleaseWrites += 1;
+      forwardReleaseStore.set(item._id, Object.assign({}, item));
+      return item;
+    },
+    get: async function(collection, id) { return forwardReleaseStore.get(id) || null; }
+  };
+  assertEqual(await context.adapter.appendRoomClaimEvents([releaseEvent]), {
+    state: 'STOPPED',
+    confirmed: [],
+    failed: { index: 0, eventId: releaseEvent._id, classification: 'INTEGRITY' }
+  }, 'capacity cannot be released while its later unit acquisition remains active');
+  assertEqual(forwardReleaseWrites, 0,
+    'forward-order compensation cannot reach persistence');
+
+  const reverseReleaseStore = new Map([
+    operationEvent, event, orphanUnitEvent, fullReleaseFence
+  ].map(function(item) { return [item._id, Object.assign({}, item)]; }));
+  context.wixData = {
+    insert: async function(collection, item) {
+      if (reverseReleaseStore.has(item._id)) throw new Error('WDE0074');
+      reverseReleaseStore.set(item._id, Object.assign({}, item));
+      return item;
+    },
+    get: async function(collection, id) { return reverseReleaseStore.get(id) || null; }
+  };
+  const reverseUnitRelease = Object.assign({}, orphanUnitEvent, {
+    _id: orphanUnitEvent._id.slice(0, -1) + 'r',
+    eventType: 'release',
+    releaseReason: 'reverse-order-compensation'
+  });
+  const reverseCapacityRelease = Object.assign({}, releaseEvent, {
+    releaseReason: 'reverse-order-compensation'
+  });
+  assertEqual((await context.adapter.appendRoomClaimEvents([
+    reverseUnitRelease, reverseCapacityRelease
+  ])).state, 'CONFIRMED',
+  'a completed operation can be compensated in reverse resource-acquisition order');
+
   async function appendReleases(releaseEvents) {
     const releaseWixData = context.wixData;
     const owner = releaseEvents[0];
-    const releaseIdentity = {
+    const releaseIdentity = Object.assign({}, operationEvent, {
       _id: 'rc1-op-' + owner.operationId + '-a',
-      protocolVersion: 1,
       claimKey: 'operation:' + owner.operationId,
-      generation: 1,
-      eventType: 'acquire',
-      claimType: 'operation',
       operationId: owner.operationId,
       bookingRowId: 'pb1-' + owner.operationId + '-r1',
       bookingNumber: owner.bookingNumber,
       payloadDigest: owner.payloadDigest
+    });
+    const releaseCompletion = {
+      _id: 'rc1-op-' + owner.operationId + '-c',
+      protocolVersion: 1,
+      claimKey: 'operation:' + owner.operationId + ':completion',
+      generation: 1,
+      eventType: 'complete',
+      claimType: 'operation-completion',
+      operationId: owner.operationId,
+      bookingRowId: 'pb1-' + owner.operationId + '-r1',
+      bookingNumber: owner.bookingNumber,
+      payloadDigest: owner.payloadDigest,
+      completionState: 'complete',
+      confirmedResourceCount: releaseIdentity.manifestResourceClaimIds.split('|').length
     };
+    const priorUnitReleaseForCapacity = Object.assign({}, orphanUnitEvent, {
+      _id: orphanUnitEvent._id.slice(0, -1) + 'r',
+      eventType: 'release',
+      operationId: owner.operationId,
+      bookingRowId: owner.bookingRowId,
+      bookingNumber: owner.bookingNumber,
+      payloadDigest: owner.payloadDigest,
+      releaseReason: 'prior-reverse-order-compensation'
+    });
     context.wixData = {
       insert: function(collection, item, options) {
         return releaseWixData.insert(collection, item, options);
       },
       get: async function(collection, id, options) {
         if (id === releaseIdentity._id) return releaseIdentity;
+        if (id === releaseCompletion._id) return releaseCompletion;
+        if (owner.claimType === 'capacity' && id === priorUnitReleaseForCapacity._id) {
+          return priorUnitReleaseForCapacity;
+        }
         return releaseWixData.get(collection, id, options);
       }
     };
@@ -849,8 +1589,8 @@ vm.runInContext(source, context);
   }, 'a compensation release requires an existing authoritative acquire');
   assertEqual(missingAcquireCalls, {
     inserts: 0,
-    gets: [event._id]
-  }, 'a missing acquire prevents release insertion');
+    gets: [event._id, orphanUnitEvent._id]
+  }, 'a missing acquire prevents release insertion after the full declared prefix is checked');
 
   let unreadableAcquireInserts = 0;
   context.wixData = {
@@ -866,15 +1606,18 @@ vm.runInContext(source, context);
     'acquire-read uncertainty prevents release insertion');
 
   context.wixData = {
-    insert: async function() { return { _id: releaseEvent._id }; },
+    insert: async function() { return { _id: unitReleaseEvent._id }; },
     get: async function(collection, id) {
       if (id === event._id) return Object.assign({ _createdDate: 'system-field' }, event);
-      return Object.assign({ _createdDate: 'system-field' }, releaseEvent);
+      if (id === orphanUnitEvent._id) {
+        return Object.assign({ _createdDate: 'system-field' }, orphanUnitEvent);
+      }
+      return Object.assign({ _createdDate: 'system-field' }, unitReleaseEvent);
     }
   };
-  assertEqual(await appendReleases([releaseEvent]), {
+  assertEqual(await appendReleases([unitReleaseEvent]), {
     state: 'CONFIRMED',
-    confirmed: [{ eventId: releaseEvent._id, disposition: 'inserted' }]
+    confirmed: [{ eventId: unitReleaseEvent._id, disposition: 'inserted' }]
   }, 'append-only compensation releases are confirmed through authoritative read-back');
 
   const foreignRelease = Object.assign({}, releaseEvent, {
@@ -904,7 +1647,9 @@ vm.runInContext(source, context);
   context.wixData = {
     insert: async function() { throw new Error('already exists'); },
     get: async function(collection, id) {
-      return id === event._id ? event : releaseEvent;
+      if (id === event._id) return event;
+      if (id === orphanUnitEvent._id) return orphanUnitEvent;
+      return releaseEvent;
     }
   };
   assertEqual(await appendReleases([releaseEvent]), {
@@ -925,6 +1670,20 @@ vm.runInContext(source, context);
   }, 'a malformed requested event is rejected before persistence');
   assertEqual(malformedCalls, { inserts: 0, gets: 0 },
     'invalid claim events cannot reach Wix insert or read-back');
+
+  const resourceManifestField = Object.assign({}, event, { manifestVersion: 1 });
+  let resourceManifestFieldIo = 0;
+  context.wixData = {
+    insert: async function() { resourceManifestFieldIo += 1; return resourceManifestField; },
+    get: async function() { resourceManifestFieldIo += 1; return resourceManifestField; }
+  };
+  assertEqual(await appendResources([resourceManifestField]), {
+    state: 'STOPPED',
+    confirmed: [],
+    failed: { index: 0, eventId: resourceManifestField._id, classification: 'INTEGRITY' }
+  }, 'manifest-only fields are forbidden on resource events');
+  assertEqual(resourceManifestFieldIo, 0,
+    'resource events carrying manifest metadata fail before Wix persistence');
 
   const lateMalformedCalls = { inserts: 0, gets: 0 };
   context.wixData = {
@@ -1055,8 +1814,11 @@ vm.runInContext(source, context);
     generation: 2
   });
   const generationTwoUnit = Object.assign({}, orphanUnitEvent, {
-    _id: 'rc1-20271105-u5-000002-a',
+    _id: 'rc1-20271105-u3-000002-a',
     generation: 2
+  });
+  const generationTwoOperation = Object.assign({}, operationEvent, {
+    manifestResourceClaimIds: generationTwoCapacity._id + '|' + generationTwoUnit._id
   });
   let generationGapWrites = 0;
   let generationGapReads = 0;
@@ -1074,7 +1836,7 @@ vm.runInContext(source, context);
     get: async function() { generationGapReads += 1; return null; }
   };
   assertEqual(await context.adapter.appendRoomClaimEvents([
-    operationEvent,
+    generationTwoOperation,
     generationTwoCapacity,
     generationTwoUnit
   ]), {
@@ -1091,7 +1853,9 @@ vm.runInContext(source, context);
     operationId: 'priorgenerationop01',
     bookingRowId: 'pb1-priorgenerationop01-r1',
     bookingNumber: 'WC-PRIOR',
-    payloadDigest: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+    payloadDigest: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    manifestBookingRowIds: 'pb1-priorgenerationop01-r1',
+    manifestResourceClaimIds: 'rc1-20271105-s1-000001-a|rc1-20271105-u3-000001-a'
   });
   function priorOwner(eventToCopy) {
     return Object.assign({}, eventToCopy, {
@@ -1115,13 +1879,83 @@ vm.runInContext(source, context);
     eventType: 'release',
     releaseReason: 'prior-booking-rollback'
   });
+  const priorCompletion = {
+    _id: 'rc1-op-' + priorOperation.operationId + '-c',
+    protocolVersion: 1,
+    claimKey: 'operation:' + priorOperation.operationId + ':completion',
+    generation: 1,
+    eventType: 'complete',
+    claimType: 'operation-completion',
+    operationId: priorOperation.operationId,
+    bookingRowId: priorOperation.bookingRowId,
+    bookingNumber: priorOperation.bookingNumber,
+    payloadDigest: priorOperation.payloadDigest,
+    completionState: 'complete',
+    confirmedResourceCount: priorOperation.manifestResourceClaimIds.split('|').length
+  };
   const validGenerationStore = new Map([
     priorOperation,
+    priorCompletion,
     priorCapacity,
     priorCapacityRelease,
     priorUnit,
     priorUnitRelease
   ].map(function(item) { return [item._id, item]; }));
+
+  async function verifyRejectedGenerationHistory(items, message) {
+    let writes = 0;
+    context.wixData = {
+      query: function() {
+        return {
+          limit: function() { return this; },
+          find: async function() {
+            return { items: items, hasNext: function() { return false; } };
+          }
+        };
+      },
+      insert: async function() { writes += 1; return {}; },
+      get: async function() { return null; }
+    };
+    assertEqual(await context.adapter.appendRoomClaimEvents([
+      generationTwoOperation,
+      generationTwoCapacity,
+      generationTwoUnit
+    ]), {
+      state: 'STOPPED',
+      confirmed: [],
+      failed: { index: 1, eventId: generationTwoCapacity._id, classification: 'INTEGRITY' }
+    }, message);
+    assertEqual(writes, 0, message + ' before persistence');
+  }
+
+  await verifyRejectedGenerationHistory([
+    priorCapacity, priorCapacityRelease, priorUnit, priorUnitRelease
+  ], 'released history without its permanent operation manifest cannot authorize generation two');
+
+  await verifyRejectedGenerationHistory([
+    priorOperation, priorCapacity, priorCapacityRelease, priorUnit, priorUnitRelease
+  ], 'released history without its operation completion fence cannot authorize generation two');
+
+  const mismatchedPriorOperation = Object.assign({}, priorOperation, {
+    manifestResourceClaimIds: 'rc1-20271105-s2-000001-a|rc1-20271105-u3-000001-a'
+  });
+  await verifyRejectedGenerationHistory([
+    mismatchedPriorOperation, priorCapacity, priorCapacityRelease, priorUnit, priorUnitRelease
+  ], 'released history omitted from its operation manifest cannot authorize generation two');
+
+  const nonPrefixPriorOperation = Object.assign({}, priorOperation, {
+    manifestCheckOut: '2027-11-07',
+    manifestResourceClaimIds: [
+      'rc1-20271105-s1-000001-a',
+      'rc1-20271106-s1-000001-a',
+      'rc1-20271105-u3-000001-a',
+      'rc1-20271106-u3-000001-a'
+    ].join('|')
+  });
+  await verifyRejectedGenerationHistory([
+    nonPrefixPriorOperation, priorCapacity, priorCapacityRelease, priorUnit, priorUnitRelease
+  ], 'non-prefix released operation history cannot authorize generation two');
+
   let validGenerationWrites = 0;
   context.wixData = {
     query: function() {
@@ -1143,18 +1977,19 @@ vm.runInContext(source, context);
     get: async function(collection, id) { return validGenerationStore.get(id) || null; }
   };
   assertEqual(await context.adapter.appendRoomClaimEvents([
-    operationEvent,
+    generationTwoOperation,
     generationTwoCapacity,
     generationTwoUnit
   ]), {
     state: 'CONFIRMED',
     confirmed: [
-      { eventId: operationEvent._id, disposition: 'inserted' },
+      { eventId: generationTwoOperation._id, disposition: 'inserted' },
       { eventId: generationTwoCapacity._id, disposition: 'inserted' },
       { eventId: generationTwoUnit._id, disposition: 'inserted' }
     ]
   }, 'a complete released prior generation permits the next append-only acquisition');
-  assertEqual(validGenerationWrites, 3, 'valid generation history is checked before sequential persistence');
+  assertEqual(validGenerationWrites, 4,
+    'valid generation history is checked before persistence and ends with its completion fence');
 
   let uncertainGenerationWrites = 0;
   context.wixData = {
@@ -1163,7 +1998,7 @@ vm.runInContext(source, context);
     get: async function() { return null; }
   };
   assertEqual(await context.adapter.appendRoomClaimEvents([
-    operationEvent,
+    generationTwoOperation,
     generationTwoCapacity,
     generationTwoUnit
   ]), {
@@ -1182,10 +2017,13 @@ vm.runInContext(source, context);
     insert: async function() { overflowGenerationIo += 1; return overflowGenerationEvent; },
     get: async function() { overflowGenerationIo += 1; return overflowGenerationEvent; }
   };
-  assertEqual(await appendResources([overflowGenerationEvent]), {
+  assertEqual(await context.adapter.appendRoomClaimEvents([
+    operationEvent,
+    overflowGenerationEvent
+  ]), {
     state: 'STOPPED',
     confirmed: [],
-    failed: { index: 0, eventId: overflowGenerationEvent._id, classification: 'INTEGRITY' }
+    failed: { index: 1, eventId: overflowGenerationEvent._id, classification: 'INTEGRITY' }
   }, 'claim generations above six digits fail local schema preflight');
   assertEqual(overflowGenerationIo, 0, 'overflow claim generations cannot reach Wix Data');
 
