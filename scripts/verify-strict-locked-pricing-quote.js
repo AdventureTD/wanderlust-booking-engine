@@ -278,6 +278,95 @@ function runNativeCoverage(claims) {
   for (const name of result.names) { count++; caseNames.push(name); }
   return result;
 }
+const authorityFile = 'velo/backend/lockedPricingQuoteAuthority.js';
+// Candidate pin only: pending independent final three-file review, not approval.
+const authorityCanonicalLFSha256 = 'd8520ba1bc16d829062760ce63ff3f5f7400363db3830b2f4d485b6a6b504d7c';
+const authorityImports = [
+  "import { secrets } from 'wix-secrets-backend.v2';",
+  "import { elevate } from 'wix-auth';",
+  "import { verifyStrictLockedPricingQuote } from 'backend/strictLockedPricingQuote';"
+];
+const authorityExport = 'export async function readLockedPricingQuoteAuthority(token, expected)';
+let isolationMetatests;
+function decodedReferenceText(source) {
+  // Conservative text guard, not a JavaScript parser. Decode literal/identifier
+  // escapes so an escaped path cannot evade the pre-existing whole-tree ban.
+  return source.replace(/\\\r?\n/g, '')
+    .replace(/\\u\{([0-9a-fA-F]{1,6})\}|\\u([0-9a-fA-F]{4})|\\x([0-9a-fA-F]{2})/g,
+      (_, braced, unicode, hex) => {
+        const n = parseInt(braced || unicode || hex, 16);
+        return n <= 0x10ffff ? String.fromCodePoint(n) : '\ufffd';
+      })
+    .replace(/\\([^\r\n])/g, '$1');
+}
+function assertPrivateQuoteEdge(file, source) {
+  const resolved = path.resolve(root, file);
+  const exact = path.resolve(root, authorityFile);
+  const text = source.replace(/\r\n/g, '\n');
+  if (resolved !== exact) {
+    assert.ok(!/strictLockedPricingQuote|lockedPricingQuoteAuthority/i.test(decodedReferenceText(text)), 'no production wiring: ' + file);
+    return;
+  }
+  assert.equal(file, authorityFile, 'exact private adapter path');
+  assert.deepEqual(text.match(/^import .+;$/gm), authorityImports, 'exact three static imports');
+  assert.deepEqual(text.match(/export[^\n{]+/g), [authorityExport + ' '], 'exact sole async export');
+  let body = text;
+  for (const declaration of authorityImports) body = body.replace(declaration, '');
+  body = body.replace(authorityExport, '');
+  assert.ok(!/\b(?:import|export|require)\b/.test(decodedReferenceText(body)), 'no additional module edges');
+  body = body.replace('const verify = verifyStrictLockedPricingQuote;', '');
+  assert.ok(!/strictLockedPricingQuote|lockedPricingQuoteAuthority|verifyStrictLockedPricingQuote/i.test(decodedReferenceText(body)), 'no additional private references');
+  assert.equal(crypto.createHash('sha256').update(text).digest('hex'), authorityCanonicalLFSha256, 'pending-review adapter canonical-LF pin');
+}
+function runIsolationMetatests() {
+  const source = fs.readFileSync(path.join(root, authorityFile), 'utf8');
+  const names = [];
+  function probe(name, file, text, failure) {
+    if (failure) assert.throws(() => assertPrivateQuoteEdge(file, text),
+      error => error.code === 'ERR_ASSERTION' && error.message.includes(failure), name);
+    else assertPrivateQuoteEdge(file, text);
+    names.push(name);
+  }
+  probe('sole exact private edge', authorityFile, source);
+  probe('canonical LF accepts CRLF', authorityFile, source.replace(/\r?\n/g, '\r\n'));
+  for (const file of ['velo/backend/second.js', 'velo/pages/quote.js', 'velo/public/quote.js',
+    'velo/backend/quote.web.js', 'velo/backend/quote.jsw', 'velo/pages/lockedPricingQuoteAuthority.js']) {
+    probe('strict importer ' + file, file, authorityImports[2], 'no production wiring');
+    probe('adapter importer ' + file, file, "import { readLockedPricingQuoteAuthority } from 'backend/lockedPricingQuoteAuthority';", 'no production wiring');
+  }
+  for (const module of ['strictLockedPricingQuote', 'lockedPricingQuoteAuthority']) {
+    for (const [name, text] of [
+      ['reexport', `export * from 'backend/${module}';`],
+      ['named reexport', `export { x } from 'backend/${module}';`],
+      ['alternate binding', `import { x as alias } from 'backend/${module}';`],
+      ['namespace', `import * as alias from 'backend/${module}';`],
+      ['side effect', `import 'backend/${module}';`],
+      ['relative alias', `import { x } from './nested/../${module}.js';`],
+      ['dynamic', `import('backend/${module}');`],
+      ['require', `require('backend/${module}');`],
+      ['unicode escape', `import('backend/\\u${module.charCodeAt(0).toString(16).padStart(4, '0')}${module.slice(1)}');`],
+      ['hex escape', `require('backend/\\x${module.charCodeAt(0).toString(16)}${module.slice(1)}');`],
+      ['braced escape', `export * from 'backend/\\u{${module.charCodeAt(0).toString(16)}}${module.slice(1)}';`],
+      ['line continuation', `import('backend/${module.slice(0, 6)}\\\n${module.slice(6)}');`]
+    ]) probe(module + ' ' + name, 'velo/backend/probe.js', text, 'no production wiring');
+  }
+  probe('normalized file alias denied', 'velo/backend/other/../lockedPricingQuoteAuthority.js', source, 'exact private adapter path');
+  probe('same basename outside backend denied', 'velo/public/lockedPricingQuoteAuthority.js', source, 'no production wiring');
+  for (const [name, text, failure] of [
+    ['alternate binding', source.replace('{ verifyStrictLockedPricingQuote }', '{ verifyStrictLockedPricingQuote as other }'), 'exact three static imports'],
+    ['alias import path', source.replace("'backend/strictLockedPricingQuote'", "'backend/other/../strictLockedPricingQuote'"), 'exact three static imports'],
+    ['escaped import path', source.replace("'backend/strictLockedPricingQuote'", "'backend/\\u0073trictLockedPricingQuote'"), 'exact three static imports'],
+    ['extra static import', source + "\nimport 'backend/strictLockedPricingQuote';", 'exact three static imports'],
+    ['dynamic import', source + "\nimport('backend/strictLockedPricingQuote');", 'no additional module edges'],
+    ['require import', source + "\nrequire('backend/strictLockedPricingQuote');", 'no additional module edges'],
+    ['reexport', source + "\nexport { verifyStrictLockedPricingQuote } from 'backend/strictLockedPricingQuote';", 'exact sole async export'],
+    ['extra export', source + '\nexport const other = 1;', 'exact sole async export'],
+    ['extra private reference', source + "\nconst other = 'backend/strictLockedPricingQuote';", 'no additional private references'],
+    ['body pin drift', source + '\n// unreviewed drift\n', 'pending-review adapter canonical-LF pin']
+  ]) probe('allowed file rejects ' + name, authorityFile, text, failure);
+  assert.equal(new Set(names).size, names.length, 'distinct isolation metatests');
+  return { passed: true, cases: names.length, names, authorityCanonicalLFSha256, pinStatus: 'pending independent final three-file review' };
+}
 async function main() {
   const subject = candidate(process.env.STRICT_QUOTE_MUTANT ? mutatedSource(process.env.STRICT_QUOTE_MUTANT) : undefined);
   const result = await issuer({ pkg: { _id: 'public-package', numberOfNights: 2, title: 'Public é 😀 "package"', baseRate: 123.4567, priceModifier: 1.125 } });
@@ -438,10 +527,11 @@ async function main() {
         const file = path.join(dir, entry.name);
         if (entry.isDirectory()) scan(file);
         else if (file !== candidatePath && /\.(?:js|jsw)$/.test(file))
-          assert.ok(!fs.readFileSync(file, 'utf8').includes('strictLockedPricingQuote'), 'no production wiring: ' + file);
+          assertPrivateQuoteEdge(path.relative(root, file).split(path.sep).join('/'), fs.readFileSync(file, 'utf8'));
       }
     }
     scan(path.join(root, 'velo'));
+    isolationMetatests = runIsolationMetatests();
   });
   for (const modifier of [-1, 'malformed', null]) {
     const actual = await issuer({ pkg: { _id: 'public-package', numberOfNights: 2, baseRate: 12.34, priceModifier: modifier } });
@@ -499,6 +589,6 @@ async function main() {
     hashes[name] = { raw: crypto.createHash('sha256').update(bytes).digest('hex'),
       canonicalLF: crypto.createHash('sha256').update(bytes.toString('utf8').replace(/\r\n/g, '\n')).digest('hex') };
   }
-  console.log(JSON.stringify({ passed: true, cases: count, caseNames, native, hashes, mutants: kills.length, kills }));
+  console.log(JSON.stringify({ passed: true, cases: count, caseNames, native, hashes, mutants: kills.length, kills, isolationMetatests }));
 }
 main().catch(error => { console.error(JSON.stringify({ code: error.code, testName: error.testName, message: error.message, stack: error.stack })); process.exitCode = 1; });
