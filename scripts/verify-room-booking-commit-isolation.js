@@ -68,8 +68,21 @@ const protectedFiles = javascriptFiles(veloRoot).filter(function(file) {
 });
 for (const file of protectedFiles) {
   const source = fs.readFileSync(file, 'utf8');
-  check(!/backend\/roomBookingCommitRules['"]|roomBookingCommitRules\.js/.test(source),
-    path.relative(root, file) + ' remains disconnected from pure commit rules');
+  if (file === path.join(veloRoot, 'backend', 'wholeCartPlanningRules.js')) {
+    const plannerImports = source.split('\n').filter(line => /^\s*import\b/.test(line));
+    check(plannerImports.length === 1 &&
+      /^import\s*\{\s*buildPhysicalCommitPlan\s*\}\s*from\s*['"]backend\/roomBookingCommitRules['"];?\s*$/.test(plannerImports[0]),
+      'whole-cart planner imports only the unchanged pure physical planner');
+    check(!/\bwebMethod\b|Permissions\.|wix-data|wixData|\bfetch\s*\(|\brequire\s*\(|\bimport\s*\(/.test(source) &&
+      !/\.(insert|update|remove|save|bulkInsert|bulkUpdate|bulkRemove)\s*\(/.test(source),
+      'whole-cart planner has no public, dynamic dependency, network or persistence surface');
+  } else {
+    check(!/backend\/wholeCartPlanningRules['"]|wholeCartPlanningRules\.js/.test(source),
+      path.relative(root, file) + ' remains disconnected from the whole-cart planner');
+  }
+  check(file === path.join(veloRoot, 'backend', 'wholeCartPlanningRules.js') ||
+    !/backend\/roomBookingCommitRules['"]|roomBookingCommitRules\.js/.test(source),
+    path.relative(root, file) + ' has only an approved pure commit-rules dependency');
   check(!/backend\/roomBookingCommit['"]|roomBookingCommit\.js/.test(source),
     path.relative(root, file) + ' remains disconnected from the future commit adapter');
 }
