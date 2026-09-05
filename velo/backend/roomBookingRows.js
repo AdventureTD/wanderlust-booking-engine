@@ -3,43 +3,74 @@ import wixData from 'wix-data';
 // Backend-only deterministic Bookings persistence. This module is intentionally
 // disconnected from public web methods and the production booking path.
 const BOOKINGS_COLLECTION = 'Bookings';
-const READ_OPTIONS = { suppressAuth: true, consistentRead: true, suppressHooks: true };
-const WRITE_OPTIONS = { suppressAuth: true, suppressHooks: true };
 
 export async function loadOperationBookingRows(operationId) {
-  if (typeof operationId !== 'string' || !/^[A-Za-z0-9_-]{16,64}$/.test(operationId)) {
-    throw new Error('Invalid operation ID');
+  if (typeof operationId !== 'string' || !matches(operationPattern, operationId)) {
+    throw new ErrorCtor('Invalid operation ID');
   }
-  const rows = [];
-  const rowIds = Object.create(null);
-  const pages = [];
-  let page = await wixData.query(BOOKINGS_COLLECTION)
-    .eq('operationId', operationId)
-    .limit(1000)
-    .find(READ_OPTIONS);
-  while (page) {
-    if (pages.indexOf(page) !== -1 || !Array.isArray(page.items) ||
-        typeof page.hasNext !== 'function') {
-      throw new Error('Invalid booking row page');
-    }
-    pages.push(page);
-    for (const row of page.items) {
-      if (!row || typeof row !== 'object' || Array.isArray(row) ||
-          typeof row._id !== 'string' || row.operationId !== operationId ||
-          Object.prototype.hasOwnProperty.call(rowIds, row._id)) {
-        throw new Error('Invalid booking row page');
+  try {
+    const query = capability(wixData, 'query');
+    if (query === INVALID) throw INVALID;
+    const queried = call(query.fn, query.owner, [BOOKINGS_COLLECTION]);
+    const eq = capability(queried, 'eq');
+    if (eq === INVALID) throw INVALID;
+    const filtered = call(eq.fn, eq.owner, ['operationId', operationId]);
+    const limit = capability(filtered, 'limit');
+    if (limit === INVALID) throw INVALID;
+    const limited = call(limit.fn, limit.owner, [1000]);
+    const find = capability(limited, 'find');
+    if (find === INVALID) throw INVALID;
+    const ordered = [];
+    const pages = [];
+    let page = await assimilate(call(find.fn, find.owner, [options(true)]));
+    while (true) {
+      if (!page || typeof page !== 'object' || indexOf(pages, page) !== -1) throw INVALID;
+      loaderPush(pages, page);
+      const hasNext = capability(page, 'hasNext');
+      const next = capability(page, 'next');
+      if (hasNext === INVALID) throw INVALID;
+      const pageRows = stablePageItems(page);
+      if (pageRows === INVALID) throw INVALID;
+      for (let index = 0; index < pageRows.length; index += 1) {
+        const row = pageRows[index];
+        let position = -1;
+        for (let candidate = 0; candidate < 3; candidate += 1) {
+          if (row._id === 'pb1-' + operationId + '-r' + (candidate + 1)) position = candidate;
+        }
+        if (position < 0 || row.operationId !== operationId || owns(ordered, S(position))) {
+          throw INVALID;
+        }
+        defineProperty(ordered, S(position), {
+          value: row, enumerable: true, writable: true, configurable: true
+        });
       }
-      rowIds[row._id] = true;
-      rows.push(row);
+      const more = call(hasNext.fn, hasNext.owner, []);
+      if (more !== true && more !== false) throw INVALID;
+      if (!more) break;
+      if (pages.length >= 4) throw INVALID;
+      if (next === INVALID) throw INVALID;
+      page = await assimilate(call(next.fn, next.owner, []));
     }
-    if (!page.hasNext()) break;
-    if (typeof page.next !== 'function') throw new Error('Invalid booking row page');
-    page = await page.next();
+    let count = 0;
+    for (let index = 0; index < 3; index += 1) {
+      if (owns(ordered, S(index))) count += 1;
+    }
+    if (count === 0) return [];
+    if (ordered.length !== count) throw INVALID;
+    const canonical = [];
+    for (let index = 0; index < count; index += 1) {
+      if (!owns(ordered, S(index))) throw INVALID;
+      loaderPush(canonical, ordered[index]);
+    }
+    if (!validLoadedRows(canonical, operationId)) throw INVALID;
+    const output = [];
+    for (let index = 0; index < canonical.length; index += 1) {
+      loaderPush(output, insertionRow(canonical[index]));
+    }
+    return output;
+  } catch (error) {
+    throw new ErrorCtor('Invalid booking row page');
   }
-  if (!page) throw new Error('Invalid booking row page');
-  return rows.slice().sort(function(left, right) {
-    return String(left && left._id || '').localeCompare(String(right && right._id || ''));
-  });
 }
 
 const BOOKINGS = 'Bookings';
@@ -80,6 +111,7 @@ const operationPattern = /^[A-Za-z0-9_-]{16,64}$/;
 const digestPattern = /^[0-9a-f]{64}$/;
 const noonPattern = /^\d{4}-\d{2}-\d{2}T12:00:00\.000Z$/;
 const controlPattern = /[\u0000-\u001f\u007f]/;
+const loaderControlPattern = /[\u0000-\u001f\u007f-\u009f]/;
 const expectedFields = freezeObject([
   '_id', 'roomCode', 'assignedRoom', 'quantity', 'checkIn', 'checkOut',
   'bookingNumber', 'operationId', 'payloadDigest', 'status',
@@ -128,6 +160,11 @@ function sameKeys(left, right) {
 }
 function push(array, value) {
   call(arrayPush, array, [value]);
+}
+function loaderPush(array, value) {
+  defineProperty(array, S(array.length), {
+    value: value, enumerable: true, writable: true, configurable: true
+  });
 }
 function indexOf(array, value) {
   return call(arrayIndexOf, array, [value]);
@@ -319,6 +356,10 @@ function validExpected(rows) {
   for (let index = 0; index < rows.length; index += 1) {
     if (rows[index].guests !== first.guests) return index;
   }
+  // The writer and reader share the same canonical row contract. Writer-only
+  // structural checks above preserve precise failure indices; this final gate
+  // prevents persistence of any row set the authoritative loader would reject.
+  if (!validLoadedRows(rows, first.operationId)) return 0;
   return -1;
 }
 function snapshotExpected(rows) {
@@ -395,6 +436,100 @@ function stableStored(value) {
   const second = storedSnapshot(value);
   return sameCanonical(first, second) && sameKeys(first.snapshotEvidence, second.snapshotEvidence)
     ? first : INVALID;
+}
+function pageItemsSnapshot(page) {
+  try {
+    const property = dataProperty(page, 'items');
+    if (property === INVALID || !isArray(property.value) ||
+        call(getPrototypeOf, O, [property.value]) !== arrayPrototype) return INVALID;
+    const descriptors = call(getDescriptors, O, [property.value]);
+    const keys = call(ownKeys, R, [descriptors]);
+    const length = descriptorValue(descriptors, 'length', false);
+    if (!call(isSafeInteger, N, [length]) || length < 0 || length > 3 ||
+        keys.length !== length + 1) return INVALID;
+    const output = [];
+    const evidence = [];
+    for (let index = 0; index < length; index += 1) {
+      const key = S(index);
+      if (keys[index] !== key) return INVALID;
+      const descriptor = descriptors[key];
+      const value = descriptorValue(descriptors, key, true);
+      if (value === INVALID) return INVALID;
+      loaderPush(evidence, key);
+      loaderPush(evidence, descriptor.writable);
+      loaderPush(evidence, descriptor.configurable);
+      const row = stableStored(value);
+      if (row === INVALID) return INVALID;
+      loaderPush(output, row);
+    }
+    if (keys[length] !== 'length') return INVALID;
+    const lengthDescriptor = descriptors.length;
+    loaderPush(evidence, 'length');
+    loaderPush(evidence, lengthDescriptor.writable);
+    loaderPush(evidence, lengthDescriptor.configurable);
+    defineProperty(output, 'snapshotEvidence', {
+      value: freezeObject(evidence), enumerable: false, writable: false, configurable: false
+    });
+    return freezeObject(output);
+  } catch (error) {
+    return INVALID;
+  }
+}
+function samePageItems(left, right) {
+  if (left === INVALID || right === INVALID || left.length !== right.length ||
+      !sameKeys(left.snapshotEvidence, right.snapshotEvidence)) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (!sameCanonical(left[index], right[index]) ||
+        !sameKeys(left[index].snapshotEvidence, right[index].snapshotEvidence)) return false;
+  }
+  return true;
+}
+function stablePageItems(page) {
+  const first = pageItemsSnapshot(page);
+  const second = pageItemsSnapshot(page);
+  return samePageItems(first, second) ? first : INVALID;
+}
+function validLoadedRows(rows, operationId) {
+  const first = rows[0];
+  if (!first || first.operationId !== operationId ||
+      typeof first.payloadDigest !== 'string' || !matches(digestPattern, first.payloadDigest) ||
+      !scalarCount(first.bookingNumber, 128, false) ||
+      call(stringTrim, first.bookingNumber, []) !== first.bookingNumber ||
+      matches(loaderControlPattern, first.bookingNumber) ||
+      first.checkOutTime <= first.checkInTime ||
+      first.checkOutTime - first.checkInTime > 800 * 24 * 60 * 60 * 1000) return false;
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    if (row._id !== 'pb1-' + operationId + '-r' + (index + 1) ||
+        row.operationId !== operationId || row.payloadDigest !== first.payloadDigest ||
+        row.bookingNumber !== first.bookingNumber || row.roomCode !== first.roomCode ||
+        row.checkInTime !== first.checkInTime || row.checkOutTime !== first.checkOutTime ||
+        row.quantity !== 1 || row.status !== 'confirmed' || row.autoOwnerBlock !== false ||
+        row.guests !== first.guests || !call(isSafeInteger, N, [row.guests]) ||
+        !call(isSafeInteger, N, [row.roomFee]) || row.roomFee < 0 ||
+        call(objectIs, O, [row.roomFee, -0]) || !scalarCount(row.note, 4096, true) ||
+        (index > 0 && row.note !== '') ||
+        !((row.assignedRoom === 1 && row.roomCode === 'penthouse_apartment') ||
+          (row.assignedRoom === 2 && row.roomCode === 'two_bedroom_apartment') ||
+          (row.assignedRoom >= 3 && row.assignedRoom <= 5 && row.roomCode === 'adventure_suite')) ||
+        (index > 0 && rows[index - 1].assignedRoom >= row.assignedRoom)) return false;
+  }
+  const guestsValid = ((first.roomCode === 'adventure_suite' ||
+      first.roomCode === 'penthouse_apartment') && first.guests === 2) ||
+    (first.roomCode === 'two_bedroom_apartment' && first.guests >= 3 && first.guests <= 4);
+  if (!guestsValid) return false;
+  if (first.roomCode !== 'penthouse_apartment') {
+    for (let index = 0; index < rows.length; index += 1) {
+      if (rows[index].roomFee !== 0) return false;
+    }
+  }
+  const units = [];
+  for (let index = 0; index < rows.length; index += 1) loaderPush(units, rows[index].assignedRoom);
+  const topology = joined(units, ',');
+  return (first.roomCode === 'penthouse_apartment' && topology === '1') ||
+    (first.roomCode === 'two_bedroom_apartment' && topology === '2') ||
+    (first.roomCode === 'adventure_suite' &&
+      (topology === '3' || topology === '4' || topology === '3,4' || topology === '3,4,5'));
 }
 function sameCanonical(left, right) {
   if (left === INVALID || right === INVALID) return false;

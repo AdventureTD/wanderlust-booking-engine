@@ -94,7 +94,8 @@ function createContext(queryFirstPage) {
   };
   vm.createContext(context);
   vm.runInContext(source, context);
-  return { adapter: context.adapter, calls, store, wixData };
+  return { adapter: context.adapter, calls, store, wixData,
+    arrayPrototype: vm.runInContext('Object.getPrototypeOf([])', context) };
 }
 
 function createContextWithWixData(wixData) {
@@ -136,7 +137,7 @@ const base = {
   status: 'confirmed',
   autoOwnerBlock: false,
   guests: 2,
-  roomFee: 175,
+  roomFee: 0,
   note: ''
 };
 const rows = [
@@ -307,6 +308,22 @@ const rows = [
     }, message);
     assertEqual(candidate.calls.length, 0, message + ' with zero Wix I/O');
   }
+
+  await verifyPreflightFailure([
+    Object.assign({}, rows[0], { bookingNumber: 'WC-\u0001' })
+  ], 0, 'control characters in booking numbers are rejected by the writer');
+  await verifyPreflightFailure([
+    Object.assign({}, rows[0], {
+      checkIn: new Date('2027-01-01T12:00:00.000Z'),
+      checkOut: new Date('2030-01-01T12:00:00.000Z')
+    })
+  ], 0, 'stays longer than 800 nights are rejected by the writer');
+  await verifyPreflightFailure([
+    Object.assign({}, rows[0], { guests: 1 })
+  ], 0, 'room-specific occupancy is enforced before append');
+  await verifyPreflightFailure([
+    Object.assign({}, rows[0], { roomFee: 1 })
+  ], 0, 'non-penthouse booking rows require zero room fee before append');
 
   await verifyPreflightFailure([], 0,
     'an empty booking-row acquisition fails closed during preflight');
@@ -487,8 +504,8 @@ const rows = [
   }, 'a nonempty first-row note is accepted');
 
   for (const topologyCase of [
-    { roomCode: 'penthouse_apartment', assignedRoom: 1 },
-    { roomCode: 'two_bedroom_apartment', assignedRoom: 2 }
+    { roomCode: 'penthouse_apartment', assignedRoom: 1, guests: 2 },
+    { roomCode: 'two_bedroom_apartment', assignedRoom: 2, guests: 3 }
   ]) {
     const topology = createContext();
     const topologyRow = Object.assign({}, rows[0], topologyCase);
@@ -1190,17 +1207,30 @@ const rows = [
     freezesBatch: true
   }, 'the pre-await expected-row snapshot drops caller Dates and freezes every detached container');
 
+  // Loader hardening slice 2: canonical stored rows and detached output.
+  const loaderRows = rows.map(function(row) {
+    return Object.assign({}, row, { roomFee: 0,
+      checkIn: new Date(row.checkIn.getTime()), checkOut: new Date(row.checkOut.getTime()) });
+  });
+  const storedFirst = Object.assign({
+    _owner: 'owner', _createdDate: new Date('2027-01-01T00:00:00.000Z'),
+    _updatedDate: new Date('2027-01-02T00:00:00.000Z')
+  }, loaderRows[0], {
+    checkIn: new Date(loaderRows[0].checkIn.getTime()),
+    checkOut: new Date(loaderRows[0].checkOut.getTime())
+  });
   const secondPage = {
-    items: [rows[0]],
+    items: [storedFirst],
     hasNext: function() { return false; }
   };
   const firstPage = {
-    items: [rows[1]],
+    items: [loaderRows[1]],
     hasNext: function() { return true; },
     next: async function() { return secondPage; }
   };
   const loader = createContext(firstPage);
-  assertEqual(await loader.adapter.loadOperationBookingRows(operationId), rows,
+  const loadedRows = await loader.adapter.loadOperationBookingRows(operationId);
+  assertEqual(loadedRows, loaderRows,
     'operation booking-row loading pages completely and returns deterministic row order');
   assertEqual(loader.calls, [
     { method: 'query', collection: 'Bookings' },
@@ -1208,9 +1238,37 @@ const rows = [
     { method: 'limit', value: 1000 },
     { method: 'find', options: { suppressAuth: true, consistentRead: true, suppressHooks: true } }
   ], 'operation row loading uses the exact indexed filter, page size, and read options');
+  assertEqual({
+    arrayPrototype: Object.getPrototypeOf(loadedRows) === loader.arrayPrototype,
+    rowPrototype: loadedRows.every(function(row) { return Object.getPrototypeOf(row) === Object.prototype; }),
+    exactKeys: loadedRows.every(function(row) {
+      return Reflect.ownKeys(row).join(',') === [
+        '_id', 'roomCode', 'assignedRoom', 'quantity', 'checkIn', 'checkOut',
+        'bookingNumber', 'operationId', 'payloadDigest', 'status', 'autoOwnerBlock',
+        'guests', 'roomFee', 'note'
+      ].join(',');
+    }),
+    detachedRows: loadedRows[0] !== storedFirst && loadedRows[1] !== loaderRows[1],
+    detachedDates: loadedRows[0].checkIn !== storedFirst.checkIn &&
+      loadedRows[0].checkOut !== storedFirst.checkOut,
+    metadataStripped: !Object.prototype.hasOwnProperty.call(loadedRows[0], '_owner')
+  }, {
+    arrayPrototype: true, rowPrototype: true, exactKeys: true,
+    detachedRows: true, detachedDates: true, metadataStripped: true
+  }, 'loader returns exact ordinary detached rows and strips validated Wix metadata');
+  const loadedIndexDescriptor = Object.getOwnPropertyDescriptor(loadedRows, '0');
+  assertEqual({ enumerable: loadedIndexDescriptor.enumerable, writable: loadedIndexDescriptor.writable },
+    { enumerable: true, writable: true },
+    'loader output array indices preserve ordinary enumerable writable descriptors');
+  const originalLoadedTime = loadedRows[0].checkIn.getTime();
+  storedFirst.checkIn.setUTCHours(1);
+  firstPage.items.push(Object.assign({}, loaderRows[0]));
+  assertEqual({ length: loadedRows.length, time: loadedRows[0].checkIn.getTime() },
+    { length: 2, time: originalLoadedTime },
+    'post-return Wix row, Date, and page mutation cannot alter loaded output');
 
   const duplicatePage = {
-    items: [rows[0], Object.assign({}, rows[0])],
+    items: [loaderRows[0], Object.assign({}, loaderRows[0])],
     hasNext: function() { return false; }
   };
   const duplicateLoader = createContext(duplicatePage);
@@ -1221,7 +1279,7 @@ const rows = [
   );
 
   const foreignPage = {
-    items: [Object.assign({}, rows[0], { operationId: 'differentoperation1' })],
+    items: [Object.assign({}, loaderRows[0], { operationId: 'differentoperation1' })],
     hasNext: function() { return false; }
   };
   const foreignLoader = createContext(foreignPage);
@@ -1230,4 +1288,522 @@ const rows = [
     'Invalid booking row page',
     'query results containing a foreign operation fail closed'
   );
+
+  const malformedLoaderRows = [
+    Object.assign({}, loaderRows[0], { _id: 'pb1-' + operationId + '-r2' }),
+    Object.assign({}, loaderRows[0], { _id: 'pb1-' + operationId + '-r99' }),
+    Object.assign({}, loaderRows[0], { status: 'pending' }),
+    Object.assign({}, loaderRows[0], { quantity: 2 }),
+    Object.assign({}, loaderRows[0], { autoOwnerBlock: true }),
+    Object.assign({}, loaderRows[0], { guests: 3 }),
+    Object.assign({}, loaderRows[0], { roomFee: -1 }),
+    Object.assign({}, loaderRows[0], { roomFee: -0 }),
+    Object.assign({}, loaderRows[0], { checkIn: new Date('2027-11-05T00:00:00.000Z') }),
+    Object.assign({}, loaderRows[0], { checkOut: new Date('2027-11-05T12:00:00.000Z') }),
+    Object.assign({}, loaderRows[0], { payloadDigest: 'A'.repeat(64) }),
+    Object.assign({}, loaderRows[0], { bookingNumber: ' WC-3001' }),
+    Object.assign({}, loaderRows[0], { note: '\uD800' }),
+    Object.assign({}, loaderRows[0], { rogue: true }),
+    Object.assign({}, loaderRows[0], { _rogue: true }),
+    Object.assign({}, loaderRows[0], { _owner: 7 }),
+    Object.assign({}, loaderRows[0], { _createdDate: 'bad' })
+  ];
+  const symbolicLoaderRow = Object.assign({}, loaderRows[0]);
+  symbolicLoaderRow[Symbol('rogue')] = true;
+  malformedLoaderRows.push(symbolicLoaderRow);
+  for (let index = 0; index < malformedLoaderRows.length; index += 1) {
+    const malformedLoader = createContext({
+      items: [malformedLoaderRows[index]], hasNext: function() { return false; }
+    });
+    await assertRejects(
+      function() { return malformedLoader.adapter.loadOperationBookingRows(operationId); },
+      'Invalid booking row page',
+      'malformed stored-row evidence fails closed case ' + (index + 1)
+    );
+  }
+
+  const equalDateRow = Object.assign({}, loaderRows[0], {
+    checkOut: new Date(loaderRows[0].checkIn.getTime())
+  });
+  const reversedDateRow = Object.assign({}, loaderRows[0], {
+    checkOut: new Date(loaderRows[0].checkIn.getTime() - (24 * 60 * 60 * 1000))
+  });
+  await assertRejects(
+    function() { return createContext({ items: [reversedDateRow], hasNext: function() { return false; } })
+      .adapter.loadOperationBookingRows(operationId); },
+    'Invalid booking row page',
+    'checkout before check-in is rejected'
+  );
+  await assertRejects(
+    function() { return createContext({ items: [equalDateRow], hasNext: function() { return false; } })
+      .adapter.loadOperationBookingRows(operationId); },
+    'Invalid booking row page',
+    'checkout equal to check-in is rejected'
+  );
+  const exactlyEightHundredRow = Object.assign({}, loaderRows[0], {
+    checkIn: new Date('2027-01-01T12:00:00.000Z'),
+    checkOut: new Date('2029-03-11T12:00:00.000Z')
+  });
+  assertEqual(await createContext({
+    items: [exactlyEightHundredRow], hasNext: function() { return false; }
+  }).adapter.loadOperationBookingRows(operationId), [exactlyEightHundredRow],
+  'an exactly 800-night canonical stay remains readable');
+  const eightHundredOneRow = Object.assign({}, exactlyEightHundredRow, {
+    checkOut: new Date('2029-03-12T12:00:00.000Z')
+  });
+  await assertRejects(
+    function() { return createContext({ items: [eightHundredOneRow], hasNext: function() { return false; } })
+      .adapter.loadOperationBookingRows(operationId); },
+    'Invalid booking row page',
+    'an 801-night stay fails closed'
+  );
+
+  for (const validTopology of [
+    { code: 'penthouse_apartment', units: [1], guests: 2, fee: 175 },
+    { code: 'two_bedroom_apartment', units: [2], guests: 3, fee: 0 },
+    { code: 'two_bedroom_apartment', units: [2], guests: 4, fee: 0 },
+    { code: 'adventure_suite', units: [3], guests: 2, fee: 0 },
+    { code: 'adventure_suite', units: [4], guests: 2, fee: 0 },
+    { code: 'adventure_suite', units: [3, 4], guests: 2, fee: 0 },
+    { code: 'adventure_suite', units: [3, 4, 5], guests: 2, fee: 0 }
+  ]) {
+    const topologyRows = validTopology.units.map(function(unit, index) {
+      return Object.assign({}, loaderRows[0], {
+        _id: 'pb1-' + operationId + '-r' + (index + 1),
+        roomCode: validTopology.code, assignedRoom: unit,
+        guests: validTopology.guests, roomFee: validTopology.fee
+      });
+    });
+    const topologyLoader = createContext({
+      items: topologyRows.slice().reverse(), hasNext: function() { return false; }
+    });
+    assertEqual(await topologyLoader.adapter.loadOperationBookingRows(operationId), topologyRows,
+      'loader accepts and deterministically places canonical topology ' +
+        validTopology.code + ':' + validTopology.units.join(','));
+  }
+
+  const emptyLoader = createContext({ items: [], hasNext: function() { return false; } });
+  assertEqual(await emptyLoader.adapter.loadOperationBookingRows(operationId), [],
+    'a valid empty authoritative query returns an empty detached array');
+
+  // Loader hardening slice 1: reject hostile inputs/capabilities before dispatch.
+  let invalidInputIo = 0;
+  const invalidInputPort = { query: function() { invalidInputIo += 1; } };
+  const invalidInputLoader = createContextWithWixData(invalidInputPort);
+  for (const invalidId of [
+    'x'.repeat(15), 'x'.repeat(65), new String(operationId),
+    { toString: function() { throw new Error('must not coerce'); } }, null
+  ]) {
+    await assertRejects(
+      function() { return invalidInputLoader.adapter.loadOperationBookingRows(invalidId); },
+      'Invalid operation ID',
+      'invalid primitive operation-id evidence is rejected before Wix I/O'
+    );
+  }
+  assertEqual(invalidInputIo, 0, 'invalid operation IDs perform zero Wix I/O');
+  let queryGetterRuns = 0;
+  const queryAccessorPort = {};
+  Object.defineProperty(queryAccessorPort, 'query', {
+    get: function() { queryGetterRuns += 1; throw new Error('accessor executed'); }
+  });
+  const queryAccessorLoader = createContextWithWixData(queryAccessorPort);
+  await assertRejects(
+    function() { return queryAccessorLoader.adapter.loadOperationBookingRows(operationId); },
+    'Invalid booking row page',
+    'an accessor-backed Wix query capability fails closed with normalized evidence'
+  );
+  assertEqual(queryGetterRuns, 0, 'an accessor-backed Wix query capability is never invoked');
+
+  // Loader hardening slice 3: hostile pagination, mutation, and capability drift.
+  async function rejectPage(page, message) {
+    const candidate = createContext(page);
+    await assertRejects(
+      function() { return candidate.adapter.loadOperationBookingRows(operationId); },
+      'Invalid booking row page', message
+    );
+  }
+  for (const malformedPage of [
+    null,
+    { items: [loaderRows[0]], hasNext: function() { return 1; } },
+    { items: [loaderRows[0]], hasNext: function() { return 0; } },
+    { items: [loaderRows[0]], hasNext: function() { return null; } },
+    { items: [loaderRows[0]], hasNext: function() { return true; } },
+    { items: [loaderRows[0]], hasNext: function() { return true; }, next: async function() { return null; } }
+  ]) await rejectPage(malformedPage, 'malformed or incomplete pagination evidence fails closed');
+
+  const rowFourOnly = Object.assign({}, loaderRows[0], {
+    _id: 'pb1-' + operationId + '-r4'
+  });
+  await rejectPage({ items: [rowFourOnly], hasNext: function() { return false; } },
+    'a fourth deterministic row cannot be silently discarded as an empty operation');
+
+  let oversizedFourthInspections = 0;
+  const oversizedFourth = new Proxy(Object.assign({}, loaderRows[0], {
+    _id: 'pb1-' + operationId + '-r4'
+  }), {
+    ownKeys: function(target) {
+      oversizedFourthInspections += 1;
+      return Reflect.ownKeys(target);
+    }
+  });
+  await rejectPage({
+    items: [loaderRows[0], loaderRows[1], Object.assign({}, loaderRows[0], {
+      _id: 'pb1-' + operationId + '-r3', assignedRoom: 5, note: ''
+    }), oversizedFourth],
+    hasNext: function() { return false; }
+  }, 'a page containing more than three candidates fails at the item-count boundary');
+  assertEqual(oversizedFourthInspections, 0,
+    'the oversized page guard rejects before inspecting the fourth candidate row');
+
+  const callablePage = function() {};
+  callablePage.items = [];
+  callablePage.hasNext = function() { return false; };
+  await rejectPage(callablePage, 'a callable query page is not accepted as an ordinary page object');
+
+  const cyclicPage = { items: [], hasNext: function() { return true; } };
+  cyclicPage.next = async function() { return cyclicPage; };
+  await rejectPage(cyclicPage, 'repeated page identity is rejected');
+
+  let endlessNextCalls = 0;
+  function freshEndlessPage() {
+    return {
+      items: [],
+      hasNext: function() { return true; },
+      next: async function() {
+        endlessNextCalls += 1;
+        if (endlessNextCalls > 6) throw new Error('unbounded pagination');
+        return freshEndlessPage();
+      }
+    };
+  }
+  await rejectPage(freshEndlessPage(), 'distinct endless pages hit the deterministic page bound');
+  assertEqual(endlessNextCalls, 3,
+    'the four-page ceiling stops hostile pagination before requesting page five');
+
+  let itemGetterRuns = 0;
+  const accessorItems = { hasNext: function() { return false; } };
+  Object.defineProperty(accessorItems, 'items', {
+    get: function() { itemGetterRuns += 1; return []; }
+  });
+  await rejectPage(accessorItems, 'accessor-backed page items fail closed');
+  assertEqual(itemGetterRuns, 0, 'an accessor-backed items property is never invoked');
+
+  let elementGetterRuns = 0;
+  const accessorArray = [];
+  Object.defineProperty(accessorArray, '0', {
+    enumerable: true, configurable: true,
+    get: function() { elementGetterRuns += 1; return loaderRows[0]; }
+  });
+  accessorArray.length = 1;
+  await rejectPage({ items: accessorArray, hasNext: function() { return false; } },
+    'accessor-backed array elements fail closed');
+  assertEqual(elementGetterRuns, 0, 'an accessor-backed page item is never invoked');
+
+  const sparsePageItems = [];
+  sparsePageItems.length = 1;
+  await rejectPage({ items: sparsePageItems, hasNext: function() { return false; } },
+    'sparse page-item arrays fail closed');
+  const extraPageItems = [loaderRows[0]];
+  extraPageItems.extra = true;
+  await rejectPage({ items: extraPageItems, hasNext: function() { return false; } },
+    'page-item arrays with extra own keys fail closed');
+
+  const mutatingSource = Object.assign({}, loaderRows[0], {
+    checkIn: new Date(loaderRows[0].checkIn.getTime())
+  });
+  const mutatingPage = {
+    items: [mutatingSource],
+    hasNext: function() {
+      mutatingSource.status = 'pending';
+      mutatingSource.checkIn.setUTCHours(1);
+      return false;
+    }
+  };
+  const mutationLoader = createContext(mutatingPage);
+  assertEqual(await mutationLoader.adapter.loadOperationBookingRows(operationId), [loaderRows[0]],
+    'every row and Date is snapshotted before hasNext can mutate source evidence');
+
+  const nextMutationFirst = Object.assign({}, loaderRows[0]);
+  const nextMutationSecond = Object.assign({}, loaderRows[1]);
+  const nextMutationPage2 = { items: [nextMutationSecond], hasNext: function() { return false; } };
+  const nextMutationPage1 = {
+    items: [nextMutationFirst], hasNext: function() { return true; },
+    next: function() {
+      nextMutationFirst.status = 'pending';
+      nextMutationSecond.status = 'pending';
+      return { then: function(resolve) {
+        nextMutationSecond.status = 'confirmed';
+        resolve(nextMutationPage2);
+      } };
+    }
+  };
+  const nextMutationLoader = createContext(nextMutationPage1);
+  assertEqual(await nextMutationLoader.adapter.loadOperationBookingRows(operationId), loaderRows,
+    'next cannot mutate already-observed rows and later pages are snapshotted after resolution');
+
+  let inheritedPageReceiver = false;
+  const inheritedPagePrototype = {
+    hasNext: function() { inheritedPageReceiver = this === inheritedPage; return false; }
+  };
+  const inheritedPage = Object.create(inheritedPagePrototype);
+  inheritedPage.items = [];
+  const inheritedPageLoader = createContext(inheritedPage);
+  assertEqual(await inheritedPageLoader.adapter.loadOperationBookingRows(operationId), [],
+    'stable inherited page capabilities and page data are accepted');
+  assertEqual(inheritedPageReceiver, true, 'inherited page methods retain the page receiver');
+
+  const builderCalls = [];
+  function inheritedBuilder(method, nextOwner) {
+    const prototype = {};
+    prototype[method] = function() {
+      builderCalls.push({ method: method, receiver: this, args: Array.from(arguments) });
+      return nextOwner;
+    };
+    return Object.create(prototype);
+  }
+  const terminalInheritedPage = inheritedBuilder('find', null);
+  terminalInheritedPage.find = async function(options) {
+    builderCalls.push({ method: 'find', receiver: this, args: [options] });
+    return { items: [], hasNext: function() { return false; } };
+  };
+  const limitOwner = inheritedBuilder('limit', terminalInheritedPage);
+  const eqOwner = inheritedBuilder('eq', limitOwner);
+  const inheritedQueryPort = inheritedBuilder('query', eqOwner);
+  const inheritedQueryLoader = createContextWithWixData(inheritedQueryPort);
+  assertEqual(await inheritedQueryLoader.adapter.loadOperationBookingRows(operationId), [],
+    'stable inherited query and distinct builder capabilities are accepted');
+  assertEqual(builderCalls.map(function(entry) {
+    return { method: entry.method,
+      receiver: entry.receiver === (entry.method === 'query' ? inheritedQueryPort :
+        entry.method === 'eq' ? eqOwner : entry.method === 'limit' ? limitOwner : terminalInheritedPage) };
+  }), [
+    { method: 'query', receiver: true }, { method: 'eq', receiver: true },
+    { method: 'limit', receiver: true }, { method: 'find', receiver: true }
+  ], 'every inherited query builder function receives the queried object rather than its holder');
+  const inheritedFindOptions = builderCalls[3].args[0];
+  assertEqual({
+    keys: Reflect.ownKeys(inheritedFindOptions),
+    frozen: Object.isFrozen(inheritedFindOptions),
+    ordinary: Object.getPrototypeOf(inheritedFindOptions) === Object.prototype,
+    immutable: Reflect.ownKeys(inheritedFindOptions).every(function(key) {
+      const descriptor = Object.getOwnPropertyDescriptor(inheritedFindOptions, key);
+      return descriptor.enumerable && !descriptor.writable && !descriptor.configurable;
+    })
+  }, {
+    keys: ['suppressAuth', 'consistentRead', 'suppressHooks'],
+    frozen: true, ordinary: true, immutable: true
+  }, 'loader find receives fresh frozen exact ordinary read options');
+
+  const deepQueryBase = {
+    query: function() {
+      return {
+        eq: function() { return {
+          limit: function() { return {
+            find: async function() { return { items: [], hasNext: function() { return false; } }; }
+          }; }
+        }; }
+      };
+    }
+  };
+  let depthSevenQueryPort = deepQueryBase;
+  for (let depth = 0; depth < 7; depth += 1) {
+    depthSevenQueryPort = Object.create(depthSevenQueryPort);
+  }
+  const depthSevenLoader = createContextWithWixData(depthSevenQueryPort);
+  assertEqual(await depthSevenLoader.adapter.loadOperationBookingRows(operationId), [],
+    'a stable query capability at inherited depth seven remains within the bounded capability contract');
+
+  const freshOptionsFirst = createContext({ items: [], hasNext: function() { return false; } });
+  await freshOptionsFirst.adapter.loadOperationBookingRows(operationId);
+  await freshOptionsFirst.adapter.loadOperationBookingRows(operationId);
+  const loaderOptions = freshOptionsFirst.calls.filter(function(entry) { return entry.method === 'find'; })
+    .map(function(entry) { return entry.options; });
+  assertEqual(loaderOptions.length === 2 && loaderOptions[0] !== loaderOptions[1], true,
+    'every loader invocation receives a fresh private read-options object');
+
+  for (const validBoundaryId of ['x'.repeat(16), 'x'.repeat(64)]) {
+    const boundary = createContext({ items: [], hasNext: function() { return false; } });
+    assertEqual(await boundary.adapter.loadOperationBookingRows(validBoundaryId), [],
+      'primitive operation IDs at an allowed boundary perform the authoritative query');
+  }
+
+  const structuralLoaderRows = [];
+  const nullPrototypeLoaderRow = Object.assign(Object.create(null), loaderRows[0]);
+  structuralLoaderRows.push(nullPrototypeLoaderRow);
+  const customPrototypeLoaderRow = Object.assign(Object.create({ inherited: true }), loaderRows[0]);
+  structuralLoaderRows.push(customPrototypeLoaderRow);
+  const hiddenExtraLoaderRow = Object.assign({}, loaderRows[0]);
+  Object.defineProperty(hiddenExtraLoaderRow, 'hidden', { value: true });
+  structuralLoaderRows.push(hiddenExtraLoaderRow);
+  structuralLoaderRows.push(Object.assign({}, loaderRows[0], {
+    checkIn: Object.create(Date.prototype)
+  }));
+  structuralLoaderRows.push(Object.assign({}, loaderRows[0], {
+    checkOut: new Date(NaN)
+  }));
+  for (let index = 0; index < structuralLoaderRows.length; index += 1) {
+    await rejectPage({ items: [structuralLoaderRows[index]], hasNext: function() { return false; } },
+      'non-ordinary, hidden, or forged stored-row evidence fails closed case ' + (index + 1));
+  }
+
+  for (const inconsistentRows of [
+    [loaderRows[0], Object.assign({}, loaderRows[1], { bookingNumber: 'WC-OTHER' })],
+    [loaderRows[0], Object.assign({}, loaderRows[1], { payloadDigest: '2'.repeat(64) })],
+    [loaderRows[0], Object.assign({}, loaderRows[1], { guests: 1 })],
+    [loaderRows[0], Object.assign({}, loaderRows[1], { note: 'later note' })],
+    [loaderRows[0], Object.assign({}, loaderRows[1], {
+      checkOut: new Date('2027-11-08T12:00:00.000Z')
+    })],
+    [Object.assign({}, loaderRows[0], { assignedRoom: 4 }),
+      Object.assign({}, loaderRows[1], { assignedRoom: 3 })],
+    [Object.assign({}, loaderRows[0], { assignedRoom: 3 }),
+      Object.assign({}, loaderRows[1], { assignedRoom: 5 })],
+    [Object.assign({}, loaderRows[0], { roomCode: 'penthouse_apartment', assignedRoom: 1 }),
+      Object.assign({}, loaderRows[1], { roomCode: 'two_bedroom_apartment', assignedRoom: 2 })]
+  ]) {
+    await rejectPage({ items: inconsistentRows, hasNext: function() { return false; } },
+      'cross-row canonical and topology inconsistencies fail closed');
+  }
+
+  let unstableRowReads = 0;
+  const unstableRow = new Proxy(Object.assign({}, loaderRows[0]), {
+    getOwnPropertyDescriptor: function(target, key) {
+      const descriptor = Object.getOwnPropertyDescriptor(target, key);
+      if (key === 'status') descriptor.value = unstableRowReads++ % 2 === 0 ? 'confirmed' : 'pending';
+      return descriptor;
+    }
+  });
+  await rejectPage({ items: [unstableRow], hasNext: function() { return false; } },
+    'unstable row values across descriptor snapshots fail closed');
+
+  let hasNextGetterRuns = 0;
+  const accessorHasNext = { items: [] };
+  Object.defineProperty(accessorHasNext, 'hasNext', {
+    get: function() { hasNextGetterRuns += 1; return function() { return false; }; }
+  });
+  await rejectPage(accessorHasNext, 'an accessor-backed hasNext capability fails closed');
+  assertEqual(hasNextGetterRuns, 0, 'an accessor-backed hasNext capability is never invoked');
+
+  const capturedNextPage2 = { items: [loaderRows[1]], hasNext: function() { return false; } };
+  const originalNext = function() { return capturedNextPage2; };
+  const capturedNextPage1 = {
+    items: [loaderRows[0]], next: originalNext,
+    hasNext: function() {
+      this.next = function() { throw new Error('replacement next'); };
+      return true;
+    }
+  };
+  assertEqual(await createContext(capturedNextPage1).adapter.loadOperationBookingRows(operationId),
+    loaderRows, 'next capability is captured before hasNext can replace it');
+
+  const throwingFindPort = {
+    query: function() { return this; }, eq: function() { return this; },
+    limit: function() { return this; }, find: function() { throw new TypeError('transport detail'); }
+  };
+  await assertRejects(
+    function() { return createContextWithWixData(throwingFindPort).adapter
+      .loadOperationBookingRows(operationId); },
+    'Invalid booking row page', 'query and transport exceptions are normalized'
+  );
+
+  let unstableQueryRead = 0;
+  const queryOne = function() { throw new Error('must not dispatch'); };
+  const queryTwo = function() { throw new Error('must not dispatch'); };
+  const unstableQueryPort = new Proxy({ query: queryOne }, {
+    getOwnPropertyDescriptor: function(target, key) {
+      const descriptor = Object.getOwnPropertyDescriptor(target, key);
+      if (key === 'query') descriptor.value = unstableQueryRead++ % 2 === 0 ? queryOne : queryTwo;
+      return descriptor;
+    }
+  });
+  await assertRejects(
+    function() { return createContextWithWixData(unstableQueryPort).adapter
+      .loadOperationBookingRows(operationId); },
+    'Invalid booking row page', 'unstable query capabilities fail closed before dispatch'
+  );
+
+  let storedAccessorRuns = 0;
+  const accessorStoredRow = Object.assign({}, loaderRows[0]);
+  Object.defineProperty(accessorStoredRow, 'status', {
+    enumerable: true, configurable: true,
+    get: function() { storedAccessorRuns += 1; return 'confirmed'; }
+  });
+  await rejectPage({ items: [accessorStoredRow], hasNext: function() { return false; } },
+    'accessor-backed stored-row fields fail closed');
+  assertEqual(storedAccessorRuns, 0, 'stored-row accessors are rejected without invocation');
+
+  let eqAccessorRuns = 0;
+  const accessorBuilderPort = {
+    query: function() {
+      const builder = {};
+      Object.defineProperty(builder, 'eq', {
+        get: function() { eqAccessorRuns += 1; return function() { return builder; }; }
+      });
+      return builder;
+    }
+  };
+  await assertRejects(
+    function() { return createContextWithWixData(accessorBuilderPort).adapter
+      .loadOperationBookingRows(operationId); },
+    'Invalid booking row page', 'accessor-backed query-builder capabilities fail closed'
+  );
+  assertEqual(eqAccessorRuns, 0, 'query-builder accessors are rejected without invocation');
+
+  let unstableItemsRead = 0;
+  const firstItems = [];
+  const secondItems = [];
+  const unstableItemsPage = new Proxy({ items: firstItems, hasNext: function() { return false; } }, {
+    getOwnPropertyDescriptor: function(target, key) {
+      const descriptor = Object.getOwnPropertyDescriptor(target, key);
+      if (key === 'items') descriptor.value = unstableItemsRead++ % 2 === 0 ? firstItems : secondItems;
+      return descriptor;
+    }
+  });
+  await rejectPage(unstableItemsPage, 'unstable page-item capabilities fail closed');
+
+  let tooDeepPort = {
+    query: function() { throw new Error('must not reach deep capability'); }
+  };
+  for (let depth = 0; depth < 8; depth += 1) tooDeepPort = Object.create(tooDeepPort);
+  await assertRejects(
+    function() { return createContextWithWixData(tooDeepPort).adapter
+      .loadOperationBookingRows(operationId); },
+    'Invalid booking row page', 'query capability discovery is bounded to seven inherited holders'
+  );
+
+  const originals = {
+    descriptors: Object.getOwnPropertyDescriptors, ownKeys: Reflect.ownKeys,
+    apply: Reflect.apply, resolve: Promise.resolve, getTime: Date.prototype.getTime,
+    iso: Date.prototype.toISOString
+  };
+  const hostileAwaitPage = { items: [loaderRows[0]], hasNext: function() { return false; } };
+  const hostileAwaitPort = {
+    query: function() { return this; }, eq: function() { return this; }, limit: function() { return this; },
+    find: function() {
+      return { then: function(resolve) {
+        Object.getOwnPropertyDescriptors = function() { throw new Error('replaced descriptors'); };
+        Reflect.ownKeys = function() { throw new Error('replaced ownKeys'); };
+        Reflect.apply = function() { throw new Error('replaced apply'); };
+        Promise.resolve = function() { throw new Error('replaced resolve'); };
+        Date.prototype.getTime = function() { throw new Error('replaced getTime'); };
+        Date.prototype.toISOString = function() { throw new Error('replaced ISO'); };
+        hostileAwaitPort.query = function() { throw new Error('replaced query'); };
+        resolve(hostileAwaitPage);
+      } };
+    }
+  };
+  let hostileAwaitResult;
+  try {
+    hostileAwaitResult = await createContextWithWixData(hostileAwaitPort).adapter
+      .loadOperationBookingRows(operationId);
+  } finally {
+    Object.getOwnPropertyDescriptors = originals.descriptors;
+    Reflect.ownKeys = originals.ownKeys;
+    Reflect.apply = originals.apply;
+    Promise.resolve = originals.resolve;
+    Date.prototype.getTime = originals.getTime;
+    Date.prototype.toISOString = originals.iso;
+  }
+  assertEqual(hostileAwaitResult, [loaderRows[0]],
+    'post-await intrinsic and Wix capability replacement cannot redirect loader evidence');
 })();
