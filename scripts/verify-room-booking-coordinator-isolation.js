@@ -25,7 +25,11 @@ const coordinator = fs.readFileSync(coordinatorPath, 'utf8');
 const exportNames = (coordinator.match(/export async function\s+\w+/g) || [])
   .map(function(statement) { return statement.replace('export async function ', ''); });
 
-check(!/^import /m.test(coordinator), 'booking coordinator tracer has no platform imports');
+const imports = coordinator.match(/^import .*;$/gm) || [];
+check(JSON.stringify(imports) === JSON.stringify([
+  "import { projectRoomBookingCommitPayload } from 'backend/roomBookingCommitProjectionRules';",
+  "import { computeRoomBookingPayloadDigest } from 'backend/roomBookingPayloadDigest';"
+]), 'booking coordinator has only the two required static pure imports');
 check(JSON.stringify(exportNames) === JSON.stringify(['coordinatePhysicalBookingCommit']),
   'booking coordinator tracer exposes only its explicit-port orchestration function');
 check(!/\bwebMethod\b|wix-web-module|Permissions\./.test(coordinator),
