@@ -194,6 +194,42 @@ test('accessor descriptor cannot borrow an inherited data value', () => {
  try {invalid(p);} finally {delete Object.prototype.value;}
  assert.equal(invoked,0);
 });
+test('inherited descriptor get/set callbacks stay unused during deterministic allocation', () => {
+ const outcomes = [];
+ for (const key of ['get', 'set']) {
+  const x = input();
+  const expected = alloc(x);
+  x.rows.reverse();
+  const proto = Object.prototype, def = Object.defineProperty;
+  const saved = Object.getOwnPropertyDescriptor(proto, key);
+  let attacked = 0, callbacks = 0, out, error;
+  // Use a null-prototype attack descriptor so installing the poison is not
+  // itself a ToPropertyDescriptor callback. No descriptor trap is involved.
+  const poison = {__proto__: null, configurable: true, get() { callbacks++; return undefined; }};
+  const proxy = new Proxy(x, {ownKeys(t) {
+   attacked++;
+   def(proto, key, poison);
+   return Reflect.ownKeys(t);
+  }});
+  try { out = alloc(proxy); } catch (e) { error = e; }
+  finally {
+   delete proto[key];
+   if (saved) def(proto, key, saved);
+  }
+  outcomes.push({key, attacked, callbacks, out, error, expected});
+ }
+ // Restore globals for both attacks before invoking assertions or serializers.
+ eq(outcomes.map(({callbacks}) => callbacks), [0, 0]);
+ for (const {key, attacked, out, error, expected} of outcomes) {
+  assert.ok(attacked > 0, key + ' poison installed by input Proxy');
+  assert.equal(error, undefined, key + ' poisoning must not reject valid allocation');
+  eq(out, expected);
+  assert.ok(Object.isFrozen(out));
+  assert.ok(Object.isFrozen(out.rows));
+  assert.ok(Object.isFrozen(out.totals));
+  out.rows.forEach(row => assert.ok(Object.isFrozen(row)));
+ }
+});
 function run(text, verbose = false) {
  let passed = 0; const failures = [];
  for (const c of cases) {
@@ -252,5 +288,23 @@ for(const [id,anchor,replacement] of mutations) {
  console.log('KILL '+id+' offset='+source.indexOf(anchor)+' sha256='+hash(mutant)+' witness='+failure.message);
 }
 console.log('Mutation witnesses: '+killed+'/'+mutations.length+' killed');
+// Bounded causal replay: revert only the descriptor prototype fix and require
+// this exact new witness to fail its callback-count assertion, not just throw.
+const descriptorAnchor = '{ __proto__: null, value, enumerable: true, configurable: true, writable: true }';
+const descriptorReplacement = '{ value, enumerable: true, configurable: true, writable: true }';
+assert.equal(source.split(descriptorAnchor).length, 2, 'unique descriptor mutation anchor');
+const descriptorMutant = source.replace(descriptorAnchor, descriptorReplacement);
+new vm.Script(descriptorMutant.replace(/export function /g, 'function '));
+const descriptorWitness = cases.find(c => c.name === 'inherited descriptor get/set callbacks stay unused during deterministic allocation');
+assert.ok(descriptorWitness, 'descriptor witness exists');
+let descriptorFailure;
+try {
+ vm.runInContext(descriptorMutant.replace(/export function /g, 'function ') + '\n' + setup + '\n(' + descriptorWitness.body + ')();', vm.createContext({assert}), {timeout:2000});
+} catch (error) { descriptorFailure = error; }
+assert.ok(descriptorFailure, 'descriptor mutant must fail the new witness');
+assert.equal(descriptorFailure.code, 'ERR_ASSERTION', 'generic errors/timeouts are not causal mutation proof');
+assert.equal(JSON.stringify(descriptorFailure.actual), '[1,1]', 'both inherited callbacks ran');
+assert.equal(JSON.stringify(descriptorFailure.expected), '[0,0]', 'zero-callback assertion killed mutant');
+console.log('KILL inherited-put-descriptor offset=' + source.indexOf(descriptorAnchor) + ' sha256=' + hash(descriptorMutant) + ' witness=' + descriptorWitness.name + ' code=' + descriptorFailure.code + ' actual=' + JSON.stringify(descriptorFailure.actual) + ' expected=' + JSON.stringify(descriptorFailure.expected));
 console.log('SOURCE SHA256 '+hash(source));
 console.log('TEST SHA256 '+hash(fs.readFileSync(__filename)));

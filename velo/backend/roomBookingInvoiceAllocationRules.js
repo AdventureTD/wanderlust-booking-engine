@@ -29,7 +29,7 @@ const MAX = 9007199254740991n;
 const ID = /^pb1-[A-Za-z0-9_-]{16,64}-r[1-5]$(?![\s\S])/;
 function fail() { throw new SafeError('Invalid physical room invoice allocation'); }
 function put(target, key, value) {
-  define(target, key, { value, enumerable: true, configurable: true, writable: true });
+  define(target, key, { __proto__: null, value, enumerable: true, configurable: true, writable: true });
 }
 function record() { return create(null); }
 function append(array, value) { put(array, array.length, value); }
