@@ -130,7 +130,64 @@ for(const [key,value] of [['acceptedAtMs',999],['acceptedAtMs',2000],['guestAcce
 assert.deepEqual([...source.matchAll(/export function (\w+)/g)].map(m=>m[1]).sort(),[...names].sort());count++;
 eq(/\b(?:import|require|fetch|setTimeout|setInterval|async|console|process|Date|crypto)\b/.test(source.replace(/\/\/[^\n]*/g,'')),false,'no effect APIs or imports');
 function productionFiles(dir) {return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?productionFiles(path.join(dir,e.name)):[path.join(dir,e.name)]);}
-for(const file of productionFiles(path.join(__dirname,'../velo'))) if(file!==sourcePath && path.resolve(file)!==path.resolve(sourcePath) && /\.(js|web\.js)$/.test(file)) eq(fs.readFileSync(file,'utf8').includes('guestBookingAccessPolicy'),false,'disconnected '+path.basename(file));
+const productionRoot = path.resolve(__dirname, '../velo');
+const credentialPath = path.join(productionRoot, 'backend/guestBookingCredentials.js');
+const credentialSource = fs.readFileSync(credentialPath, 'utf8');
+function assertGuestIsolation(entries) {
+ for (const [file, text] of entries) {
+  if (path.resolve(file) === path.resolve(sourcePath)) continue;
+  if (path.resolve(file) === credentialPath) {
+   const imports = [
+    "import crypto from 'crypto';",
+    "import { Buffer } from 'buffer';",
+    "import { checkVerifiedGuestClaims, classifyGuestIntentAdmission } from 'backend/guestBookingAccessPolicy';"
+   ];
+   let remainder = text;
+   for (const statement of imports) {
+    assert.equal(remainder.split(statement).length-1, 1, 'exact credential import: '+statement);
+    remainder = remainder.replace(statement, '');
+   }
+   assert.equal(remainder.includes('guestBookingAccessPolicy'), false, 'extra credential policy dependency');
+   // Fail-closed snapshot of this disconnected candidate, NOT implementation
+   // approval. A filename/import regex alone cannot exclude arbitrary effects
+   // (including computed ambient calls). Any byte change requires gate review.
+   assert.equal(require('node:crypto').createHash('sha256').update(text).digest('hex'),
+    'c34364e2196a67016b4def3850149478015fd41d35a42fe5a590d2c6d5750c9f', 'credential snapshot');
+   continue;
+  }
+  assert.equal(text.includes('guestBookingAccessPolicy'), false, 'disconnected policy consumer: '+file);
+  assert.equal(text.includes('guestBookingCredentials'), false, 'disconnected credential consumer: '+file);
+ }
+}
+// In-memory fixtures exercise the same gate as the real production tree. Each
+// negative changes one known-good control; failures must be named assertions.
+const isolationControl = [[credentialPath, credentialSource]];
+assert.doesNotThrow(() => assertGuestIsolation(isolationControl), 'approved disconnected credential dependency');count++;
+const isolationCases = [
+ ['unexpected dependency', credentialPath, "\nimport fs from 'fs';", 'credential snapshot'],
+ ['unexpected effect', credentialPath, '\nglobalThis["fetch"]("https://invalid.test");', 'credential snapshot'],
+ ['production credential consumer', path.join(productionRoot,'backend/isolation-fixture.web.js'), "import { createGuestBookingCredentials } from 'backend/guestBookingCredentials';", 'disconnected credential consumer'],
+ ['production policy consumer', path.join(productionRoot,'pages/isolation-fixture.js'), "import { checkVerifiedGuestClaims } from 'backend/guestBookingAccessPolicy';", 'disconnected policy consumer'],
+ ['same basename elsewhere', path.join(productionRoot,'pages/guestBookingCredentials.js'), credentialSource, 'disconnected policy consumer']
+];
+for (const [label, file, text, reason] of isolationCases) {
+ const entries = file === credentialPath ? [[file, credentialSource+text]] : [...isolationControl, [file, text]];
+ assert.throws(() => assertGuestIsolation(entries), error => error.code === 'ERR_ASSERTION' && error.message.includes(reason), label);count++;
+}
+for (const [before, after, reason] of [
+ ['checkVerifiedGuestClaims, classifyGuestIntentAdmission', 'checkVerifiedGuestClaims, classifyAcceptedIntentRecovery', 'exact credential import'],
+ ['checkVerifiedGuestClaims, classifyGuestIntentAdmission', 'checkVerifiedGuestClaims, classifyGuestIntentAdmission, classifyAcceptedIntentRecovery', 'exact credential import'],
+ ['checkVerifiedGuestClaims, classifyGuestIntentAdmission', 'checkVerifiedGuestClaims as claims, classifyGuestIntentAdmission', 'exact credential import'],
+ ["from 'backend/guestBookingAccessPolicy'", "from './guestBookingAccessPolicy.js'", 'exact credential import'],
+ ["import crypto from 'crypto';", "import crypto from 'node:crypto';", 'exact credential import'],
+ ["import { Buffer } from 'buffer';", "import { Buffer } from 'node:buffer';", 'exact credential import']
+]) {
+ assert.equal(credentialSource.split(before).length-1, 1, 'unique isolation mutation');count++;
+ assert.throws(() => assertGuestIsolation([[credentialPath, credentialSource.replace(before, after)]]), error => error.code === 'ERR_ASSERTION' && error.message.includes(reason), 'changed approved import rejected');count++;
+}
+console.log(`guest isolation: approved control and ${isolationCases.length+6} named negative fixtures passed (in-memory only)`);
+const productionEntries = productionFiles(productionRoot).filter(file => /\.(?:js|mjs|cjs|jsx|ts|tsx|jsw)$/.test(file)).map(file => [file, fs.readFileSync(file,'utf8')]);
+assertGuestIsolation(productionEntries);count++;
 if(!process.env.GUEST_POLICY_MUTANT) {
  const mutants=[
  ['sum>4','sum>5'], ['a.nowMs<c.expiresAtMs','a.nowMs<=c.expiresAtMs'], ['!same(n,-0)','true'],
