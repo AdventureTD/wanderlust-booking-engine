@@ -259,27 +259,6 @@ async def issue_invoice(req: IssueRequest, background_tasks: BackgroundTasks, x_
     return result
 
 
-@app.get("/calendar-debug")
-def calendar_debug():
-    """Standalone endpoint to test calendar env vars and connectivity
-    without needing a booking payload."""
-    import os
-    from booking_engine.calendar import CALENDAR_WEB_APP_URL, CALENDAR_SECRET
-    return {
-        "env_vars_present": {
-            "WBE_CALENDAR_WEB_APP_URL": bool(CALENDAR_WEB_APP_URL),
-            "WBE_CALENDAR_SECRET": bool(CALENDAR_SECRET),
-        },
-        "WBE_CALENDAR_WEB_APP_URL_length": len(CALENDAR_WEB_APP_URL or ""),
-        "WBE_CALENDAR_SECRET_length": len(CALENDAR_SECRET or ""),
-        "sample_event_test": create_calendar_event(
-            guest_name="Debug Test",
-            check_in="2099-01-01",
-            check_out="2099-01-02",
-        ),
-    }
-
-
 @app.get("/download/{invoice_number}")
 def download_invoice(invoice_number: str):
     """Serve the generated PDF invoice directly from the temp directory.
