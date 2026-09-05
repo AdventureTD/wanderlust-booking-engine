@@ -27,7 +27,6 @@ from datetime import date
 
 from fastapi import FastAPI, Header, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from starlette.responses import FileResponse
 
 from booking_engine.invoice import Guest, Invoice
 from booking_engine.invoice_renderer import render_invoice_pdf_for_service
@@ -216,9 +215,9 @@ async def issue_invoice(req: IssueRequest, background_tasks: BackgroundTasks, x_
     renderer_used = render_invoice_pdf_for_service(inv, pdf_path)
     print(f"[WBE-INVOICE] Generated {invoice_number} with renderer={renderer_used}")
 
-    # Build a download URL served by this Render service.
-    base_url = os.environ.get("RENDER_EXTERNAL_URL", "https://wanderlust-invoice-service.onrender.com")
-    invoice_url = f"{base_url}/download/{invoice_number}"
+    # PDFs are delivered by email attachment; retain the response field without
+    # advertising the retired invoice-number-only public download URL.
+    invoice_url = ""
 
     result = {"invoice_number": invoice_number,
               "total": inv.total, "pdf_path": pdf_path, "emailed": False,
@@ -257,16 +256,3 @@ async def issue_invoice(req: IssueRequest, background_tasks: BackgroundTasks, x_
         result["calendar_reason"] = "Missing check_in/check_out or guest.name"
 
     return result
-
-
-@app.get("/download/{invoice_number}")
-def download_invoice(invoice_number: str):
-    """Serve the generated PDF invoice directly from the temp directory.
-    Returns 404 if the file is no longer available (e.g. service restarted)."""
-    pdf_path = os.path.join(tempfile.gettempdir(), f"{invoice_number}.pdf")
-    if not os.path.exists(pdf_path):
-        raise HTTPException(status_code=404, detail=f"Invoice {invoice_number} not found on this server. "
-                           "It may have been cleared after a restart. Check your email for the PDF.")
-    return FileResponse(pdf_path, media_type="application/pdf",
-                        filename=f"{invoice_number}.pdf",
-                        content_disposition_type="attachment")
