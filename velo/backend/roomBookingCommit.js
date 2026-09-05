@@ -715,8 +715,8 @@ function loaderReadOptions() {
   return options;
 }
 
-// Deterministic order is identity, every manifest acquisition, every matching
-// release fence, then terminal completion. Any uncertainty has one outcome.
+// Legacy order is identity, acquisitions, releases, completion. Marked claims
+// read completion and the commit decision before checking release absence.
 export async function loadCompletedRoomClaimSet(operationId) {
   if (typeof operationId !== 'string' || !SAFE_REGEXP_TEST(LOADER_OPERATION_ID_PATTERN, operationId)) {
     throw recoveryRequired(operationId);
@@ -732,9 +732,10 @@ export async function loadCompletedRoomClaimSet(operationId) {
     const storedIdentity = await read(identityId);
     const identity = snapshotExactPrimitiveRecord(
       storedIdentity, IDENTITY_EVIDENCE_FIELDS, MARKED_IDENTITY_EVIDENCE_FIELDS);
-    if (!loaderValidIdentity(identity, operationId) || identity.decisionFenceVersion !== undefined) {
+    if (!loaderValidIdentity(identity, operationId)) {
       throw recoveryRequired(operationId);
     }
+    const marked = identity.decisionFenceVersion === 1;
     const manifest = loaderParseManifest(identity);
     if (!manifest) throw recoveryRequired(operationId);
 
@@ -750,25 +751,52 @@ export async function loadCompletedRoomClaimSet(operationId) {
       loaderDefineArrayValue(acquisitions, index, acquisition);
     }
 
-    for (let index = 0; index < acquisitions.length; index += 1) {
-      const releaseId = SAFE_STRING_SLICE(acquisitions[index]._id, 0, -1) + 'r';
-      const release = await read(releaseId);
-      if (release !== null && release !== undefined) throw recoveryRequired(operationId);
-    }
-
     const completionId = 'rc1-op-' + operationId + '-c';
-    const storedCompletion = await read(completionId);
+    let storedCompletion;
+    if (!marked) {
+      for (let index = 0; index < acquisitions.length; index += 1) {
+        const releaseId = SAFE_STRING_SLICE(acquisitions[index]._id, 0, -1) + 'r';
+        const release = await read(releaseId);
+        if (release !== null && release !== undefined) throw recoveryRequired(operationId);
+      }
+      storedCompletion = await read(completionId);
+    } else {
+      storedCompletion = await read(completionId);
+    }
     const completion = snapshotExactPrimitiveRecord(
       storedCompletion, COMPLETION_EVIDENCE_FIELDS, MARKED_COMPLETION_EVIDENCE_FIELDS);
     if (!loaderValidCompletion(completion, identity, manifest.resourceIds.length)) {
       throw recoveryRequired(operationId);
     }
+    let decision;
+    if (marked) {
+      const decisionId = 'rc1-op-' + operationId + '-d';
+      const storedDecision = await read(decisionId);
+      decision = snapshotExactPrimitiveRecord(storedDecision, DECISION_EVIDENCE_FIELDS);
+      const expectedDecision = operationDecisionEvent(identity, completion, 'commit-rows');
+      if (!decision || !validDecisionRecord(decision) ||
+          !decisionMatches(decision, expectedDecision)) {
+        throw recoveryRequired(operationId);
+      }
+      for (let index = 0; index < acquisitions.length; index += 1) {
+        const releaseId = SAFE_STRING_SLICE(acquisitions[index]._id, 0, -1) + 'r';
+        const release = await read(releaseId);
+        if (release !== null && release !== undefined) throw recoveryRequired(operationId);
+      }
+    }
     const evidence = SAFE_OBJECT_CREATE(SAFE_OBJECT_PROTOTYPE);
-    SAFE_OBJECT_DEFINE_PROPERTIES(evidence, {
+    const evidenceDescriptors = {
       identity: { value: identity, writable: true, enumerable: true, configurable: true },
       acquisitions: { value: acquisitions, writable: true, enumerable: true, configurable: true },
       completion: { value: completion, writable: true, enumerable: true, configurable: true }
-    });
+    };
+    if (marked) {
+      SAFE_OBJECT_DEFINE_PROPERTY(evidenceDescriptors, 'decision', {
+        value: { value: decision, writable: true, enumerable: true, configurable: true },
+        writable: true, enumerable: true, configurable: true
+      });
+    }
+    SAFE_OBJECT_DEFINE_PROPERTIES(evidence, evidenceDescriptors);
     return evidence;
   } catch (error) {
     throw recoveryRequired(operationId);

@@ -46,7 +46,9 @@ const backendSourcePath = process.env.ROOM_BOOKING_COMMIT_SOURCE ||
 const source = fs.readFileSync(backendSourcePath, 'utf8')
   .replace(/^import .*;\s*$/gm, '')
   .replace(/export async function /g, 'async function ')
-  + '\nthis.loader = typeof loadCompletedRoomClaimSet === "function" ? loadCompletedRoomClaimSet : null;';
+  + '\nthis.loader = typeof loadCompletedRoomClaimSet === "function" ? loadCompletedRoomClaimSet : null;'
+  + '\nthis.decider = typeof appendRoomOperationDecision === "function" ? appendRoomOperationDecision : null;'
+  + '\nthis.appender = typeof appendRoomClaimEvents === "function" ? appendRoomClaimEvents : null;';
 const context = { wixData: null };
 vm.createContext(context);
 vm.runInContext(source, context);
@@ -100,6 +102,20 @@ function buildEvidence(operationId, checkIn, checkOut, units) {
   return { identity, acquisitions, completion };
 }
 
+function buildDecision(identity, completion, decisionState) {
+  return {
+    _id: 'rc1-op-' + identity.operationId + '-d', protocolVersion: 1,
+    claimKey: 'operation:' + identity.operationId + ':decision', generation: 1,
+    eventType: 'decide', claimType: 'operation-decision', operationId: identity.operationId,
+    bookingRowId: identity.bookingRowId, bookingNumber: identity.bookingNumber,
+    payloadDigest: identity.payloadDigest, decisionFenceVersion: 1,
+    operationIdentityId: identity._id, operationCompletionId: completion._id,
+    manifestVersion: 1, completionState: completion.completionState,
+    confirmedResourceCount: completion.confirmedResourceCount,
+    decisionState: decisionState || 'commit-rows'
+  };
+}
+
 (async function() {
   assertEqual(typeof context.loader, 'function', 'adapter exports the completed-claim evidence loader');
   const expected = buildEvidence('abcdefghijklmnopqrstuv', '2027-11-05', '2027-11-06', [3]);
@@ -137,10 +153,12 @@ function buildEvidence(operationId, checkIn, checkOut, units) {
   const markedEvidence = buildEvidence('markedloaderoperation1', '2027-11-05', '2027-11-06', [3]);
   markedEvidence.identity.decisionFenceVersion = 1;
   markedEvidence.completion.decisionFenceVersion = 1;
+  const markedDecision = buildDecision(markedEvidence.identity, markedEvidence.completion);
   const markedRows = Object.create(null);
   markedRows[markedEvidence.identity._id] = markedEvidence.identity;
   markedEvidence.acquisitions.forEach(function(event) { markedRows[event._id] = event; });
   markedRows[markedEvidence.completion._id] = markedEvidence.completion;
+  markedRows[markedDecision._id] = markedDecision;
   const markedReadIds = [];
   context.wixData = {
     get: async function(collection, id) {
@@ -149,11 +167,17 @@ function buildEvidence(operationId, checkIn, checkOut, units) {
         ? markedRows[id] : null;
     }
   };
-  await assertRecovery(function() { return context.loader(markedEvidence.identity.operationId); },
-    markedEvidence.identity.operationId,
-    'marker-bearing completed evidence remains recovery-required until a commit-rows decision is verified');
-  assertEqual(markedReadIds, [markedEvidence.identity._id],
-    'unfenced marker-bearing evidence stops before acquisition reads');
+  assertEqual(await context.loader(markedEvidence.identity.operationId), {
+    identity: markedEvidence.identity,
+    acquisitions: markedEvidence.acquisitions,
+    completion: markedEvidence.completion,
+    decision: markedDecision
+  }, 'marked completed evidence includes its exact commit-rows decision');
+  assertEqual(markedReadIds, [markedEvidence.identity._id]
+    .concat(markedEvidence.acquisitions.map(function(event) { return event._id; }))
+    .concat([markedEvidence.completion._id, markedDecision._id])
+    .concat(markedEvidence.acquisitions.map(function(event) { return event._id.slice(0, -1) + 'r'; })),
+  'marked reads follow identity, acquisitions, completion, decision, releases order');
 
   const metadataEvidence = buildEvidence('metadata12345678901234', '2027-11-05', '2027-11-06', [3]);
   const metadataRows = Object.create(null);
@@ -242,6 +266,381 @@ function buildEvidence(operationId, checkIn, checkOut, units) {
     };
     return { rows, readCalls };
   }
+
+  const decisionFields = [
+    '_id', 'protocolVersion', 'claimKey', 'generation', 'eventType', 'claimType',
+    'operationId', 'bookingRowId', 'bookingNumber', 'payloadDigest',
+    'decisionFenceVersion', 'operationIdentityId', 'operationCompletionId',
+    'manifestVersion', 'completionState', 'confirmedResourceCount', 'decisionState'
+  ];
+
+  function markEvidence(evidence, decisionState) {
+    evidence.identity.decisionFenceVersion = 1;
+    evidence.completion.decisionFenceVersion = 1;
+    return buildDecision(evidence.identity, evidence.completion, decisionState);
+  }
+
+  function installMarkedEvidence(evidence, decision, customize) {
+    const rows = Object.create(null);
+    rows[evidence.identity._id] = evidence.identity;
+    evidence.acquisitions.forEach(function(event) { rows[event._id] = event; });
+    rows[evidence.completion._id] = evidence.completion;
+    if (decision !== undefined) rows['rc1-op-' + evidence.identity.operationId + '-d'] = decision;
+    const readCalls = [];
+    const owner = {
+      get: async function(collection, id, options) {
+        readCalls.push({ collection, id, options });
+        if (customize) return customize(id, rows, readCalls, owner);
+        return Object.prototype.hasOwnProperty.call(rows, id) ? rows[id] : null;
+      }
+    };
+    context.wixData = owner;
+    return { rows, readCalls, owner };
+  }
+
+  const markedContract = buildEvidence('markedcontract123456', '2027-11-05', '2027-11-06', [3]);
+  const markedContractDecision = markEvidence(markedContract);
+  Object.assign(markedContractDecision, {
+    _owner: '00000000-0000-0000-0000-000000000001',
+    _createdDate: new Date('2027-01-01T00:00:00.000Z'),
+    _updatedDate: new Date('2027-01-02T00:00:00.000Z')
+  });
+  installMarkedEvidence(markedContract, markedContractDecision);
+  const markedContractOutput = await context.loader(markedContract.identity.operationId);
+  assertEqual(Object.keys(markedContractOutput), ['identity', 'acquisitions', 'completion', 'decision'],
+    'marked output has exactly four fields in contract order');
+  assertEqual(Object.keys(markedContractOutput.decision), decisionFields,
+    'decision output has exactly 17 fields in declared order and strips Wix metadata');
+  assertEqual(Object.keys(markedContractOutput).every(function(key) {
+    return isOwnContractDataProperty(markedContractOutput, key);
+  }) && decisionFields.every(function(key) {
+    return isOwnContractDataProperty(markedContractOutput.decision, key);
+  }), true, 'marked outer and decision fields are detached own contract data properties');
+  markedContractDecision.bookingNumber = 'MUTATED';
+  assertEqual(markedContractOutput.decision.bookingNumber, 'WC-7001',
+    'stored decision mutation after return cannot mutate detached output');
+
+  const markedMulti = buildEvidence('markedmultirow123456', '2027-11-05', '2027-11-07', [3, 4, 5]);
+  const markedMultiDecision = markEvidence(markedMulti);
+  const markedMultiFixture = installMarkedEvidence(markedMulti, markedMultiDecision);
+  await context.loader(markedMulti.identity.operationId);
+  assertEqual(markedMultiFixture.readCalls.map(function(call) { return call.id; }),
+    [markedMulti.identity._id]
+      .concat(markedMulti.acquisitions.map(function(event) { return event._id; }))
+      .concat([markedMulti.completion._id, markedMultiDecision._id])
+      .concat(markedMulti.acquisitions.map(function(event) { return event._id.slice(0, -1) + 'r'; })),
+    'marked multi-row multi-night reads preserve all causal ordering');
+
+  for (const missingDecision of [null, undefined]) {
+    const evidence = buildEvidence('missingdecision12345', '2027-11-05', '2027-11-06', [3]);
+    markEvidence(evidence);
+    const fixture = installMarkedEvidence(evidence, missingDecision);
+    await assertRecovery(function() { return context.loader(evidence.identity.operationId); },
+      evidence.identity.operationId, 'missing marked decision fails closed: ' + String(missingDecision));
+    assertEqual(fixture.readCalls.some(function(call) { return /-r$/.test(call.id); }), false,
+      'missing marked decision stops before release reads');
+  }
+
+  const oppositeDecisionEvidence = buildEvidence('oppositedecision1234', '2027-11-05', '2027-11-06', [3]);
+  const oppositeDecision = markEvidence(oppositeDecisionEvidence, 'compensate');
+  const oppositeFixture = installMarkedEvidence(oppositeDecisionEvidence, oppositeDecision);
+  await assertRecovery(function() { return context.loader(oppositeDecisionEvidence.identity.operationId); },
+    oppositeDecisionEvidence.identity.operationId, 'exact compensate decision fails closed');
+  assertEqual(oppositeFixture.readCalls.some(function(call) { return /-r$/.test(call.id); }), false,
+    'opposite decision stops before release reads');
+
+  const mutationValues = {
+    _id: 'wrong-id', protocolVersion: 2, claimKey: 'wrong:key', generation: 2,
+    eventType: 'complete', claimType: 'operation', operationId: 'foreignoperation1234',
+    bookingRowId: 'wrong-row', bookingNumber: 'FOREIGN', payloadDigest: 'b'.repeat(64),
+    decisionFenceVersion: 2, operationIdentityId: 'wrong-identity',
+    operationCompletionId: 'wrong-completion', manifestVersion: 2,
+    completionState: 'stopped', confirmedResourceCount: 1, decisionState: 'compensate'
+  };
+  for (const field of decisionFields) {
+    const evidence = buildEvidence('decisionbind1234567', '2027-11-05', '2027-11-06', [3]);
+    const decision = markEvidence(evidence);
+    decision[field] = mutationValues[field];
+    const fixture = installMarkedEvidence(evidence, decision);
+    await assertRecovery(function() { return context.loader(evidence.identity.operationId); },
+      evidence.identity.operationId, 'decision binding rejects mutated ' + field);
+    assertEqual(fixture.readCalls[fixture.readCalls.length - 1].id,
+      'rc1-op-' + evidence.identity.operationId + '-d',
+      'mutated ' + field + ' rejects at the decision boundary');
+  }
+
+  const malformedDecisionFactories = [
+    ['missing field', function(decision) { delete decision.bookingNumber; return decision; }],
+    ['extra field', function(decision) { decision.extra = true; return decision; }],
+    ['symbol field', function(decision) { decision[Symbol('hidden')] = true; return decision; }],
+    ['non-enumerable field', function(decision) {
+      Object.defineProperty(decision, 'bookingNumber', { value: decision.bookingNumber,
+        writable: true, enumerable: false, configurable: true }); return decision;
+    }],
+    ['object-valued field', function(decision) { decision.bookingNumber = { text: 'WC-7001' }; return decision; }],
+    ['function-valued field', function(decision) { decision.bookingNumber = function() {}; return decision; }],
+    ['unknown Wix metadata', function(decision) { decision._deletedDate = new Date(); return decision; }],
+    ['invalid Wix owner metadata', function(decision) { decision._owner = 7; return decision; }],
+    ['abnormal prototype', function(decision) {
+      return Object.assign(Object.create({ inherited: true }), decision);
+    }]
+  ];
+  for (const malformed of malformedDecisionFactories) {
+    const evidence = buildEvidence('malformeddecision123', '2027-11-05', '2027-11-06', [3]);
+    const decision = malformed[1](markEvidence(evidence));
+    installMarkedEvidence(evidence, decision);
+    await assertRecovery(function() { return context.loader(evidence.identity.operationId); },
+      evidence.identity.operationId, malformed[0] + ' decision fails closed');
+  }
+  const accessorDecisionEvidence = buildEvidence('accessordecision1234', '2027-11-05', '2027-11-06', [3]);
+  const accessorDecision = markEvidence(accessorDecisionEvidence);
+  let decisionGetterCalls = 0;
+  Object.defineProperty(accessorDecision, 'bookingNumber', { enumerable: true, configurable: true,
+    get: function() { decisionGetterCalls += 1; return 'WC-7001'; } });
+  installMarkedEvidence(accessorDecisionEvidence, accessorDecision);
+  await assertRecovery(function() { return context.loader(accessorDecisionEvidence.identity.operationId); },
+    accessorDecisionEvidence.identity.operationId, 'decision accessors fail closed');
+  assertEqual(decisionGetterCalls, 0, 'decision accessors are rejected without execution');
+
+  const unstableDecisionEvidence = buildEvidence('unstabledecision1234', '2027-11-05', '2027-11-06', [3]);
+  const unstableDecisionTarget = markEvidence(unstableDecisionEvidence);
+  let unstableDecisionReads = 0;
+  const unstableDecision = new Proxy(unstableDecisionTarget, {
+    getOwnPropertyDescriptor: function(target, key) {
+      const descriptor = Object.getOwnPropertyDescriptor(target, key);
+      if (key === 'bookingNumber') {
+        unstableDecisionReads += 1;
+        descriptor.value = unstableDecisionReads === 1 ? descriptor.value : 'UNSTABLE';
+      }
+      return descriptor;
+    }
+  });
+  installMarkedEvidence(unstableDecisionEvidence, unstableDecision);
+  await assertRecovery(function() { return context.loader(unstableDecisionEvidence.identity.operationId); },
+    unstableDecisionEvidence.identity.operationId, 'unstable decision descriptors fail closed');
+  assertEqual(unstableDecisionReads, 2, 'decision descriptors are sampled twice');
+
+  const releaseAfterDecision = buildEvidence('markedrelease1234567', '2027-11-05', '2027-11-06', [3]);
+  const releaseAfterDecisionRow = markEvidence(releaseAfterDecision);
+  const releaseAfterFixture = installMarkedEvidence(releaseAfterDecision, releaseAfterDecisionRow);
+  const firstMarkedRelease = releaseAfterDecision.acquisitions[0]._id.slice(0, -1) + 'r';
+  releaseAfterFixture.rows[firstMarkedRelease] = { present: true };
+  await assertRecovery(function() { return context.loader(releaseAfterDecision.identity.operationId); },
+    releaseAfterDecision.identity.operationId, 'release after exact commit decision fails closed');
+  assertEqual(releaseAfterFixture.readCalls[releaseAfterFixture.readCalls.length - 1].id,
+    firstMarkedRelease, 'release is rejected at its causal post-decision read');
+
+  for (let releaseIndex = 0; releaseIndex < markedMulti.acquisitions.length; releaseIndex += 1) {
+    const evidence = buildEvidence('markedreleaseall1234', '2027-11-05', '2027-11-07', [3, 4, 5]);
+    const decision = markEvidence(evidence);
+    const fixture = installMarkedEvidence(evidence, decision);
+    const releaseId = evidence.acquisitions[releaseIndex]._id.slice(0, -1) + 'r';
+    fixture.rows[releaseId] = false;
+    await assertRecovery(function() { return context.loader(evidence.identity.operationId); },
+      evidence.identity.operationId, 'marked release position ' + releaseIndex + ' fails closed');
+    assertEqual(fixture.readCalls[fixture.readCalls.length - 1].id, releaseId,
+      'marked release position ' + releaseIndex + ' is its causal boundary');
+  }
+
+  const appearingDecision = buildEvidence('appearingdecision1234', '2027-11-05', '2027-11-06', [3]);
+  const appearingDecisionRow = markEvidence(appearingDecision);
+  installMarkedEvidence(appearingDecision, undefined, function(id, rows) {
+    if (id === appearingDecisionRow._id) return appearingDecisionRow;
+    return Object.prototype.hasOwnProperty.call(rows, id) ? rows[id] : null;
+  });
+  assertEqual((await context.loader(appearingDecision.identity.operationId)).decision,
+    appearingDecisionRow, 'commit decision appearing after completion is accepted');
+
+  const capturedMarked = buildEvidence('capturedmarked123456', '2027-11-05', '2027-11-06', [3]);
+  const capturedMarkedDecision = markEvidence(capturedMarked);
+  const capturedFixture = installMarkedEvidence(capturedMarked, capturedMarkedDecision,
+    function(id, rows, readCalls) {
+      const value = Object.prototype.hasOwnProperty.call(rows, id) ? rows[id] : null;
+      if (id === capturedMarked.completion._id) {
+        context.wixData = { get: function() { throw new Error('replacement get used'); } };
+      }
+      return value;
+    });
+  assertEqual((await context.loader(capturedMarked.identity.operationId)).decision,
+    capturedMarkedDecision, 'captured Wix owner and get survive replacement before decision read');
+  assertEqual(capturedFixture.readCalls.every(function(call, index) {
+    const descriptors = Object.getOwnPropertyDescriptors(call.options);
+    return Reflect.ownKeys(call.options).length === 3 &&
+      ['suppressAuth', 'consistentRead', 'suppressHooks'].every(function(key) {
+        const descriptor = descriptors[key];
+        return descriptor && descriptor.value === true && descriptor.writable === false &&
+          descriptor.enumerable === true && descriptor.configurable === false;
+      }) && capturedFixture.readCalls.every(function(other, otherIndex) {
+        return index === otherIndex || call.options !== other.options;
+      });
+  }), true, 'marked reads receive distinct immutable authoritative options');
+
+  const completionBoundary = buildEvidence('completionboundary123', '2027-11-05', '2027-11-06', [3]);
+  const completionBoundaryDecision = markEvidence(completionBoundary);
+  completionBoundary.completion.confirmedResourceCount = 1;
+  const completionBoundaryFixture = installMarkedEvidence(completionBoundary, completionBoundaryDecision);
+  await assertRecovery(function() { return context.loader(completionBoundary.identity.operationId); },
+    completionBoundary.identity.operationId, 'invalid marked completion fails closed');
+  assertEqual(completionBoundaryFixture.readCalls.some(function(call) {
+    return call.id === completionBoundaryDecision._id || /-r$/.test(call.id);
+  }), false, 'invalid marked completion stops before decision and release reads');
+
+  const undefinedMarkedRelease = buildEvidence('undefinedmarked123456', '2027-11-05', '2027-11-06', [3]);
+  const undefinedMarkedDecision = markEvidence(undefinedMarkedRelease);
+  installMarkedEvidence(undefinedMarkedRelease, undefinedMarkedDecision, function(id, rows) {
+    if (/-r$/.test(id)) return undefined;
+    return Object.prototype.hasOwnProperty.call(rows, id) ? rows[id] : null;
+  });
+  assertEqual((await context.loader(undefinedMarkedRelease.identity.operationId)).decision,
+    undefinedMarkedDecision, 'undefined marked release absence is accepted after the decision');
+
+  const markedException = buildEvidence('decisionexception1234', '2027-11-05', '2027-11-06', [3]);
+  const markedExceptionDecision = markEvidence(markedException);
+  const markedExceptionFixture = installMarkedEvidence(markedException, markedExceptionDecision,
+    function(id, rows) {
+      if (id === markedExceptionDecision._id) throw new Error('decision read failed');
+      return Object.prototype.hasOwnProperty.call(rows, id) ? rows[id] : null;
+    });
+  await assertRecovery(function() { return context.loader(markedException.identity.operationId); },
+    markedException.identity.operationId, 'decision read exception collapses to recovery-required');
+  assertEqual(markedExceptionFixture.readCalls.some(function(call) { return /-r$/.test(call.id); }), false,
+    'decision read exception performs zero release reads');
+
+  const missingThenInserted = buildEvidence('lateinsertdecision123', '2027-11-05', '2027-11-06', [3]);
+  const lateDecision = markEvidence(missingThenInserted);
+  const lateFixture = installMarkedEvidence(missingThenInserted, undefined, function(id, rows) {
+    if (id === lateDecision._id) {
+      rows[id] = lateDecision;
+      return null;
+    }
+    return Object.prototype.hasOwnProperty.call(rows, id) ? rows[id] : null;
+  });
+  await assertRecovery(function() { return context.loader(missingThenInserted.identity.operationId); },
+    missingThenInserted.identity.operationId,
+    'decision missing at its read remains rejected when inserted immediately afterward');
+  assertEqual(lateFixture.readCalls.some(function(call) { return /-r$/.test(call.id); }), false,
+    'ambiguous late decision insertion does not reach release reads');
+
+  const compensationWins = buildEvidence('compensationwins1234', '2027-11-05', '2027-11-06', [3]);
+  const compensationWinsRow = markEvidence(compensationWins, 'commit-rows');
+  installMarkedEvidence(compensationWins, compensationWinsRow, function(id, rows) {
+    if (id === compensationWinsRow._id) return buildDecision(
+      compensationWins.identity, compensationWins.completion, 'compensate');
+    return Object.prototype.hasOwnProperty.call(rows, id) ? rows[id] : null;
+  });
+  await assertRecovery(function() { return context.loader(compensationWins.identity.operationId); },
+    compensationWins.identity.operationId, 'compensation winning before decision read is rejected');
+
+  const stableDecisionEvidence = buildEvidence('stabledecision123456', '2027-11-05', '2027-11-06', [3]);
+  const stableDecisionRow = markEvidence(stableDecisionEvidence);
+  let stableDecisionMutated = false;
+  installMarkedEvidence(stableDecisionEvidence, stableDecisionRow, function(id, rows) {
+    if (/-r$/.test(id) && !stableDecisionMutated) {
+      stableDecisionMutated = true;
+      stableDecisionRow.bookingNumber = 'MUTATED DURING RELEASE';
+    }
+    return Object.prototype.hasOwnProperty.call(rows, id) ? rows[id] : null;
+  });
+  const stableDecisionOutput = await context.loader(stableDecisionEvidence.identity.operationId);
+  assertEqual(stableDecisionOutput.decision.bookingNumber, 'WC-7001',
+    'one stable detached decision snapshot serves validation and output');
+
+  const poisonedDecisionEvidence = buildEvidence('poisoneddecision1234', '2027-11-05', '2027-11-06', [3]);
+  const poisonedDecisionRow = markEvidence(poisonedDecisionEvidence);
+  let poisonInstalled = false;
+  installMarkedEvidence(poisonedDecisionEvidence, poisonedDecisionRow, function(id, rows) {
+    const value = Object.prototype.hasOwnProperty.call(rows, id) ? rows[id] : null;
+    if (id !== poisonedDecisionRow._id || poisonInstalled) return value;
+    poisonInstalled = true;
+    return { then: function(resolve) {
+      context.wixData = { get: function() { throw new Error('decision-await replacement get used'); } };
+      vm.runInContext(`
+        this.savedPoisonObject = Object; this.savedPoisonReflect = Reflect;
+        this.savedPoisonPromise = Promise; this.savedPoisonArray = Array;
+        this.savedPoisonString = String; this.savedPoisonRegExp = RegExp;
+        this.savedPoisonNumber = Number; this.savedPoisonDate = Date;
+        this.savedPoisonError = Error;
+        Object = new Proxy(Object, { get: function() { throw savedPoisonError('Object'); } });
+        Reflect = new Proxy(Reflect, { get: function() { throw savedPoisonError('Reflect'); } });
+        Promise = new Proxy(Promise, { get: function() { throw savedPoisonError('Promise'); } });
+        Array = new Proxy(Array, { get: function() { throw savedPoisonError('Array'); } });
+        String = new Proxy(String, { get: function() { throw savedPoisonError('String'); },
+          apply: function() { throw savedPoisonError('String'); } });
+        RegExp = new Proxy(RegExp, { get: function() { throw savedPoisonError('RegExp'); },
+          construct: function() { throw savedPoisonError('RegExp'); } });
+        Number = new Proxy(Number, { get: function() { throw savedPoisonError('Number'); },
+          apply: function() { throw savedPoisonError('Number'); } });
+        Date = new Proxy(Date, { get: function() { throw savedPoisonError('Date'); },
+          construct: function() { throw savedPoisonError('Date'); } });
+        Error = new Proxy(Error, { get: function() { throw savedPoisonError('Error'); },
+          construct: function() { throw savedPoisonError('Error'); } });
+      `, context);
+      resolve(value);
+    } };
+  });
+  try {
+    assertEqual((await context.loader(poisonedDecisionEvidence.identity.operationId)).decision,
+      poisonedDecisionRow,
+      'decision-await global intrinsic poisoning cannot weaken marked success');
+  } finally {
+    vm.runInContext(`
+      Object = savedPoisonObject; Reflect = savedPoisonReflect; Promise = savedPoisonPromise;
+      Array = savedPoisonArray; String = savedPoisonString; RegExp = savedPoisonRegExp;
+      Number = savedPoisonNumber; Date = savedPoisonDate; Error = savedPoisonError;
+      delete savedPoisonObject; delete savedPoisonReflect; delete savedPoisonPromise;
+      delete savedPoisonArray; delete savedPoisonString; delete savedPoisonRegExp;
+      delete savedPoisonNumber; delete savedPoisonDate; delete savedPoisonError;
+    `, context);
+  }
+
+  const pollutedMarked = buildEvidence('pollutedmarked123456', '2027-11-05', '2027-11-06', [3]);
+  const pollutedMarkedDecision = markEvidence(pollutedMarked);
+  installMarkedEvidence(pollutedMarked, pollutedMarkedDecision);
+  vm.runInContext(`
+    this.markedPollutionCalls = 0;
+    ['decision'].forEach(function(key) {
+      Object.defineProperty(Object.prototype, key, { configurable: true,
+        set: function() { markedPollutionCalls += 1; } });
+    });
+  `, context);
+  let pollutedMarkedOutput;
+  try {
+    pollutedMarkedOutput = await context.loader(pollutedMarked.identity.operationId);
+  } finally {
+    vm.runInContext("delete Object.prototype.decision;", context);
+  }
+  assertEqual(context.markedPollutionCalls, 0,
+    'prototype pollution cannot intercept outer decision materialization');
+  assertEqual(isOwnContractDataProperty(pollutedMarkedOutput, 'decision'), true,
+    'polluted marked output owns its decision data property');
+
+  const fencedAppend = buildEvidence('fencedappend1234567', '2027-11-05', '2027-11-06', [3]);
+  const fencedAppendDecision = markEvidence(fencedAppend);
+  const fencedRows = Object.create(null);
+  fencedRows[fencedAppend.identity._id] = fencedAppend.identity;
+  fencedAppend.acquisitions.forEach(function(event) { fencedRows[event._id] = event; });
+  fencedRows[fencedAppend.completion._id] = fencedAppend.completion;
+  fencedRows[fencedAppendDecision._id] = fencedAppendDecision;
+  const releaseAttempt = Object.assign({}, fencedAppend.acquisitions[0], {
+    _id: fencedAppend.acquisitions[0]._id.slice(0, -1) + 'r', eventType: 'release',
+    releaseReason: 'attempted compensation'
+  });
+  context.wixData = {
+    get: async function(collection, id) {
+      return Object.prototype.hasOwnProperty.call(fencedRows, id) ? fencedRows[id] : null;
+    },
+    insert: async function(collection, event) {
+      if (Object.prototype.hasOwnProperty.call(fencedRows, event._id)) throw new Error('collision');
+      fencedRows[event._id] = event;
+      return event;
+    }
+  };
+  const releaseAttemptResult = await context.appender([releaseAttempt]);
+  assertEqual({ state: releaseAttemptResult.state,
+    classification: releaseAttemptResult.failed && releaseAttemptResult.failed.classification,
+    releasePresent: Object.prototype.hasOwnProperty.call(fencedRows, releaseAttempt._id) },
+  { state: 'STOPPED', classification: 'DECISION_CONFLICT', releasePresent: false },
+  'observed commit decision prevents adapter compensation from producing a release');
 
   const markedIdentityLegacyCompletion = buildEvidence(
     'mixedmarkeridentity1', '2027-11-05', '2027-11-06', [3]);
