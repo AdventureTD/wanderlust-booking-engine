@@ -225,12 +225,59 @@ for (const [file, hash] of [
   const content = fs.readFileSync(path.join(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n');
   eq(crypto.createHash('sha256').update(content).digest('hex'), hash, 'baseline preservation (LF normalized) ' + file);
 }
+const purchaseInputFile = 'velo/backend/guestBookingPurchaseInput.js';
+const purchaseInputSource = fs.readFileSync(path.join(__dirname, '..', purchaseInputFile), 'utf8');
+const approvedImport = "import { canonicalizeGuestBookingPriceGroups } from 'backend/guestBookingPriceGroups';";
+function isolatedProductionFile(file, text) {
+  if (file !== purchaseInputFile) return !/guestBooking(?:PriceGroups|PurchaseInput)/.test(text);
+  // Reviewed source pin is SHA-256 over UTF-8 with CRLF -> LF ONLY.
+  // No trim, BOM removal, lone-CR conversion or other normalization. A changed
+  // body needs a fresh review; lexical checks alone cannot prove effect freedom.
+  const canonicalLF = text.replace(/\r\n/g, '\n');
+  const body = canonicalLF.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  if (body.split(approvedImport).length !== 2) return false;
+  const remainder = body.replace(approvedImport, '');
+  // These exact captured-intrinsic expressions do not construct/evaluate code.
+  const facilities = remainder.replace(/Function\.prototype\.call\.bind\((?:String\.prototype\.(?:charCodeAt|slice)|RegExp\.prototype\.exec)\)/g, '');
+  if (/\b(?:import|require|from|async|await|Promise|fetch|XMLHttpRequest|WebSocket|process|globalThis|Date|crypto|console|setTimeout|setInterval|eval|Function)\b|Math\s*\.\s*random/.test(facilities)) return false;
+  return crypto.createHash('sha256').update(canonicalLF, 'utf8').digest('hex') === 'a3b3583d0971c06f36301aa948479315def667e0e73d4accb8c854daab17489a';
+}
+// Causal in-memory isolation probes: never write or execute the mutated sources.
+eq(isolatedProductionFile(purchaseInputFile, purchaseInputSource), true, 'approved pure purchase-input dependency admitted');
+eq(isolatedProductionFile(purchaseInputFile, purchaseInputSource.replace(/\r?\n/g, '\r\n')), true, 'reviewed source CRLF equivalent admitted');
+eq(isolatedProductionFile('velo/backend/unrelated.js', 'export const inert = 1;'), true, 'unrelated inert file admitted');
+const isolationMutations = [
+  ['renamed candidate', 'velo/backend/renamed.js', purchaseInputSource],
+  ['same basename outside backend', 'velo/guestBookingPurchaseInput.js', purchaseInputSource],
+  ['extra named import', purchaseInputFile, purchaseInputSource.replace('{ canonicalizeGuestBookingPriceGroups }', '{ canonicalizeGuestBookingPriceGroups, other }')],
+  ['different dependency', purchaseInputFile, purchaseInputSource.replace("from 'backend/guestBookingPriceGroups'", "from 'backend/other'")],
+  ['missing import', purchaseInputFile, purchaseInputSource.replace(approvedImport, '')],
+  ['duplicate import', purchaseInputFile, purchaseInputSource + '\n' + approvedImport],
+  ['side effect import', purchaseInputFile, purchaseInputSource + "\nimport 'wix-data';"],
+  ['reexport', purchaseInputFile, purchaseInputSource + "\nexport * from 'backend/other';"],
+  ['dynamic import', purchaseInputFile, purchaseInputSource + "\nimport('wix-data');"],
+  ['require dependency', purchaseInputFile, purchaseInputSource + "\nrequire('wix-data');"],
+  ['network effect', purchaseInputFile, purchaseInputSource + "\nfetch('https://invalid.example');"],
+  ['logging effect', purchaseInputFile, purchaseInputSource + "\nconsole.log('synthetic');"],
+  ['time effect', purchaseInputFile, purchaseInputSource + '\nDate.now();'],
+  ['random effect', purchaseInputFile, purchaseInputSource + '\nMath.random();'],
+  ['obfuscated effect', purchaseInputFile, purchaseInputSource + "\nglobalThis['fe'+'tch']('https://invalid.example');"],
+  ['unreviewed body', purchaseInputFile, purchaseInputSource.replace('out.length > 262144', 'out.length > 1')],
+  ['production consumer', 'velo/backend/consumer.js', "import { canonicalizeGuestBookingPurchaseInput } from 'backend/guestBookingPurchaseInput';"],
+  ['dynamic production consumer', 'velo/page-synthetic.js', "import('backend/guestBookingPurchaseInput');"],
+  ['production group consumer', 'velo/backend/consumer.js', approvedImport]
+];
+for (const [name, file, text] of isolationMutations) {
+  eq(isolatedProductionFile(purchaseInputFile, purchaseInputSource), true, 'positive control before ' + name);
+  eq(isolatedProductionFile(file, text), false, 'isolation rejects ' + name);
+}
 function scanProduction(directory) {
   for (const entry of fs.readdirSync(directory, {withFileTypes: true})) {
     const file = path.join(directory, entry.name);
     if (entry.isDirectory()) scanProduction(file);
     else if (/\.js$/.test(entry.name) && file !== sourcePath) {
-      eq(/guestBookingPriceGroups/.test(fs.readFileSync(file, 'utf8')), false, 'no candidate wiring ' + path.relative(path.join(__dirname, '..'), file));
+      const relative = path.relative(path.join(__dirname, '..'), file).split(path.sep).join('/');
+      eq(isolatedProductionFile(relative, fs.readFileSync(file, 'utf8')), true, 'reviewed dependency only; no production consumers ' + relative);
     }
   }
 }
