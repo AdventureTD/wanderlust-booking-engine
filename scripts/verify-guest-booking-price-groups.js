@@ -229,7 +229,27 @@ const purchaseInputFile = 'velo/backend/guestBookingPurchaseInput.js';
 const purchaseInputSource = fs.readFileSync(path.join(__dirname, '..', purchaseInputFile), 'utf8');
 const approvedImport = "import { canonicalizeGuestBookingPriceGroups } from 'backend/guestBookingPriceGroups';";
 function isolatedProductionFile(file, text) {
-  if (file !== purchaseInputFile) return !/guestBooking(?:PriceGroups|PurchaseInput)/.test(text);
+  if (file === calculationFile) {
+    const canonicalLF = text.replace(/\r\n/g, '\n');
+    const body = canonicalLF.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    if (body.split(approvedImport).length !== 2) return false;
+    const remainder = body.replace(approvedImport, '');
+    if (JSON.stringify(body.match(/\bexport\b[^\n]*/g)) !== JSON.stringify(['export function calculateGuestBookingFinancials(factors) {'])) return false;
+    if (/\b(?:import|require|from|async|await|Promise|fetch|XMLHttpRequest|WebSocket|process|globalThis|Date|crypto|console|setTimeout|setInterval|eval|Function)\b|Math\s*\.\s*random/.test(remainder)) return false;
+    // UTF-8 SHA-256, CRLF -> LF ONLY; candidate pending independent review.
+    return crypto.createHash('sha256').update(canonicalLF, 'utf8').digest('hex') === '3dc9fae1c48a48e78b34608c57970e73fae546c65e7c3a31449359f01a67fe71';
+  }
+  if (file !== purchaseInputFile) {
+    // Lexical disconnection barrier, not a general JS resolver. Decode literal
+    // Unicode/hex aliases without evaluating sources; retain raw-name checks.
+    const decoded = text.replace(/\\(?:u\{([0-9a-fA-F]{1,6})\}|u([0-9a-fA-F]{4})|x([0-9a-fA-F]{2}))/g,
+      (escape, point, unicode, hex) => {
+        const value = parseInt(point || unicode || hex, 16);
+        return value <= 0x10ffff ? String.fromCodePoint(value) : escape;
+      });
+    return !/guestBooking(?:PriceGroups|PurchaseInput|FinancialCalculation)/.test(text) &&
+      !/guestBooking(?:PriceGroups|PurchaseInput|FinancialCalculation)/.test(decoded);
+  }
   // Reviewed source pin is SHA-256 over UTF-8 with CRLF -> LF ONLY.
   // No trim, BOM removal, lone-CR conversion or other normalization. A changed
   // body needs a fresh review; lexical checks alone cannot prove effect freedom.
@@ -242,7 +262,12 @@ function isolatedProductionFile(file, text) {
   if (/\b(?:import|require|from|async|await|Promise|fetch|XMLHttpRequest|WebSocket|process|globalThis|Date|crypto|console|setTimeout|setInterval|eval|Function)\b|Math\s*\.\s*random/.test(facilities)) return false;
   return crypto.createHash('sha256').update(canonicalLF, 'utf8').digest('hex') === 'a3b3583d0971c06f36301aa948479315def667e0e73d4accb8c854daab17489a';
 }
+// Calculator candidate pin is an isolation exception, not review/publication approval.
+const calculationFile = 'velo/backend/guestBookingFinancialCalculation.js';
+const calculationSource = fs.readFileSync(path.join(__dirname, '..', calculationFile), 'utf8');
 // Causal in-memory isolation probes: never write or execute the mutated sources.
+eq(isolatedProductionFile(calculationFile, calculationSource), true, 'exact pinned calculator dependency admitted');
+eq(isolatedProductionFile(calculationFile, calculationSource.replace(/\r?\n/g, '\r\n')), true, 'calculator CRLF equivalent admitted');
 eq(isolatedProductionFile(purchaseInputFile, purchaseInputSource), true, 'approved pure purchase-input dependency admitted');
 eq(isolatedProductionFile(purchaseInputFile, purchaseInputSource.replace(/\r?\n/g, '\r\n')), true, 'reviewed source CRLF equivalent admitted');
 eq(isolatedProductionFile('velo/backend/unrelated.js', 'export const inert = 1;'), true, 'unrelated inert file admitted');
@@ -270,6 +295,49 @@ const isolationMutations = [
 for (const [name, file, text] of isolationMutations) {
   eq(isolatedProductionFile(purchaseInputFile, purchaseInputSource), true, 'positive control before ' + name);
   eq(isolatedProductionFile(file, text), false, 'isolation rejects ' + name);
+}
+// Every calculator rejection has an immediately preceding real-source control.
+const calculationMutations = [
+  ['other backend path', 'velo/backend/otherCalculator.js', calculationSource],
+  ['same basename outside backend', 'velo/guestBookingFinancialCalculation.js', calculationSource],
+  ['page copy', 'velo/page-synthetic.js', calculationSource],
+  ['web copy', 'velo/backend/guestBookingFinancialCalculation.web.js', calculationSource],
+  ['missing import', calculationFile, calculationSource.replace(approvedImport, '')],
+  ['duplicate import', calculationFile, calculationSource + '\n' + approvedImport],
+  ['extra named import', calculationFile, calculationSource.replace('{ canonicalizeGuestBookingPriceGroups }', '{ canonicalizeGuestBookingPriceGroups, other }')],
+  ['aliased import', calculationFile, calculationSource.replace('{ canonicalizeGuestBookingPriceGroups }', '{ canonicalizeGuestBookingPriceGroups as alias }')],
+  ['escaped dependency', calculationFile, calculationSource.replace('backend/guestBookingPriceGroups', 'backend/guestBooking\\u0050riceGroups')],
+  ['other dependency', calculationFile, calculationSource.replace('backend/guestBookingPriceGroups', 'backend/other')],
+  ['side effect import', calculationFile, calculationSource + "\nimport 'wix-data';"],
+  ['reexport', calculationFile, calculationSource + "\nexport * from 'backend/other';"],
+  ['dynamic import', calculationFile, calculationSource + "\nimport('wix-data');"],
+  ['require', calculationFile, calculationSource + "\nrequire('wix-data');"],
+  ['extra export', calculationFile, calculationSource + '\nexport const other = 1;'],
+  ['renamed export', calculationFile, calculationSource.replace('export function calculateGuestBookingFinancials', 'export function other')],
+  ['changed body', calculationFile, calculationSource.replace('const epsilon = Number.EPSILON;', 'const epsilon = 0;')],
+  ['extra whitespace', calculationFile, calculationSource + ' '],
+  ['BOM', calculationFile, '\ufeff' + calculationSource],
+  ['lone CR', calculationFile, calculationSource.replace(/\r?\n/g, '\r')],
+  ['comment addition', calculationFile, calculationSource + '\n// unreviewed'],
+  ['escaped alias effect', calculationFile, calculationSource + "\nconst f = globalThis['fe'+'tch']; f('https://invalid.example');"]
+];
+const calculationImport = "import { calculateGuestBookingFinancials } from 'backend/guestBookingFinancialCalculation';";
+for (const file of ['velo/backend/consumer.js', 'velo/page-synthetic.js', 'velo/backend/consumer.web.js', 'velo/backend/guestBookingFinancialAuthority.js']) {
+  for (const [name, text] of [
+    ['static incoming', calculationImport],
+    ['aliased incoming', calculationImport.replace('calculateGuestBookingFinancials }', 'calculateGuestBookingFinancials as alias }')],
+    ['reexport incoming', "export { calculateGuestBookingFinancials } from 'backend/guestBookingFinancialCalculation';"],
+    ['star reexport incoming', "export * from 'backend/guestBookingFinancialCalculation';"],
+    ['dynamic incoming', "import('backend/guestBookingFinancialCalculation');"],
+    ['require incoming', "require('backend/guestBookingFinancialCalculation');"],
+    ['escaped unicode incoming', "import('backend/guestBooking\\u0046inancialCalculation');"],
+    ['escaped hex incoming', "require('backend/guestBooking\\x46inancialCalculation');"],
+    ['escaped codepoint incoming', "export * from 'backend/guestBooking\\u{46}inancialCalculation';"]
+  ]) calculationMutations.push([name + ' ' + file, file, text]);
+}
+for (const [name, file, text] of calculationMutations) {
+  eq(isolatedProductionFile(calculationFile, calculationSource), true, 'calculator positive control before ' + name);
+  eq(isolatedProductionFile(file, text), false, 'calculator isolation rejects ' + name);
 }
 function scanProduction(directory) {
   for (const entry of fs.readdirSync(directory, {withFileTypes: true})) {
