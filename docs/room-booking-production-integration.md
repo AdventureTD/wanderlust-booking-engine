@@ -10,6 +10,8 @@ Status: **NOT deployment-ready**. Disconnected core baseline: `080b2b8f30a502bba
 - Guests are per physical room, not an aggregate to divide. Non-Penthouse room fees are zero. The booking note belongs only to the designated primary row.
 - Keep the published Booking Search design and behavior unchanged during preparation. A later reviewed Summary submission change may replace separate room-group calls with one whole-cart request without changing the visual design.
 - Publication, production activation and data migration require explicit approval. Preparation authorization is not cutover approval.
+- Automatic recovery from interrupted acquisitions is required, even if it needs another independently reviewed protocol module; owner-led drained repair is not the selected normal production recovery behavior.
+- During automatic abort cleanup, finishing an already-authorized temporary room hold solely to release it safely is permitted. Failed bookings must never become customer confirmations. New recovery semantics still require implementation, concurrency proof, tests and independent review.
 
 ## Observed integration gaps
 
@@ -45,7 +47,7 @@ The public request must not authorize client-supplied prices, arbitrary status, 
 
 ### P3 — Whole-cart claim decision and recovery
 
-The reviewed single-group exports cannot resume every interrupted acquisition: identity plus an incomplete resource prefix without terminal completion remains pending, and the existing compensation API cannot safely manufacture that missing completion. A timeout or one-time lease check does not exclude a delayed writer. Whole-cart integration must therefore add separately reviewed acquisition fencing/takeover or a genuinely drained operational repair procedure before production readiness. Start-versus-skip admission gates are also required before declaring an aborted cart fully cleaned up; a currently absent identity alone does not prove that no delayed starter exists.
+The reviewed single-group exports cannot resume every interrupted acquisition: identity plus an incomplete resource prefix without terminal completion remains pending, and the existing compensation API cannot safely manufacture that missing completion. A timeout or one-time lease check does not exclude a delayed writer. Whole-cart integration must therefore implement separately reviewed automatic acquisition fencing/recovery before production readiness. A genuinely drained operational repair remains a possible separate migration remedy for incompatible old histories, not the selected normal recovery behavior. Start-versus-skip admission gates are also required before declaring an aborted cart fully cleaned up; a currently absent identity alone does not prove that no delayed starter exists.
 
 Extend coordination under a reviewed protocol: acquire every requested resource before authorizing room-row persistence, expose one whole-booking terminal direction, and recover interrupted row writes without rebooking already-secured groups. Reusing independent current coordinators in parallel is insufficient.
 
