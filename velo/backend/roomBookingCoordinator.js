@@ -4,37 +4,54 @@
 const DAY_MS = 86400000;
 const MAX_MANIFEST_NIGHTS = 800;
 const INVALID = {};
+const getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+const getOwnPropertyNames = Object.getOwnPropertyNames;
+const getOwnPropertySymbols = Object.getOwnPropertySymbols;
+const getPrototypeOf = Object.getPrototypeOf;
+const objectAssign = Object.assign;
+const objectFreeze = Object.freeze;
+const objectPrototype = Object.prototype;
+const hasOwnProperty = Object.prototype.hasOwnProperty;
+const arrayIsArray = Array.isArray;
+const arrayPrototype = Array.prototype;
+const arrayEvery = Array.prototype.every;
+const arrayIndexOf = Array.prototype.indexOf;
+const reflectApply = Reflect.apply;
+const errorConstructor = Error;
+const stringConstructor = String;
 
 function recoveryRequired(operationId) {
-  const error = new Error('RECOVERY_REQUIRED');
+  const error = new errorConstructor('RECOVERY_REQUIRED');
   error.code = 'RECOVERY_REQUIRED';
   error.operationId = operationId;
   return error;
 }
 
 function ownData(object, key) {
-  const descriptor = Object.getOwnPropertyDescriptor(object, key);
-  return descriptor && Object.prototype.hasOwnProperty.call(descriptor, 'value')
+  const descriptor = getOwnPropertyDescriptor(object, key);
+  return descriptor && reflectApply(hasOwnProperty, descriptor, ['value'])
     ? descriptor.value
     : INVALID;
 }
 
 function hasExactOwnData(object, names) {
-  if (!object || typeof object !== 'object' || Array.isArray(object) ||
-      Object.getPrototypeOf(object) !== Object.prototype ||
-      Object.getOwnPropertySymbols(object).length !== 0) return false;
-  const actualNames = Object.getOwnPropertyNames(object);
-  return actualNames.length === names.length && names.every(function(name) {
-    return actualNames.indexOf(name) !== -1 && ownData(object, name) !== INVALID;
-  });
+  if (!object || typeof object !== 'object' || arrayIsArray(object) ||
+      getPrototypeOf(object) !== objectPrototype ||
+      getOwnPropertySymbols(object).length !== 0) return false;
+  const actualNames = getOwnPropertyNames(object);
+  return actualNames.length === names.length && reflectApply(arrayEvery, names, [function(name) {
+    return reflectApply(arrayIndexOf, actualNames, [name]) !== -1 && ownData(object, name) !== INVALID;
+  }]);
 }
 
 function isDensePlainArray(value) {
-  if (!Array.isArray(value) || Object.getOwnPropertySymbols(value).length !== 0) return false;
-  const names = Object.getOwnPropertyNames(value);
-  if (names.length !== value.length + 1 || names.indexOf('length') === -1) return false;
+  if (!arrayIsArray(value) || getPrototypeOf(value) !== arrayPrototype ||
+      getOwnPropertySymbols(value).length !== 0) return false;
+  const names = getOwnPropertyNames(value);
+  if (names.length !== value.length + 1 || reflectApply(arrayIndexOf, names, ['length']) === -1) return false;
   for (let index = 0; index < value.length; index += 1) {
-    if (names.indexOf(String(index)) === -1 || ownData(value, String(index)) === INVALID) return false;
+    if (reflectApply(arrayIndexOf, names, [stringConstructor(index)]) === -1 ||
+        ownData(value, stringConstructor(index)) === INVALID) return false;
   }
   return true;
 }
@@ -46,7 +63,7 @@ function confirmedExactly(result, expectedIds, idField) {
     const confirmed = ownData(result, 'confirmed');
     if (!isDensePlainArray(confirmed) || confirmed.length !== expectedIds.length) return false;
     for (let index = 0; index < expectedIds.length; index += 1) {
-      const item = ownData(confirmed, String(index));
+      const item = ownData(confirmed, stringConstructor(index));
       if (!hasExactOwnData(item, [idField, 'disposition'])) return false;
       const disposition = ownData(item, 'disposition');
       if (ownData(item, idField) !== expectedIds[index] ||
@@ -129,14 +146,14 @@ function validatePlan(plan, trustedBookingFields) {
       ownData(identity, 'manifestCheckIn') !== checkIn ||
       ownData(identity, 'manifestCheckOut') !== checkOut ||
       ownData(identity, 'manifestRoomCode') !== roomCode ||
-      ownData(identity, 'manifestUnits') !== String(assignedRoom) ||
+      ownData(identity, 'manifestUnits') !== stringConstructor(assignedRoom) ||
       ownData(identity, 'manifestBookingRowIds') !== rowId) return null;
 
   const resourceIds = [];
   const seenIds = Object.create(null);
   seenIds[ownData(identity, '_id')] = true;
   for (let resourceIndex = 0; resourceIndex < nightCount * 2; resourceIndex += 1) {
-    const event = ownData(acquisitions, String(resourceIndex + 1));
+    const event = ownData(acquisitions, stringConstructor(resourceIndex + 1));
     const isCapacity = resourceIndex < nightCount;
     const fields = [
       '_id', 'protocolVersion', 'claimKey', 'generation', 'eventType', 'claimType',
@@ -154,7 +171,7 @@ function validatePlan(plan, trustedBookingFields) {
     if (!Number.isInteger(generation) || generation < 1 || generation > 999999 ||
         !Number.isInteger(number) || (isCapacity ? number < 1 || number > 4 : number !== assignedRoom) ||
         eventId !== 'rc1-' + night.replace(/-/g, '') + '-' + marker + number + '-' +
-          String(generation).padStart(6, '0') + '-a' ||
+          stringConstructor(generation).padStart(6, '0') + '-a' ||
         ownData(event, 'protocolVersion') !== 1 ||
         ownData(event, 'claimKey') !== claimType + ':' + night + ':' + number ||
         ownData(event, 'eventType') !== 'acquire' || ownData(event, 'claimType') !== claimType ||
@@ -162,7 +179,7 @@ function validatePlan(plan, trustedBookingFields) {
         ownData(event, 'bookingRowId') !== rowId ||
         ownData(event, 'bookingNumber') !== bookingNumber ||
         ownData(event, 'payloadDigest') !== payloadDigest ||
-        Object.prototype.hasOwnProperty.call(seenIds, eventId)) return null;
+        reflectApply(hasOwnProperty, seenIds, [eventId])) return null;
     seenIds[eventId] = true;
     resourceIds.push(eventId);
   }
@@ -220,40 +237,66 @@ export async function coordinatePhysicalBookingCommit(plan, trustedBookingFields
   if (!validated) throw new Error('Invalid coordinator plan');
 
   const operationId = validated.operationId;
+  objectFreeze(validated.trusted);
   const expectedRow = buildCommittedRow(validated.row, validated.trusted);
   const expectedRowId = expectedRow._id;
   const expectedCheckIn = expectedRow.checkIn.toISOString();
   const expectedCheckOut = expectedRow.checkOut.toISOString();
-  const rowSnapshot = Object.freeze([Object.freeze(Object.assign({}, expectedRow, {
+  const rowSnapshot = objectFreeze([objectFreeze(objectAssign({}, expectedRow, {
     checkIn: expectedCheckIn,
     checkOut: expectedCheckOut
   }))]);
   const acquisitionSnapshot = [];
   const acquisitionIds = [];
   for (let index = 0; index < validated.acquisitions.length; index += 1) {
-    const source = ownData(validated.acquisitions, String(index));
+    const source = ownData(validated.acquisitions, stringConstructor(index));
     const snapshot = {};
-    const names = Object.getOwnPropertyNames(source);
+    const names = getOwnPropertyNames(source);
     for (let nameIndex = 0; nameIndex < names.length; nameIndex += 1) {
       const name = names[nameIndex];
       snapshot[name] = ownData(source, name);
     }
     acquisitionIds.push(snapshot._id);
-    acquisitionSnapshot.push(Object.freeze(snapshot));
+    acquisitionSnapshot.push(objectFreeze(snapshot));
   }
-  Object.freeze(acquisitionSnapshot);
+  objectFreeze(acquisitionSnapshot);
+  let portSnapshot;
+  try {
+    const appendClaimEvents = ownData(ports, 'appendClaimEvents');
+    const appendRoomOperationDecision = ownData(ports, 'appendRoomOperationDecision');
+    const appendBookingRows = ownData(ports, 'appendBookingRows');
+    if (typeof appendClaimEvents !== 'function' ||
+        typeof appendRoomOperationDecision !== 'function' ||
+        typeof appendBookingRows !== 'function') throw new Error('Invalid coordinator ports');
+    portSnapshot = objectFreeze({
+      appendClaimEvents: appendClaimEvents,
+      appendRoomOperationDecision: appendRoomOperationDecision,
+      appendBookingRows: appendBookingRows
+    });
+  } catch (error) {
+    throw recoveryRequired(operationId);
+  }
   let claimResult;
   try {
-    claimResult = await ports.appendClaimEvents(acquisitionSnapshot);
+    claimResult = await portSnapshot.appendClaimEvents(acquisitionSnapshot);
   } catch (error) {
     throw recoveryRequired(operationId);
   }
   if (!confirmedExactly(claimResult, acquisitionIds, 'eventId')) {
     throw recoveryRequired(operationId);
   }
+  let decisionResult;
+  try {
+    decisionResult = await portSnapshot.appendRoomOperationDecision(operationId, 'commit-rows');
+  } catch (error) {
+    throw recoveryRequired(operationId);
+  }
+  if (!confirmedExactly(decisionResult, ['rc1-op-' + operationId + '-d'], 'eventId')) {
+    throw recoveryRequired(operationId);
+  }
   let rowResult;
   try {
-    rowResult = await ports.appendBookingRows(rowSnapshot);
+    rowResult = await portSnapshot.appendBookingRows(rowSnapshot);
   } catch (error) {
     throw recoveryRequired(operationId);
   }

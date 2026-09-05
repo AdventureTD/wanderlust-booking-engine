@@ -36,6 +36,7 @@ const source = fs.readFileSync(sourcePath, 'utf8')
 const context = { Date, Object, Error };
 vm.createContext(context);
 vm.runInContext(source, context);
+const realmArray = vm.runInContext('Array', context);
 
 const operationId = 'coordinatortrace01';
 const payloadDigest = '1'.repeat(64);
@@ -105,6 +106,8 @@ const plan = {
   }],
   primaryRowId: bookingRowId
 };
+plan.acquisitions = realmArray.from(plan.acquisitions);
+plan.bookingRows = realmArray.from(plan.bookingRows);
 const trustedBookingFields = {
   _id: 'caller-controlled-id',
   roomCode: 'caller-controlled-room',
@@ -156,9 +159,23 @@ function confirmedRows(rows) {
   };
 }
 
+function confirmedDecision(id) {
+  return {
+    state: 'CONFIRMED',
+    confirmed: realmArray.of({ eventId: 'rc1-op-' + id + '-d', disposition: 'inserted' })
+  };
+}
+
+function coordinate(candidatePlan, trustedFields, ports) {
+  return context.coordinator.coordinatePhysicalBookingCommit(candidatePlan, trustedFields,
+    Object.assign({
+      appendRoomOperationDecision: async function(id) { return confirmedDecision(id); }
+    }, ports));
+}
+
 (async function() {
   const calls = [];
-  const result = await context.coordinator.coordinatePhysicalBookingCommit(
+  const result = await coordinate(
     plan,
     trustedBookingFields,
     {
@@ -170,6 +187,10 @@ function confirmedRows(rows) {
             return { eventId: event._id, disposition: 'inserted' };
           })
         };
+      },
+      appendRoomOperationDecision: async function(id, decision) {
+        calls.push({ port: 'appendRoomOperationDecision', value: [id, decision] });
+        return confirmedDecision(id);
       },
       appendBookingRows: async function(rows) {
         calls.push({ port: 'appendBookingRows', value: rows });
@@ -186,13 +207,14 @@ function confirmedRows(rows) {
     'successful coordination returns the primary booking-like row directly');
   assertEqual(calls, [
     { port: 'appendClaimEvents', value: plan.acquisitions },
+    { port: 'appendRoomOperationDecision', value: [operationId, 'commit-rows'] },
     { port: 'appendBookingRows', value: [expectedRow] }
-  ], 'claims confirm before the exact forced booking row is persisted');
+  ], 'claims and commit-rows decision confirm before the exact forced booking row is persisted');
   assertEqual({
-    checkInType: typeof calls[1].value[0].checkIn,
-    checkIn: calls[1].value[0].checkIn,
-    checkOutType: typeof calls[1].value[0].checkOut,
-    checkOut: calls[1].value[0].checkOut
+    checkInType: typeof calls[2].value[0].checkIn,
+    checkIn: calls[2].value[0].checkIn,
+    checkOutType: typeof calls[2].value[0].checkOut,
+    checkOut: calls[2].value[0].checkOut
   }, {
     checkInType: 'string',
     checkIn: '2027-11-05T12:00:00.000Z',
@@ -201,13 +223,137 @@ function confirmedRows(rows) {
   }, 'booking-row port receives immutable canonical timestamp primitives');
   assertEqual(result.bookingNumber, 'WC-3001',
     'the top-level result keeps bookingNumber directly usable by Booking Summary');
+  assertEqual({
+    checkInIsDate: result.checkIn instanceof Date,
+    checkOutIsDate: result.checkOut instanceof Date,
+    checkIn: result.checkIn instanceof Date ? result.checkIn.toISOString() : result.checkIn,
+    checkOut: result.checkOut instanceof Date ? result.checkOut.toISOString() : result.checkOut,
+    frozen: Object.isFrozen(result)
+  }, {
+    checkInIsDate: true,
+    checkOutIsDate: true,
+    checkIn: '2027-11-05T12:00:00.000Z',
+    checkOut: '2027-11-06T12:00:00.000Z',
+    frozen: false
+  }, 'the returned booking-like row retains detached Date values rather than persistence strings');
+
+  const originalEvery = realmArray.prototype.every;
+  const originalIndexOf = realmArray.prototype.indexOf;
+  const originalHostIndexOf = Array.prototype.indexOf;
+  const originalRealmString = vm.runInContext('String', context);
+  let intrinsicCalls = [];
+  let intrinsicResult;
+  try {
+    intrinsicResult = await coordinate(plan, trustedBookingFields, {
+      appendClaimEvents: async function(events) {
+        intrinsicCalls.push('claims');
+        realmArray.prototype.every = function() { throw new Error('mutated every'); };
+        realmArray.prototype.indexOf = function() { throw new Error('mutated indexOf'); };
+        Array.prototype.indexOf = function() { throw new Error('mutated host indexOf'); };
+        context.String = function() { throw new Error('mutated String'); };
+        return confirmedClaims(events);
+      },
+      appendRoomOperationDecision: async function(id, decision) {
+        intrinsicCalls.push(decision);
+        return confirmedDecision(id);
+      },
+      appendBookingRows: async function(rows) {
+        intrinsicCalls.push('rows');
+        return confirmedRows(rows);
+      }
+    });
+  } finally {
+    realmArray.prototype.every = originalEvery;
+    realmArray.prototype.indexOf = originalIndexOf;
+    Array.prototype.indexOf = originalHostIndexOf;
+    context.String = originalRealmString;
+  }
+  assertEqual({ result: intrinsicResult, calls: intrinsicCalls }, {
+    result: expectedRow, calls: ['claims', 'commit-rows', 'rows']
+  }, 'post-await intrinsic mutation cannot alter gating or redirect effects');
+
+  const originalRealmError = context.Error;
+  let errorHijack;
+  try {
+    errorHijack = await captureRejection(function() {
+      return coordinate(plan, trustedBookingFields, {
+        appendClaimEvents: async function(events) { return confirmedClaims(events); },
+        appendRoomOperationDecision: async function() {
+          context.Error = function() { return new Error('POST_AWAIT_ERROR_HIJACK'); };
+          throw new Error('decision port failed');
+        },
+        appendBookingRows: async function() { throw new Error('row port must not run'); }
+      });
+    });
+  } finally {
+    context.Error = originalRealmError;
+  }
+  assertEqual({ message: errorHijack.message, code: errorHijack.code,
+    operationId: errorHijack.operationId }, {
+    message: 'RECOVERY_REQUIRED', code: 'RECOVERY_REQUIRED', operationId
+  }, 'post-await Error replacement cannot weaken exact recovery metadata');
+
+  const replacementTrusted = Object.assign({}, trustedBookingFields);
+  const replacementPlan = {
+    acquisitions: plan.acquisitions.map(function(event) { return Object.assign({}, event); }),
+    bookingRows: plan.bookingRows.map(function(row) { return Object.assign({}, row); }),
+    primaryRowId: plan.primaryRowId
+  };
+  const replacementCalls = [];
+  const replacementPorts = {
+    appendClaimEvents: async function(events) {
+      replacementCalls.push(Object.isFrozen(this) ? 'claims-frozen' : 'claims-unfrozen');
+      replacementTrusted.note = 'mutated-after-await';
+      replacementPlan.bookingRows[0].bookingNumber = 'MUTATED-AFTER-AWAIT';
+      replacementPorts.appendRoomOperationDecision = async function() {
+        replacementCalls.push('replacement-decision');
+        throw new Error('redirected decision');
+      };
+      replacementPorts.appendBookingRows = async function() {
+        replacementCalls.push('replacement-rows');
+        throw new Error('redirected rows');
+      };
+      return confirmedClaims(events);
+    },
+    appendRoomOperationDecision: async function(id) {
+      replacementCalls.push(Object.isFrozen(this) ? 'captured-decision-frozen' : 'captured-decision-unfrozen');
+      return confirmedDecision(id);
+    },
+    appendBookingRows: async function(rows) {
+      replacementCalls.push(Object.isFrozen(this) ? 'captured-rows-frozen' : 'captured-rows-unfrozen');
+      return confirmedRows(rows);
+    }
+  };
+  const replacementResult = await context.coordinator.coordinatePhysicalBookingCommit(
+    replacementPlan, replacementTrusted, replacementPorts);
+  assertEqual({ result: replacementResult, calls: replacementCalls }, {
+    result: expectedRow,
+    calls: ['claims-frozen', 'captured-decision-frozen', 'captured-rows-frozen']
+  }, 'ports are frozen and ports plus trusted booking data are detached before the first await');
+
+  let alreadyPresentRowCalls = 0;
+  const alreadyPresentResult = await coordinate(plan, trustedBookingFields, {
+    appendClaimEvents: async function(events) { return confirmedClaims(events); },
+    appendRoomOperationDecision: async function(id) {
+      const value = confirmedDecision(id);
+      value.confirmed[0].disposition = 'already-present';
+      return value;
+    },
+    appendBookingRows: async function(rows) {
+      alreadyPresentRowCalls += 1;
+      return confirmedRows(rows);
+    }
+  });
+  assertEqual({ result: alreadyPresentResult, rowCalls: alreadyPresentRowCalls }, {
+    result: expectedRow, rowCalls: 1
+  }, 'an exact already-present commit-rows decision authorizes row persistence');
 
   const originalPlanSnapshot = comparable(plan);
   let mutationRowCalls = 0;
   let receivedDetachedSnapshot = false;
   let receivedFrozenSnapshot = false;
   const mutationError = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+    return coordinate(plan, trustedBookingFields, {
       appendClaimEvents: async function(events) {
         receivedDetachedSnapshot = events !== plan.acquisitions &&
           events.every(function(event, index) { return event !== plan.acquisitions[index]; });
@@ -246,7 +392,7 @@ function confirmedRows(rows) {
 
   const originalCheckout = plan.bookingRows[0].checkOut;
   let delayedConstructionRows = null;
-  const delayedConstructionResult = await context.coordinator.coordinatePhysicalBookingCommit(
+  const delayedConstructionResult = await coordinate(
     plan,
     trustedBookingFields,
     {
@@ -269,7 +415,7 @@ function confirmedRows(rows) {
   const originalCallerAcquisitionId = plan.acquisitions[1]._id;
   let callerAcquisitionMutationRowCalls = 0;
   const callerAcquisitionMutationError = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+    return coordinate(plan, trustedBookingFields, {
       appendClaimEvents: async function() {
         plan.acquisitions[1]._id = 'caller-mutated-after-validation';
         return confirmedClaims(plan.acquisitions);
@@ -288,7 +434,7 @@ function confirmedRows(rows) {
 
   let receivedFrozenRows = false;
   const rowMutationError = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+    return coordinate(plan, trustedBookingFields, {
       appendClaimEvents: async function(events) { return confirmedClaims(events); },
       appendBookingRows: async function(persistedRows) {
         receivedFrozenRows = Object.isFrozen(persistedRows) &&
@@ -312,7 +458,7 @@ function confirmedRows(rows) {
   }, 'booking-row port mutation cannot change the expected row identity or returned result');
 
   const mutableDateError = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+    return coordinate(plan, trustedBookingFields, {
       appendClaimEvents: async function(events) { return confirmedClaims(events); },
       appendBookingRows: async function(persistedRows) {
         persistedRows[0].checkIn.setUTCFullYear(2035);
@@ -331,7 +477,7 @@ function confirmedRows(rows) {
   }, 'booking-row port cannot treat the immutable check-in timestamp as a mutable Date');
 
   const mutableCheckoutError = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+    return coordinate(plan, trustedBookingFields, {
       appendClaimEvents: async function(events) { return confirmedClaims(events); },
       appendBookingRows: async function(persistedRows) {
         persistedRows[0].checkOut.setUTCDate(persistedRows[0].checkOut.getUTCDate() + 1);
@@ -351,7 +497,7 @@ function confirmedRows(rows) {
 
   let sparseClaimRowCalls = 0;
   const sparseClaim = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(
+    return coordinate(
       plan,
       trustedBookingFields,
       {
@@ -406,7 +552,7 @@ function confirmedRows(rows) {
   for (const malformed of malformedConfirmations) {
     let malformedRowCalls = 0;
     const error = await captureRejection(function() {
-      return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+      return coordinate(plan, trustedBookingFields, {
         appendClaimEvents: async function() { return malformed[1]; },
         appendBookingRows: async function() { malformedRowCalls += 1; }
       });
@@ -420,7 +566,7 @@ function confirmedRows(rows) {
   let outerAccessorCalls = 0;
   let outerAccessorRowCalls = 0;
   const outerAccessor = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+    return coordinate(plan, trustedBookingFields, {
       appendClaimEvents: async function() {
         return Object.defineProperty({}, 'state', {
           enumerable: true,
@@ -440,7 +586,7 @@ function confirmedRows(rows) {
   let indexAccessorCalls = 0;
   let indexAccessorRowCalls = 0;
   const indexAccessor = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+    return coordinate(plan, trustedBookingFields, {
       appendClaimEvents: async function(events) {
         const confirmed = confirmedClaims(events).confirmed;
         Object.defineProperty(confirmed, '0', {
@@ -461,7 +607,7 @@ function confirmedRows(rows) {
 
   let inheritedClaimRowCalls = 0;
   const inheritedClaim = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(
+    return coordinate(
       plan,
       trustedBookingFields,
       {
@@ -485,7 +631,7 @@ function confirmedRows(rows) {
 
   let extraClaimRowCalls = 0;
   const extraClaim = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+    return coordinate(plan, trustedBookingFields, {
       appendClaimEvents: async function(events) {
         const confirmation = confirmedClaims(events);
         confirmation.confirmed[0].classification = 'trusted';
@@ -500,7 +646,7 @@ function confirmedRows(rows) {
 
   let proxyClaimRowCalls = 0;
   const proxyClaim = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+    return coordinate(plan, trustedBookingFields, {
       appendClaimEvents: async function(events) {
         const confirmation = confirmedClaims(events);
         confirmation.confirmed[0] = new Proxy(confirmation.confirmed[0], {
@@ -526,7 +672,7 @@ function confirmedRows(rows) {
 
   let accessorClaimRowCalls = 0;
   const accessorClaim = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+    return coordinate(plan, trustedBookingFields, {
       appendClaimEvents: async function(events) {
         const confirmation = confirmedClaims(events);
         Object.defineProperty(confirmation.confirmed[0], 'eventId', {
@@ -563,7 +709,7 @@ function confirmedRows(rows) {
   for (const mutation of claimMutations) {
     let mutationRowCalls = 0;
     const error = await captureRejection(function() {
-      return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+      return coordinate(plan, trustedBookingFields, {
         appendClaimEvents: async function(events) {
           const confirmation = confirmedClaims(events);
           mutation.mutate(confirmation);
@@ -579,7 +725,7 @@ function confirmedRows(rows) {
 
   let customEveryRowCalls = 0;
   const customEveryError = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+    return coordinate(plan, trustedBookingFields, {
       appendClaimEvents: async function(events) {
         const confirmation = confirmedClaims(events);
         confirmation.confirmed[0].eventId = 'wrong-event';
@@ -595,7 +741,7 @@ function confirmedRows(rows) {
 
   let thrownClaimRowCalls = 0;
   const thrownClaim = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+    return coordinate(plan, trustedBookingFields, {
       appendClaimEvents: async function() { throw new Error('claim port failed'); },
       appendBookingRows: async function() { thrownClaimRowCalls += 1; }
     });
@@ -607,7 +753,7 @@ function confirmedRows(rows) {
 
   let ambiguousClaimRowCalls = 0;
   const ambiguousClaim = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+    return coordinate(plan, trustedBookingFields, {
       appendClaimEvents: async function(events) {
         const confirmation = confirmedClaims(events);
         confirmation.state = 'STOPPED';
@@ -620,6 +766,117 @@ function confirmedRows(rows) {
   assertEqual({ code: ambiguousClaim.code, rowCalls: ambiguousClaimRowCalls }, {
     code: 'RECOVERY_REQUIRED', rowCalls: 0
   }, 'ambiguous claim acquisition never reaches booking-row persistence');
+
+  let decisionAccessorCalls = 0;
+  const decisionFailures = [
+    ['thrown exception', async function() { throw new Error('decision port failed'); }],
+    ['non-object result', async function() { return null; }],
+    ['opposite exact state', async function(id) {
+      return { state: 'STOPPED', confirmed: realmArray.of(
+        { eventId: 'rc1-op-' + id + '-d', disposition: 'inserted' }
+      ) };
+    }],
+    ['wrong decision ID', async function(id) {
+      const value = confirmedDecision(id);
+      value.confirmed[0].eventId = 'rc1-op-' + id + '-a';
+      return value;
+    }],
+    ['unsupported disposition', async function(id) {
+      const value = confirmedDecision(id);
+      value.confirmed[0].disposition = 'assumed';
+      return value;
+    }],
+    ['extra outer field', async function(id) {
+      return Object.assign(confirmedDecision(id), { extra: true });
+    }],
+    ['extra confirmation', async function(id) {
+      const value = confirmedDecision(id);
+      value.confirmed.push({ eventId: 'extra', disposition: 'inserted' });
+      return value;
+    }],
+    ['unexpected array property', async function(id) {
+      const value = confirmedDecision(id);
+      value.confirmed.extra = true;
+      return value;
+    }],
+    ['unexpected array symbol', async function(id) {
+      const value = confirmedDecision(id);
+      value.confirmed[Symbol('extra')] = true;
+      return value;
+    }],
+    ['sparse inherited confirmation', async function(id) {
+      const sparse = new Array(1);
+      Object.setPrototypeOf(sparse, confirmedDecision(id).confirmed);
+      return { state: 'CONFIRMED', confirmed: sparse };
+    }],
+    ['dense custom-prototype confirmation', async function(id) {
+      const confirmed = confirmedDecision(id).confirmed;
+      Object.setPrototypeOf(confirmed, Object.create(Array.prototype));
+      return { state: 'CONFIRMED', confirmed };
+    }],
+    ['outer accessor', async function() {
+      return Object.defineProperty({}, 'state', {
+        enumerable: true,
+        get: function() { decisionAccessorCalls += 1; throw new Error('decision accessor'); }
+      });
+    }],
+    ['outer custom prototype', async function(id) {
+      const value = confirmedDecision(id);
+      return Object.assign(Object.create({ inherited: true }), value);
+    }],
+    ['array-index accessor', async function(id) {
+      const value = confirmedDecision(id);
+      Object.defineProperty(value.confirmed, '0', {
+        enumerable: true,
+        get: function() { decisionAccessorCalls += 1; throw new Error('decision index accessor'); }
+      });
+      return value;
+    }],
+    ['item accessor', async function(id) {
+      const value = confirmedDecision(id);
+      Object.defineProperty(value.confirmed[0], 'eventId', {
+        enumerable: true,
+        get: function() { decisionAccessorCalls += 1; throw new Error('decision item accessor'); }
+      });
+      return value;
+    }],
+    ['inherited confirmation fields', async function(id) {
+      return { state: 'CONFIRMED', confirmed: realmArray.of(Object.create(
+        { eventId: 'rc1-op-' + id + '-d', disposition: 'inserted' })) };
+    }],
+    ['symbol field', async function(id) {
+      const value = confirmedDecision(id);
+      value.confirmed[0][Symbol('extra')] = true;
+      return value;
+    }],
+    ['mutation before observation', async function(id) {
+      const value = confirmedDecision(id);
+      queueMicrotask(function() { value.confirmed[0].eventId = 'mutated-decision-id'; });
+      return value;
+    }]
+  ];
+  for (const decisionFailure of decisionFailures) {
+    let decisionCalls = 0;
+    let decisionRowCalls = 0;
+    const error = await captureRejection(function() {
+      return coordinate(plan, trustedBookingFields, {
+        appendClaimEvents: async function(events) { return confirmedClaims(events); },
+        appendRoomOperationDecision: async function(id, decision) {
+          decisionCalls += 1;
+          if (decision !== 'commit-rows') throw new Error('wrong decision');
+          return decisionFailure[1](id);
+        },
+        appendBookingRows: async function() { decisionRowCalls += 1; }
+      });
+    });
+    assertEqual({ message: error.message, code: error.code, operationId: error.operationId,
+      decisionCalls, rowCalls: decisionRowCalls }, {
+      message: 'RECOVERY_REQUIRED', code: 'RECOVERY_REQUIRED', operationId,
+      decisionCalls: 1, rowCalls: 0
+    }, 'decision failure maps to exact recovery with zero row calls: ' + decisionFailure[0]);
+  }
+  assertEqual(decisionAccessorCalls, 0,
+    'decision confirmation accessors are rejected without execution');
 
   const rowMutations = [
     {
@@ -641,7 +898,7 @@ function confirmedRows(rows) {
   ];
   for (const mutation of rowMutations) {
     const error = await captureRejection(function() {
-      return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+      return coordinate(plan, trustedBookingFields, {
         appendClaimEvents: confirmedClaims,
         appendBookingRows: async function(rows) {
           const confirmation = confirmedRows(rows);
@@ -656,7 +913,7 @@ function confirmedRows(rows) {
   }
 
   const thrownRow = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(plan, trustedBookingFields, {
+    return coordinate(plan, trustedBookingFields, {
       appendClaimEvents: confirmedClaims,
       appendBookingRows: async function() { throw new Error('row port failed'); }
     });
@@ -667,7 +924,7 @@ function confirmedRows(rows) {
 
   let rowCalls = 0;
   const ambiguous = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(
+    return coordinate(
       plan,
       trustedBookingFields,
       {
@@ -712,7 +969,7 @@ function confirmedRows(rows) {
     ])
   });
   const unsupported = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(
+    return coordinate(
       multiRowPlan,
       trustedBookingFields,
       {
@@ -728,7 +985,7 @@ function confirmedRows(rows) {
   let invalidPlanEffects = 0;
   const invalidPlan = Object.assign({}, plan, { primaryRowId: 'wrong-primary-row' });
   const invalidPlanError = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(
+    return coordinate(
       invalidPlan,
       trustedBookingFields,
       {
@@ -743,7 +1000,7 @@ function confirmedRows(rows) {
 
   let emptyAcquisitionEffects = 0;
   const emptyAcquisitionError = await captureRejection(function() {
-    return context.coordinator.coordinatePhysicalBookingCommit(
+    return coordinate(
       Object.assign({}, plan, { acquisitions: [] }),
       trustedBookingFields,
       {
@@ -765,7 +1022,7 @@ function confirmedRows(rows) {
     mutator(candidate);
     let io = 0;
     const error = await captureRejection(function() {
-      return context.coordinator.coordinatePhysicalBookingCommit(candidate, trustedBookingFields, {
+      return coordinate(candidate, trustedBookingFields, {
         appendClaimEvents: async function() { io += 1; return confirmedClaims(candidate.acquisitions); },
         appendBookingRows: async function() { io += 1; return confirmedRows(candidate.bookingRows); }
       });
@@ -801,7 +1058,7 @@ function confirmedRows(rows) {
     const candidate = Object.assign({}, trustedBookingFields, { [field]: value });
     let io = 0;
     const error = await captureRejection(function() {
-      return context.coordinator.coordinatePhysicalBookingCommit(plan, candidate, {
+      return coordinate(plan, candidate, {
         appendClaimEvents: async function() { io += 1; return confirmedClaims(plan.acquisitions); },
         appendBookingRows: async function(rows) { io += 1; return confirmedRows(rows); }
       });
