@@ -228,7 +228,175 @@ for (const [file, hash] of [
 const purchaseInputFile = 'velo/backend/guestBookingPurchaseInput.js';
 const purchaseInputSource = fs.readFileSync(path.join(__dirname, '..', purchaseInputFile), 'utf8');
 const approvedImport = "import { canonicalizeGuestBookingPriceGroups } from 'backend/guestBookingPriceGroups';";
+
+// Two-file review v2: disconnected private preview ONLY, not runtime approval.
+const financialReaderFile = 'velo/backend/guestBookingFinancialAuthority.js';
+const financialReaderCanonicalLFSha256 = '809eba5ea270965c8566f3815b96599300535d23e2e3fcd2cf372d28fd076973';
+const financialReaderImports = [
+  "import wixData from 'wix-data';",
+  "import { canonicalizeGuestBookingPurchaseInput } from 'backend/guestBookingPurchaseInput';",
+  "import { readLockedPricingQuoteAuthority } from 'backend/lockedPricingQuoteAuthority';",
+  "import { calculateGuestBookingFinancials } from 'backend/guestBookingFinancialCalculation';"
+];
+const financialReaderExport = 'export async function readGuestBookingFinancialPreview(purchaseInput) {';
+function financialReferenceText(text) {
+  return text.replace(/\\(?:\r\n|[\n\r\u2028\u2029])/g, '')
+    .replace(/\\u\{([0-9a-f]{1,6})\}|\\u([0-9a-f]{4})|\\x([0-9a-f]{2})/gi, (_, a, b, c) => {
+      const n = parseInt(a || b || c, 16);
+      return n <= 0x10ffff ? String.fromCodePoint(n) : '\ufffd';
+    }).replace(/\\([^\r\n])/g, '$1');
+}
+function financialReaderAllowed(file, source) {
+  const text = source.replace(/\r\n/g, '\n');
+  if (file !== financialReaderFile)
+    return !/guestBookingFinancialAuthority|readGuestBookingFinancialPreview/i.test(financialReferenceText(text));
+  if (JSON.stringify(text.match(/^import .+;$/gm)) !== JSON.stringify(financialReaderImports)) return false;
+  if (JSON.stringify(text.match(/^export .*$/gm)) !== JSON.stringify([financialReaderExport])) return false;
+  let body = text;
+  for (const declaration of financialReaderImports) body = body.replace(declaration, '');
+  body = body.replace(financialReaderExport, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  if (/\b(?:import|export|require)\b|strictLockedPricingQuote/i.test(financialReferenceText(body))) return false;
+  return require('node:crypto').createHash('sha256').update(text, 'utf8').digest('hex') === financialReaderCanonicalLFSha256;
+}
+let financialReaderMetatests;
+function runFinancialReaderMetatests(gate) {
+  const source = fs.readFileSync(path.join(__dirname, '..', financialReaderFile), 'utf8');
+  const names = [];
+  const accepted = (file, text) => {
+    try { return gate(file, text) !== false; }
+    catch (error) { if (error.code !== 'ERR_ASSERTION') throw error; return false; }
+  };
+  function probe(name, file, text, expected) {
+    assert.equal(accepted(financialReaderFile, source), true, 'reader positive control before ' + name);
+    assert.equal(accepted(file, text), expected, 'reader isolation ' + name);
+    names.push(name);
+  }
+  probe('exact graph', financialReaderFile, source, true);
+  probe('CRLF equivalent', financialReaderFile, source.replace(/\r?\n/g, '\r\n'), true);
+  probe('unrelated inert', 'velo/backend/inert.js', 'export const inert = 1;', true);
+  for (const file of ['velo/backend/other.js', 'velo/pages/page.js', 'velo/public/file.js',
+    'velo/backend/reader.web.js', 'velo/backend/reader.jsw', 'velo/public/guestBookingFinancialAuthority.js',
+    'velo/backend/nested/../guestBookingFinancialAuthority.js']) {
+    probe('wrong path ' + file, file, source, false);
+    for (const [name, text] of [
+      ['static', "import { readGuestBookingFinancialPreview } from 'backend/guestBookingFinancialAuthority';"],
+      ['binding alias', "import { readGuestBookingFinancialPreview as alias } from 'backend/guestBookingFinancialAuthority';"],
+      ['namespace', "import * as alias from 'backend/guestBookingFinancialAuthority';"],
+      ['relative alias', "import './nested/../guestBookingFinancialAuthority.js';"],
+      ['dynamic', "import('backend/guestBookingFinancialAuthority');"],
+      ['require', "require('backend/guestBookingFinancialAuthority');"],
+      ['reexport', "export * from 'backend/guestBookingFinancialAuthority';"],
+      ['named reexport', "export { readGuestBookingFinancialPreview } from 'backend/guestBookingFinancialAuthority';"],
+      ['unicode', String.raw`import('backend/guestBookingFinancial\u0041uthority');`],
+      ['hex', String.raw`require('backend/guestBookingFinancial\x41uthority');`],
+      ['codepoint', String.raw`export * from 'backend/guestBookingFinancial\u{41}uthority';`],
+      ['continuation', "import('backend/guestBookingFinancial\\\nAuthority');"]
+    ]) probe(name + ' ' + file, file, text, false);
+  }
+  // Synthetic consumer text is data only: never import, require or evaluate it.
+  const continuationCases = [];
+  for (const [ending, terminator] of [['LF', '\n'], ['CRLF', '\r\n'], ['CR', '\r'], ['LS', '\u2028'], ['PS', '\u2029']]) {
+    for (const [form, wrap] of [
+      ['static', spec => `import * as alias from '${spec}';`],
+      ['dynamic', spec => `import('${spec}');`],
+      ['require', spec => `require('${spec}');`],
+      ['reexport', spec => `export * from '${spec}';`]
+    ]) {
+      const split = '\\' + terminator;
+      continuationCases.push({ name: ending + ' ' + form, ending,
+        text: wrap('backend/guestBookingFinancial' + split + 'Authority'),
+        benign: wrap('backend/unrelated' + split + 'Utility') });
+    }
+  }
+  const continuationFailures = [];
+  for (const { name, text, benign } of continuationCases) {
+    assert.equal(accepted(financialReaderFile, source), true, 'reader positive control before continuation ' + name);
+    assert.equal(accepted('velo/backend/consumer.js', benign), true, 'benign continuation ' + name);
+    names.push('benign continuation ' + name);
+    if (accepted('velo/backend/consumer.js', text)) continuationFailures.push(name);
+    names.push('prohibited continuation ' + name);
+  }
+  assert.deepEqual(continuationFailures, [], 'complete gate must reject every legal literal continuation');
+  const changes = [
+    ['body', source.replace('if(arguments.length!==1)', 'if(arguments.length!==2)')],
+    ['extra import', source + "\nimport 'wix-data';"],
+    ['direct strict', source + "\nimport { verifyStrictLockedPricingQuote } from 'backend/strictLockedPricingQuote';"],
+    ['dynamic', source + "\nimport('wix-data');"],
+    ['require', source + "\nrequire('wix-data');"],
+    ['reexport', source + "\nexport * from 'wix-data';"],
+    ['public method', source + '\nexport const endpoint = webMethod();'],
+    ['renamed export', source.replace(financialReaderExport, financialReaderExport.replace('readGuestBookingFinancialPreview', 'other'))],
+    ['whitespace', source + ' '], ['BOM', '\ufeff' + source], ['lone CR', source.replace(/\r?\n/g, '\r')]
+  ];
+  for (const declaration of financialReaderImports) {
+    const spec = declaration.match(/'([^']+)'/)[1];
+    changes.push(['missing ' + spec, source.replace(declaration, '')],
+      ['aliased ' + spec, source.replace(spec, './nested/../' + spec)],
+      ['escaped ' + spec, source.replace(spec, spec.replace(/.$/, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')))]);
+  }
+  changes.push(['binding alias', source.replace('{ readLockedPricingQuoteAuthority }', '{ readLockedPricingQuoteAuthority as alias }')]);
+  for (const [name, text] of changes) {
+    assert.notEqual(text, source, 'mutation reached ' + name);
+    probe(name, financialReaderFile, text, false);
+  }
+  assert.equal(new Set(names).size, names.length);
+  const causalWitnesses = [];
+  for (const [name, file, text] of [
+    ['incoming reader ban', 'velo/backend/consumer.js', "import { readGuestBookingFinancialPreview } from 'backend/guestBookingFinancialAuthority';"],
+    ['changed reader body', financialReaderFile, source.replace('if(arguments.length!==1)', 'if(arguments.length!==2)')],
+    ['direct reader strict edge', financialReaderFile, source + "\nimport { verifyStrictLockedPricingQuote } from 'backend/strictLockedPricingQuote';"]
+  ]) {
+    const witness = () => assert.equal(accepted(file, text), false, 'causal reader fence ' + name);
+    witness();
+    const intact = financialReaderAllowed;
+    let failure, admitted;
+    try {
+      // One unique guard-bypass mutant, three witnesses; never a source mutant.
+      financialReaderAllowed = () => true;
+      admitted = accepted(file, text);
+      try { witness(); } catch (error) { failure = error; }
+    } finally { financialReaderAllowed = intact; }
+    assert.equal(admitted, true, 'deleted fence reaches forbidden admission ' + name);
+    assert.equal(failure && failure.code, 'ERR_ASSERTION', 'causal assertion required ' + name);
+    assert.ok(failure.message.startsWith('causal reader fence ' + name), 'intended witness ' + name);
+    witness();
+    causalWitnesses.push(name);
+  }
+  // Revert only the decoder to its prior LF/CRLF behavior, never production.
+  const legacyFinancialReferenceText = text => text.replace(/\\\r?\n/g, '')
+    .replace(/\\u\{([0-9a-f]{1,6})\}|\\u([0-9a-f]{4})|\\x([0-9a-f]{2})/gi, (_, a, b, c) => {
+      const n = parseInt(a || b || c, 16);
+      return n <= 0x10ffff ? String.fromCodePoint(n) : '\ufffd';
+    }).replace(/\\([^\r\n])/g, '$1');
+  const decoderCausalWitnesses = [];
+  for (const { name, ending, text, benign } of continuationCases) {
+    if (ending === 'LF' || ending === 'CRLF') continue;
+    const witness = () => assert.equal(accepted('velo/backend/consumer.js', text), false, 'causal continuation decoder ' + name);
+    witness();
+    const intact = financialReferenceText;
+    let failure, admitted;
+    try {
+      financialReferenceText = legacyFinancialReferenceText;
+      assert.equal(accepted(financialReaderFile, source), true, 'legacy decoder exact reader ' + name);
+      assert.equal(accepted('velo/backend/consumer.js', benign), true, 'legacy decoder benign ' + name);
+      for (const control of continuationCases.filter(c => c.ending === 'LF' || c.ending === 'CRLF'))
+        assert.equal(accepted('velo/backend/consumer.js', control.text), false, 'legacy decoder retains ' + control.name);
+      admitted = accepted('velo/backend/consumer.js', text);
+      try { witness(); } catch (error) { failure = error; }
+    } finally { financialReferenceText = intact; }
+    assert.equal(admitted, true, 'decoder reversion reaches forbidden admission ' + name);
+    assert.equal(failure && failure.code, 'ERR_ASSERTION', 'decoder causal assertion required ' + name);
+    assert.ok(failure.message.startsWith('causal continuation decoder ' + name), 'intended decoder witness ' + name);
+    witness();
+    decoderCausalWitnesses.push(name);
+  }
+  assert.equal(new Set(decoderCausalWitnesses).size, decoderCausalWitnesses.length);
+  return { passed: true, cases: names.length, names, financialReaderCanonicalLFSha256, guardMutantsKilled: 1, causalWitnesses, continuationCases: continuationCases.length, decoderMutantsKilled: decoderCausalWitnesses.length ? 1 : 0, decoderCausalWitnesses };
+}
+
 function isolatedProductionFile(file, text) {
+  if (!financialReaderAllowed(file, text)) return false;
+  if (file === financialReaderFile) return true;
   if (file === calculationFile) {
     const canonicalLF = text.replace(/\r\n/g, '\n');
     const body = canonicalLF.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
@@ -339,11 +507,13 @@ for (const [name, file, text] of calculationMutations) {
   eq(isolatedProductionFile(calculationFile, calculationSource), true, 'calculator positive control before ' + name);
   eq(isolatedProductionFile(file, text), false, 'calculator isolation rejects ' + name);
 }
+financialReaderMetatests = runFinancialReaderMetatests(isolatedProductionFile);
+console.log(JSON.stringify({financialReaderMetatests}));
 function scanProduction(directory) {
   for (const entry of fs.readdirSync(directory, {withFileTypes: true})) {
     const file = path.join(directory, entry.name);
     if (entry.isDirectory()) scanProduction(file);
-    else if (/\.js$/.test(entry.name) && file !== sourcePath) {
+    else if (/\.(?:js|jsw)$/.test(entry.name) && file !== sourcePath) {
       const relative = path.relative(path.join(__dirname, '..'), file).split(path.sep).join('/');
       eq(isolatedProductionFile(relative, fs.readFileSync(file, 'utf8')), true, 'reviewed dependency only; no production consumers ' + relative);
     }
