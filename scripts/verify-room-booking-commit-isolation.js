@@ -52,9 +52,10 @@ check(adapterImports.length === 1 && /from ['"]wix-data['"]/.test(adapterImports
 check(JSON.stringify(adapterExports) === JSON.stringify([
   'appendRoomClaimEvents',
   'appendRoomOperationDecision',
+  'loadCommittedRoomRecoveryManifest',
   'loadCompletedRoomClaimSet',
   'loadRoomClaimLedger'
-]), 'claim adapter exposes only ledger read, completed evidence read, decision, and sequential append operations');
+]), 'claim adapter exposes only ledger read, completed evidence read, committed recovery manifest, decision, and sequential append operations');
 check(!/\bwebMethod\b|wix-web-module|Permissions\./.test(adapter),
   'claim adapter exposes no public web method');
 check(!/\.(save|update|remove|bulkInsert|bulkUpdate|bulkRemove)\s*\(/.test(adapter),

@@ -20,6 +20,7 @@ const SAFE_REFLECT_APPLY = Reflect.apply;
 const SAFE_PROMISE_RESOLVE = Function.prototype.call.bind(Promise.resolve, Promise);
 const SAFE_PROMISE_THEN = Promise.prototype.then;
 const SAFE_ARRAY = Array;
+const SAFE_ARRAY_PROTOTYPE = Array.prototype;
 const SAFE_ARRAY_IS_ARRAY = Array.isArray;
 const SAFE_ARRAY_CONCAT = Function.prototype.call.bind(Array.prototype.concat);
 const SAFE_ARRAY_EVERY = Function.prototype.call.bind(Array.prototype.every);
@@ -798,6 +799,108 @@ export async function loadCompletedRoomClaimSet(operationId) {
     }
     SAFE_OBJECT_DEFINE_PROPERTIES(evidence, evidenceDescriptors);
     return evidence;
+  } catch (error) {
+    throw recoveryRequired(operationId);
+  }
+}
+
+function recoveryManifestArrayDescriptors(value) {
+  if (!SAFE_ARRAY_IS_ARRAY(value)) return null;
+  let prototype;
+  let first;
+  let keys;
+  let second;
+  try {
+    prototype = SAFE_OBJECT_GET_PROTOTYPE_OF(value);
+    first = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(value);
+    keys = SAFE_REFLECT_OWN_KEYS(value);
+    second = SAFE_OBJECT_GET_OWN_PROPERTY_DESCRIPTORS(value);
+  } catch (error) {
+    return null;
+  }
+  if (prototype !== SAFE_ARRAY_PROTOTYPE || !sameOwnKeySequence(keys, first) ||
+      !sameOwnKeySequence(keys, second) || !sameDataDescriptor(first.length, second.length) ||
+      !SAFE_NUMBER_IS_INTEGER(first.length.value) || first.length.value < 1 ||
+      keys.length !== first.length.value + 1 || keys[keys.length - 1] !== 'length') return null;
+  for (let index = 0; index < first.length.value; index += 1) {
+    const key = SAFE_STRING(index);
+    if (keys[index] !== key || !sameDataDescriptor(first[key], second[key]) ||
+        first[key].enumerable !== true) return null;
+  }
+  return first;
+}
+
+// Disconnected committed-evidence capability for the future recovery coordinator.
+// A3c owns every Wix read; this boundary independently validates and detaches it.
+export async function loadCommittedRoomRecoveryManifest(operationId) {
+  if (typeof operationId !== 'string' || !SAFE_REGEXP_TEST(LOADER_OPERATION_ID_PATTERN, operationId)) {
+    throw recoveryRequired(operationId);
+  }
+  const loaderOwner = undefined;
+  const loaderFunction = loadCompletedRoomClaimSet;
+  if (typeof loaderFunction !== 'function') throw recoveryRequired(operationId);
+
+  let loaded;
+  try {
+    loaded = await SAFE_PROMISE_RESOLVE(
+      SAFE_REFLECT_APPLY(loaderFunction, loaderOwner, [operationId]));
+  } catch (error) {
+    throw recoveryRequired(operationId);
+  }
+
+  try {
+    const evidence = exactOwnDataDescriptors(
+      loaded, ['identity', 'acquisitions', 'completion', 'decision']);
+    if (!evidence) throw recoveryRequired(operationId);
+    const identity = snapshotExactPrimitiveRecord(
+      evidence.identity.value, MARKED_IDENTITY_EVIDENCE_FIELDS);
+    const completion = snapshotExactPrimitiveRecord(
+      evidence.completion.value, MARKED_COMPLETION_EVIDENCE_FIELDS);
+    const decision = snapshotExactPrimitiveRecord(evidence.decision.value, DECISION_EVIDENCE_FIELDS);
+    const acquisitionDescriptors = recoveryManifestArrayDescriptors(evidence.acquisitions.value);
+    if (!identity || !completion || !decision || !acquisitionDescriptors ||
+        identity.decisionFenceVersion !== 1 || completion.decisionFenceVersion !== 1 ||
+        !loaderValidIdentity(identity, operationId)) throw recoveryRequired(operationId);
+
+    const manifest = loaderParseManifest(identity);
+    if (!manifest || manifest.units.length < 1 || manifest.units.length > 3 ||
+        acquisitionDescriptors.length.value !== manifest.resourceIds.length) {
+      throw recoveryRequired(operationId);
+    }
+    for (let index = 0; index < manifest.resourceIds.length; index += 1) {
+      const stored = acquisitionDescriptors[SAFE_STRING(index)].value;
+      const acquisition = snapshotExactPrimitiveRecord(stored, CAPACITY_EVIDENCE_FIELDS) ||
+        snapshotExactPrimitiveRecord(stored, UNIT_EVIDENCE_FIELDS);
+      if (!loaderValidAcquisition(identity, manifest, acquisition, index)) {
+        throw recoveryRequired(operationId);
+      }
+    }
+    if (!loaderValidCompletion(completion, identity, manifest.resourceIds.length)) {
+      throw recoveryRequired(operationId);
+    }
+    const expectedDecision = operationDecisionEvent(identity, completion, 'commit-rows');
+    if (!validDecisionRecord(decision) || !decisionMatches(decision, expectedDecision)) {
+      throw recoveryRequired(operationId);
+    }
+
+    const units = new SAFE_ARRAY(manifest.units.length);
+    const bookingRowIds = new SAFE_ARRAY(manifest.rowIds.length);
+    for (let index = 0; index < manifest.units.length; index += 1) {
+      loaderDefineArrayValue(units, index, manifest.units[index]);
+      loaderDefineArrayValue(bookingRowIds, index, manifest.rowIds[index]);
+    }
+    const capability = SAFE_OBJECT_CREATE(SAFE_OBJECT_PROTOTYPE);
+    SAFE_OBJECT_DEFINE_PROPERTIES(capability, {
+      operationId: { value: identity.operationId, writable: true, enumerable: true, configurable: true },
+      bookingNumber: { value: identity.bookingNumber, writable: true, enumerable: true, configurable: true },
+      payloadDigest: { value: identity.payloadDigest, writable: true, enumerable: true, configurable: true },
+      roomCode: { value: identity.manifestRoomCode, writable: true, enumerable: true, configurable: true },
+      checkIn: { value: identity.manifestCheckIn, writable: true, enumerable: true, configurable: true },
+      checkOut: { value: identity.manifestCheckOut, writable: true, enumerable: true, configurable: true },
+      units: { value: units, writable: true, enumerable: true, configurable: true },
+      bookingRowIds: { value: bookingRowIds, writable: true, enumerable: true, configurable: true }
+    });
+    return capability;
   } catch (error) {
     throw recoveryRequired(operationId);
   }
