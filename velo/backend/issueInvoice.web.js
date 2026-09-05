@@ -39,7 +39,7 @@ function snakeCaseKeys(obj) {
  * Returns the service result: { invoice_number, total, pdf_base64, issue_date, ... }
  */
 export const issueInvoice = webMethod(
-  Permissions.Anyone,
+  Permissions.Admin,
   async (guest, quoteBreakdown, dates, sendEmail = true, invoiceNumber = '') => {
     const serviceUrl = await getSecret(INVOICE_SERVICE_URL_KEY);
     const secret = await getSecret(SHARED_SECRET_KEY);
