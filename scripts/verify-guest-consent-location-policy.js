@@ -113,8 +113,242 @@ assert.deepEqual([...source.matchAll(/export\s+(?:async\s+)?(?:function|const|cl
 const executable = source.replace(/\/\*[\s\S]*?\*\//g,'').replace(/\/\/[^\n]*/g,'');
 assert.doesNotMatch(executable,/\b(?:import|require|async|await|Promise|fetch|console|Date|process|setTimeout|setInterval)\b/,'no imports or effect APIs');
 function walk(dir) { return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(dir,e.name)):[path.join(dir,e.name)]); }
+// Approved two-file review v2: disconnected observation only. The final
+// three-file review remains separate; this pin grants no runtime authority.
+const readerFile = 'velo/backend/guestConsentRequirementsReader.js';
+const readerCanonicalLFSha256 = 'cfd3dddc3ee10c94bd4bcf0a76ec3badcee829fea9e286dec7917cbe8e36d4b4';
+const readerImports = [
+  "import wixData from 'wix-data';",
+  "import { resolveGuestConsentRequirement } from 'backend/guestConsentLocationPolicy';"
+];
+const readerExport = 'export async function readGuestConsentRequirementsObservation() {';
+const readerSource = fs.readFileSync(path.join(__dirname, '..', readerFile), 'utf8');
+// Conservative reference screening, not a general JavaScript parser. Comments
+// and inert mentions are deliberately not exemptions for production files.
+function consentReferenceText(text) {
+  return text.replace(/\\(?:\r\n|[\n\r\u2028\u2029])/g, '')
+    .replace(/\\u\{([0-9a-f]+)\}|\\u([0-9a-f]{4})|\\x([0-9a-f]{2})/gi, (_, a, b, c) => {
+    const n = parseInt(a || b || c, 16);
+    return n <= 0x10ffff ? String.fromCodePoint(n) : '\ufffd';
+  }).replace(/\\([^\r\n])/g, '$1');
+}
+function assertConsentEdge(other, source) {
+  const text = source.replace(/\r\n/g, '\n');
+  if (other === readerFile) {
+    assert.deepEqual(text.match(/^import .+;$/gm), readerImports, 'exact reader imports');
+    assert.deepEqual(text.match(/^export .*$/gm), [readerExport], 'exact reader export');
+    assert.equal(require('node:crypto').createHash('sha256').update(text, 'utf8').digest('hex'), readerCanonicalLFSha256, 'approved canonical LF reader body');
+    return;
+  }
+  assert.doesNotMatch(consentReferenceText(text), /guestConsentLocationPolicy|resolveGuestConsentRequirement|guestConsentRequirementsReader|readGuestConsentRequirementsObservation/i, 'no production incoming consent references: '+other);
+}
+// Fixtures are inert strings only; never create or execute production consumers.
+const isolationCases = [];
+function isolationProbe(name, other, text, allowed, gate = assertConsentEdge) {
+  gate(readerFile, readerSource);
+  if (allowed) gate(other, text);
+  else assert.throws(() => gate(other, text), error => error.code === 'ERR_ASSERTION', 'isolation denial '+name);
+  isolationCases.push(name);
+}
+isolationProbe('incoming reader', 'velo/backend/consumer.js', "import { readGuestConsentRequirementsObservation } from 'backend/guestConsentRequirementsReader';", false);
+const consumerPaths = ['velo/backend/consumer.js', 'velo/page-synthetic.js', 'velo/public/consumer.js',
+  'velo/backend/consumer.web.js', 'velo/backend/consumer.jsw', 'velo/public/guestConsentRequirementsReader.js',
+  'velo/backend/nested/../guestConsentRequirementsReader.js', 'velo/backend/GuestConsentRequirementsReader.js'];
+const forms = [
+  ['static', spec => `import { x } from '${spec}';`],
+  ['binding alias', spec => `import { x as alias } from '${spec}';`],
+  ['namespace', spec => `import * as alias from '${spec}';`],
+  ['side effect', spec => `import '${spec}';`],
+  ['relative alias', spec => `import './nested/../${spec}.js';`],
+  ['dynamic', spec => `import('${spec}');`],
+  ['require', spec => `require('${spec}');`],
+  ['reexport', spec => `export * from '${spec}';`],
+  ['named reexport', spec => `export { x } from '${spec}';`]
+];
+isolationProbe('exact reader', readerFile, readerSource, true);
+isolationProbe('CRLF reader', readerFile, readerSource.replace(/\r?\n/g, '\r\n'), true);
+isolationProbe('inert unrelated', consumerPaths[0], 'export const inert = 1;', true);
+for (const other of consumerPaths) {
+  isolationProbe('wrong reader path '+other, other, readerSource, false);
+  for (const module of ['guestConsentLocationPolicy', 'guestConsentRequirementsReader']) {
+    for (const [name, wrap] of forms) {
+      isolationProbe(module+' '+name+' '+other, other, wrap('backend/'+module), false);
+      isolationProbe('benign '+module+' '+name+' '+other, other, wrap('backend/unrelatedUtility'), true);
+    }
+  }
+}
+const readerChanges = [
+  ['body', readerSource.replace('arguments.length !== 0', 'arguments.length !== 1')],
+  ['extra import', readerSource+"\nimport 'wix-data';"],
+  ['dynamic', readerSource+"\nimport('wix-data');"],
+  ['require', readerSource+"\nrequire('wix-data');"],
+  ['reexport', readerSource+"\nexport * from 'wix-data';"],
+  ['extra export', readerSource+'\nexport const endpoint = 1;'],
+  ['renamed export', readerSource.replace(readerExport, readerExport.replace('readGuestConsentRequirementsObservation','other'))],
+  ['binding alias', readerSource.replace('{ resolveGuestConsentRequirement }','{ resolveGuestConsentRequirement as alias }')],
+  ['whitespace', readerSource+' '], ['BOM', '\ufeff'+readerSource],
+  ['lone CR', readerSource.replace(/\r?\n/g, '\r')]
+];
+for (const declaration of readerImports) {
+  const spec = declaration.match(/'([^']+)'/)[1];
+  readerChanges.push(['missing '+spec, readerSource.replace(declaration, '')],
+    ['alias '+spec, readerSource.replace(spec, './nested/../'+spec)],
+    ['escaped '+spec, readerSource.replace(spec, '\\u'+spec.charCodeAt(0).toString(16).padStart(4,'0')+spec.slice(1))]);
+}
+for (const [name, text] of readerChanges) {
+  assert.notEqual(text, readerSource, 'mutation reached '+name);
+  isolationProbe('reader rejects '+name, readerFile, text, false);
+}
+for (const module of ['guestConsentLocationPolicy', 'guestConsentRequirementsReader', 'resolveGuestConsentRequirement', 'readGuestConsentRequirementsObservation']) {
+  const hex = module.charCodeAt(0).toString(16);
+  for (const escape of ['\\u'+hex.padStart(4,'0'),'\\x'+hex,'\\u{'+hex+'}']) {
+    const escaped = escape+module.slice(1);
+    isolationProbe('escaped '+module+' '+escape, consumerPaths[0], `import('backend/${escaped}');`, false);
+  }
+}
+// Native parser evidence only: no fixture is linked, evaluated or imported.
+const unicodeCases = [];
+for (const digits of [7, 9, 64]) {
+  for (const module of ['guestConsentLocationPolicy', 'guestConsentRequirementsReader']) {
+    for (const [form, wrap] of forms) {
+      const spec = 'backend/\\u{'+('67'.padStart(digits, '0'))+'}'+module.slice(1);
+      const benignSpec = 'backend/\\u{'+('75'.padStart(digits, '0'))+'}nrelatedUtility';
+      const dependency = spec => form === 'dynamic' || form === 'require' ? [] :
+        [form === 'relative alias' ? './nested/../'+spec+'.js' : spec];
+      unicodeCases.push({name:digits+' digits '+module+' '+form, text:wrap(spec), benign:wrap(benignSpec),
+        dependencies:dependency('backend/'+module), benignDependencies:dependency('backend/unrelatedUtility')});
+    }
+  }
+}
+// Preserve value bounds, including overflow; digit count is not a value bound.
+const unicodeBounds = [
+  ['000000000', '\u0000', true], ['00000d800', '\ud800', true],
+  ['00010ffff', '\u{10ffff}', true], ['000110000', '\ufffd', false],
+  ['1000067', '\ufffd', false], ['f'.repeat(400), '\ufffd', false]
+].map(([digits, decoded, valid]) => ({text:"import 'backend/\\u{"+digits+"}utility';",
+  dependencies:['backend/'+decoded+'utility'], valid, digits, decoded}));
+for (const c of unicodeBounds) {
+  assert.equal(consentReferenceText('\\u{'+c.digits+'}'), c.decoded, 'Unicode value bound '+c.digits);
+}
+const unicodeParser = require('node:child_process').spawnSync(process.execPath,
+  ['--experimental-vm-modules', '--disable-warning=ExperimentalWarning', '-e', `
+    const assert = require('node:assert/strict'), vm = require('node:vm');
+    const fixtures = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+    for (const c of fixtures.cases) {
+      assert.deepEqual(new vm.SourceTextModule(c.text).dependencySpecifiers, c.dependencies, c.name);
+      assert.deepEqual(new vm.SourceTextModule(c.benign).dependencySpecifiers, c.benignDependencies, 'benign '+c.name);
+    }
+    for (const c of fixtures.bounds) {
+      if (c.valid) assert.deepEqual(new vm.SourceTextModule(c.text).dependencySpecifiers, c.dependencies, c.digits);
+      else assert.throws(() => new vm.SourceTextModule(c.text), SyntaxError, c.digits);
+    }
+  `], {input:JSON.stringify({cases:unicodeCases, bounds:unicodeBounds}), encoding:'utf8', timeout:10000});
+assert.ifError(unicodeParser.error);
+assert.equal(unicodeParser.status, 0, 'parser-only Unicode fixtures: '+unicodeParser.stderr);
+for (const c of unicodeCases) {
+  isolationProbe('benign leading-zero Unicode '+c.name, consumerPaths[0], c.benign, true);
+  isolationProbe('required denial leading-zero Unicode '+c.name, consumerPaths[0], c.text, false);
+}
+const continuationCases = [];
+const continuationFailures = [];
+for (const [ending, terminator] of [['LF','\n'],['CRLF','\r\n'],['CR','\r'],['LS','\u2028'],['PS','\u2029']]) {
+  for (const module of ['guestConsentLocationPolicy','guestConsentRequirementsReader']) {
+    for (const [form, wrap] of forms) {
+      const name = ending+' '+module+' '+form;
+      const text = wrap('backend/'+module.slice(0,6)+'\\'+terminator+module.slice(6));
+      const benign = wrap('backend/unrelated'+'\\'+terminator+'Utility');
+      isolationProbe('benign continuation '+name, consumerPaths[0], benign, true);
+      let denied = false;
+      try { assertConsentEdge(consumerPaths[0], text); }
+      catch (error) { if (error.code !== 'ERR_ASSERTION') throw error; denied = true; }
+      if (!denied) continuationFailures.push(name);
+      isolationCases.push('denied continuation '+name);
+      continuationCases.push({name, ending, text, benign});
+    }
+  }
+}
+assert.deepEqual(continuationFailures, [], 'all legal JS literal continuations must be denied');
+assert.equal(new Set(isolationCases).size, isolationCases.length, 'distinct isolation fixture names');
+// Compile only our verifier gate, never the synthetic consumer source. Each
+// one-point gate reversion needs original GREEN / mutant named ERR_ASSERTION /
+// restored GREEN. Syntax faults, other exceptions and timeouts cannot count.
+function gateFromText(gateText, decoderText = consentReferenceText.toString()) {
+  return vm.runInThisContext(`(function(assert, require, readerFile, readerImports, readerExport, readerCanonicalLFSha256) {
+    const consentReferenceText = (${decoderText}); return (${gateText});
+  })`)(assert, require, readerFile, readerImports, readerExport, readerCanonicalLFSha256);
+}
+function admitted(gate, other, text) {
+  try { gate(other, text); return true; }
+  catch (error) { if (error.code !== 'ERR_ASSERTION') throw error; return false; }
+}
+const gateText = assertConsentEdge.toString();
+const decoderText = consentReferenceText.toString();
+const gateReversions = [];
+function causalGateReversion(name, from, to, witnesses, decoder = false) {
+  const original = decoder ? decoderText : gateText;
+  assert.equal(original.split(from).length, 2, 'unique gate anchor '+name);
+  const changed = original.replace(from, to);
+  const intact = gateFromText(gateText);
+  const mutant = gateFromText(decoder ? gateText : changed, decoder ? changed : decoderText);
+  const evidence = [];
+  for (const [label, other, text, expected] of witnesses) {
+    const witnessName = 'causal consent gate '+name+' '+label;
+    const witness = gate => assert.equal(admitted(gate, other, text), expected, witnessName);
+    witness(assertConsentEdge);
+    witness(intact);
+    assert.equal(admitted(mutant, other, text), !expected, 'mutant changes admission '+witnessName);
+    assert.equal(admitted(mutant, consumerPaths[0], "import('backend/unrelatedUtility');"), true, 'mutant benign control '+witnessName);
+    if (decoder) {
+      mutant(readerFile, readerSource);
+      for (const c of continuationCases.filter(c => c.ending === 'LF' || c.ending === 'CRLF')) {
+        assert.equal(admitted(mutant, consumerPaths[0], c.text), false, 'legacy decoder retains '+c.name);
+        mutant(consumerPaths[0], c.benign);
+      }
+    }
+    let failure;
+    try { witness(mutant); } catch (error) { failure = error; }
+    assert.equal(failure?.code, 'ERR_ASSERTION', 'causal assertion only '+witnessName);
+    assert.ok(failure.message.startsWith(witnessName), 'exact causal witness '+witnessName);
+    witness(assertConsentEdge);
+    evidence.push({label, code:failure.code});
+  }
+  gateReversions.push({name, from, to, mutantSHA256:require('node:crypto').createHash('sha256').update(changed).digest('hex'), witnesses:evidence});
+}
+causalGateReversion('revert precise allowance', 'if (other === readerFile)', 'if (false)', [
+  ['approved reader', readerFile, readerSource, true]
+]);
+causalGateReversion('loosen exact path', 'other === readerFile', "other.endsWith('/guestConsentRequirementsReader.js')", [
+  ['public copy', 'velo/public/guestConsentRequirementsReader.js', readerSource, false],
+  ['normalized alias', 'velo/backend/nested/../guestConsentRequirementsReader.js', readerSource, false]
+]);
+const hashGuard = "assert.equal(require('node:crypto').createHash('sha256').update(text, 'utf8').digest('hex'), readerCanonicalLFSha256, 'approved canonical LF reader body');";
+causalGateReversion('delete reviewed body pin', hashGuard, '', [
+  ['body drift', readerFile, readerChanges[0][1], false],
+  ['extra dynamic edge', readerFile, readerChanges.find(c => c[0] === 'dynamic')[1], false]
+]);
+causalGateReversion('delete incoming reference fence', 'assert.doesNotMatch(consentReferenceText(text),', 'return; assert.doesNotMatch(consentReferenceText(text),', [
+  ['policy caller', consumerPaths[0], "import('backend/guestConsentLocationPolicy');", false],
+  ['reader caller', consumerPaths[0], "import('backend/guestConsentRequirementsReader');", false]
+]);
+causalGateReversion('revert LF CRLF only decoder', String.raw`/\\(?:\r\n|[\n\r\u2028\u2029])/g`, String.raw`/\\\r?\n/g`,
+  continuationCases.filter(c => c.ending !== 'LF' && c.ending !== 'CRLF').map(c => [c.name, consumerPaths[0], c.text, false]), true);
+causalGateReversion('revert six-digit Unicode cap', '[0-9a-f]+', '[0-9a-f]{1,6}',
+  unicodeCases.map(c => [c.name, consumerPaths[0], c.text, false]), true);
+const oldUnicodeGate = gateFromText(gateText, decoderText.replace('[0-9a-f]+', '[0-9a-f]{1,6}'));
+for (const c of unicodeCases) oldUnicodeGate(consumerPaths[0], c.benign);
+for (const c of continuationCases) {
+  assert.equal(admitted(oldUnicodeGate, consumerPaths[0], c.text), false, 'Unicode reversion retains '+c.name);
+  oldUnicodeGate(consumerPaths[0], c.benign);
+}
+assert.equal(new Set(gateReversions.map(m => m.mutantSHA256)).size, gateReversions.length, 'unique gate mutants');
+console.log('consent isolation: PASS '+JSON.stringify({cases:isolationCases.length, continuationCases:continuationCases.length,
+  unicodeCases:unicodeCases.length, unicodeBounds:unicodeBounds.length,
+  unicodeParserFixtures:unicodeCases.length*2+unicodeBounds.length,
+  gateMutantsKilled:gateReversions.length, causalWitnesses:gateReversions.reduce((n,m)=>n+m.witnesses.length,0),
+  readerCanonicalLFSha256, gateReversions}));
+assertConsentEdge(readerFile, readerSource);
 for(const other of walk(path.join(__dirname,'../velo')).filter(p=>/\.(?:js|jsw)$/.test(p)&&p!==file)) {
-  assert.doesNotMatch(fs.readFileSync(other,'utf8'), /(?:from\s*|import\s*\(|require\s*\()\s*['"][^'"]*guestConsentLocationPolicy/, 'no production incoming imports: '+other);
+  assertConsentEdge(path.relative(path.join(__dirname, '..'), other).split(path.sep).join('/'), fs.readFileSync(other,'utf8'));
 }
 // Opt-out/withdrawal are independent authoritative eligibility facts, not DTO
 // policy fields. NOT_REQUIRED neither clears a choice nor creates a grant.
