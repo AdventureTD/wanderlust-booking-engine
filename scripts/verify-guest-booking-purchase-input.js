@@ -274,6 +274,190 @@ function runFinancialReaderMetatests(gate) {
 
 function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(path.join(dir,e.name)):[path.join(dir,e.name)]);}
 
+// Exact conditional private acquisition candidate: acceptance-acquisition-direction-private-review.json.
+// Four backend paths only; the fifth reviewed file is a verifier, never a runtime dependency.
+// No physical-engine, public-consumer or live activation approval.
+const acquisitionPrivatePins = {
+  "velo/backend/guestBookingAcquisitionContentionEvidence.js": {
+    "sha256": "50f6202635b2a2e11be3051ee40544572f2eb41119746ac9f20bbaf657c60fbf",
+    "imports": [
+      "import wixData from 'wix-data';",
+      "import { readGuestBookingAcceptance } from 'backend/guestBookingAcceptanceStore';",
+      "import { validateGuestBookingAcceptanceRoot } from 'backend/guestBookingAcceptance';",
+      "import { readGuestBookingAllocationManifest } from 'backend/guestBookingAllocationManifestStore';",
+      "import { buildGuestBookingAllocationBinding, validateGuestBookingAllocationManifest } from 'backend/guestBookingAllocationManifestRules';",
+      "import { validateRetainedClaimLedger } from 'backend/guestBookingAllocationRetainedRules';",
+      "import { readGuestBookingAcquisitionControl } from 'backend/guestBookingAcquisitionControlStore';",
+      "import { canonicalGuestBookingAcquisitionControl } from 'backend/guestBookingAcquisitionControlRules';"
+    ],
+    "exports": [
+      "export function createGuestBookingAcquisitionReadScope(){",
+      "export async function readGuestBookingAcquisitionContentionEvidence(A){"
+    ]
+  },
+  "velo/backend/guestBookingAcquisitionControl.js": {
+    "sha256": "6cd0b108848964da1cfca8ca212b5758ff2057e6554a75c9980c8e5097c6dd45",
+    "imports": [
+      "import { readGuestBookingAcceptance } from 'backend/guestBookingAcceptanceStore';",
+      "import { validateGuestBookingAcceptanceRoot } from 'backend/guestBookingAcceptance';",
+      "import { readGuestBookingAllocationManifest } from 'backend/guestBookingAllocationManifestStore';",
+      "import { buildGuestBookingAllocationBinding, validateGuestBookingAllocationManifest } from 'backend/guestBookingAllocationManifestRules';",
+      "import { reconcileGuestBookingAcquisitionControl } from 'backend/guestBookingAcquisitionControlStore';",
+      "import { createGuestBookingAcquisitionReadScope } from 'backend/guestBookingAcquisitionContentionEvidence';",
+      "import { canonicalGuestBookingAcquisitionControl } from 'backend/guestBookingAcquisitionControlRules';"
+    ],
+    "exports": [
+      "export async function resumeGuestBookingAcquisitionControl(acceptanceId){"
+    ]
+  },
+  "velo/backend/guestBookingAcquisitionControlRules.js": {
+    "sha256": "cba4477c5f3ec2758154474121e84342ed97486d8d487f9349c0795571b6a7d3",
+    "imports": [
+      "import { Buffer } from 'buffer';"
+    ],
+    "exports": [
+      "export function isGuestBookingAcquisitionControlId(id){",
+      "export function decodeGuestBookingAcquisitionControl(value,metadata=false){",
+      "export function canonicalGuestBookingAcquisitionControl(value){"
+    ]
+  },
+  "velo/backend/guestBookingAcquisitionControlStore.js": {
+    "sha256": "c1c4d567a9c3c300ce2c5dcd48d11e4467e643e740343874f8822028591dc8fc",
+    "imports": [
+      "import wixData from 'wix-data';",
+      "import { decodeGuestBookingAcquisitionControl, canonicalGuestBookingAcquisitionControl, isGuestBookingAcquisitionControlId } from 'backend/guestBookingAcquisitionControlRules';"
+    ],
+    "exports": [
+      "export async function readGuestBookingAcquisitionControl(id){",
+      "export async function reconcileGuestBookingAcquisitionControl(candidate){"
+    ]
+  }
+};
+const acquisitionPrivateReferences = /canonicalGuestBookingAcquisitionControl|createGuestBookingAcquisitionReadScope|decodeGuestBookingAcquisitionControl|guestBookingAcquisitionContentionEvidence|guestBookingAcquisitionControl|guestBookingAcquisitionControlRules|guestBookingAcquisitionControlStore|isGuestBookingAcquisitionControlId|readGuestBookingAcquisitionContentionEvidence|readGuestBookingAcquisitionControl|reconcileGuestBookingAcquisitionControl|resumeGuestBookingAcquisitionControl/i;
+
+function acquisitionReferenceText(text) {
+  return text.replace(/\\(?:\r\n|[\n\r\u2028\u2029])/g, '')
+    .replace(/\\u\{([0-9a-f]+)\}|\\u([0-9a-f]{4})|\\x([0-9a-f]{2})/gi, (_, a, b, c) => {
+      const n = parseInt(a || b || c, 16);
+      return n <= 0x10ffff ? String.fromCodePoint(n) : '\ufffd';
+    }).replace(/\\([^\r\n])/g, '$1');
+}
+// null delegates to the unchanged historical guards; false denies, true admits
+// ONLY a pinned file. Do not resolve aliases before exact path comparison.
+function acquisitionPrivateEdge(file, source) {
+  const pin = Object.hasOwn(acquisitionPrivatePins, file) ? acquisitionPrivatePins[file] : null;
+  const text = source.replace(/\r\n/g, '\n');
+  if (!pin) return acquisitionPrivateReferences.test(acquisitionReferenceText(text)) ? false : null;
+  if (JSON.stringify(text.match(/^import .*$/gm) || []) !== JSON.stringify(pin.imports)) return false;
+  if (JSON.stringify(text.match(/^export .*$/gm) || []) !== JSON.stringify(pin.exports)) return false;
+  return require('node:crypto').createHash('sha256').update(text, 'utf8').digest('hex') === pin.sha256;
+}
+function runAcquisitionIsolationMetatests(gate) {
+  const names = [], witnesses = [], mutantHashes = new Set();
+  const accepted = (file, text) => {
+    try { return gate(file, text) !== false; }
+    catch (error) { if (error.code !== 'ERR_ASSERTION') throw error; return false; }
+  };
+  const controls = Object.keys(acquisitionPrivatePins).map(file =>
+    [file, fs.readFileSync(path.join(__dirname, '..', file), 'utf8')]);
+  const probes = [];
+  for (const [file, source] of controls) {
+    const pin = acquisitionPrivatePins[file], module = path.basename(file, '.js');
+    probes.push(['exact ' + module, file, source, true],
+      ['CRLF ' + module, file, source.replace(/\r?\n/g, '\r\n'), true]);
+    for (const [name, text] of [
+      ['body', source + '\nvoid 0;\n'], ['extra export', source + '\nexport const bridge = 1;'],
+      ['extra import', source + "\nimport 'wix-data';"], ['dynamic import', source + "\nimport('wix-data');"],
+      ['reexport', source + "\nexport * from 'wix-data';"], ['web bridge', source + '\nexport const bridge = webMethod();'],
+      ['BOM', '\ufeff' + source], ['space', source + ' '], ['lone CR', source.replace(/\r?\n/g, '\r')]
+    ]) probes.push([name + ' ' + module, file, text, false]);
+    for (const declaration of pin.imports) {
+      const spec = declaration.match(/'([^']+)'/)[1];
+      for (const [name, text] of [
+        ['missing', source.replace(declaration, '')], ['duplicate', source + '\n' + declaration],
+        ['path alias', source.replace(declaration, declaration.replace(spec, './nested/../' + spec))],
+        ['escaped path', source.replace(declaration, declaration.replace(spec, '\\u{00000062}' + spec.slice(1)))]
+      ]) probes.push([name + ' ' + module + ' ' + spec, file, text, false]);
+    }
+    for (const other of ['velo/public/' + module + '.js', 'velo/backend/' + module + '.web.js',
+      'velo/backend/' + module + '.jsw', 'velo/pages/' + module + '.js',
+      'velo/backend/nested/../' + module + '.js', './' + file, file.toUpperCase()])
+      probes.push(['copy ' + other, other, source, false]);
+    for (const consumer of ['velo/backend/consumer.js', 'velo/public/consumer.js', 'velo/pages/consumer.js', 'velo/backend/consumer.web.js', 'velo/backend/consumer.jsw']) {
+      for (const [form, wrap] of [
+        ['static', spec => `import * as alias from '${spec}';`],
+        ['dynamic', spec => `import('${spec}');`],
+        ['require', spec => `require('${spec}');`],
+        ['reexport', spec => `export * from '${spec}';`]
+      ]) {
+        for (const spec of ['backend/' + module, './nested/../' + module + '.js',
+          'backend/\\u{000000' + module.charCodeAt(0).toString(16) + '}' + module.slice(1), 'backend/\\u' + module.charCodeAt(0).toString(16).padStart(4, '0') + module.slice(1), 'backend/\\x' + module.charCodeAt(0).toString(16) + module.slice(1)])
+          probes.push([consumer + ' ' + form + ' ' + spec, consumer, wrap(spec), false]);
+        for (const [ending, terminator] of [['LF', '\n'], ['CRLF', '\r\n'], ['CR', '\r'], ['LS', '\u2028'], ['PS', '\u2029']]) {
+          probes.push([consumer + ' ' + form + ' ' + module + ' ' + ending, consumer,
+            wrap('backend/' + module.slice(0, 6) + '\\' + terminator + module.slice(6)), false]);
+        }
+      }
+    }
+  }
+  for (const spec of ['backend/unrelatedUtility', 'backend/\\u{00000075}nrelatedUtility'])
+    probes.push(['benign ' + spec, 'velo/backend/inert.js', `import('${spec}');`, true]);
+  for (const [ending, terminator] of [['LF', '\n'], ['CRLF', '\r\n'], ['CR', '\r'], ['LS', '\u2028'], ['PS', '\u2029']])
+    probes.push(['benign continuation ' + ending, 'velo/backend/inert.js', "import('backend/unrelated\\" + terminator + "Utility');", true]);
+  // Exact declared exports and named incoming references, not only module names.
+  for (const [file, source] of controls) {
+    const pin = acquisitionPrivatePins[file];
+    for (const declaration of pin.exports) {
+      const name = declaration.match(/^export (?:async )?function (\w+)/)[1];
+      probes.push(['removed export ' + name, file, source.replace(declaration, ''), false],
+        ['renamed export ' + name, file, source.replace(declaration, declaration.replace(name, name + 'Changed')), false]);
+      for (const consumer of ['velo/public/exportBridge.js', 'velo/backend/exportBridge.web.js'])
+        probes.push(['named bridge ' + consumer + ' ' + name, consumer, `export { ${name} } from 'backend/other';`, false]);
+    }
+  }
+  // All legal continuations and arbitrarily leading-zero braced escapes remain
+  // lexical data. No synthetic consumer is linked or evaluated.
+  for (const zeros of [7, 32, 256]) {
+    const escaped = '\\u{' + '0'.repeat(zeros) + '67}uestBookingAcquisitionControl';
+    probes.push(['leading zeros forbidden ' + zeros, 'velo/backend/decoder.web.js', `import('backend/${escaped}');`, false],
+      ['leading zeros benign ' + zeros, 'velo/backend/decoder.web.js', `import('backend/\\u{${'0'.repeat(zeros)}75}nrelatedUtility');`, true]);
+  }
+  for (const [name, file, text, expected] of probes) {
+    for (const [controlFile, controlText] of controls)
+      assert.equal(accepted(controlFile, controlText), true, 'acquisition positive before ' + name);
+    assert.equal(accepted(file, text), expected, 'acquisition isolation ' + name);
+    names.push(name);
+  }
+  assert.equal(new Set(names).size, names.length, 'unique acquisition fixtures');
+  // One identical function replacement per guard, multiple causal witnesses.
+  // The full real guard is exercised; mutated production text is never executed.
+  const intact = acquisitionPrivateEdge;
+  const bypass = function acquisitionPrivateEdge(file, source) { return true; };
+  for (const [name, file, text] of probes.filter(p => !p[3] &&
+    (p[0].startsWith('body ') || p[0].startsWith('extra export ') || p[0].startsWith('extra import ') || p[0].startsWith('copy ') || p[0].startsWith('reexport ') || p[0].startsWith('web bridge ') || p[0].includes('consumer.web.js dynamic backend/guestBooking')))) {
+    const witness = () => assert.equal(accepted(file, text), false, 'causal acquisition fence ' + name);
+    witness();
+    let failure;
+    try {
+      acquisitionPrivateEdge = bypass;
+      assert.equal(accepted(file, text), true, 'bypass reaches forbidden acquisition ' + name);
+      try { witness(); } catch (error) { failure = error; }
+    } finally { acquisitionPrivateEdge = intact; }
+    assert.equal(failure && failure.code, 'ERR_ASSERTION', 'causal acquisition assertion ' + name);
+    assert.ok(failure.message.startsWith('causal acquisition fence ' + name), 'intended acquisition witness ' + name);
+    witness(); witnesses.push(name);
+    const verifier = fs.readFileSync(__filename, 'utf8');
+    assert.equal(verifier.split(intact.toString()).length - 1, 1, 'unique acquisition gate mutation target');
+    const mutant = verifier.replace(intact.toString(), bypass.toString());
+    mutantHashes.add(require('node:crypto').createHash('sha256').update(mutant).digest('hex'));
+  }
+  assert.equal(new Set(witnesses).size, witnesses.length, 'unique acquisition witnesses');
+  const fixtureHashes = [...new Set(probes.map(([, file, text, expected]) => require('node:crypto').createHash('sha256').update(JSON.stringify([file, text, expected])).digest('hex')))];
+  const report = {cases:names.length, distinctFixtures:fixtureHashes.length, fixtureHashes, names, mutantApplications:witnesses.length, mutantCount:mutantHashes.size, mutantHashes:[...mutantHashes], witnessCount:witnesses.length, witnesses};
+  console.log(JSON.stringify({acquisitionIsolationMetatests:report}));
+  return report;
+}
+
 // Exact private allocation candidate: acceptance-allocation-private-final-review-v2.
 // Canonical LF only; no public activation, aliases, or new runtime consumers.
 const allocationPrivatePins = {
@@ -653,6 +837,9 @@ function runAcceptanceIsolationMetatests(gate) {
 }
 
 function isolatedPurchaseConsumer(file, text) {
+  const acquisition = acquisitionPrivateEdge(file, text);
+  assert.notEqual(acquisition, false, 'pinned private acquisition only: ' + file);
+  if (acquisition === true) return;
   const allocation = allocationPrivateEdge(file, text);
   assert.notEqual(allocation, false, 'pinned private allocation only: ' + file);
   if (allocation === true) return;
@@ -664,6 +851,7 @@ function isolatedPurchaseConsumer(file, text) {
   if (file === financialReaderFile) return;
   assert.doesNotMatch(text,/guestBookingPurchaseInput/,'disconnected '+file);
 }
+runAcquisitionIsolationMetatests(isolatedPurchaseConsumer);
 runAllocationIsolationMetatests(isolatedPurchaseConsumer);
 runAcceptanceIsolationMetatests(isolatedPurchaseConsumer);
 financialReaderMetatests = runFinancialReaderMetatests(isolatedPurchaseConsumer);
