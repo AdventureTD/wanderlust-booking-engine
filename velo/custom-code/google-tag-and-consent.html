@@ -50,54 +50,55 @@
     }
   })();
 
-  // Grant consent per-category: the Wix banner's analytics/advertising toggles
-  // map to their matching Google Consent Mode signals. A blanket grant would
-  // unlock ad cookies for analytics-only visitors — this keeps it precise.
-  // grantConsent() with no args = full grant (legacy callers).
-  var _granted = { analytics: false, advertising: false };
-  function grantConsent(analytics, advertising) {
-    if (analytics === undefined) { analytics = true; advertising = true; }
+  // Local provider signals only, not a receipt or a Wix CMP authority bridge.
+  // Each primitive Boolean controls exactly one purpose; omitted values deny.
+  // Private transitions and control callbacks are API hygiene, not same-realm
+  // isolation: page scripts can still manipulate the DOM or dataLayer.
+  (function () {
+  var _granted = { analytics_storage: false, ad_storage: false,
+    ad_user_data: false, ad_personalization: false };
+  function grantConsent(analytics, adStorage, adUserData, adPersonalization) {
+    var next = { analytics_storage: analytics === true, ad_storage: adStorage === true,
+      ad_user_data: adUserData === true, ad_personalization: adPersonalization === true };
     var update = {};
-    if (analytics && !_granted.analytics) {
-      update.analytics_storage = 'granted';
-      _granted.analytics = true;
-    }
-    if (advertising && !_granted.advertising) {
-      update.ad_storage = 'granted';
-      update.ad_user_data = 'granted';
-      update.ad_personalization = 'granted';
-      _granted.advertising = true;
-    }
+    Object.keys(next).forEach(function (key) {
+      if (next[key] !== _granted[key]) {
+        update[key] = next[key] ? 'granted' : 'denied';
+      }
+    });
     if (Object.keys(update).length > 0) {
-      gtag('consent', 'update', update);
-      console.log('[WBE-CONSENT] Google consent updated:', JSON.stringify(update));
+      try {
+        gtag('consent', 'update', update);
+        _granted = next;
+      } catch (e) {} // Do not block local withdrawal; a later call retries the update.
     }
   }
 
-  // Path 1: custom event (kept for any future non-sandboxed dispatcher).
-  document.addEventListener('wbeConsentGranted', function () { grantConsent(); });
+  // Unqualified wbeConsentGranted events carry no purpose/provenance authority.
+  // No grant listener: only explicit local controls below apply choices.
 
-  // Path 2 (primary): our own consent banner below. Choice persists in the
-  // PAGE's localStorage (wbe_consent_choice: 'granted' | 'denied'), which is
-  // readable here — unlike Velo's partitioned storage. On load, a stored
-  // 'granted' re-grants silently; a stored 'denied' keeps defaults; no stored
-  // choice shows the banner.
-  (function () {
+  // Own banner storage is conservative local suppression, never a server receipt.
+  // Legacy 'granted' is deliberately not restored; this can reduce measurement.
+  // The loading architecture is unchanged: denied mode can still send pings.
     // Master switch for the consent banner. Set false to hide the banner.
-    // With the banner hidden you must also pick what consent defaults to:
-    //   GRANT_ALL_WITHOUT_BANNER false  -> strict: everything stays denied
-    //                                     (no GA4, no remarketing; EU-safe)
-    //   GRANT_ALL_WITHOUT_BANNER true   -> track everyone silently (US-tolerant,
-    //                                     NOT recommended if you get EU/UK traffic)
+    // Visibility is not consent authority; hidden never grants.
     var BANNER_ENABLED = false;
-    var GRANT_ALL_WITHOUT_BANNER = true;
     var CHOICE_KEY = 'wbe_consent_choice';
     var PRIVACY_URL = 'https://www.wanderlustcaribbean.com/policies';
 
-    if (!BANNER_ENABLED) {
-      if (GRANT_ALL_WITHOUT_BANNER) { grantConsent(); }
-      return;
-    }
+    // Same-page local withdrawal, including when hidden. Visible privacy-page
+    // wiring is a separate deployment gate; this does not create a receipt.
+    window.wbeWithdrawConsent = denyAll;
+
+    // Cross-tab storage is suppression only, never permission. Do not write back.
+    window.addEventListener('storage', function (event) {
+      if (!event || (event.key !== CHOICE_KEY && event.key !== null)) { return; }
+      try {
+        if (event.storageArea && event.storageArea !== localStorage) { return; }
+      } catch (e) {} // Unreadable storage cannot preserve optional grants.
+      grantConsent(false, false, false, false);
+    });
+
 
     function getChoice() {
       try { return localStorage.getItem(CHOICE_KEY); } catch (e) { return null; }
@@ -107,21 +108,24 @@
     }
 
     function hideBanner() {
-      var el = document.getElementById('wbe-consent-banner');
-      if (el && el.parentNode) { el.parentNode.removeChild(el); }
+      try {
+        var el = document.getElementById('wbe-consent-banner');
+        if (el && el.parentNode) { el.parentNode.removeChild(el); }
+      } catch (e) {} // DOM failure must not interrupt withdrawal or booking.
     }
 
     function acceptAll() {
       setChoice('granted');
-      grantConsent();
+      grantConsent(true, true, true, true);
       hideBanner();
       console.log('[WBE-CONSENT] visitor accepted all');
     }
 
     function denyAll() {
+      grantConsent(false, false, false, false);
       setChoice('denied');
       hideBanner();
-      console.log('[WBE-CONSENT] visitor denied; defaults remain');
+      console.log('[WBE-CONSENT] visitor denied');
     }
 
     function showBanner() {
@@ -169,17 +173,21 @@
       document.body.appendChild(bar);
     }
 
+    var initialized = false;
     function initBanner() {
+      if (initialized) { return; }
+      initialized = true;
       var choice = getChoice();
-      if (choice === 'granted') {
-        grantConsent();
+      // Legacy 'granted' has no verified purpose/provenance; require a new choice.
+      if (choice === 'denied') {
+        grantConsent(false, false, false, false);
         return;
       }
-      if (choice === 'denied') { return; }
-      showBanner();
+      if (!BANNER_ENABLED) { return; }
+      try { showBanner(); } catch (e) {} // Optional UI cannot block event setup.
     }
 
-    if (document.readyState === 'loading') {
+    if (BANNER_ENABLED && document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', initBanner);
     } else {
       initBanner();
