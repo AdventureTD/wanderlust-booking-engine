@@ -466,6 +466,207 @@ function runFinancialReaderMetatests(gate) {
 }
 
 
+// Exact private allocation candidate: acceptance-allocation-private-final-review-v2.
+// Canonical LF only; no public activation, aliases, or new runtime consumers.
+const allocationPrivatePins = {
+  "velo/backend/guestBookingAllocationEvidence.js": {
+    "sha256": "1766af3f330c5cc4520364f16f4757d963a90fbeeb6104c1090ec8a5cdec505d",
+    "imports": [
+      "import wixData from 'wix-data';",
+      "import { buildInventorySnapshot } from 'backend/roomInventoryRules';"
+    ],
+    "exports": [
+      "export async function readGuestBookingAllocationEvidence(checkIn,checkOut){"
+    ]
+  },
+  "velo/backend/guestBookingAllocationHandoff.js": {
+    "sha256": "08a6a838867fab6854855ba0615c7a603e98575d0e805b1a8daa47bdb333f74f",
+    "imports": [
+      "import { readGuestBookingAcceptance } from 'backend/guestBookingAcceptanceStore';",
+      "import { validateGuestBookingAcceptanceRoot } from 'backend/guestBookingAcceptance';",
+      "import { readGuestBookingAllocationManifest, insertGuestBookingAllocationManifest } from 'backend/guestBookingAllocationManifestStore';",
+      "import { buildGuestBookingAllocationBinding, buildGuestBookingAllocationManifest, validateGuestBookingAllocationManifest } from 'backend/guestBookingAllocationManifestRules';",
+      "import { readGuestBookingAllocationEvidence } from 'backend/guestBookingAllocationEvidence';",
+      "import { buildWholeCartAllocation } from 'backend/wholeCartPlanningRules';"
+    ],
+    "exports": [
+      "export async function handoffGuestBookingAllocation(acceptanceId){"
+    ]
+  },
+  "velo/backend/guestBookingAllocationManifestRules.js": {
+    "sha256": "ed57ec1e9c98e7a22aa4119d207f498c177c2e3ece6d0e724b64dd008e0975d9",
+    "imports": [
+      "import { createHash } from 'crypto';",
+      "import { Buffer } from 'buffer';",
+      "import { validatePhysicalCommit } from 'backend/roomBookingCommitRules';",
+      "import { validateRetainedClaimLedger } from 'backend/guestBookingAllocationRetainedRules';"
+    ],
+    "exports": [
+      "export function buildGuestBookingAllocationBinding(validatedRoot){",
+      "export function buildGuestBookingAllocationManifest(validatedRoot,allocation,evidence){",
+      "export function validateGuestBookingAllocationManifest(record,validatedRoot){"
+    ]
+  },
+  "velo/backend/guestBookingAllocationManifestStore.js": {
+    "sha256": "e26fd317eb167f867c71b30c2461c6aa890e6186d33b5e61d3fe90352bceedb1",
+    "imports": [
+      "import wixData from 'wix-data';",
+      "import { Buffer } from 'buffer';"
+    ],
+    "exports": [
+      "export async function insertGuestBookingAllocationManifest(record){try{const row=copy(record);await wixData.insert(collection,row,{suppressAuth:true,suppressHooks:true});return 'ACKNOWLEDGED';}catch{return 'UNRESOLVED';}}",
+      "export async function readGuestBookingAllocationManifest(id){"
+    ]
+  },
+  "velo/backend/guestBookingAllocationRetainedRules.js": {
+    "sha256": "4c84039c5c72e3958fdcf3b30e6466c440dabe726009f25720fb5030bafd1b8c",
+    "imports": [],
+    "exports": [
+      "export function validateRetainedClaimLedger(ledger) {"
+    ]
+  },
+  "velo/backend/roomBookingCommitRules.js": {
+    "sha256": "bf104d909eab461e1553860b1e7b2448ce0ed155ae84a0537a92c581ec0c853a",
+    "imports": [
+      "import { evaluateAutomaticAvailability } from 'backend/roomAvailabilityRules';"
+    ],
+    "exports": [
+      "export function buildPhysicalCommitPlan(snapshot, claimLedger, request) {",
+      "export function validatePhysicalCommit(plan, bookingRows, acquisitions) {",
+      "export function planPhysicalRollback(acquisitions, releaseReason) {"
+    ]
+  },
+  "velo/backend/wholeCartPlanningRules.js": {
+    "sha256": "1489d16427533df800253e1f1d6fce61e0418ff222103f8916a17bcb36cc5896",
+    "imports": [
+      "import { buildPhysicalCommitPlan } from 'backend/roomBookingCommitRules';"
+    ],
+    "exports": [
+      "export function buildWholeCartAllocation(input) {"
+    ]
+  }
+};
+const allocationPrivateReferences = /buildGuestBookingAllocationBinding|buildGuestBookingAllocationManifest|buildPhysicalCommitPlan|buildWholeCartAllocation|guestBookingAllocationEvidence|guestBookingAllocationHandoff|guestBookingAllocationManifestRules|guestBookingAllocationManifestStore|guestBookingAllocationRetainedRules|handoffGuestBookingAllocation|insertGuestBookingAllocationManifest|planPhysicalRollback|readGuestBookingAllocationEvidence|readGuestBookingAllocationManifest|roomBookingCommitRules|validateGuestBookingAllocationManifest|validatePhysicalCommit|validateRetainedClaimLedger|wholeCartPlanningRules/i;
+
+function allocationReferenceText(text) {
+  return text.replace(/\\(?:\r\n|[\n\r\u2028\u2029])/g, '')
+    .replace(/\\u\{([0-9a-f]+)\}|\\u([0-9a-f]{4})|\\x([0-9a-f]{2})/gi, (_, a, b, c) => {
+      const n = parseInt(a || b || c, 16);
+      return n <= 0x10ffff ? String.fromCodePoint(n) : '\ufffd';
+    }).replace(/\\([^\r\n])/g, '$1');
+}
+// null delegates to the unchanged historical guards; false denies, true admits
+// ONLY a pinned file. Do not resolve aliases before exact path comparison.
+function allocationPrivateEdge(file, source) {
+  const pin = Object.hasOwn(allocationPrivatePins, file) ? allocationPrivatePins[file] : null;
+  const text = source.replace(/\r\n/g, '\n');
+  if (!pin) return allocationPrivateReferences.test(allocationReferenceText(text)) ? false : null;
+  if (JSON.stringify(text.match(/^import .*$/gm) || []) !== JSON.stringify(pin.imports)) return false;
+  if (JSON.stringify(text.match(/^export .*$/gm) || []) !== JSON.stringify(pin.exports)) return false;
+  return require('node:crypto').createHash('sha256').update(text, 'utf8').digest('hex') === pin.sha256;
+}
+function runAllocationIsolationMetatests(gate) {
+  const names = [], witnesses = [], mutantHashes = new Set();
+  const accepted = (file, text) => {
+    try { return gate(file, text) !== false; }
+    catch (error) { if (error.code !== 'ERR_ASSERTION') throw error; return false; }
+  };
+  const controls = Object.keys(allocationPrivatePins).map(file =>
+    [file, fs.readFileSync(path.join(__dirname, '..', file), 'utf8')]);
+  const probes = [];
+  for (const [file, source] of controls) {
+    const pin = allocationPrivatePins[file], module = path.basename(file, '.js');
+    probes.push(['exact ' + module, file, source, true],
+      ['CRLF ' + module, file, source.replace(/\r?\n/g, '\r\n'), true]);
+    for (const [name, text] of [
+      ['body', source + '\nvoid 0;\n'], ['extra export', source + '\nexport const bridge = 1;'],
+      ['extra import', source + "\nimport 'wix-data';"], ['dynamic import', source + "\nimport('wix-data');"],
+      ['reexport', source + "\nexport * from 'wix-data';"], ['web bridge', source + '\nexport const bridge = webMethod();'],
+      ['BOM', '\ufeff' + source], ['space', source + ' '], ['lone CR', source.replace(/\r?\n/g, '\r')]
+    ]) probes.push([name + ' ' + module, file, text, false]);
+    for (const declaration of pin.imports) {
+      const spec = declaration.match(/'([^']+)'/)[1];
+      for (const [name, text] of [
+        ['missing', source.replace(declaration, '')], ['duplicate', source + '\n' + declaration],
+        ['path alias', source.replace(declaration, declaration.replace(spec, './nested/../' + spec))],
+        ['escaped path', source.replace(declaration, declaration.replace(spec, '\\u{00000062}' + spec.slice(1)))]
+      ]) probes.push([name + ' ' + module + ' ' + spec, file, text, false]);
+    }
+    for (const other of ['velo/public/' + module + '.js', 'velo/backend/' + module + '.web.js',
+      'velo/backend/' + module + '.jsw', 'velo/pages/' + module + '.js',
+      'velo/backend/nested/../' + module + '.js', './' + file, file.toUpperCase()])
+      probes.push(['copy ' + other, other, source, false]);
+    for (const consumer of ['velo/backend/consumer.js', 'velo/public/consumer.js', 'velo/pages/consumer.js', 'velo/backend/consumer.web.js', 'velo/backend/consumer.jsw']) {
+      for (const [form, wrap] of [
+        ['static', spec => `import * as alias from '${spec}';`],
+        ['dynamic', spec => `import('${spec}');`],
+        ['require', spec => `require('${spec}');`],
+        ['reexport', spec => `export * from '${spec}';`]
+      ]) {
+        for (const spec of ['backend/' + module, './nested/../' + module + '.js',
+          'backend/\\u{000000' + module.charCodeAt(0).toString(16) + '}' + module.slice(1), 'backend/\\u' + module.charCodeAt(0).toString(16).padStart(4, '0') + module.slice(1), 'backend/\\x' + module.charCodeAt(0).toString(16) + module.slice(1)])
+          probes.push([consumer + ' ' + form + ' ' + spec, consumer, wrap(spec), false]);
+        for (const [ending, terminator] of [['LF', '\n'], ['CRLF', '\r\n'], ['CR', '\r'], ['LS', '\u2028'], ['PS', '\u2029']]) {
+          probes.push([consumer + ' ' + form + ' ' + module + ' ' + ending, consumer,
+            wrap('backend/' + module.slice(0, 6) + '\\' + terminator + module.slice(6)), false]);
+        }
+      }
+    }
+  }
+  for (const spec of ['backend/unrelatedUtility', 'backend/\\u{00000075}nrelatedUtility'])
+    probes.push(['benign ' + spec, 'velo/backend/inert.js', `import('${spec}');`, true]);
+  for (const [ending, terminator] of [['LF', '\n'], ['CRLF', '\r\n'], ['CR', '\r'], ['LS', '\u2028'], ['PS', '\u2029']])
+    probes.push(['benign continuation ' + ending, 'velo/backend/inert.js', "import('backend/unrelated\\" + terminator + "Utility');", true]);
+  // Exact declared exports and named incoming references, not only module names.
+  for (const [file, source] of controls) {
+    const pin = allocationPrivatePins[file];
+    for (const declaration of pin.exports) {
+      const name = declaration.match(/^export (?:async )?function (\w+)/)[1];
+      probes.push(['removed export ' + name, file, source.replace(declaration, ''), false],
+        ['renamed export ' + name, file, source.replace(declaration, declaration.replace(name, name + 'Changed')), false]);
+      for (const consumer of ['velo/public/exportBridge.js', 'velo/backend/exportBridge.web.js'])
+        probes.push(['named bridge ' + consumer + ' ' + name, consumer, `export { ${name} } from 'backend/other';`, false]);
+    }
+  }
+  // All legal continuations and arbitrarily leading-zero braced escapes remain
+  // lexical data. No synthetic consumer is linked or evaluated.
+  for (const zeros of [7, 32, 256]) {
+    const escaped = '\\u{' + '0'.repeat(zeros) + '67}uestBookingAllocationHandoff';
+    probes.push(['leading zeros forbidden ' + zeros, 'velo/backend/decoder.web.js', `import('backend/${escaped}');`, false],
+      ['leading zeros benign ' + zeros, 'velo/backend/decoder.web.js', `import('backend/\\u{${'0'.repeat(zeros)}75}nrelatedUtility');`, true]);
+  }
+  for (const [name, file, text, expected] of probes) {
+    for (const [controlFile, controlText] of controls)
+      assert.equal(accepted(controlFile, controlText), true, 'allocation positive before ' + name);
+    assert.equal(accepted(file, text), expected, 'allocation isolation ' + name);
+    names.push(name);
+  }
+  assert.equal(new Set(names).size, names.length, 'unique allocation fixtures');
+  // One identical function replacement per guard, multiple causal witnesses.
+  // The full real guard is exercised; mutated production text is never executed.
+  const intact = allocationPrivateEdge;
+  const bypass = () => true;
+  for (const [name, file, text] of probes.filter(p => !p[3] &&
+    (p[0].startsWith('body ') || p[0].startsWith('extra export ') || p[0].startsWith('extra import ') || p[0].startsWith('copy ') || p[0].startsWith('reexport ') || p[0].startsWith('web bridge ') || p[0].includes('consumer.web.js dynamic backend/guestBooking')))) {
+    const witness = () => assert.equal(accepted(file, text), false, 'causal allocation fence ' + name);
+    witness();
+    let failure;
+    try {
+      allocationPrivateEdge = bypass;
+      assert.equal(accepted(file, text), true, 'bypass reaches forbidden allocation ' + name);
+      try { witness(); } catch (error) { failure = error; }
+    } finally { allocationPrivateEdge = intact; }
+    assert.equal(failure && failure.code, 'ERR_ASSERTION', 'causal allocation assertion ' + name);
+    assert.ok(failure.message.startsWith('causal allocation fence ' + name), 'intended allocation witness ' + name);
+    witness(); witnesses.push(name);
+    mutantHashes.add(require('node:crypto').createHash('sha256').update(bypass.toString()).digest('hex'));
+  }
+  assert.equal(new Set(witnesses).size, witnesses.length, 'unique allocation witnesses');
+  const report = {cases:names.length, names, mutantApplications:witnesses.length, mutantCount:mutantHashes.size, mutantHashes:[...mutantHashes], witnessCount:witnesses.length, witnesses};
+  console.log(JSON.stringify({allocationIsolationMetatests:report}));
+  return report;
+}
+
 // Exact private acceptance graph reviewed in acceptance-private-slice-review-v3.
 // Local isolation pins only: no public activation or implementation self-approval.
 const acceptancePrivatePins = {
@@ -644,6 +845,9 @@ function runAcceptanceIsolationMetatests(gate) {
 }
 
 function assertPrivateQuoteEdge(file, source) {
+  const allocation = allocationPrivateEdge(file, source);
+  assert.notEqual(allocation, false, 'pinned private allocation only: ' + file);
+  if (allocation === true) return;
   const acceptance = acceptancePrivateEdge(file, source);
   assert.notEqual(acceptance, false, 'pinned private acceptance only: ' + file);
   if (acceptance === true) return;
@@ -669,6 +873,7 @@ function assertPrivateQuoteEdge(file, source) {
   assert.equal(crypto.createHash('sha256').update(text).digest('hex'), authorityCanonicalLFSha256, 'pending-review adapter canonical-LF pin');
 }
 function runIsolationMetatests() {
+  runAllocationIsolationMetatests(assertPrivateQuoteEdge);
   runAcceptanceIsolationMetatests(assertPrivateQuoteEdge);
   financialReaderMetatests = runFinancialReaderMetatests(assertPrivateQuoteEdge);
   const source = fs.readFileSync(path.join(root, authorityFile), 'utf8');
