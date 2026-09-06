@@ -17,6 +17,8 @@ import os
 import re
 from dataclasses import dataclass, field
 from datetime import date
+from decimal import Decimal
+from types import MappingProxyType
 from typing import List, Optional
 
 
@@ -79,6 +81,29 @@ class InvoiceLine:
     room_quantity: float = 1.0
 
 
+_COMPONENT_FIELDS = {
+    "roomTotalCents": "subtotal_net", "propertyFeeCents": "property_fee",
+    "totalVatCents": "total_vat", "grandTotalCents": "total",
+    "discountCents": "promo_discount_amount",
+}
+_COMPONENT_KEYS = frozenset(_COMPONENT_FIELDS) | {
+    "grossCents", "accommodationVatCents", "packageVatCents",
+}
+
+
+def _invoice_cents(value):
+    """Exact cents, also representable by the existing float-format renderers."""
+    if type(value) not in (int, float, Decimal):
+        raise ValueError("Invalid invoice components amount")
+    amount = Decimal(str(value))
+    if not amount.is_finite() or amount < 0 or amount * 100 != (amount * 100).to_integral_value():
+        raise ValueError("Invalid invoice components amount")
+    cents = int(amount * 100)
+    if cents > 2**53 - 1 or Decimal(format(float(amount), ".2f")) != amount:
+        raise ValueError("Unrepresentable invoice components amount")
+    return cents
+
+
 @dataclass
 class Invoice:
     invoice_number: str
@@ -110,16 +135,66 @@ class Invoice:
     # Payments from BookingPayments collection, if provided.
     payments: List[dict] = field(default_factory=list)
     booking_number: str = ""
+    # Internal arithmetic projection only, never an acceptance/authentication flag.
+    _component_cents: object = field(default=None, init=False, repr=False)
+
+    def explicit_vat_amounts(self):
+        """Return supplied VAT amounts, or None for unchanged legacy rendering."""
+        if self._component_cents is None:
+            return None
+        c = self._component_cents
+        if (set(c) != _COMPONENT_KEYS or
+                any(type(v) is not int or not 0 <= v <= 2**53 - 1 for v in c.values())):
+            raise ValueError("Invalid invoice components cents")
+        if (c["grossCents"] != c["discountCents"] + c["roomTotalCents"] or
+                c["totalVatCents"] != c["accommodationVatCents"] + c["packageVatCents"] or
+                c["grandTotalCents"] != c["roomTotalCents"] + c["propertyFeeCents"] + c["totalVatCents"]):
+            raise ValueError("Unreconciled invoice components")
+        for key, attr in _COMPONENT_FIELDS.items():
+            if _invoice_cents(getattr(self, attr)) != c[key]:
+                raise ValueError("Contradictory invoice components")
+        if (self.currency != "USD" or type(self.vat_by_class) is not dict or
+                set(self.vat_by_class) != {"accommodation", "standard"} or
+                _invoice_cents(self.vat_by_class["accommodation"]) != c["accommodationVatCents"] or
+                _invoice_cents(self.vat_by_class["standard"]) != c["packageVatCents"]):
+            raise ValueError("Contradictory invoice components VAT")
+        net_sum = vat_sum = 0
+        for line in self.lines:
+            net, vat, gross = (_invoice_cents(line.net), _invoice_cents(line.vat), _invoice_cents(line.gross))
+            if net + vat != gross:
+                raise ValueError("Contradictory invoice components line")
+            net_sum += net
+            vat_sum += vat
+        if not self.lines or net_sum != c["roomTotalCents"] or vat_sum != c["totalVatCents"]:
+            raise ValueError("Contradictory invoice components lines")
+        return tuple(Decimal(c[key]) / 100
+                     for key in ("accommodationVatCents", "packageVatCents"))
 
     @classmethod
     def from_quote(cls, invoice_number: str, issue_date: date, guest: Guest,
-                   quote_breakdown: dict) -> "Invoice":
+                   quote_breakdown: dict, *, component_cents=None) -> "Invoice":
         """Build an Invoice from a Quote.breakdown() or package_pricing
         breakdown() dict. Handles both shapes (the package breakdown has no
-        quantity/unit_price on its line items)."""
+        quantity/unit_price on its line items).
+
+        component_cents is an internal arithmetic projection, not authority.
+        Never activate it from quote_breakdown fields. A future trusted caller
+        must establish immutable accepted-context provenance separately.
+        """
+        if component_cents is not None:
+            required = set(_COMPONENT_FIELDS.values()) | {"vat_by_class"}
+            if type(quote_breakdown) is not dict or not required <= quote_breakdown.keys():
+                raise ValueError("Missing invoice components")
+            display_items = quote_breakdown.get("display_line_items", quote_breakdown.get("line_items"))
+            line_keys = {"label", "net", "vat_rate", "vat", "gross"}
+            if (type(display_items) is not list or not display_items or
+                    any(type(li) is not dict or not line_keys <= li.keys() for li in display_items)):
+                raise ValueError("Invalid invoice components lines")
+        else:
+            # Preserve the legacy shape/default behavior.
+            display_items = quote_breakdown.get("display_line_items", quote_breakdown["line_items"])
         # Use display_line_items if present (one row per room, no VAT columns).
         # Fall back to line_items for backward compatibility.
-        display_items = quote_breakdown.get("display_line_items", quote_breakdown["line_items"])
         lines = [
             InvoiceLine(
                 label=li["label"], tax_class=li.get("tax_class", "standard"),
@@ -132,14 +207,14 @@ class Invoice:
         ]
         # Prefer pre-computed vat_by_class if available; otherwise compute from line_items.
         raw_vbc = quote_breakdown.get("vat_by_class")
-        if raw_vbc is None:
+        if raw_vbc is None and component_cents is None:
             raw_vbc = {}
             for li in quote_breakdown["line_items"]:
                 tax_cls = li.get("tax_class", "standard")
                 raw_vbc[tax_cls] = round(raw_vbc.get(tax_cls, 0.0) + li["vat"], 2)
         # Invoice total = subtotal_net + total_vat + property_fee
         # (property fee is shown separately in the PDF but included in total due).
-        invoice_total = (
+        invoice_total = quote_breakdown["total"] if component_cents is not None else (
             quote_breakdown.get("subtotal_net", 0)
             + quote_breakdown.get("total_vat", 0)
             + quote_breakdown.get("property_fee", 0)
@@ -148,11 +223,13 @@ class Invoice:
         # Extract table-driven allocation ratio from quote_breakdown (Wix Settings).
         # accommodationShare = percentage of subtotal for accommodations.
         # Services allocation is the remainder (1 - accommodationShare).
-        raw_share = quote_breakdown.get("accommodationShare") or quote_breakdown.get("accommodation_share", 0.5)
-        acc_alloc = float(raw_share) if raw_share != "" else 0.5
+        acc_alloc = 0.5
+        if component_cents is None:
+            raw_share = quote_breakdown.get("accommodationShare") or quote_breakdown.get("accommodation_share", 0.5)
+            acc_alloc = float(raw_share) if raw_share != "" else 0.5
         svc_alloc = 1.0 - acc_alloc
 
-        return cls(
+        inv = cls(
             invoice_number=invoice_number, issue_date=issue_date, guest=guest,
             lines=lines, subtotal_net=quote_breakdown["subtotal_net"],
             vat_by_class=raw_vbc, total_vat=quote_breakdown["total_vat"],
@@ -173,3 +250,10 @@ class Invoice:
             payments=quote_breakdown.get("payments") or [],
             booking_number=quote_breakdown.get("booking_number", ""),
         )
+        if component_cents is not None:
+            if type(component_cents) is not dict:
+                raise ValueError("Invalid invoice components projection")
+            inv._component_cents = MappingProxyType(dict(component_cents))
+            inv.total = quote_breakdown["total"]
+            inv.explicit_vat_amounts()
+        return inv

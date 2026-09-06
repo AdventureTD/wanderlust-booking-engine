@@ -8,6 +8,7 @@ context and template can be tested without LibreOffice.
 from __future__ import annotations
 
 import os
+from decimal import Decimal
 from pathlib import Path
 import shutil
 import subprocess
@@ -25,8 +26,8 @@ MAX_PAYMENTS = 4
 DEFAULT_TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "invoice_template.docx"
 
 
-def _money(value: Any) -> str:
-    amount = float(value or 0)
+def _money(value: Any, *, exact: bool = False) -> str:
+    amount = Decimal(str(value or 0)) if exact else float(value or 0)
     if amount < 0:
         return f"-${abs(amount):,.2f}"
     return f"${amount:,.2f}"
@@ -61,22 +62,29 @@ def build_invoice_context(inv: Invoice) -> dict[str, Any]:
         for line in inv.lines
     ]
 
+    explicit_vat = inv.explicit_vat_amounts()
+    if explicit_vat is not None:
+        # Format the validated integer projection, never reconstructed floats.
+        amounts = {key: Decimal(value) / 100 for key, value in inv._component_cents.items()}
     payments = []
-    total_paid = 0.0
+    total_paid = Decimal(0) if explicit_vat is not None else 0.0
     for payment in inv.payments:
-        amount = float(payment.get("paymentAmount") or payment.get("amount") or 0)
+        raw_amount = payment.get("paymentAmount") or payment.get("amount") or 0
+        amount = Decimal(str(raw_amount)) if explicit_vat is not None else float(raw_amount)
         total_paid += amount
         payments.append({
             "date": str(payment.get("datePaid") or payment.get("date") or ""),
-            "amount": _money(amount),
+            "amount": _money(amount, exact=explicit_vat is not None),
         })
 
-    subtotal = float(inv.subtotal_net or 0)
-    accommodation_net = subtotal * float(inv.accommodation_allocation or 0)
-    services_net = subtotal * float(inv.services_allocation or 0)
-    accommodation_vat = accommodation_net * 0.10
-    services_vat = services_net * 0.15
-    remaining_balance = round(float(inv.total or 0) - total_paid, 2)
+    if explicit_vat is None:
+        subtotal = float(inv.subtotal_net or 0)
+        accommodation_net = subtotal * float(inv.accommodation_allocation or 0)
+        services_net = subtotal * float(inv.services_allocation or 0)
+        accommodation_vat = accommodation_net * 0.10
+        services_vat = services_net * 0.15
+    remaining_balance = (amounts["grandTotalCents"] - total_paid
+                         if explicit_vat is not None else round(float(inv.total or 0) - total_paid, 2))
     business = inv.business or {}
 
     return {
@@ -96,17 +104,19 @@ def build_invoice_context(inv: Invoice) -> dict[str, Any]:
         "check_out": inv.check_out,
         "package_title": inv.package_title,
         "total_guests": _quantity(inv.total_guests),
-        "subtotal_net": _money(inv.subtotal_net),
-        "total_vat": _money(inv.total_vat),
-        "property_fee": _money(inv.property_fee),
-        "total_due": _money(inv.total),
+        "subtotal_net": _money(amounts["roomTotalCents"], exact=True) if explicit_vat is not None else _money(inv.subtotal_net),
+        "total_vat": _money(amounts["totalVatCents"], exact=True) if explicit_vat is not None else _money(inv.total_vat),
+        "property_fee": _money(amounts["propertyFeeCents"], exact=True) if explicit_vat is not None else _money(inv.property_fee),
+        "total_due": _money(amounts["grandTotalCents"], exact=True) if explicit_vat is not None else _money(inv.total),
         "accommodation_vat_formula": (
+            _money(explicit_vat[0], exact=True) if explicit_vat is not None else
             f"{_money(accommodation_net)} * 10% = {_money(accommodation_vat)}"
         ),
         "services_vat_formula": (
+            _money(explicit_vat[1], exact=True) if explicit_vat is not None else
             f"{_money(services_net)} * 15% = {_money(services_vat)}"
         ),
-        "remaining_balance": _money(remaining_balance),
+        "remaining_balance": _money(remaining_balance, exact=explicit_vat is not None),
         "rooms": rooms,
         "payments": payments,
     }

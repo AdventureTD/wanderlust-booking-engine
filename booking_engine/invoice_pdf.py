@@ -17,6 +17,7 @@ Usage:
 """
 
 import os
+from decimal import Decimal
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import mm
 from reportlab.lib import colors
@@ -35,18 +36,23 @@ def _money(x, currency="USD"):
 
 def _dominica_vat_summary_elems(inv, h_biz, bold):
     """Build left-justified Dominica VAT summary elements (numbers close to labels)."""
-    subtotal = inv.subtotal_net
-    acc_amt = subtotal * inv.accommodation_allocation
-    svc_amt = subtotal * inv.services_allocation
-    acc_vat = acc_amt * 0.10
-    svc_vat = svc_amt * 0.15
+    explicit_vat = inv.explicit_vat_amounts()
+    subtotal = (Decimal(inv._component_cents["roomTotalCents"]) / 100
+                if explicit_vat is not None else inv.subtotal_net)
+    total_vat = (Decimal(inv._component_cents["totalVatCents"]) / 100
+                 if explicit_vat is not None else inv.total_vat)
+    if explicit_vat is None:
+        acc_amt = subtotal * inv.accommodation_allocation
+        svc_amt = subtotal * inv.services_allocation
+        acc_vat = acc_amt * 0.10
+        svc_vat = svc_amt * 0.15
 
     # First column: labels. Second column: values kept close to labels, left-aligned.
     vat_table = Table([
         ["Subtotal:", _money(subtotal)],
-        ["Accommodation VAT:", f"{_money(acc_amt)} * 10% = {_money(acc_vat)}"],
-        ["Services VAT:", f"{_money(svc_amt)} * 15% = {_money(svc_vat)}"],
-        ["Total VAT:", "  " + _money(inv.total_vat)],
+        ["Accommodation VAT:", _money(explicit_vat[0]) if explicit_vat is not None else f"{_money(acc_amt)} * 10% = {_money(acc_vat)}"],
+        ["Services VAT:", _money(explicit_vat[1]) if explicit_vat is not None else f"{_money(svc_amt)} * 15% = {_money(svc_vat)}"],
+        ["Total VAT:", "  " + _money(total_vat)],
     ], colWidths=[48 * mm, 42 * mm], hAlign="LEFT")
     vat_table.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 9),
@@ -72,14 +78,17 @@ def _payment_summary_elems(inv, h_biz, bold):
     """Build Payment Summary elements (payments + remaining balance), right-justified."""
     payments = inv.payments or []
     rows = []
-    total_paid = 0.0
+    explicit = inv.explicit_vat_amounts() is not None
+    total_paid = Decimal(0) if explicit else 0.0
     for p in payments:
-        amt = float(p.get("paymentAmount") or p.get("amount") or 0)
+        raw_amount = p.get("paymentAmount") or p.get("amount") or 0
+        amt = Decimal(str(raw_amount)) if explicit else float(raw_amount)
         total_paid += amt
         dp = p.get("datePaid") or p.get("date") or ""
         rows.append([str(dp), _money(amt)])
 
-    remaining = inv.total - total_paid
+    total = Decimal(inv._component_cents["grandTotalCents"]) / 100 if explicit else inv.total
+    remaining = total - total_paid
 
     pay_table = None
     if rows:
@@ -123,6 +132,17 @@ def _payment_summary_elems(inv, h_biz, bold):
 
 
 def render_invoice_pdf(inv, out_path: str) -> str:
+    explicit_vat = inv.explicit_vat_amounts()
+    if explicit_vat is not None:
+        # Only the validated cents snapshot supplies explicit display amounts.
+        amounts = {key: Decimal(value) / 100 for key, value in inv._component_cents.items()}
+        subtotal, discount = amounts["roomTotalCents"], amounts["discountCents"]
+        total_vat, fee, total = amounts["totalVatCents"], amounts["propertyFeeCents"], amounts["grandTotalCents"]
+        gross = amounts["grossCents"]
+    else:
+        subtotal, discount = inv.subtotal_net, inv.promo_discount_amount
+        total_vat, fee, total = inv.total_vat, inv.property_fee, inv.total
+        gross = subtotal + discount
     styles = getSampleStyleSheet()
     h_biz = ParagraphStyle("biz", parent=styles["Normal"], fontSize=9, leading=12, alignment=0)
     p_left = ParagraphStyle("left-para", parent=styles["Normal"], fontSize=10,
@@ -240,10 +260,10 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         elems.append(Spacer(1, 3 * mm))
 
     # ---- Financial summary (right-aligned, directly under the table) ----
-    tot_rows = [["Adventure Package Fees", _money(inv.subtotal_net + inv.promo_discount_amount)]]
-    if inv.promo_discount_amount > 0 and inv.promo_code:
-        pct = int(round(inv.promo_discount_rate * 100))
-        tot_rows.append([f"Promo Code — {pct}% off", "-" + _money(inv.promo_discount_amount)])
+    tot_rows = [["Adventure Package Fees", _money(gross)]]
+    if discount > 0 and (explicit_vat is not None or inv.promo_code):
+        promo_label = "Promo discount" if explicit_vat is not None else f"Promo Code — {int(round(inv.promo_discount_rate * 100))}% off"
+        tot_rows.append([promo_label, "-" + _money(discount)])
         # full-width separator under promo code row
         elems.append(Spacer(1, 1 * mm))
         sep = Table([[""]], colWidths=[180 * mm])
@@ -252,12 +272,12 @@ def render_invoice_pdf(inv, out_path: str) -> str:
         ]))
         elems.append(sep)
         elems.append(Spacer(1, 1 * mm))
-        tot_rows.append(["Subtotal after discount", _money(inv.subtotal_net)])
-    tot_rows.append(["Total VAT", _money(inv.total_vat)])
-    if inv.property_fee:
-        fee_pct = int(round(inv.property_fee_rate * 100))
-        tot_rows.append([f"Property fee ({fee_pct}%)", _money(inv.property_fee)])
-    tot_rows.append(["TOTAL DUE", _money(inv.total)])
+        tot_rows.append(["Subtotal after discount", _money(subtotal)])
+    tot_rows.append(["Total VAT", _money(total_vat)])
+    if fee:
+        fee_label = "Property fee" if explicit_vat is not None else f"Property fee ({int(round(inv.property_fee_rate * 100))}%)"
+        tot_rows.append([fee_label, _money(fee)])
+    tot_rows.append(["TOTAL DUE", _money(total)])
 
     totals = Table(tot_rows, colWidths=[125 * mm, 55 * mm])
     totals.setStyle(TableStyle([
