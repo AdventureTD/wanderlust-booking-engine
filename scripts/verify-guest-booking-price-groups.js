@@ -394,7 +394,188 @@ function runFinancialReaderMetatests(gate) {
   return { passed: true, cases: names.length, names, financialReaderCanonicalLFSha256, guardMutantsKilled: 1, causalWitnesses, continuationCases: continuationCases.length, decoderMutantsKilled: decoderCausalWitnesses.length ? 1 : 0, decoderCausalWitnesses };
 }
 
+
+// Exact private acceptance graph reviewed in acceptance-private-slice-review-v3.
+// Local isolation pins only: no public activation or implementation self-approval.
+const acceptancePrivatePins = {
+  "velo/backend/guestBookingIssuerAuthority.js": {
+    "sha256": "b5578ae7bcdef12eb54ad37f3775a5ac3ccccdbe292e89b4561ed5498804919b",
+    "imports": [
+      "import crypto from 'crypto';",
+      "import { Buffer } from 'buffer';",
+      "import wixData from 'wix-data';",
+      "import { secrets } from 'wix-secrets-backend.v2';",
+      "import { elevate } from 'wix-auth';",
+      "import { createGuestBookingCredentials } from 'backend/guestBookingCredentials';"
+    ],
+    "exports": [
+      "export function acceptanceDigest(domain,text) {",
+      "export function buildGuestBookingAcceptanceRoot(capsule,o,c,kid,validatedAtMs) {",
+      "export function acceptanceTime() {",
+      "export function boundedJson(text,max=120000) {",
+      "export function exactFields(value,names) {",
+      "export function snapshotAcceptancePage(page,max){",
+      "export async function readGuestBookingCredentialAuthority() {",
+      "export async function readGuestBookingIssuerAuthority() {"
+    ]
+  },
+  "velo/backend/guestBookingOfferIssuer.js": {
+    "sha256": "fc01e66d6cf480d352a29729e4350e49c0fe83db184185e220fd5e3a76e634c0",
+    "imports": [
+      "import { Buffer } from 'buffer';",
+      "import { canonicalizeGuestBookingPurchaseInput } from 'backend/guestBookingPurchaseInput';",
+      "import { calculateGuestBookingFinancials } from 'backend/guestBookingFinancialCalculation';",
+      "import { readLockedPricingQuoteAuthority } from 'backend/lockedPricingQuoteAuthority';",
+      "import { readGuestBookingIssuerAuthority, acceptanceDigest, acceptanceTime, boundedJson, exactFields, buildGuestBookingAcceptanceRoot } from 'backend/guestBookingIssuerAuthority';"
+    ],
+    "exports": [
+      "export function validateGuestBookingOfferCapsule(capsule){",
+      "export async function issueGuestBookingOffer(input){"
+    ]
+  },
+  "velo/backend/guestBookingAcceptanceStore.js": {
+    "sha256": "3cb3f02fbb92168364c21169e30834ba75980768de35e14ca9a2b9f8aa25a75c",
+    "imports": [
+      "import wixData from 'wix-data';",
+      "import { boundedJson, snapshotAcceptancePage } from 'backend/guestBookingIssuerAuthority';"
+    ],
+    "exports": [
+      "export async function insertGuestBookingAcceptance(root){",
+      "export async function readGuestBookingAcceptance(id){",
+      "export async function scanGuestBookingAcceptances(cursor){"
+    ]
+  },
+  "velo/backend/guestBookingAcceptance.js": {
+    "sha256": "a24b038118bbc3d94794e7d30f33262443a57a5f63e92c13aab9b91b8a4fdb31",
+    "imports": [
+      "import { readGuestBookingCredentialAuthority, acceptanceDigest, acceptanceTime, boundedJson, exactFields, buildGuestBookingAcceptanceRoot } from 'backend/guestBookingIssuerAuthority';",
+      "import { validateGuestBookingOfferCapsule } from 'backend/guestBookingOfferIssuer';",
+      "import { insertGuestBookingAcceptance, readGuestBookingAcceptance } from 'backend/guestBookingAcceptanceStore';"
+    ],
+    "exports": [
+      "export function validateGuestBookingAcceptanceRoot(value){",
+      "export async function acceptGuestBookingOffer(token,capsule){",
+      "export async function readOwnGuestBookingAcceptance(token,capsule){"
+    ]
+  },
+  "velo/backend/guestBookingAcceptanceDiscovery.js": {
+    "sha256": "a5da677120ae6a5bbf0a09cc95391eb06de9dca40d3b14c9999e1ae7d898ab1f",
+    "imports": [
+      "import { scanGuestBookingAcceptances } from 'backend/guestBookingAcceptanceStore';",
+      "import { validateGuestBookingAcceptanceRoot } from 'backend/guestBookingAcceptance';"
+    ],
+    "exports": [
+      "export async function discoverGuestBookingAcceptances(cursor){"
+    ]
+  }
+};
+const acceptancePrivateReferences = /acceptGuestBookingOffer|acceptanceDigest|acceptanceTime|boundedJson|buildGuestBookingAcceptanceRoot|discoverGuestBookingAcceptances|exactFields|guestBookingAcceptance|guestBookingAcceptanceDiscovery|guestBookingAcceptanceStore|guestBookingIssuerAuthority|guestBookingOfferIssuer|insertGuestBookingAcceptance|issueGuestBookingOffer|readGuestBookingAcceptance|readGuestBookingCredentialAuthority|readGuestBookingIssuerAuthority|readOwnGuestBookingAcceptance|scanGuestBookingAcceptances|snapshotAcceptancePage|validateGuestBookingAcceptanceRoot|validateGuestBookingOfferCapsule/i;
+
+function acceptanceReferenceText(text) {
+  return text.replace(/\\(?:\r\n|[\n\r\u2028\u2029])/g, '')
+    .replace(/\\u\{([0-9a-f]+)\}|\\u([0-9a-f]{4})|\\x([0-9a-f]{2})/gi, (_, a, b, c) => {
+      const n = parseInt(a || b || c, 16);
+      return n <= 0x10ffff ? String.fromCodePoint(n) : '\ufffd';
+    }).replace(/\\([^\r\n])/g, '$1');
+}
+// null delegates to the unchanged historical guards; false denies, true admits
+// ONLY a pinned file. Do not resolve aliases before exact path comparison.
+function acceptancePrivateEdge(file, source) {
+  const pin = Object.hasOwn(acceptancePrivatePins, file) ? acceptancePrivatePins[file] : null;
+  const text = source.replace(/\r\n/g, '\n');
+  if (!pin) return acceptancePrivateReferences.test(acceptanceReferenceText(text)) ? false : null;
+  if (JSON.stringify(text.match(/^import .*$/gm) || []) !== JSON.stringify(pin.imports)) return false;
+  if (JSON.stringify(text.match(/^export .*$/gm) || []) !== JSON.stringify(pin.exports)) return false;
+  return require('node:crypto').createHash('sha256').update(text, 'utf8').digest('hex') === pin.sha256;
+}
+function runAcceptanceIsolationMetatests(gate) {
+  const names = [], witnesses = [], mutantHashes = new Set();
+  const accepted = (file, text) => {
+    try { return gate(file, text) !== false; }
+    catch (error) { if (error.code !== 'ERR_ASSERTION') throw error; return false; }
+  };
+  const controls = Object.keys(acceptancePrivatePins).map(file =>
+    [file, fs.readFileSync(path.join(__dirname, '..', file), 'utf8')]);
+  const probes = [];
+  for (const [file, source] of controls) {
+    const pin = acceptancePrivatePins[file], module = path.basename(file, '.js');
+    probes.push(['exact ' + module, file, source, true],
+      ['CRLF ' + module, file, source.replace(/\r?\n/g, '\r\n'), true]);
+    for (const [name, text] of [
+      ['body', source + '\nvoid 0;\n'], ['extra export', source + '\nexport const bridge = 1;'],
+      ['extra import', source + "\nimport 'wix-data';"], ['dynamic import', source + "\nimport('wix-data');"],
+      ['reexport', source + "\nexport * from 'wix-data';"], ['web bridge', source + '\nexport const bridge = webMethod();'],
+      ['BOM', '\ufeff' + source], ['space', source + ' '], ['lone CR', source.replace(/\r?\n/g, '\r')]
+    ]) probes.push([name + ' ' + module, file, text, false]);
+    for (const declaration of pin.imports) {
+      const spec = declaration.match(/'([^']+)'/)[1];
+      for (const [name, text] of [
+        ['missing', source.replace(declaration, '')], ['duplicate', source + '\n' + declaration],
+        ['path alias', source.replace(declaration, declaration.replace(spec, './nested/../' + spec))],
+        ['escaped path', source.replace(declaration, declaration.replace(spec, '\\u{00000062}' + spec.slice(1)))]
+      ]) probes.push([name + ' ' + module + ' ' + spec, file, text, false]);
+    }
+    for (const other of ['velo/public/' + module + '.js', 'velo/backend/' + module + '.web.js',
+      'velo/backend/' + module + '.jsw', 'velo/pages/' + module + '.js',
+      'velo/backend/nested/../' + module + '.js', './' + file, file.toUpperCase()])
+      probes.push(['copy ' + other, other, source, false]);
+    for (const consumer of ['velo/backend/consumer.js', 'velo/public/consumer.js', 'velo/pages/consumer.js', 'velo/backend/consumer.web.js', 'velo/backend/consumer.jsw']) {
+      for (const [form, wrap] of [
+        ['static', spec => `import * as alias from '${spec}';`],
+        ['dynamic', spec => `import('${spec}');`],
+        ['require', spec => `require('${spec}');`],
+        ['reexport', spec => `export * from '${spec}';`]
+      ]) {
+        for (const spec of ['backend/' + module, './nested/../' + module + '.js',
+          'backend/\\u{00000067}' + module.slice(1), 'backend/\\u0067' + module.slice(1), 'backend/\\x67' + module.slice(1)])
+          probes.push([consumer + ' ' + form + ' ' + spec, consumer, wrap(spec), false]);
+        for (const [ending, terminator] of [['LF', '\n'], ['CRLF', '\r\n'], ['CR', '\r'], ['LS', '\u2028'], ['PS', '\u2029']]) {
+          probes.push([consumer + ' ' + form + ' ' + module + ' ' + ending, consumer,
+            wrap('backend/' + module.slice(0, 6) + '\\' + terminator + module.slice(6)), false]);
+        }
+      }
+    }
+  }
+  for (const spec of ['backend/unrelatedUtility', 'backend/\\u{00000075}nrelatedUtility'])
+    probes.push(['benign ' + spec, 'velo/backend/inert.js', `import('${spec}');`, true]);
+  for (const [ending, terminator] of [['LF', '\n'], ['CRLF', '\r\n'], ['CR', '\r'], ['LS', '\u2028'], ['PS', '\u2029']])
+    probes.push(['benign continuation ' + ending, 'velo/backend/inert.js', "import('backend/unrelated\\" + terminator + "Utility');", true]);
+  for (const [name, file, text, expected] of probes) {
+    for (const [controlFile, controlText] of controls)
+      assert.equal(accepted(controlFile, controlText), true, 'acceptance positive before ' + name);
+    assert.equal(accepted(file, text), expected, 'acceptance isolation ' + name);
+    names.push(name);
+  }
+  assert.equal(new Set(names).size, names.length, 'unique acceptance fixtures');
+  // One identical function replacement per guard, multiple causal witnesses.
+  // The full real guard is exercised; mutated production text is never executed.
+  const intact = acceptancePrivateEdge;
+  const bypass = () => true;
+  for (const [name, file, text] of probes.filter(p => !p[3] &&
+    (p[0].startsWith('body ') || p[0].startsWith('extra export ') || p[0].startsWith('extra import ') || p[0].startsWith('copy ') || p[0].includes('consumer.web.js dynamic backend/guestBooking')))) {
+    const witness = () => assert.equal(accepted(file, text), false, 'causal acceptance fence ' + name);
+    witness();
+    let failure;
+    try {
+      acceptancePrivateEdge = bypass;
+      assert.equal(accepted(file, text), true, 'bypass reaches forbidden acceptance ' + name);
+      try { witness(); } catch (error) { failure = error; }
+    } finally { acceptancePrivateEdge = intact; }
+    assert.equal(failure && failure.code, 'ERR_ASSERTION', 'causal acceptance assertion ' + name);
+    assert.ok(failure.message.startsWith('causal acceptance fence ' + name), 'intended acceptance witness ' + name);
+    witness(); witnesses.push(name);
+    mutantHashes.add(require('node:crypto').createHash('sha256').update(bypass.toString()).digest('hex'));
+  }
+  assert.equal(new Set(witnesses).size, witnesses.length, 'unique acceptance witnesses');
+  const report = {cases:names.length, names, mutantCount:mutantHashes.size, mutantHashes:[...mutantHashes], witnessCount:witnesses.length, witnesses};
+  console.log(JSON.stringify({acceptanceIsolationMetatests:report}));
+  return report;
+}
+
 function isolatedProductionFile(file, text) {
+  const acceptance = acceptancePrivateEdge(file, text);
+  if (acceptance !== null) return acceptance;
+
   if (!financialReaderAllowed(file, text)) return false;
   if (file === financialReaderFile) return true;
   if (file === calculationFile) {
@@ -519,6 +700,7 @@ function scanProduction(directory) {
     }
   }
 }
+runAcceptanceIsolationMetatests(isolatedProductionFile);
 scanProduction(path.join(__dirname, '../velo'));
 eq(candidate.length, 1, 'one DTO argument, no injected ports');
 eq(canonicalize(input()), success, 'fabricated structural input passes without authority');
