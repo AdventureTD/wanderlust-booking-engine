@@ -2,11 +2,13 @@
 
 ## Authoritative bounded increment (historical sections below superseded)
 
-Committed foundation: `5a0af0222925d3638acebdd79d8f7001bc3fd097`; its preceding
-14-file dependency-closed review supersedes old uncommitted/raw-permission blockers.
-New queue/recovery bytes are uncommitted and require independent byte review.
+Committed queue/recovery closure: `d03daf60debb2add3ad2a1cc8b893ac3f5a0f5c8`.
+Active-profile checkpoints `essential-email-review-recovery-final-review.json` and
+`essential-email-review-recovery-parent-commit.json` retain the prior closure evidence.
+The new private REQUEST recovery below is uncommitted and awaits exact-byte review.
 
-The fifth Admin web method `listOwnerInvoiceReviews(cursor)` uses fixed two-root
+The fourth new Admin method (fifth total including legacy `issueInvoice`),
+`listOwnerInvoiceReviews(cursor)`, uses fixed two-root
 ISSUANCE/_id keyset pages and the strict existing state reader. Cursor is null or
 primitive lowercase 64-hex. Sanitized list/status never prepares or sends mail.
 Unknown/corrupt state stays unresolved. START means possibly in flight / outcome
@@ -24,21 +26,63 @@ one pass behind the existing literal false gate; OFF returns before configuratio
 or journal/provider work. No timer, periodic scheduler or live activation is added.
 The bound counts IO, not wall-clock cancellation.
 
-REQUEST-only admission recovery, legacy/guest producers, full keyless booking
-integration, durable scan cursors and periodic delivery guarantees are excluded.
+Legacy/guest producers, full keyless booking integration, durable scan cursors and
+periodic delivery guarantees remain excluded. REQUEST recovery is private and OFF.
 Later callers must preserve cursors/reset cycles; short restarts do not guarantee
 full backlog progress. Booking recovery remains independent of email uncertainty.
 Hosted auth, consistency/uniqueness, quotas/privacy/retention/restore, exact deployed
 transport, integration and runtime rollout remain gates. Live systems unverified.
 
-Frozen R1-R12 coverage remains partial; exact hashes, evidence and missing assertions
-are in active-profile checkpoints/essential-email-review-recovery-implementation.md.
-No full-contract, independent-review, or publication PASS is claimed.
+Prior R1-R12 closure is committed; historical partial labels below are not current
+readiness claims. New RR01-RR12 execution and exact hashes are recorded in
+active-profile checkpoints/essential-email-request-recovery-implementation.md.
+Independent review of these new bytes and all hosted/runtime gates remain pending.
+
+### New local REQUEST-only admission recovery (independently OFF)
+
+`recoverOwnerInvoiceRequestsOnce(cursor)` is a private module export, not a web or
+HTTP operation. Its independent literal `OWNER_INVOICE_REQUEST_RECOVERY_ENABLED = false`
+returns `{status:'disabled'}` before SDK/configuration work. Activated local fixtures
+accept exactly one argument: null or primitive lowercase 64-hex discovery cursor.
+No supplied REQUEST object, command, actor or service secret provides authority.
+
+Recovery queries REQUEST rows, rereads exact IDs and validates detached canonical
+application envelopes (160000 UTF-8 bytes including escaped document bytes), actor/
+request key, original document/revision/digest and recipient bindings. It derives
+only the original ISSUANCE. No repricing, new REQUEST, revision, parent qualification,
+artifact/chunk loading, START/ACK insertion, dispatch or send grant is permitted.
+Valid retained qualified children remain admitted after later parent START or ACK.
+Custody under the reviewed immutable private Admin writer is a runtime prerequisite;
+shape/hash consistency is not cryptographic provenance. Imported/restored unknown
+histories require quarantine/OFF. Metadata is excluded from application identity;
+complete hosted storage-envelope quotas including metadata remain a separate gate.
+
+Fixed keyset pages contain at most two REQUESTs; at most two pages/four candidates
+are examined. Every candidate on a page is classified before any page mutation.
+Bad/unknown candidates stop that page without writes; earlier pages are not rolled
+back. Existing exact roots are already_present with zero mutations, preserving a
+different Admin winner's creator. Missing roots require exactly-null target-local
+ARTIFACT/START/ACK reads. Unknown or orphan stages deny reconstruction.
+
+At most one ISSUANCE insert attempt is made, with exact readback reserved in a shared
+24-native-SDK-call budget (2 + 4*5 + 2). Acknowledged insertion requires the candidate
+actor; duplicate/lost ACK may reconcile a valid same-content other-creator winner.
+Unknown readback remains unresolved, never retries within that pass and never rolls
+back retained storage. The next fresh pass adopts an existing root without mutation.
+
+Sanitized protocol owner-invoice-request-recovery/v1 reports status, counters,
+request-record/issuance IDs, admission-only outcomes/deferred IDs, nextCursor,
+cycleEndObserved and snapshot:false. Invalid/partial pages retain their input cursor.
+Explicit deferrals are not a durable queue; no fairness/backlog completion claim.
+This SDK budget is not a wall-clock deadline. Existing effect review remains separate:
+already_present does not clear owner review or claim delivery. HTTP, Python startup,
+periodic behavior and all existing activation gates are unchanged. No live proof or
+full-booking/keyless integration is established by the synthetic native SDK fixtures.
 
 ## Historical records
 
 
-## Final scoped closure (authoritative; older sections below are historical)
+## Historical final scoped closure (not current readiness)
 
 N2 now executes the actual authenticated HTTP bridge with missing/wrong secret and
 forbidden creation, generic-write and callback-shaped commands, asserting zero SDK IO.
@@ -74,7 +118,7 @@ Startup/list/full booking/keyless integration and runtime rollout gates are not 
 to this bounded closure. No stage, commit, push, schema/configuration or provider action.
 
 
-## Current continuation status (supersedes historical scope below)
+## Historical continuation status (not current readiness)
 
 The actual `/issue-invoice` strict `owner-invoice-journal-v1` branch, fixed authenticated
 `post_invoiceEmailJournal`, Python adapter, immutable chunk/manifest/START/ACK journal,

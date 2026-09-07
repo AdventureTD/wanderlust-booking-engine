@@ -16,6 +16,7 @@ let loseRootAck = false;
 let insertHook = null;
 let getHook = null;
 let queryHook = null;
+let nativeFault = null;
 let bridgeSecrets = false;
 let dispatchFetch = null;
 const externalTrace = [];
@@ -27,6 +28,7 @@ function incomingExclusions(files, oldFilter = false) {
     if (!(oldFilter ? /\.js$/ : /\.(?:js|jsw)$/).test(filename)) continue;
     seen.push(filename);
     const module = new vm.SourceTextModule(source, { identifier: filename });
+    if (filename !== 'velo/backend/invoiceEmailJournal.js') assert.ok(!/\brecoverOwnerInvoiceRequestsOnce\b/.test(source), `forbidden recovery consumer: ${filename}`);
     if (['velo/backend/issueInvoice.web.js', 'velo/backend/http-functions.js',
          'velo/backend/invoiceEmailJournal.js'].includes(filename)) continue;
     assert.ok(!/\b(?:prepareOwnerInvoiceDispatch|dispatchOwnerInvoice|getOwnerInvoiceDispatch|listOwnerInvoiceReviews|invoiceEmailJournal|post_invoiceEmailJournal)\b/.test(source),
@@ -82,16 +84,17 @@ async function load(enabled = true, entry = 'entry') {
     'wix-data': { default: {
       query(collection) {
         assert.equal(collection, 'InvoiceEmailJournal');
-        let cursor = null;
+        let cursor = null, kind = 'ISSUANCE';
         const q = {
-          eq(k, v) { assert.equal(k, 'kind'); assert.equal(v, 'ISSUANCE'); return q; },
+          eq(k, v) { assert.equal(k, 'kind'); assert.ok(['ISSUANCE','REQUEST'].includes(v)); kind = v; return q; },
           ascending(k) { assert.equal(k, '_id'); return q; },
           limit(n) { assert.equal(n, 2); return q; },
           gt(k, v) { assert.equal(k, '_id'); cursor = v; return q; },
           async find(options) {
             assert.deepEqual(clone(options), {suppressAuth:true,suppressHooks:true,consistentRead:true});
             trace.push(['query', collection, cursor]);
-            const all = [...rows.values()].filter(r => r.kind === 'ISSUANCE' && (cursor === null || r._id > cursor)).sort((a,b) => a._id.localeCompare(b._id));
+            if (nativeFault) nativeFault();
+            const all = [...rows.values()].filter(r => r.kind === kind && (cursor === null || r._id > cursor)).sort((a,b) => a._id.localeCompare(b._id));
             const page = {items: clone(all.slice(0,2)), hasNext: () => all.length > 2};
             return queryHook ? queryHook(page) : page;
           }
@@ -99,6 +102,7 @@ async function load(enabled = true, entry = 'entry') {
       },
       async insert(collection, record, options) {
         trace.push(['insert', collection, record._id]);
+        if (nativeFault) nativeFault();
         assert.equal(collection, 'InvoiceEmailJournal');
         assert.deepEqual(clone(options), { suppressAuth: true, suppressHooks: true });
         if (failRoot && record.kind === 'ISSUANCE') throw new Error('fixture_root_offline');
@@ -111,6 +115,7 @@ async function load(enabled = true, entry = 'entry') {
       },
       async get(collection, id, options) {
         trace.push(['get', collection, id]);
+        if (nativeFault) nativeFault();
         assert.equal(collection, 'InvoiceEmailJournal');
         assert.equal(options.consistentRead, true);
         if (getHook) return getHook(id);
@@ -127,6 +132,7 @@ async function load(enabled = true, entry = 'entry') {
       let source = fs.readFileSync(path.join(root, filename), 'utf8');
       // Only activation is substituted. No validator, authority or writer is replaced.
       if (enabled) source = source.replace('const OWNER_INVOICE_JOURNAL_ENABLED = false;', 'const OWNER_INVOICE_JOURNAL_ENABLED = true;');
+      if (enabled) source = source.replace('const OWNER_INVOICE_REQUEST_RECOVERY_ENABLED = false;', 'const OWNER_INVOICE_REQUEST_RECOVERY_ENABLED = true;');
       module = new vm.SourceTextModule(source, { context, identifier: filename });
     }
     modules.set(name, module);
@@ -149,6 +155,208 @@ const command = {
     lines: [{ label: 'Fixture room', taxClass: 'accommodation', quantity: 1, roomQuantity: 1,
       unitPriceCents: 10000, netCents: 10000, vatCents: 1000, grossCents: 11000, vatRateBasisPoints: 1000 }] },
 };
+async function verifyRequestRecovery() {
+  for (const purpose of ['guest_invoice', 'owner_copy']) {
+    rows.clear();
+    let admin = await load();
+    let input = {...clone(command), purpose, requestId: command.requestId.toUpperCase(), revision: command.revision.toUpperCase(),
+      payments: [{datePaid:'2026-09-07',paymentAmountCents:200},{datePaid:'2026-09-06',paymentAmountCents:100}]};
+    failRoot = true;
+    await assert.rejects(() => admin.prepareOwnerInvoiceDispatch(input), /unavailable/);
+    failRoot = false;
+    const retained = JSON.stringify([...rows]);
+    const request = clone([...rows.values()][0]);
+    rows.clear(); for (const [id,row] of JSON.parse(retained)) rows.set(id,row);
+    admin = null; input = null;
+    const fresh = await load(true, 'backend/invoiceEmailJournal');
+    assert.equal(typeof fresh.recoverOwnerInvoiceRequestsOnce, 'function', 'RR01 missing private REQUEST recovery export');
+    const before = trace.length, outside = externalTrace.length;
+    const report = clone(await fresh.recoverOwnerInvoiceRequestsOnce(null));
+    assert.equal(report.status, 'ok');
+    assert.equal(report.outcomes[0].result, 'recovered');
+    const rootRow = rows.get(request.issuanceId);
+    assert.equal(rootRow.document, request.document); assert.equal(rootRow.documentDigest, request.documentDigest);
+    assert.equal(rootRow.actorId, request.actorId);
+    assert.equal(rootRow.to, purpose === 'owner_copy' ? 'info@wanderlustcaribbean.com' : 'guest@example.invalid');
+    assert.equal(rootRow.cc, purpose === 'owner_copy' ? '' : 'info@wanderlustcaribbean.com');
+    assert.deepEqual(rows.get(request._id), request);
+    assert.deepEqual(trace.slice(before).filter(t=>t[0]==='insert'), [['insert','InvoiceEmailJournal',request.issuanceId]]);
+    assert.equal(externalTrace.length, outside);
+  }
+  rows.clear(); console.log('PASS RR01 actual Admin REQUEST -> serialized storage -> fresh private recovery; both purposes');
+  const covered = ['RR01'];
+  const restore = saved => { rows.clear(); for (const [id,row] of JSON.parse(saved)) rows.set(id,row); };
+  const fresh = () => load(true, 'backend/invoiceEmailJournal');
+  const savedGet = id => rows.has(id) ? clone(rows.get(id)) : null;
+  async function retain(input = clone(command)) {
+    failRoot = true;
+    try { await assert.rejects(() => (async()=> (await load()).prepareOwnerInvoiceDispatch(input))(), /unavailable/); }
+    finally { failRoot = false; }
+    return [...rows.values()].find(r=>r.kind==='REQUEST' && r.requestId===input.requestId && r.actorId===actor);
+  }
+  async function run(cursor = null) {
+    const journal = await fresh(), before = trace.length, outside = externalTrace.length;
+    const result = clone(await journal.recoverOwnerInvoiceRequestsOnce(cursor));
+    const calls = trace.slice(before);
+    assert.equal(result.snapshot,false); assert.equal(result.sdkOperations,calls.length);
+    assert.ok(calls.length<=24); assert.ok(result.pages<=2); assert.ok(result.examined<=4);
+    assert.ok(result.insertAttempts<=1); assert.equal(result.insertAttempts,calls.filter(t=>t[0]==='insert').length);
+    assert.ok(calls.every(t=>t[1]==='InvoiceEmailJournal' && ['get','query','insert'].includes(t[0])));
+    assert.equal(externalTrace.length,outside);
+    assert.ok(!/"(?:document|actorId|to|cc|from|financial|grant|won|providerMessageId)"/.test(JSON.stringify(result)));
+    return result;
+  }
+  async function noWrite() { const before=trace.length; const result=await run(); assert.equal(trace.slice(before).filter(t=>t[0]==='insert').length,0); return result; }
+  loseRequestAck=true;
+  getHook=id=>rows.get(id)?.kind==='REQUEST' ? (()=>{throw Error('readback');})() : savedGet(id);
+  await assert.rejects(()=>(async()=> (await load()).prepareOwnerInvoiceDispatch(clone(command)))(),/readback/);
+  getHook=null; loseRequestAck=false;
+  assert.equal(rows.size,1); restore(JSON.stringify([...rows])); assert.equal((await run()).status,'ok');
+  rows.clear(); let requestCalls=0; nativeFault=()=>{if(++requestCalls===2)throw Error('no request insertion');};
+  await assert.rejects(()=>(async()=> (await load()).prepareOwnerInvoiceDispatch(clone(command)))()); nativeFault=null;
+  assert.equal((await noWrite()).cycleEndObserved,true); covered.push('RR02');
+  rows.clear(); const request=await retain(), saved=JSON.stringify([...rows]);
+  for (const mode of ['ack-loss','throw','undefined','null','rejected']) {
+    restore(saved); loseRootAck=mode==='ack-loss'; failRoot=mode==='rejected'; let inserted=false;
+    insertHook=()=>{inserted=true;};
+    getHook=id=>id===request.issuanceId && inserted && ['throw','undefined','null'].includes(mode) ?
+      (mode==='throw'?(()=>{throw Error('readback');})():mode==='null'?null:undefined) : savedGet(id);
+    const result=await run(); assert.equal(result.status,mode==='ack-loss'?'ok':'partial');
+    insertHook=null;getHook=null;loseRootAck=false;failRoot=false;
+    if(mode!=='rejected') { restore(JSON.stringify([...rows])); assert.equal((await noWrite()).outcomes[0].result,'already_present'); }
+    else assert.equal((await run()).outcomes[0].result,'recovered');
+  }
+  covered.push('RR03');
+  restore(saved); const a=await fresh(), b=await fresh(); assert.notEqual(a.recoverOwnerInvoiceRequestsOnce,b.recoverOwnerInvoiceRequestsOnce);
+  const concurrent=await Promise.all([a.recoverOwnerInvoiceRequestsOnce(null),b.recoverOwnerInvoiceRequestsOnce(null)]);
+  assert.ok(concurrent.every(x=>x.outcomes[0].result==='recovered')); assert.equal([...rows.values()].filter(r=>r.kind==='ISSUANCE').length,1);
+  restore(saved); actor='second-admin'; await retain(); actor='fixture-admin';
+  const differentAdminA=await fresh(),differentAdminB=await fresh();
+  const firstRequestId=[...rows.keys()].sort()[0];
+  const differentAdminRace=await Promise.all([differentAdminA.recoverOwnerInvoiceRequestsOnce(null),differentAdminB.recoverOwnerInvoiceRequestsOnce(firstRequestId)]);
+  assert.ok(differentAdminRace.every(r=>r.outcomes.some(o=>o.result==='recovered')));
+  const winner=clone(rows.get(request.issuanceId));
+  assert.equal([...rows.values()].filter(r=>r.kind==='ISSUANCE').length,1);
+  assert.equal((await noWrite()).status,'ok'); assert.deepEqual(rows.get(winner._id),winner);
+  for(const lost of [false,true]) {
+    restore(saved);loseRootAck=lost;insertHook=r=>{rows.get(r._id).actorId='other-creator';};
+    assert.equal((await run()).status,lost?'ok':'partial');insertHook=null;loseRootAck=false;
+  }
+  covered.push('RR04');
+  const negatives=[r=>{r._id='a'.repeat(64);},r=>{r.kind='BAD';},r=>{r.actorId=false;},r=>{r.requestId=[];},
+    r=>{r.issuanceId='a'.repeat(64);},r=>{r.documentDigest='a'.repeat(64);},r=>{r.extra=1;},
+    r=>{r.document=' '+r.document;}, ...['guest','revision','purpose','payments','financial'].map(field=>r=>{
+      const d=JSON.parse(r.document); if(field==='guest')d.guest.email='changed@example.invalid';
+      else if(field==='revision')d.revision=crypto.randomUUID(); else if(field==='purpose')d.purpose='owner_copy';
+      else if(field==='payments')d.payments=[{datePaid:'2026-09-07',paymentAmountCents:1}]; else d.financial.components.grandTotalCents++;
+      r.document=JSON.stringify(d);
+    })];
+  for(const mutate of negatives) {restore(saved);getHook=id=>{const row=savedGet(id);if(id===request._id)mutate(row);return row;};assert.equal((await noWrite()).status,'partial');getHook=null;}
+  restore(saved);getHook=id=>{const row=savedGet(id);if(row){row._owner=null;row._createdDate=new Date();}return row;};assert.equal((await run()).status,'ok');getHook=null;
+  const enabled=await fresh();for(const bad of [undefined,{},[],new String('a'.repeat(64)),'A'.repeat(64)]){const before=trace.length;await assert.rejects(()=>enabled.recoverOwnerInvoiceRequestsOnce(bad));assert.equal(trace.length,before);}
+  await assert.rejects(()=>enabled.recoverOwnerInvoiceRequestsOnce(null,request)); covered.push('RR05.partial');
+  const rootSaved=JSON.stringify([...rows]);
+  for(const mutate of [r=>{r.documentDigest='0'.repeat(64);},r=>{r.to='other@example.invalid';},r=>{r.purpose='owner_copy';},r=>{r.actorId=false;}]){restore(rootSaved);mutate(rows.get(request.issuanceId));assert.equal((await noWrite()).status,'partial');}
+  for(const id of [request._id,request.issuanceId])for(const value of [undefined,false,'throw']){restore(saved);getHook=k=>k===id?(value==='throw'?(()=>{throw Error('unknown');})():value):savedGet(k);assert.equal((await noWrite()).status,'partial');getHook=null;}
+  covered.push('RR06');
+  for(const ns of ['invoice-artifact/v1','invoice-send-start/v1','invoice-send-ack/v1'])for(const value of [{kind:'negative orphan'},undefined,false]){
+    restore(saved);const id=crypto.createHash('sha256').update(JSON.stringify([ns,request.issuanceId])).digest('hex');
+    getHook=k=>k===id?value:savedGet(k);const before=trace.length;assert.equal((await noWrite()).status,'partial');
+    assert.ok(trace.slice(before).every(t=>t[0]!=='get'||[request._id,request.issuanceId,...['invoice-artifact/v1','invoice-send-start/v1','invoice-send-ack/v1'].map(n=>crypto.createHash('sha256').update(JSON.stringify([n,request.issuanceId])).digest('hex'))].includes(t[2])));getHook=null;
+  }
+  covered.push('RR09');
+  rows.clear();for(let i=0;i<5;i++)await retain({...clone(command),invoiceNumber:'RR-BOUND-'+i,requestId:crypto.randomUUID()});
+  const many=JSON.stringify([...rows]); const maximum=await run();assert.equal(maximum.sdkOperations,24);assert.equal(maximum.examined,4);assert.equal(maximum.pages,2);assert.equal(maximum.deferred.length,3);assert.equal(maximum.cycleEndObserved,false);assert.ok(maximum.nextCursor);
+  for(const mutate of [p=>({...p,items:[p.items[0],p.items[0]]}),p=>({...p,items:p.items.slice().reverse()}),p=>({...p,items:[...p.items,p.items[0]]}),p=>({...p,items:[{...p.items[0],kind:'ISSUANCE'}]}),p=>({...p,hasNext:()=>1}),()=>({items:[],hasNext:()=>true}),()=>{throw Error('query');}]){
+    restore(many);queryHook=mutate;const result=await noWrite();assert.equal(result.status,'unavailable');assert.equal(result.nextCursor,null);queryHook=null;
+  }
+  restore(many);const ordered=[...rows.keys()].sort();getHook=id=>id===ordered[1]?undefined:savedGet(id);assert.equal((await noWrite()).status,'partial');getHook=null;
+  restore(many);let pages=0;queryHook=p=>++pages===2?{...p,hasNext:()=>1}:p;const earlier=await run();queryHook=null;assert.equal(earlier.status,'unavailable');assert.equal(earlier.insertAttempts,1);assert.equal(earlier.nextCursor,ordered[1]);
+  rows.clear();assert.equal((await noWrite()).cycleEndObserved,true);covered.push('RR10');
+  for(let fault=1;fault<=24;fault++){restore(many);let n=0;nativeFault=()=>{if(++n===fault)throw Error('SDK boundary');};const result=await run();nativeFault=null;assert.ok(['partial','unavailable'].includes(result.status));}
+  covered.push('RR11');
+  const off=await load(false,'backend/invoiceEmailJournal'), before=trace.length,outside=externalTrace.length;
+  assert.deepEqual(clone(await off.recoverOwnerInvoiceRequestsOnce({kind:'REQUEST'},{})),{status:'disabled'});
+  assert.equal(trace.length,before);assert.equal(externalTrace.length,outside);covered.push('RR12');
+  const canonical = v => Array.isArray(v)?`[${v.map(canonical).join(',')}]`:v&&typeof v==='object'?`{${Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')}}`:JSON.stringify(v);
+  const sha = v => crypto.createHash('sha256').update(v).digest('hex');
+  const key = (ns,id)=>sha(JSON.stringify([ns,id]));
+  for (const laterAck of [false,true]) {
+    rows.clear(); const admin=await load(); const parent=await admin.prepareOwnerInvoiceDispatch(clone(command));
+    const childInput={...clone(command),requestId:crypto.randomUUID(),revision:crypto.randomUUID(),parentIssuanceId:parent.issuanceId,reissueReason:'explicit retained child'};
+    const child=await retain(childInput);const childBytes=JSON.stringify(child);
+    const journal=await fresh(), id=parent.issuanceId, rootRow=rows.get(id);
+    const op=(operation,payload)=>journal.invoiceJournalOperation({operation,issuanceId:id,payload});
+    const bytes=Buffer.from('inert actual effect writer fixture'),digest=sha(bytes);
+    const chunk={_id:key('invoice-artifact-chunk/v1',digest),kind:'ARTIFACT_CHUNK',data:bytes.toString('base64'),digest};
+    await op('putChunk',chunk);
+    const manifest={_id:key('invoice-artifact/v1',id),kind:'ARTIFACT',issuanceId:id,documentDigest:rootRow.documentDigest,to:rootRow.to,cc:rootRow.cc,from:rootRow.from,chunkIds:[chunk._id],mimeDigest:digest,byteLength:bytes.length,pdfDigest:sha('PDF fixture'),rendererVersion:'RR/v1'};
+    const state=await op('commitArtifact',manifest);
+    assert.equal((await op('tryStart',{artifactDigest:state.artifactDigest,workerBootId:'RR-boot',invocationNonce:'RR-nonce'})).won,true);
+    const ack={artifactDigest:state.artifactDigest,invocationNonce:'RR-nonce',providerMessageId:'RR-message'};
+    if(laterAck)await op('recordAck',ack);
+    else await assert.rejects(()=>admin.prepareOwnerInvoiceDispatch({...childInput,requestId:crypto.randomUUID(),revision:crypto.randomUUID()}),/owner_review_required/);
+    restore(JSON.stringify([...rows]));const before=trace.length;const recovered=await run();
+    assert.equal(recovered.outcomes.find(x=>x.issuanceId===child.issuanceId).result,'recovered');
+    assert.equal(JSON.stringify(rows.get(child._id)),childBytes);
+    assert.equal(rows.get(child.issuanceId).document,child.document);
+    assert.ok(!trace.slice(before).some(t=>t[0]==='get'&&[manifest._id,chunk._id,key('invoice-send-start/v1',id),key('invoice-send-ack/v1',id)].includes(t[2])));
+    const snapshot=JSON.stringify([...rows]);await noWrite();assert.equal(JSON.stringify([...rows]),snapshot);
+    assert.equal((await (await fresh()).ownerInvoiceReview(id)).status,laterAck?'provider_accepted':'owner_review_required');
+    if(!laterAck){await op('recordAck',ack);await noWrite();assert.equal((await (await fresh()).ownerInvoiceReview(id)).status,'provider_accepted');}
+  }
+  covered.push('RR07','RR08');
+  // RR05 complete escaped application envelope: build via actual Admin writer.
+  rows.clear();
+  const large=clone(command);
+  large.financial.lines=Array.from({length:80},(_,i)=>({...clone(command.financial.lines[0]),label:'x',...(i?{unitPriceCents:0,netCents:0,vatCents:0,grossCents:0}:{})}));
+  large.financial.lines[0].label='"';
+  function fillLabels(n){for(let i=1;i<80;i++){const count=Math.min(1999,n);large.financial.lines[i].label='x'+'x'.repeat(count);n-=count;}assert.equal(n,0);}
+  function envelopes(){const {requestId,...facts}=large,document=canonical({schema:'owner-invoice-document/v1',...facts}),documentDigest=sha(document),issuanceId=sha(canonical(['owner-invoice-revision/v1',facts.invoiceNumber,facts.revision]));
+    return [{_id:sha(canonical(['owner-invoice-request/v1',actor,requestId])),kind:'REQUEST',actorId:actor,requestId,issuanceId,documentDigest,document},
+      {_id:issuanceId,kind:'ISSUANCE',actorId:actor,document,documentDigest,purpose:facts.purpose,to:facts.guest.email,cc:'info@wanderlustcaribbean.com',from:'info@wanderlustcaribbean.com'}];}
+  fillLabels(0);const base=Math.max(...envelopes().map(x=>Buffer.byteLength(canonical(x))));
+  fillLabels(160000-base);assert.equal(Math.max(...envelopes().map(x=>Buffer.byteLength(canonical(x)))),160000);
+  const largeRequest=await retain(large);const exactLarge=JSON.stringify([...rows]);assert.equal((await run()).status,'ok');
+  restore(exactLarge);fillLabels(160001-base);const oversized=envelopes()[0];
+  assert.equal(Math.max(...envelopes().map(x=>Buffer.byteLength(canonical(x)))),160001);
+  // Mutated storage is a negative integrity fixture, not imported authority.
+  rows.set(largeRequest._id,oversized);assert.equal((await noWrite()).status,'partial');
+  covered[covered.indexOf('RR05.partial')]='RR05';
+  // Baseline-GREEN promotion of the external RR05/RR10 coverage probes.
+  {
+    rows.clear();
+    const orderRequest = await retain({...clone(command), payments:[{datePaid:'2026-09-07',paymentAmountCents:200},{datePaid:'2026-09-06',paymentAmountCents:100}]});
+    const orderedStorage=JSON.stringify([...rows]);
+    const document=JSON.parse(orderRequest.document);
+    assert.equal(document.payments.length,2);
+    assert.equal(canonical(document),orderRequest.document);
+    document.payments.reverse();
+    const reversedDocument=canonical(document);
+    assert.notEqual(reversedDocument,orderRequest.document);
+    document.payments.reverse();
+    assert.equal(canonical(document),orderRequest.document, 'RR05 reversal preserves every other document byte');
+    getHook=id=>{const row=savedGet(id);if(id===orderRequest._id){row.document=reversedDocument;assert.deepEqual({...row,document:orderRequest.document},orderRequest);}return row;};
+    let swapped;
+    try { swapped=await noWrite(); } finally { getHook=null; }
+    assert.equal(swapped.status,'partial');assert.equal(swapped.outcomes[0].result,'unresolved');
+    assert.equal(JSON.stringify([...rows]),orderedStorage);
+    console.log('PASS RR05 payment-order-only tamper: partial/unresolved, zero writes, retained bytes unchanged');
+    assert.match(orderRequest._id,/^[a-f0-9]{64}$/);
+    queryHook=()=>({items:[clone(orderRequest)],hasNext:()=>false});
+    const beforeStale=trace.length;
+    let stale;
+    try { stale=await run(orderRequest._id); } finally { queryHook=null; }
+    assert.equal(stale.status,'unavailable');assert.equal(stale.nextCursor,orderRequest._id);
+    assert.equal(stale.insertAttempts,0);assert.equal(stale.examined,0);
+    assert.deepEqual(trace.slice(beforeStale),[['query','InvoiceEmailJournal',orderRequest._id]]);
+    assert.equal(JSON.stringify([...rows]),orderedStorage);
+    console.log('PASS RR10 equal-to-input-cursor page: unavailable, cursor retained, zero writes/candidates');
+  }
+  assert.equal(new Set(covered).size,12);
+  rows.clear();
+  console.log(JSON.stringify({requestRecoveryCoverage:covered,maximumSdkOperations:maximum.sdkOperations,remaining:[]}));
+}
 (async () => {
   if (process.env.ENDPOINT_FIXTURE) {
     const file = process.env.ENDPOINT_FIXTURE;
@@ -191,6 +399,7 @@ const command = {
     console.log(JSON.stringify(result));
     return;
   }
+  await verifyRequestRecovery();
   verifyIncomingExclusions();
   bridgeSecrets = true;
   const bridge = await load(true, 'backend/http-functions');
@@ -202,7 +411,7 @@ const command = {
     assert.deepEqual(trace.slice(before), []);
     assert.equal(rows.size, 0);
   }
-  const invalidBridgeBodies = ['REQUEST', 'ISSUANCE', 'insert', 'update', 'remove', 'save', 'prepareOwnerIssuance'].map(operation =>
+  const invalidBridgeBodies = ['recoverOwnerInvoiceRequestsOnce', 'REQUEST', 'ISSUANCE', 'insert', 'update', 'remove', 'save', 'prepareOwnerIssuance'].map(operation =>
     ({operation, issuanceId: 'a'.repeat(64), payload: {}}));
   invalidBridgeBodies.push({operation: 'readIssuance', issuanceId: 'a'.repeat(64), payload: {}, callbackUrl: 'https://forbidden.invalid'},
     {operation: 'insert', collection: 'Bookings', payload: {kind: 'ISSUANCE'}});

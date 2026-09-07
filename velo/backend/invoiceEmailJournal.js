@@ -1,4 +1,4 @@
-// Private, append-only Admin document admission. No dispatch/start capability yet.
+// Private append-only Admin admission and effect journal; recovery never grants send.
 import wixData from 'wix-data';
 import { createHash } from 'crypto';
 
@@ -343,6 +343,120 @@ export async function scanOwnerInvoiceJournal(cursor) {
     return {protocol: 'owner-invoice-review-page/v1', items, nextCursor: more ? last : null,
       cycleEndObserved: !more, scanStatus: items.some(i => i.classification === 'unresolved') ? 'partial' : 'ok', snapshot: false};
   } catch (_) { return unavailable; }
+}
+
+// Independent local admission recovery gate. No production consumer is authorized.
+const OWNER_INVOICE_REQUEST_RECOVERY_ENABLED = false;
+function recoveryRoot(stored, id) {
+  shape(stored, ['_id', 'kind', 'actorId', 'requestId', 'issuanceId', 'documentDigest', 'document'],
+    ['_createdDate', '_updatedDate', '_owner']);
+  const request = JSON.parse(canonical(application(stored)));
+  text(request.actorId);
+  if (request._id !== id || request.kind !== 'REQUEST' || typeof request.requestId !== 'string' ||
+      !UUID.test(request.requestId) || key('owner-invoice-request/v1', request.actorId, request.requestId) !== id ||
+      Buffer.byteLength(canonical(request), 'utf8') > 160000) deny('integrity');
+  const facts = JSON.parse(request.document);
+  const root = { _id: request.issuanceId, kind: 'ISSUANCE', actorId: request.actorId,
+    document: request.document, documentDigest: request.documentDigest, purpose: facts.purpose,
+    to: facts.purpose === 'owner_copy' ? HOTEL : facts.guest.email,
+    cc: facts.purpose === 'owner_copy' ? '' : HOTEL, from: HOTEL };
+  validRoot(root);
+  return root;
+}
+export async function recoverOwnerInvoiceRequestsOnce(cursor) {
+  if (!OWNER_INVOICE_REQUEST_RECOVERY_ENABLED) return { status: 'disabled' };
+  if (arguments.length !== 1) deny('cursor');
+  if (cursor !== null) digestId(cursor);
+  const report = { protocol: 'owner-invoice-request-recovery/v1', status: 'ok', pages: 0,
+    examined: 0, insertAttempts: 0, sdkOperations: 0, outcomes: [], deferred: [],
+    nextCursor: cursor, cycleEndObserved: false, snapshot: false };
+  const invoke = async call => {
+    if (report.sdkOperations >= 24) deny('budget');
+    report.sdkOperations++;
+    return call();
+  };
+  const get = id => invoke(() => wixData.get(COLLECTION, id, READ));
+  while (report.pages < 2) {
+    const inputCursor = report.nextCursor;
+    let ids, more;
+    try {
+      const page = await invoke(() => {
+        let q = wixData.query(COLLECTION).eq('kind', 'REQUEST').ascending('_id').limit(2);
+        if (inputCursor !== null) q = q.gt('_id', inputCursor);
+        return q.find(READ);
+      });
+      report.pages++;
+      if (!page || !Array.isArray(page.items) || page.items.length > 2 || typeof page.hasNext !== 'function') deny('page');
+      more = page.hasNext();
+      if (typeof more !== 'boolean' || (!page.items.length && more)) deny('page');
+      let last = inputCursor;
+      ids = page.items.map(row => {
+        if (!row || row.kind !== 'REQUEST') deny('page');
+        digestId(row._id);
+        if (last !== null && row._id <= last) deny('page');
+        last = row._id; return row._id;
+      });
+    } catch (_) { report.status = 'unavailable'; return report; }
+    const candidates = [];
+    let invalid = false;
+    for (const id of ids) {
+      report.examined++;
+      let root;
+      try {
+        root = recoveryRoot(await get(id), id);
+        const existing = await get(root._id);
+        if (existing !== null) {
+          validRoot(existing);
+          exactStored(existing, { ...root, actorId: existing.actorId });
+          candidates.push({ id, root, result: 'already_present' });
+        } else {
+          for (const ns of ['invoice-artifact/v1', 'invoice-send-start/v1', 'invoice-send-ack/v1']) {
+            if (await get(key(ns, root._id)) !== null) deny('orphan_stage');
+          }
+          candidates.push({ id, root, result: 'eligible' });
+        }
+      } catch (_) {
+        invalid = true;
+        report.outcomes.push({requestId: id, ...(root ? {issuanceId: root._id} : {}), result: 'unresolved'});
+      }
+    }
+    if (invalid) {
+      for (const c of candidates) report.deferred.push({requestId:c.id, issuanceId:c.root._id, result:'deferred'});
+      report.status = 'partial'; return report;
+    }
+    for (const c of candidates) {
+      const outcome = {requestId: c.id, issuanceId: c.root._id, result: c.result};
+      if (c.result === 'eligible') {
+        if (report.insertAttempts) {
+          report.deferred.push({...outcome, result:'deferred'}); continue;
+        }
+        // Reserve both write and exact readback against the same invocation budget.
+        if (report.sdkOperations + 2 > 24) { report.status = 'unavailable'; return report; }
+        report.insertAttempts++;
+        let acknowledged = false;
+        try { await invoke(() => wixData.insert(COLLECTION, c.root, WRITE)); acknowledged = true; }
+        catch (_) { /* Readback can reconcile admission only, never a send grant. */ }
+        try {
+          const stored = await get(c.root._id);
+          validRoot(stored);
+          exactStored(stored, acknowledged ? c.root : {...c.root, actorId:stored.actorId});
+          outcome.result = 'recovered';
+        } catch (_) {
+          outcome.result = 'unresolved'; report.outcomes.push(outcome);
+          for (const pending of candidates.slice(candidates.indexOf(c) + 1)) {
+            report.deferred.push({requestId:pending.id, issuanceId:pending.root._id, result:'deferred'});
+          }
+          report.status = 'partial'; return report;
+        }
+      }
+      report.outcomes.push(outcome);
+    }
+    report.nextCursor = more ? ids[ids.length - 1] : null;
+    report.cycleEndObserved = !more;
+    if (!more) break;
+  }
+  if (report.deferred.length || !report.cycleEndObserved) report.status = 'deferred';
+  return report;
 }
 
 export async function invoiceJournalOperation(input) {
