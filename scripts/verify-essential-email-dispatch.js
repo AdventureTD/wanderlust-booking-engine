@@ -15,6 +15,7 @@ let loseRequestAck = false;
 let loseRootAck = false;
 let insertHook = null;
 let getHook = null;
+let queryHook = null;
 let bridgeSecrets = false;
 let dispatchFetch = null;
 const externalTrace = [];
@@ -79,6 +80,23 @@ async function load(enabled = true, entry = 'entry') {
     'backend/settings.web': { getAllSettings: () => { throw new Error('SETTINGS_DENIED'); } },
     crypto: { createHash: crypto.createHash, timingSafeEqual: crypto.timingSafeEqual },
     'wix-data': { default: {
+      query(collection) {
+        assert.equal(collection, 'InvoiceEmailJournal');
+        let cursor = null;
+        const q = {
+          eq(k, v) { assert.equal(k, 'kind'); assert.equal(v, 'ISSUANCE'); return q; },
+          ascending(k) { assert.equal(k, '_id'); return q; },
+          limit(n) { assert.equal(n, 2); return q; },
+          gt(k, v) { assert.equal(k, '_id'); cursor = v; return q; },
+          async find(options) {
+            assert.deepEqual(clone(options), {suppressAuth:true,suppressHooks:true,consistentRead:true});
+            trace.push(['query', collection, cursor]);
+            const all = [...rows.values()].filter(r => r.kind === 'ISSUANCE' && (cursor === null || r._id > cursor)).sort((a,b) => a._id.localeCompare(b._id));
+            const page = {items: clone(all.slice(0,2)), hasNext: () => all.length > 2};
+            return queryHook ? queryHook(page) : page;
+          }
+        }; return q;
+      },
       async insert(collection, record, options) {
         trace.push(['insert', collection, record._id]);
         assert.equal(collection, 'InvoiceEmailJournal');
@@ -199,7 +217,245 @@ const command = {
   bridgeSecrets = false;
   console.log('PASS N2 actual HTTP bridge: missing/wrong authentication and forbidden creation/write/callback commands, zero SDK IO');
   const api = await load();
+  assert.equal(typeof api.listOwnerInvoiceReviews, 'function', 'R1 missing actual Admin list export');
   assert.equal(typeof api.prepareOwnerInvoiceDispatch, 'function', 'missing actual Admin durable prepare export');
+  {
+  rows.clear();
+  const queueRoot = await api.prepareOwnerInvoiceDispatch(clone(command));
+  const queueBefore = [trace.length, externalTrace.length];
+  const page = clone(await api.listOwnerInvoiceReviews(null));
+  assert.equal(page.protocol, 'owner-invoice-review-page/v1');
+  assert.equal(page.snapshot, false);
+  assert.equal(page.cycleEndObserved, true);
+  assert.equal(page.items[0].issuanceId, queueRoot.issuanceId);
+  assert.equal(page.items[0].classification, 'pending_prestart');
+  assert.ok(trace.slice(queueBefore[0]).every(t => ['get','query'].includes(t[0])));
+  assert.equal(externalTrace.length, queueBefore[1]);
+  for (const bad of [undefined, [], {}, new String('a'.repeat(64)), 'A'.repeat(64)]) {
+    const before = trace.length;
+    await assert.rejects(() => api.listOwnerInvoiceReviews(bad), /owner_invoice_/);
+    assert.equal(trace.length, before);
+  }
+  await assert.rejects(() => api.listOwnerInvoiceReviews(null, {}), /cursor/);
+  for (const denied of ['Anonymous','Member']) {
+    role = denied; const before = trace.length;
+    await assert.rejects(() => api.listOwnerInvoiceReviews(null), /platform_denied/);
+    assert.equal(trace.length, before);
+  }
+  role = 'Admin'; actor = '';
+  await assert.rejects(() => api.listOwnerInvoiceReviews(null), /actor/);
+  actor = 'other-admin';
+  await assert.rejects(() => (async () => (await load(false)).listOwnerInvoiceReviews(null))(), /disabled/);
+  assert.equal((await api.listOwnerInvoiceReviews(null)).items[0].issuanceId, queueRoot.issuanceId);
+  actor = 'fixture-admin';
+  assert.deepEqual(Object.keys(page.items[0]).sort(), ['classification','invoiceNumber','issuanceId','needsOwnerReview','purpose','revision','status']);
+  for (let index = 0; index < 3; index++) {
+    const c = clone(command); c.invoiceNumber = 'QUEUE-' + index; c.requestId = crypto.randomUUID();
+    await api.prepareOwnerInvoiceDispatch(c);
+  }
+  const first = clone(await api.listOwnerInvoiceReviews(null));
+  const second = clone(await api.listOwnerInvoiceReviews(first.nextCursor));
+  assert.equal(first.items.length, 2); assert.equal(first.cycleEndObserved, false);
+  assert.equal(second.items.length, 2); assert.equal(second.cycleEndObserved, true);
+  assert.equal(second.nextCursor, null);
+  assert.ok(first.items[1].issuanceId < second.items[0].issuanceId);
+  assert.equal((await api.listOwnerInvoiceReviews('f'.repeat(64))).items.length, 0);
+  for (const mutate of [p => ({...p, hasNext: () => 'yes'}), p => ({items: [], hasNext: () => true}),
+    p => ({...p, items: [p.items[0],p.items[0]]}), p => ({...p, items: p.items.slice().reverse()}),
+    p => ({...p, items: [{_id: ['a'.repeat(64)],kind:'ISSUANCE'}]}), () => {throw Error('PRIVATE');}]) {
+    queryHook = mutate;
+    const bad = clone(await api.listOwnerInvoiceReviews(null));
+    assert.equal(bad.scanStatus, 'unavailable'); assert.equal(bad.nextCursor, null);
+    assert.deepEqual(bad.items, []); assert.equal(bad.cycleEndObserved, false);
+  }
+  queryHook = null;
+  const brokenId = first.items[0].issuanceId;
+  const savedRoot = clone(rows.get(brokenId)); rows.get(brokenId).documentDigest = '0'.repeat(64);
+  const partial = clone(await api.listOwnerInvoiceReviews(null));
+  assert.equal(partial.scanStatus, 'partial'); assert.equal(partial.items.length, 2);
+  assert.deepEqual(Object.keys(partial.items[0]).sort(), ['classification','issuanceId','needsOwnerReview','reason','status']);
+  assert.equal(partial.items[0].classification, 'unresolved');
+  rows.set(brokenId, savedRoot);
+  for (const value of [undefined, null]) {
+    getHook = id => id === brokenId ? value : (rows.has(id) ? clone(rows.get(id)) : null);
+    assert.equal((await api.listOwnerInvoiceReviews(null)).scanStatus, 'partial');
+  }
+  getHook = null;
+  // Behind-cursor concurrent insertion is found after reset, not a snapshot.
+  let behind;
+  for (let i=0; i<100 && !behind; i++) {
+    const c = clone(command); c.invoiceNumber = 'LATE-' + i; c.requestId = crypto.randomUUID();
+    const r = await api.prepareOwnerInvoiceDispatch(c);
+    if (r.issuanceId < first.nextCursor) behind = r.issuanceId;
+  }
+  assert.ok(behind);
+  const continuation = await api.listOwnerInvoiceReviews(first.nextCursor);
+  assert.equal(continuation.snapshot, false);
+  let cursor = null, found = false;
+  do { const p = await api.listOwnerInvoiceReviews(cursor); found ||= p.items.some(i => i.issuanceId === behind); cursor = p.nextCursor; } while (cursor);
+  assert.ok(found);
+  rows.clear();
+  console.log('PASS R1-R6 bounded queue auth/privacy/keyset/quarantine/reset controls (durable effect histories in Python)');
+  }
+  // Finite R2-R6 coverage additions: actual writers and Admin reads, baseline-GREEN.
+  {
+    const covered = [];
+    const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+    const key = (ns, id) => sha(JSON.stringify([ns, id]));
+    const journal = await load(true, 'backend/invoiceEmailJournal');
+    const op = (operation, issuanceId, payload) => journal.invoiceJournalOperation({operation, issuanceId, payload});
+    const restore = saved => { rows.clear(); for (const [id, value] of JSON.parse(saved)) rows.set(id, value); };
+    async function observed(expected, id) {
+      const before = trace.length, outside = externalTrace.length, stored = JSON.stringify([...rows]);
+      const fresh = await load();
+      const page = clone(await fresh.listOwnerInvoiceReviews(null));
+      const detail = clone(await fresh.getOwnerInvoiceDispatch(id));
+      const item = page.items.find(i => i.issuanceId === id);
+      assert.ok(item, 'actual queried root visible');
+      for (const result of [item, detail]) {
+        assert.equal(result.classification, expected);
+        assert.equal(result.needsOwnerReview, ['start_uncertain','unresolved'].includes(expected));
+        const fields = expected === 'unresolved' ? ['classification','issuanceId','needsOwnerReview','reason','status'] :
+          ['classification','invoiceNumber','issuanceId','needsOwnerReview','purpose','revision','status'];
+        if (result === detail && expected === 'ack_provider_accepted') fields.push('providerMessageId');
+        assert.deepEqual(Object.keys(result).sort(), fields.sort());
+      }
+      assert.deepEqual(Object.keys(page).sort(), ['cycleEndObserved','items','nextCursor','protocol','scanStatus','snapshot']);
+      assert.equal(page.scanStatus, expected === 'unresolved' ? 'partial' : 'ok');
+      assert.equal(page.snapshot, false);
+      assert.ok(trace.slice(before).every(t => ['get','query'].includes(t[0])), 'read paths zero mutations');
+      assert.equal(externalTrace.length, outside, 'read paths zero secret/service/provider IO');
+      assert.equal(JSON.stringify([...rows]), stored);
+      assert.ok(!JSON.stringify([page, detail]).includes('PRIVATE_CORRUPTION'));
+      return {page, detail};
+    }
+    async function artifact(id, bytes) {
+      const rootRow = rows.get(id), encoded = bytes.toString('base64'), chunkIds = [];
+      for (let offset = 0; offset < encoded.length; offset += 100000) {
+        const data = encoded.slice(offset, offset + 100000), digest = sha(Buffer.from(data, 'base64'));
+        const chunk = {_id:key('invoice-artifact-chunk/v1',digest),kind:'ARTIFACT_CHUNK',data,digest};
+        await op('putChunk', id, chunk); chunkIds.push(chunk._id);
+      }
+      const manifest = {_id:key('invoice-artifact/v1',id),kind:'ARTIFACT',issuanceId:id,
+        documentDigest:rootRow.documentDigest,to:rootRow.to,cc:rootRow.cc,from:rootRow.from,
+        chunkIds,mimeDigest:sha(bytes),byteLength:bytes.length,pdfDigest:sha('inert PDF'),rendererVersion:'queue-fixture/v1'};
+      const state = await op('commitArtifact',id,manifest);
+      assert.equal(state.artifact.byteLength,bytes.length);
+      return state;
+    }
+    rows.clear(); bridgeSecrets = true;
+    const scanBridge = await load(true, 'backend/http-functions');
+    const request = body => ({headers:{'x-wbe-secret':'fixture-only'},body:{text:async()=>JSON.stringify(body)}});
+    const mixed = [
+      {operation:'scanPending',cursor:null,issuanceId:'a'.repeat(64)},
+      {operation:'scanPending',cursor:null,payload:{}},
+      {operation:'readIssuance',issuanceId:'a'.repeat(64),payload:{},cursor:null},
+      ...['query','collection','url','limit','unknown'].map(k=>({operation:'scanPending',cursor:null,[k]:'PRIVATE_CORRUPTION'}))
+    ];
+    for (const body of mixed) {
+      const before = trace.length;
+      const response = await scanBridge.post_invoiceEmailJournal(request(body));
+      assert.equal(response.status,409); assert.equal(response.headers['Cache-Control'],'no-store');
+      assert.equal(trace.length,before); assert.equal(rows.size,0);
+    }
+    for (const bad of [new String('a'.repeat(64)), [], {}, undefined]) {
+      const before=trace.length;
+      await assert.rejects(()=>journal.invoiceJournalOperation({operation:'scanPending',cursor:bad}),/owner_invoice_/);
+      assert.equal(trace.length,before);
+    }
+    for (const enabled of [true,false]) {
+      const response = await (await load(enabled,'backend/http-functions')).post_invoiceEmailJournal(request({operation:'scanPending',cursor:null}));
+      assert.equal(response.status,enabled?200:503); assert.equal(response.headers['Cache-Control'],'no-store');
+    }
+    const unauthorized = await scanBridge.post_invoiceEmailJournal({headers:{},body:{text:async()=>{throw Error('must not read');}}});
+    assert.equal(unauthorized.status,401); assert.equal(unauthorized.headers['Cache-Control'],'no-store');
+    queryHook=()=>{throw Error('PRIVATE_CORRUPTION');};
+    const unavailable=await scanBridge.post_invoiceEmailJournal(request({operation:'scanPending',cursor:null}));
+    assert.equal(unavailable.headers['Cache-Control'],'no-store');
+    assert.equal(JSON.parse(unavailable.body).scanStatus,'unavailable');
+    queryHook=null; bridgeSecrets=false;
+    covered.push('R2.mixed-variants-zero-sdk','R2.no-store-success-denial-unavailable');
+    const rootResult=await api.prepareOwnerInvoiceDispatch(clone(command)), id=rootResult.issuanceId;
+    await observed('pending_prestart',id);
+    const prepared=await artifact(id,Buffer.from('PRIVATE_CORRUPTION inert MIME bytes'));
+    await observed('pending_prestart',id);
+    covered.push('R3.artifact-only-actual-writer-list-detail');
+    const grant=await op('tryStart',id,{artifactDigest:prepared.artifactDigest,workerBootId:'queue-boot',invocationNonce:'queue-nonce'});
+    assert.equal(grant.won,true);
+    const provisional=await observed('start_uncertain',id);
+    assert.equal(provisional.detail.status,'owner_review_required');
+    assert.ok(![...rows.values()].some(r=>['PREP_FAILURE','UNCERTAIN'].includes(r.kind)));
+    const startId=key('invoice-send-start/v1',id), ackId=key('invoice-send-ack/v1',id);
+    const beforeWrong=JSON.stringify([...rows]);
+    await assert.rejects(()=>op('recordAck',id,{artifactDigest:prepared.artifactDigest,invocationNonce:'wrong',providerMessageId:'fixture-late'}),/ack/);
+    assert.equal(JSON.stringify([...rows]),beforeWrong);
+    await op('recordAck',id,{artifactDigest:prepared.artifactDigest,invocationNonce:'queue-nonce',providerMessageId:'fixture-late'});
+    const cleared=await observed('ack_provider_accepted',id);
+    assert.equal(cleared.detail.providerMessageId,'fixture-late');
+    assert.equal(cleared.page.items[0].status,'provider_accepted');
+    // ACK is an inert provider-boundary fact; no provider is invoked by this queue test.
+    covered.push('R6.late-bound-ack-clears-fresh-list-detail');
+    const retained=JSON.stringify([...rows]), chunkId=prepared.artifact.chunkIds[0];
+    const corruptions=[
+      ['start-kind',()=>{rows.get(startId).kind='BAD';}],
+      ['start-nonce',()=>{rows.get(startId).invocationNonce='';}],
+      ['start-artifact-binding',()=>{rows.get(startId).artifactDigest='0'.repeat(64);}],
+      ['ack-without-start',()=>rows.delete(startId)],
+      ['ack-kind',()=>{rows.get(ackId).kind='BAD';}],
+      ['ack-nonce-binding',()=>{rows.get(ackId).invocationNonce='wrong';}],
+      ['ack-message-id',()=>{rows.get(ackId).providerMessageId='bad message';}],
+      ['ack-recipient-binding',()=>{rows.get(ackId).to='wrong@example.invalid';}],
+      ['ack-artifact-binding',()=>{rows.get(ackId).artifactDigest='0'.repeat(64);}],
+      ['chunk-missing',()=>rows.delete(chunkId)],
+      ['chunk-tampered',()=>{rows.get(chunkId).data='YmFk';}],
+      ['root-digest',()=>{rows.get(id).documentDigest='0'.repeat(64);}]
+    ];
+    for (const [label, corrupt] of corruptions) {
+      restore(retained); corrupt(); await observed('unresolved',id); covered.push('R4.'+label);
+    }
+    for (const target of [id,prepared.artifact._id,chunkId,startId,ackId]) {
+      for (const mode of ['undefined','throw']) {
+        restore(retained);
+        getHook=targetId=>{if(targetId===target){if(mode==='throw')throw Error('PRIVATE_CORRUPTION');return undefined;}return rows.has(targetId)?clone(rows.get(targetId)):null;};
+        await observed('unresolved',id); getHook=null;
+        covered.push('R4.'+[id,prepared.artifact._id,chunkId,startId,ackId].indexOf(target)+'-'+mode);
+      }
+    }
+    restore(retained); rows.delete(ackId); await observed('start_uncertain',id);
+    rows.delete(startId); await observed('pending_prestart',id);
+    covered.push('R4.explicit-null-absence-controls');
+    rows.clear();
+    const maximum=Buffer.alloc(8388608,65);
+    for(let index=0;index<2;index++) {
+      const c={...clone(command),invoiceNumber:'QUEUE-MAX-'+index,requestId:crypto.randomUUID()};
+      const admitted=await api.prepareOwnerInvoiceDispatch(c);
+      const state=await artifact(admitted.issuanceId,maximum);
+      assert.equal(state.artifact.chunkIds.length,112);
+    }
+    const beforeMax=trace.length, outsideMax=externalTrace.length;
+    const maxPage=await api.listOwnerInvoiceReviews(null);
+    assert.equal(maxPage.scanStatus,'ok');assert.equal(maxPage.items.length,2);
+    assert.equal(maxPage.cycleEndObserved,true);
+    const calls=trace.slice(beforeMax);
+    assert.equal(calls.filter(t=>t[0]==='query').length,1);
+    assert.equal(calls.filter(t=>t[0]==='get').length,232);
+    assert.equal(calls.length,233);assert.ok(calls.length<=265);
+    assert.equal(externalTrace.length,outsideMax);
+    // 128 is a nominal chunk-count cap, dominated by the actual 8 MiB MIME cap.
+    // 127 full nonfinal chunks require 9,525,000 bytes before the last chunk.
+    const maximumRoot=[...rows.values()].find(r=>r.kind==='ISSUANCE');
+    const maximumManifest=rows.get(key('invoice-artifact/v1',maximumRoot._id));
+    maximumManifest.chunkIds=Array(128).fill(maximumManifest.chunkIds[0]);
+    const beforeInvalid=trace.length;
+    const invalidMaximum=await api.listOwnerInvoiceReviews(null);
+    assert.equal(invalidMaximum.scanStatus,'partial');
+    assert.equal(invalidMaximum.items.find(i=>i.issuanceId===maximumRoot._id).classification,'unresolved');
+    assert.ok(trace.slice(beforeInvalid).length<=265);
+    covered.push('R5.reachable-233-sdk-with-nominal-265-ceiling','R5.128-chunk-dominated-limit-denial');
+    assert.equal(covered.length,29);
+    console.log(JSON.stringify({queueCoverage:covered,validMaximumPageSdkCalls:calls.length,nominalSdkCeiling:265,exact265Reachable:false}));
+    rows.clear();
+  }
   // A1: actual Admin callback, fresh storage, no JSON transport of test values.
   const identifierCases = [];
   for (const field of ['requestId', 'revision', 'parentIssuanceId']) {
@@ -256,13 +512,13 @@ const command = {
     assert.deepEqual([trace.length, externalTrace.length], before);
     const immutableBefore = JSON.stringify([...rows]);
     const externalBefore = externalTrace.length;
-    await assert.rejects(() => api[method]('f'.repeat(64)), /owner_invoice_/);
+    assert.equal((await api[method]('f'.repeat(64))).classification, 'unresolved');
     assert.equal(externalTrace.length, externalBefore, 'missing root never reaches transport/secrets');
     assert.equal(JSON.stringify([...rows]), immutableBefore);
   }
   const statusBefore = [trace.length, externalTrace.length];
   assert.deepEqual(clone(await api.getOwnerInvoiceDispatch(result.issuanceId)), {
-    issuanceId: result.issuanceId, revision: command.revision, status: 'preparation_retryable'});
+    issuanceId: result.issuanceId, invoiceNumber: command.invoiceNumber, revision: command.revision, purpose: command.purpose, status: 'preparation_retryable', classification: 'pending_prestart', needsOwnerReview: false});
   assert.equal(externalTrace.length, statusBefore[1], 'status never wakes service');
   assert.ok(trace.slice(statusBefore[0]).every(call => call[0] === 'get'));
   dispatchFetch = async (url, options) => {

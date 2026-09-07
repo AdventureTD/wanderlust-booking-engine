@@ -303,7 +303,53 @@ async function stateFor(root) {
   }
   return {root, artifact, encoded, artifactDigest, start, ack};
 }
+export async function ownerInvoiceReview(issuanceId, detail = false) {
+  digestId(issuanceId);
+  try {
+    const state = await stateFor(await rootFor(issuanceId));
+    const facts = JSON.parse(state.root.document);
+    const classification = state.ack ? 'ack_provider_accepted' : state.start ? 'start_uncertain' : 'pending_prestart';
+    const result = {issuanceId, invoiceNumber: facts.invoiceNumber, revision: facts.revision, purpose: facts.purpose,
+      status: state.ack ? 'provider_accepted' : state.start ? 'owner_review_required' : 'preparation_retryable',
+      classification, needsOwnerReview: !!state.start && !state.ack};
+    if (detail && state.ack) result.providerMessageId = state.ack.providerMessageId;
+    return result;
+  } catch (_) {
+    return {issuanceId, classification: 'unresolved', status: 'journal_unavailable',
+      needsOwnerReview: true, reason: 'state_unverified'};
+  }
+}
+export async function scanOwnerInvoiceJournal(cursor) {
+  if (cursor !== null) digestId(cursor);
+  const unavailable = {protocol: 'owner-invoice-review-page/v1', items: [], nextCursor: null,
+    cycleEndObserved: false, scanStatus: 'unavailable', snapshot: false};
+  try {
+    let query = wixData.query(COLLECTION).eq('kind', 'ISSUANCE').ascending('_id').limit(2);
+    if (cursor !== null) query = query.gt('_id', cursor);
+    const page = await query.find(READ);
+    if (!page || !Array.isArray(page.items) || page.items.length > 2 || typeof page.hasNext !== 'function') return unavailable;
+    const more = page.hasNext();
+    if (typeof more !== 'boolean' || (!page.items.length && more)) return unavailable;
+    let last = cursor;
+    const ids = [];
+    for (const row of page.items) {
+      if (!row || row.kind !== 'ISSUANCE') return unavailable;
+      digestId(row._id);
+      if (last !== null && row._id <= last) return unavailable;
+      last = row._id; ids.push(last);
+    }
+    const items = [];
+    for (const id of ids) items.push(await ownerInvoiceReview(id));
+    return {protocol: 'owner-invoice-review-page/v1', items, nextCursor: more ? last : null,
+      cycleEndObserved: !more, scanStatus: items.some(i => i.classification === 'unresolved') ? 'partial' : 'ok', snapshot: false};
+  } catch (_) { return unavailable; }
+}
+
 export async function invoiceJournalOperation(input) {
+  if (input && input.operation === 'scanPending') {
+    shape(input, ['operation', 'cursor']);
+    return scanOwnerInvoiceJournal(input.cursor);
+  }
   shape(input, ['operation', 'issuanceId', 'payload']);
   if (!['readIssuance', 'putChunk', 'commitArtifact', 'tryStart', 'recordAck'].includes(input.operation)) deny('operation');
   const root = await rootFor(input.issuanceId);

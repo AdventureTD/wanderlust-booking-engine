@@ -20,10 +20,10 @@ const imports = [
 const exportDeclaration = 'export const issueInvoice =';
 const admissionImports = [
   "import { currentUser } from 'wix-users-backend';",
-  "import { prepareOwnerIssuance, invoiceJournalOperation } from 'backend/invoiceEmailJournal';",
+  "import { prepareOwnerIssuance, ownerInvoiceReview, scanOwnerInvoiceJournal } from 'backend/invoiceEmailJournal';",
 ];
 const admissionDeclaration = 'export const prepareOwnerInvoiceDispatch =';
-const dispatchExports = ['getOwnerInvoiceDispatch', 'dispatchOwnerInvoice'];
+const dispatchExports = ['getOwnerInvoiceDispatch', 'dispatchOwnerInvoice', 'listOwnerInvoiceReviews'];
 
 function inspect(text, admission = true) {
   let executable = text;
@@ -60,14 +60,14 @@ function inspect(text, admission = true) {
     invoiceJournalOperation: unexpected,
   }, { codeGeneration: { strings: false, wasm: false } });
   vm.runInContext(executable, context, { filename, timeout: 1000 });
-  assert.equal(declarations.length, admission ? 4 : 1, 'Exact webMethod declaration count');
+  assert.equal(declarations.length, admission ? 5 : 1, 'Exact webMethod declaration count');
   assert.deepEqual(Object.keys(context).filter(key => declarations.includes(context[key])),
     admission ? ['prepareOwnerInvoiceDispatch', ...dispatchExports, 'issueInvoice'] : ['issueInvoice']);
-  assert.strictEqual(context.issueInvoice, declarations[admission ? 3 : 0]);
+  assert.strictEqual(context.issueInvoice, declarations[admission ? 4 : 0]);
   if (admission) assert.strictEqual(context.prepareOwnerInvoiceDispatch, declarations[0]);
   if (admission) dispatchExports.forEach((name, index) => assert.strictEqual(context[name], declarations[index + 1]));
   return { ...context.issueInvoice, admission: context.prepareOwnerInvoiceDispatch,
-    getOwnerInvoiceDispatch: context.getOwnerInvoiceDispatch, dispatchOwnerInvoice: context.dispatchOwnerInvoice };
+    getOwnerInvoiceDispatch: context.getOwnerInvoiceDispatch, dispatchOwnerInvoice: context.dispatchOwnerInvoice, listOwnerInvoiceReviews: context.listOwnerInvoiceReviews };
 }
 
 function assertAdmin(metadata) {

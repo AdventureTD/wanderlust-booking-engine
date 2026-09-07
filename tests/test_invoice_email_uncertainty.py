@@ -4,6 +4,13 @@ from fastapi.testclient import TestClient
 import invoice_service as service
 
 
+@pytest.fixture(autouse=True)
+def endpoint_only_lifecycle(monkeypatch):
+    # This suite isolates explicit endpoint invocations. Actual startup discovery
+    # is exercised separately in test_invoice_email_recovery.py.
+    monkeypatch.setattr(service.app.router, 'on_startup', [])
+
+
 @pytest.mark.parametrize('operation', ['REQUEST', 'ISSUANCE', 'insert', 'update', 'remove', 'save', 'prepareOwnerIssuance'])
 def test_n2_python_adapter_forbidden_operations_zero_transport(monkeypatch, operation):
     import requests
@@ -242,7 +249,9 @@ def test_actual_endpoint_writer_bridge_sender_restart(tmp_path, monkeypatch, mod
             if mode == 'accepted':
                 assert restarted.json()['providerMessageId'] == 'fixture-gmail-exact-123'
             for fixture in ('status', 'dispatch-retained'):
-                assert bridge_call({'fixture': fixture, 'issuanceId': issuance_id}) == restarted.json()
+                detail = bridge_call({'fixture': fixture, 'issuanceId': issuance_id})
+                assert {k: detail[k] for k in restarted.json()} == restarted.json()
+                assert detail['classification'] == ('ack_provider_accepted' if mode == 'accepted' else 'start_uncertain')
     (tmp_path / 'http-trace.json').write_text(json.dumps(calls, default=str))
 
 

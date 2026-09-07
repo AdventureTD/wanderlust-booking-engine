@@ -181,6 +181,21 @@ def recompute(req: RecomputeRequest, x_wbe_secret: str = Header(default="")):
 OWNER_INVOICE_JOURNAL_ENABLED = False
 
 
+def recover_owner_invoice_startup():
+    """One pass only. OFF returns before configuration or journal/provider work."""
+    if not OWNER_INVOICE_JOURNAL_ENABLED:
+        return {'status': 'disabled'}
+    from booking_engine.invoice_email_journal import InvoiceEmailJournal
+    from booking_engine.invoice_email_recovery import recover_pending_once
+    try:
+        return recover_pending_once(InvoiceEmailJournal.from_environment())
+    except Exception:
+        return {'status': 'unavailable'}
+
+
+app.router.add_event_handler('startup', recover_owner_invoice_startup)
+
+
 @app.post("/issue-invoice")
 async def issue_invoice(req: dict, background_tasks: BackgroundTasks, x_wbe_secret: str = Header(default="")):
     if not SHARED_SECRET or x_wbe_secret != SHARED_SECRET:

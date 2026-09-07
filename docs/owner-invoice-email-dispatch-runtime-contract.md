@@ -1,4 +1,42 @@
-# Owner invoice email journal — OFF, local endpoint candidate
+# Owner invoice email journal — OFF, local review/recovery candidate
+
+## Authoritative bounded increment (historical sections below superseded)
+
+Committed foundation: `5a0af0222925d3638acebdd79d8f7001bc3fd097`; its preceding
+14-file dependency-closed review supersedes old uncommitted/raw-permission blockers.
+New queue/recovery bytes are uncommitted and require independent byte review.
+
+The fifth Admin web method `listOwnerInvoiceReviews(cursor)` uses fixed two-root
+ISSUANCE/_id keyset pages and the strict existing state reader. Cursor is null or
+primitive lowercase 64-hex. Sanitized list/status never prepares or sends mail.
+Unknown/corrupt state stays unresolved. START means possibly in flight / outcome
+unknown, never failed or unsent; a valid ACK means provider accepted, not delivered.
+Clients upsert by ID and must not clear prior review on page omission. A fresh valid
+late ACK clears provisional review. Pages always declare snapshot:false.
+
+The strict private no-store `scanPending` variant and Python adapter feed
+`recover_pending_once`: two pages, four roots, one dispatch attempt, one shared
+128 bridge-operation facade. Partial pages deny work from that page, pending rows
+skipped after the attempt are explicitly deferred. The existing dispatcher freshly
+reads state and alone owns unique START arbitration. START never expires or grants
+resend. No admission/financial/dispatcher body changed. Named service startup runs
+one pass behind the existing literal false gate; OFF returns before configuration
+or journal/provider work. No timer, periodic scheduler or live activation is added.
+The bound counts IO, not wall-clock cancellation.
+
+REQUEST-only admission recovery, legacy/guest producers, full keyless booking
+integration, durable scan cursors and periodic delivery guarantees are excluded.
+Later callers must preserve cursors/reset cycles; short restarts do not guarantee
+full backlog progress. Booking recovery remains independent of email uncertainty.
+Hosted auth, consistency/uniqueness, quotas/privacy/retention/restore, exact deployed
+transport, integration and runtime rollout remain gates. Live systems unverified.
+
+Frozen R1-R12 coverage remains partial; exact hashes, evidence and missing assertions
+are in active-profile checkpoints/essential-email-review-recovery-implementation.md.
+No full-contract, independent-review, or publication PASS is claimed.
+
+## Historical records
+
 
 ## Final scoped closure (authoritative; older sections below are historical)
 

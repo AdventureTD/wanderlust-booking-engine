@@ -14,7 +14,7 @@ import { fetch } from 'wix-fetch';
 import { getSecret } from 'wix-secrets-backend';
 import { getAllSettings } from 'backend/settings.web';
 import { currentUser } from 'wix-users-backend';
-import { prepareOwnerIssuance, invoiceJournalOperation } from 'backend/invoiceEmailJournal';
+import { prepareOwnerIssuance, ownerInvoiceReview, scanOwnerInvoiceJournal } from 'backend/invoiceEmailJournal';
 
 // Deliberately not connected to live/default issuance. Runtime rollout is separate.
 const OWNER_INVOICE_JOURNAL_ENABLED = false;
@@ -35,10 +35,7 @@ function ownerDispatchAuthority(issuanceId) {
 }
 
 async function ownerDispatchStatus(issuanceId) {
-  const state = await invoiceJournalOperation({operation: 'readIssuance', issuanceId, payload: {}});
-  const result = {issuanceId, revision: JSON.parse(state.root.document).revision};
-  if (state.ack) return {...result, status: 'provider_accepted', providerMessageId: state.ack.providerMessageId};
-  return {...result, status: state.start ? 'owner_review_required' : 'preparation_retryable'};
+  return ownerInvoiceReview(issuanceId, true);
 }
 
 export const getOwnerInvoiceDispatch = webMethod(Permissions.Admin, async (issuanceId) => {
@@ -62,6 +59,13 @@ export const dispatchOwnerInvoice = webMethod(Permissions.Admin, async (issuance
   if (!res.ok) throw new Error('owner_invoice_service_unavailable');
   // Durable journal readback, never a caller/provider-shaped response, is status authority.
   return ownerDispatchStatus(issuanceId);
+});
+
+export const listOwnerInvoiceReviews = webMethod(Permissions.Admin, async (...args) => {
+  if (!OWNER_INVOICE_JOURNAL_ENABLED) throw new Error('owner_invoice_journal_disabled');
+  if (typeof currentUser.id !== 'string' || !currentUser.id.trim()) throw new Error('owner_invoice_actor_required');
+  if (args.length !== 1) throw new Error('owner_invoice_cursor');
+  return scanOwnerInvoiceJournal(args[0]);
 });
 
 const INVOICE_SERVICE_URL_KEY = 'WBE_INVOICE_SERVICE_URL';

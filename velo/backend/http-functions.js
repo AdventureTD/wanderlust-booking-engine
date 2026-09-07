@@ -6,7 +6,7 @@ import { invoiceJournalOperation } from 'backend/invoiceEmailJournal';
 
 const OWNER_INVOICE_JOURNAL_ENABLED = false;
 export async function post_invoiceEmailJournal(request) {
-  const reply = (status, value) => response({status, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(value)});
+  const reply = (status, value) => response({status, headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-store'}, body: JSON.stringify(value)});
   if (!OWNER_INVOICE_JOURNAL_ENABLED) return reply(503, {error: 'disabled'});
   const secret = await getSecret('WBE_SHARED_SECRET');
   const supplied = request.headers['x-wbe-secret'];
