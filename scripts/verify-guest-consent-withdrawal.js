@@ -81,6 +81,70 @@ function memoryOnly(source) {
     .replace("const after = await read('GuestConsentWithdrawals', row._id, row, deadline);", "memoryOnlyContexts.add(contextId); const after = await read('GuestConsentWithdrawals', row._id, row, deadline);")
     .replace(anchor, "memoryOnlyContexts.has(contextId) && result.status === 'FOUND' ? 'WITHDRAWN'");
 }
+// Frozen T2 correction-review payload; LF pins do not authorize live consumers.
+const consentBoundaryPins = {
+  "velo/backend/guestConsentBookingLink.js": {
+    "sha256": "2f7fbbce5fef566430349d84be0c267849873190952c1ced0222f26303029441",
+    "imports": [
+      "import wixData from 'wix-data';",
+      "import crypto from 'crypto';",
+      "import { Buffer } from 'buffer';",
+      "import { resolveGuestConsentBrowserContext } from 'backend/guestConsentContext';",
+      "import { readConsentBrowserWithdrawal } from 'backend/guestConsentWithdrawalStore';",
+      "import { readGuestBookingCredentialAuthority, acceptanceDigest, acceptanceTime, snapshotAcceptancePage } from 'backend/guestBookingIssuerAuthority';",
+      "import { readGuestBookingAcceptance } from 'backend/guestBookingAcceptanceStore';",
+      "import { validateGuestBookingAcceptanceRoot } from 'backend/guestBookingAcceptance';"
+    ],
+    "exports": [
+      "export async function linkGuestConsentBrowserToAcceptedBooking(browserToken, bookingToken, capsule) {",
+      "export async function readGuestConsentBookingNegative(acceptanceId) {"
+    ]
+  },
+  "velo/backend/guestConsentContext.js": {
+    "sha256": "485790d844de14cf47cb81544c4f4aa038be51da8802ec21a56dabba88296bdd",
+    "imports": [
+      "import crypto from 'crypto';",
+      "import { Buffer } from 'buffer';",
+      "import { insertConsentBrowserContext, readConsentBrowserContext, recordConsentBrowserWithdrawal, readConsentBrowserWithdrawal } from 'backend/guestConsentWithdrawalStore';"
+    ],
+    "exports": [
+      "export async function resolveGuestConsentBrowserContext(token, deadline) {",
+      "export async function createGuestConsentBrowserContext() {",
+      "export async function withdrawGuestConsentBrowser(token) {",
+      "export async function readGuestConsentBrowserNegative(token) {"
+    ]
+  },
+  "velo/backend/guestConsentWithdrawalStore.js": {
+    "sha256": "7bdfd2255dba841612f0388497294e138e630c97f630278905b2e41fbf3411d6",
+    "imports": [
+      "import wixData from 'wix-data';",
+      "import crypto from 'crypto';",
+      "import { Buffer } from 'buffer';"
+    ],
+    "exports": [
+      "export async function insertConsentBrowserContext(id, digest, deadline) {",
+      "export async function readConsentBrowserContext(id, deadline) {",
+      "export async function recordConsentBrowserWithdrawal(contextId, deadline) {",
+      "export async function readConsentBrowserWithdrawal(contextId, deadline) {"
+    ]
+  }
+};
+function consentReferenceText(text) {
+  return text.replace(/\\(?:\r\n|[\n\r\u2028\u2029])/g, '')
+    .replace(/\\u\{([0-9a-f]+)\}|\\u([0-9a-f]{4})|\\x([0-9a-f]{2})/gi, (_, a, b, c) => {
+      const n = parseInt(a || b || c, 16);
+      return n <= 0x10ffff ? String.fromCodePoint(n) : '\ufffd';
+    }).replace(/\\([^\r\n])/g, '$1');
+}
+function consentBoundaryEdge(file, source) {
+  const text = source.replace(/\r\n/g, '\n');
+  const pin = Object.hasOwn(consentBoundaryPins, file) ? consentBoundaryPins[file] : null;
+  if (!pin) return !/guestConsentContext|guestConsentWithdrawalStore|guestConsentBookingLink|resolveGuestConsentBrowserContext|insertConsentBrowserContext|readConsentBrowserContext|recordConsentBrowserWithdrawal|readConsentBrowserWithdrawal|linkGuestConsentBrowserToAcceptedBooking|readGuestConsentBookingNegative/i.test(consentReferenceText(text));
+  return JSON.stringify(text.match(/^import .*$/gm) || []) === JSON.stringify(pin.imports) &&
+    JSON.stringify(text.match(/^export .*$/gm) || []) === JSON.stringify(pin.exports) &&
+    crypto.createHash('sha256').update(text).digest('hex') === pin.sha256;
+}
+
 async function main() {
   if (['--restart', '--restart-memory'].includes(process.argv[2])) {
     const data = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
@@ -186,8 +250,9 @@ async function main() {
   console.log('N05 unresolved observations/new custody/retained negative PASS');
 
   // Exact source boundary pins, including incoming production edges.
+  for (const file of Object.keys(consentBoundaryPins)) assert.equal(consentBoundaryEdge(file, fs.readFileSync(path.join(root, file), 'utf8')), true, 'L04-R2 exact reviewed consent pin ' + file);
   const { sources, store } = await load(sdk());
-  assert.deepEqual(Object.keys(api).sort(), ['createGuestConsentBrowserContext', 'readGuestConsentBrowserNegative', 'withdrawGuestConsentBrowser'].sort());
+  assert.deepEqual(Object.keys(api).sort(), ['createGuestConsentBrowserContext', 'readGuestConsentBrowserNegative', 'resolveGuestConsentBrowserContext', 'withdrawGuestConsentBrowser'].sort());
   assert.deepEqual(Object.keys(store).sort(), ['insertConsentBrowserContext', 'readConsentBrowserContext', 'recordConsentBrowserWithdrawal', 'readConsentBrowserWithdrawal'].sort());
   const imports = source => [...source.matchAll(/from\s+['"]([^'"]+)['"]/g)].map(m => m[1]).sort();
   assert.deepEqual(imports(sources.context), ['backend/guestConsentWithdrawalStore', 'buffer', 'crypto']);
@@ -201,7 +266,7 @@ async function main() {
       else {
         if (file === contextPath || file === storePath) continue;
         const bytes = fs.readFileSync(file); oldHashes.set(file, crypto.createHash('sha256').update(bytes).digest('hex'));
-        if (/\.(?:js|jsw|html)$/.test(file)) assert.doesNotMatch(bytes.toString(), /guestConsentContext|guestConsentWithdrawalStore/, 'unexpected incoming production consumer: ' + file);
+        if (/\.(?:js|jsw|html)$/.test(file)) assert.equal(consentBoundaryEdge(path.relative(root, file).split(path.sep).join('/'), bytes.toString()), true, 'unexpected incoming production consumer: ' + file);
       }
     }
   }
@@ -221,12 +286,12 @@ async function main() {
         readFileSync: () => Buffer.from(body)
       };
       const realm = vm.createContext({ fs: fakeFS, path, crypto, assert, contextPath, storePath,
-        oldHashes: fixtureHashes, dir: path.dirname(file) });
+        oldHashes: fixtureHashes, dir: path.dirname(file), root, consentBoundaryEdge });
       let denied = false;
       try { vm.runInContext(`(${scanSource})(dir)`, realm); }
       catch (error) {
         assert.equal(error.code, 'ERR_ASSERTION');
-        assert.equal(error.message, 'unexpected incoming production consumer: ' + file);
+        assert.ok(error.message.startsWith('unexpected incoming production consumer: ' + file));
         denied = true;
       }
       assert.equal(fixtureHashes.get(file), crypto.createHash('sha256').update(body).digest('hex'));
@@ -301,4 +366,450 @@ async function main() {
   console.log('Causal witnesses: nonpersisting SDK writer, auth-bypass source reversal, memory-only source reversal rejected. N03 baseline and memory-only reversal both execute in fresh processes.');
   console.log('PASS N01-N06 local core; no live Wix/browser/booking-linkage or positive authority claims.');
 }
-main().catch(error => { console.error(error); process.exitCode = 1; });
+// T2 fixture reuses the actual acceptance harness's public issuer inputs and loader.
+// Only SDK fixture plumbing is extended; no production authentication is replaced.
+function linkFixture(history, mutations = {}) {
+  let fixture = fs.readFileSync(path.join(root, 'scripts/verify-guest-booking-acceptance.js'), 'utf8').split('const tests=[];')[0];
+  fixture = fixture.replace('vm.createContext({})', 'vm.createContext({setTimeout,clearTimeout})')
+    .replace("r.bookingNumber===value.bookingNumber", "(collection==='GuestBookingAcceptances'&&r.bookingNumber===value.bookingNumber)");
+  fixture = fixture.replace("op:'find',collection,filter,options", "op:'find',collection,filter,limit,sort,options");
+  const shim = { ...fs, readFileSync(file, ...args) {
+    const text = fs.readFileSync(file, ...args), transform = mutations[path.basename(file)];
+    return transform ? transform(text) : text;
+  } };
+  const fixtureModule = { exports: {} };
+  vm.runInNewContext(fixture + '\nmodule.exports={subject,durable,input,NOW};', { require: name => name === 'node:fs' ? shim : name === 'node:crypto' && mutations.fixtureCrypto ? mutations.fixtureCrypto : require(name), __dirname: path.join(root, 'scripts'), Buffer, module: fixtureModule, setTimeout, clearTimeout });
+  const f = fixtureModule.exports, db = history || f.durable();
+  for (const name of [contexts, negatives, 'GuestConsentBookingLinks']) db.rows[name] ||= [];
+  const s = f.subject(db); s.input = f.input; s.NOW = f.NOW;
+  const originalLoad = s.load;
+  s.load = name => {
+    const actual = originalLoad(name);
+    if (name !== 'backend/guestConsentBookingLink') return actual;
+    return Object.fromEntries(Object.keys(actual).map(method => [method, async (...args) => {
+      const offset = s.state.trace.length;
+      const result = await actual[method](...args);
+      assert.deepEqual(Reflect.ownKeys(result), ['status'], 'L04-R3 status-only result; no PII/root/capsule/number/context/token');
+      const allowed = method === 'linkGuestConsentBrowserToAcceptedBooking' ? ['LINKED','DENIED','INTEGRITY','UNKNOWN'] : ['WITHDRAWN','UNRESOLVED','INTEGRITY'];
+      assert.ok(allowed.includes(result.status), 'L04-R3 exact negative-only status set');
+      for (const entry of s.state.trace.slice(offset)) {
+        assert.ok(['find','secret','insert'].includes(entry.op), 'L04-R3 no SDK update/save/remove/bulk');
+        if (entry.op === 'insert') assert.equal(entry.collection, 'GuestConsentBookingLinks', 'L04-R3 only immutable link insert; no booking mutation');
+      }
+      return result;
+    }]));
+  };
+  return s;
+}
+async function linkExpiryClassificationTests() {
+  const outcomes = [];
+  for (const phase of ['duplicate', 'readback']) {
+    const s = linkFixture(), o = await s.load('backend/guestBookingOfferIssuer').issueGuestBookingOffer(s.realm(s.input()));
+    assert.notEqual(o, 'DENIED');
+    assert.equal((await s.load('backend/guestBookingAcceptance').acceptGuestBookingOffer(o.token, o.capsule)).status, 'ACCEPTED_PENDING');
+    const b = await s.load('backend/guestConsentContext').createGuestConsentBrowserContext();
+    assert.equal(b.status, 'CREATED');
+    const api = s.load('backend/guestConsentBookingLink');
+    const create = () => api.linkGuestConsentBrowserToAcceptedBooking(b.token, o.token, o.capsule);
+    if (phase === 'duplicate') assert.equal((await create()).status, 'LINKED');
+    const query = s.wix.query; let reads = 0;
+    s.wix.query = collection => {
+      const q = query(collection), find = q.find;
+      q.find = async options => {
+        const page = await find(options);
+        if (collection === 'GuestConsentBookingLinks' && ++reads === (phase === 'duplicate' ? 1 : 2)) {
+          const hasNext = page.hasNext;
+          page.hasNext = function () { s.state.now = o.offerExpiresAtMs; return hasNext.call(page); };
+        }
+        return page;
+      }; return q;
+    };
+    s.state.now = o.offerExpiresAtMs - 1; s.state.trace = [];
+    const result = await create();
+    assert.equal(s.state.now, o.offerExpiresAtMs);
+    assert.equal(s.state.trace.filter(t => t.op === 'insert').length, phase === 'duplicate' ? 0 : 1);
+    assert.equal(s.state.db.rows.GuestConsentBookingLinks.length, 1, 'L01-R4 association retained, no rollback');
+    outcomes.push({ phase, status: result.status });
+  }
+  assert.deepEqual(outcomes, [{ phase: 'duplicate', status: 'DENIED' }, { phase: 'readback', status: 'DENIED' }], 'L01-R4 closing classification expiry denies acknowledgement');
+  console.log('L01-R4 duplicate/readback hasNext expiry DENIED; zero/one authorized inserts retained PASS');
+}
+async function linkPrepared(mutations = {}) {
+  const s = linkFixture(undefined, mutations), o = await s.load('backend/guestBookingOfferIssuer').issueGuestBookingOffer(s.realm(s.input()));
+  assert.notEqual(o, 'DENIED');
+  const acceptance = s.load('backend/guestBookingAcceptance');
+  assert.equal((await acceptance.acceptGuestBookingOffer(o.token, o.capsule)).status, 'ACCEPTED_PENDING');
+  const ctx = s.load('backend/guestConsentContext'), b = await ctx.createGuestConsentBrowserContext();
+  assert.equal(b.status, 'CREATED');
+  const api = s.load('backend/guestConsentBookingLink'), rootRow = s.state.db.rows.GuestBookingAcceptances[0];
+  return { s, o, ctx, b, api, acceptance, rootRow, create: (...args) => api.linkGuestConsentBrowserToAcceptedBooking(...(args.length ? args : [b.token, o.token, o.capsule])) };
+}
+function linkIntercept(s, hook) {
+  const original = s.wix.query;
+  s.wix.query = collection => { const q = original(collection), find = q.find; q.find = async options => hook(collection, await find(options)); return q; };
+}
+function linkReplace(source, anchor, replacement) {
+  assert.equal(source.split(anchor).length, 2, 'L01-R3 unique causal anchor');
+  return source.replace(anchor, replacement);
+}
+async function linkClosureTests() {
+  const links = 'GuestConsentBookingLinks';
+  {
+    const {s,o,b,ctx,create} = await linkPrepared();
+    const good = [b.token,o.token,o.capsule]; let cases = 0;
+    for (let i=0;i<3;i++) for (const value of [undefined,null,{},[],new String(good[i]),1,true,()=>{},'', 'bad', good[i]+' ', good[i]+'\n']) {
+      // Whitespace around valid JSON is permitted; malformed capsule cases below are not normalized tokens.
+      if (i===2 && typeof value==='string' && value.trim()===o.capsule) continue;
+      const args=good.slice();args[i]=value;s.state.trace=[];
+      assert.equal((await create(...args)).status,'DENIED','L01-R1 argument '+i);assert.equal(s.state.trace.length,0);cases++;
+    }
+    for(const args of [[],good.slice(0,1),good.slice(0,2),[...good,{}],[b.token,'wgb1.k.'+'a'.repeat(1000)+'.'+'a'.repeat(43),o.capsule],[b.token,o.token,' '.repeat(120001)],[b.token,o.token,'"'+'é'.repeat(60000)+'"']]) {
+      s.state.trace=[]; const result=await s.load('backend/guestConsentBookingLink').linkGuestConsentBrowserToAcceptedBooking(...args);
+      assert.equal(result.status,'DENIED');assert.equal(s.state.trace.length,0);cases++;
+    }
+    for(const args of [[],[b.token],[b.token,s.state.now+1,{}],[b.token,null],[b.token,NaN],[b.token,Infinity],[b.token,new Number(s.state.now+1)],[b.token,s.state.now],[b.token,s.state.now-1],[b.token,s.state.now+10001],[{},s.state.now+1],['bad',s.state.now+1]]) {
+      s.state.trace=[];assert.equal((await ctx.resolveGuestConsentBrowserContext(...args)).status,'DENIED');assert.equal(s.state.trace.length,0);
+    }
+    console.log('L01-R1 finite malformed/arity/deadline zero IO PASS; creation cases='+cases);
+  }
+  {
+    const {s,o,b,create,rootRow,acceptance} = await linkPrepared();
+    for(const field of ['operationId','audience','intentDigest','quoteDigest','_id','rootDigest','issuedAtMs','offerExpiresAtMs']) {
+      const bad={...rootRow};bad[field]=typeof bad[field]==='number'?bad[field]+1:field==='audience'?'foreign':'0'.repeat(64);
+      s.state.db.rows.GuestBookingAcceptances=[bad];s.state.trace=[];
+      assert.ok(['INTEGRITY','UNKNOWN'].includes((await create()).status),'L01-R2 '+field);
+      assert.equal(s.state.trace.filter(t=>t.op==='insert').length,0,'L01-R2 '+field+' zero insert');
+    }
+    s.state.db.rows.GuestBookingAcceptances=[rootRow];
+    // Same capsule and intent, real credential issuer and acceptance writer under foreign configured audience.
+    const foreign=linkFixture(undefined,{fixtureCrypto:{...crypto,randomBytes(n){assert.equal(n,32);return Buffer.from(rootRow.operationId,'hex');}}});foreign.state.db.keys.audience='foreign';
+    const issuer=foreign.load('backend/guestBookingOfferIssuer'), credentials=foreign.load('backend/guestBookingCredentials').createGuestBookingCredentials(foreign.realm(foreign.state.db.keys));
+    const binding=issuer.validateGuestBookingOfferCapsule(o.capsule).binding;
+    const token=credentials.prepareBootstrap(foreign.realm({intentBinding:JSON.parse(JSON.stringify(binding)),nowMs:foreign.state.now}));
+    assert.notEqual(token,'DENIED');
+    assert.equal((await foreign.load('backend/guestBookingAcceptance').acceptGuestBookingOffer(token,o.capsule)).status,'ACCEPTED_PENDING');
+    const foreignRoot=foreign.state.db.rows.GuestBookingAcceptances[0];
+    assert.equal(foreignRoot._id,rootRow._id,'L01-R2 foreign writer same intent ID reaches binding');
+    assert.notEqual(acceptance.validateGuestBookingAcceptanceRoot(s.realm(foreignRoot)),'DENIED');
+    s.state.db.rows.GuestBookingAcceptances=[foreignRoot];s.state.trace=[];
+    assert.equal((await create()).status,'INTEGRITY');assert.equal(s.state.trace.filter(t=>t.op==='insert').length,0);
+    console.log('L01-R2 individual root mismatches and real foreign-audience writer binding PASS');
+  }
+  for(const phase of ['readback','scan']) for(const mode of ['error','missing','empty','partial','conflict','digest','accessor','bad-date','native']) {
+    const {s,ctx,b,api,rootRow,create}=await linkPrepared();
+    if(phase==='scan'){assert.equal((await create()).status,'LINKED');assert.equal((await ctx.withdrawGuestConsentBrowser(b.token)).status,'RECORDED');}
+    let reads=0,getters=0;
+    linkIntercept(s,(collection,page)=>{
+      if(collection!==links || (phase==='readback' && ++reads!==2))return page;
+      if(mode==='error')throw Error('unavailable');
+      if(mode==='missing')return {};
+      if(mode==='empty')return {items:[],hasNext(){return false;}};
+      if(mode==='partial')return {items:[],hasNext(){return true;}};
+      const row=page.items[0];assert.ok(row);
+      if(mode==='conflict')row.contextId='0'.repeat(64);
+      if(mode==='digest')row.recordDigest='0'.repeat(64);
+      if(mode==='accessor')Object.defineProperty(row,'recordDigest',{enumerable:true,get(){getters++;throw Error('getter');}});
+      if(mode==='bad-date')row._createdDate='not Date';
+      if(mode==='native'){row._createdDate=vm.runInContext('new Date(Date.now())',s.context);row._updatedDate=vm.runInContext('new Date(Date.now())',s.context);row._owner='fixture';assert.equal(vm.runInContext('(value)=>Date.prototype.getTime.call(value)',s.context)(row._createdDate),s.state.now);return Object.assign(Object.create({hasNext(){return false;}}),{items:page.items});}
+      return page;
+    });
+    s.state.trace=[];const result=phase==='scan'?await api.readGuestConsentBookingNegative(rootRow._id):await create();
+    assert.deepEqual(Object.keys(result),['status'],'L04-R3 status-only result');
+    if(mode==='native')assert.equal(result.status,phase==='scan'?'WITHDRAWN':'LINKED');
+    else assert.ok((phase==='scan'?['UNRESOLVED','INTEGRITY']:['UNKNOWN','INTEGRITY']).includes(result.status),'L03-R1 '+phase+' '+mode+' '+result.status);
+    assert.equal(getters,0,'L03-R1 accessor never invoked');
+    assert.ok(s.state.trace.filter(t=>t.op==='insert').every(t=>t.collection===links));
+  }
+  {
+    const {s,create}=await linkPrepared();const insert=s.wix.insert;
+    s.wix.insert=async(c,row,options)=>c===links?{}:insert(c,row,options);
+    assert.equal((await create()).status,'UNKNOWN','L03-R1 false success ack requires persistence');assert.equal(s.state.db.rows[links].length,0);
+  }
+  console.log('L03-R1 finite readback/scan transport and false-ack baseline-GREEN PASS');
+  {
+    const {s,o,ctx,b,api,rootRow,create}=await linkPrepared();assert.equal((await create()).status,'LINKED');
+    const b2=await ctx.createGuestConsentBrowserContext();assert.equal((await api.linkGuestConsentBrowserToAcceptedBooking(b2.token,o.token,o.capsule)).status,'LINKED');
+    const sorted=s.state.db.rows[links].slice().sort((a,b)=>a._id<b._id?-1:1);
+    const token=[b.token,b2.token].find(t=>t.split('.')[1]===sorted[1].contextId);assert.equal((await ctx.withdrawGuestConsentBrowser(token)).status,'RECORDED');
+    let reads=0;linkIntercept(s,(c,p)=>{if(c===negatives&&++reads===1)throw Error('failed earlier negative');return p;});
+    assert.equal((await api.readGuestConsentBookingNegative(rootRow._id)).status,'WITHDRAWN');assert.equal(reads,2);
+    console.log('L03-R2 failed earlier observation then proved later negative PASS');
+  }
+  {
+    const {s,b,ctx,rootRow,api,create}=await linkPrepared();
+    for(const duplicate of [false,true]) {
+      s.state.trace=[];assert.equal((await create()).status,'LINKED');
+      const trace=JSON.parse(JSON.stringify(s.state.trace)),linkRow=s.state.db.rows[links][0];
+      assert.deepEqual(trace.map(t=>[t.op,t.collection||t.name]),[['find',contexts],['secret','WBE_GUEST_BOOKING_KEYS'],['find','GuestBookingAcceptances'],['find',links],...(!duplicate?[['insert',links],['find',links]]:[])],'L04-R1 exact create trace');
+      for(const t of trace){if(t.op==='secret')continue;assert.deepEqual(t.options,t.op==='find'?{suppressAuth:true,suppressHooks:true,consistentRead:true}:{suppressAuth:true,suppressHooks:true});if(t.op==='find'){assert.equal(t.limit,2);assert.equal(t.sort,null);assert.deepEqual(t.filter,['_id',t.collection===contexts?b.token.split('.')[1]:t.collection===links?linkRow._id:rootRow._id]);}}
+    }
+    const count=s.state.db.rows[links].length,fresh=await ctx.createGuestConsentBrowserContext();assert.equal(fresh.status,'CREATED');assert.equal(s.state.db.rows[links].length,count,'L02-R1 new browser no automatic link');assert.equal((await ctx.readGuestConsentBrowserNegative(fresh.token)).status,'UNRESOLVED');
+    await ctx.withdrawGuestConsentBrowser(b.token);s.state.trace=[];assert.equal((await api.readGuestConsentBookingNegative(rootRow._id)).status,'WITHDRAWN');
+    const scan=s.state.trace.find(t=>t.collection===links);assert.deepEqual(Array.from(scan.filter),['acceptanceId',rootRow._id]);assert.equal(scan.limit,25);assert.equal(scan.sort,'_id');
+    console.log('L04-R1 exact create/duplicate and retained query shape/options PASS');
+  }
+}
+async function linkCausalTests() {
+  for(const kind of ['auth','binding','final-insert']) {
+    for(const reversed of [false,true]) {
+      const mutations = !reversed ? {} : kind==='auth' ? {'guestConsentContext.js':source=>linkReplace(source,'if (!crypto.timingSafeEqual(actual, expected))','if (false)')} : {'guestConsentBookingLink.js':source=>kind==='binding' ? linkReplace(source,'return root._id === acceptanceId && root.operationId === claims.intentId &&','return true || root._id === acceptanceId && root.operationId === claims.intentId &&') : linkReplace(source,'        verify(root);\n        return wixData.insert(COLLECTION, row, WRITE);','        return wixData.insert(COLLECTION, row, WRITE);')};
+      const {s,o,b,create}=await linkPrepared(mutations);
+      let args=[b.token,o.token,o.capsule];
+      if(kind==='auth')args[0]=b.token.slice(0,-1)+(b.token.endsWith('0')?'1':'0');
+      if(kind==='binding')args[2]='{}';
+      if(kind==='final-insert') {
+        s.state.now=o.offerExpiresAtMs-1;
+        linkIntercept(s,(collection,page)=>collection==='GuestConsentBookingLinks'?{items:[],hasNext(){queueMicrotask(()=>{s.state.now=o.offerExpiresAtMs;});return false;}}:page);
+      }
+      s.state.trace=[];await create(...args);
+      const forbidden=s.state.trace.filter(t=>kind==='auth' ? t.op==='secret'||t.collection==='GuestBookingAcceptances'||t.collection==='GuestConsentBookingLinks' : t.op==='insert');
+      const witness=()=>assert.equal(forbidden.length,0,'L01-R3 '+kind+' zero forbidden IO');
+      if(reversed) {assert.ok(forbidden.length>0,'L01-R3 reversal reaches forbidden IO');assert.throws(witness,error=>error.code==='ERR_ASSERTION'&&error.message.startsWith('L01-R3 '+kind+' zero forbidden IO'));}
+      else witness();
+    }
+    console.log('L01-R3 '+kind+' baseline-GREEN and causal zero-IO assertion failure PASS');
+  }
+}
+async function isolationTests() {
+  for (const file of Object.keys(consentBoundaryPins)) {
+    const source=fs.readFileSync(path.join(root,file),'utf8');
+    assert.equal(consentBoundaryEdge(file,source),true,'L04-R2 reviewed source prerequisite');
+    assert.doesNotMatch(source,/wixData\s*(?:\[|\.\s*(?:update|save|remove|bulk\w*)\s*\()/,'L04-R3 SDK receiver mutation restriction');
+    assert.doesNotMatch(source,/webMethod|Permissions|fetch\s*\(|import\s*\(|require\s*\(/,'L04-R3 no public/network/dynamic bridge');
+  }
+  const linkSource=fs.readFileSync(path.join(root,'velo/backend/guestConsentBookingLink.js'),'utf8');
+  assert.deepEqual(linkSource.match(/command: '[^']+'/g),["command: 'status'","command: 'status'"],'L04-R3 credential command remains status only');
+  assert.deepEqual(linkSource.match(/wixData\.insert\([^;]+/g),['wixData.insert(COLLECTION, row, WRITE)'],'L04-R3 only link insert site');
+  assert.match(linkSource,/const COLLECTION = 'GuestConsentBookingLinks';/);
+  for (const [file,hash] of Object.entries({
+    'velo/backend/guestBookingCredentials.js':'c34364e2196a67016b4def3850149478015fd41d35a42fe5a590d2c6d5750c9f',
+    'velo/backend/guestBookingAccessPolicy.js':'bbc14fb6951dbc7b677e9ca9202a2906d0da7bd5a2b322e56ca147e7e21dad35'
+  })) assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(root,file))).digest('hex'),hash,'L04-R3 unchanged credential purpose/command whitelist '+file);
+
+  const reports = [], gateHashes = new Set(), mutantHashes = new Set();
+  const files = ['verify-guest-booking-access-policy.js', 'verify-guest-booking-price-groups.js',
+    'verify-guest-booking-purchase-input.js', 'verify-locked-pricing-quote-authority.js', 'verify-strict-locked-pricing-quote.js'];
+  for (const name of files) {
+    const source = fs.readFileSync(path.join(root, 'scripts', name), 'utf8');
+    const start = source.indexOf('const acceptancePrivatePins =');
+    const marker = '  return report;\n}';
+    const end = source.indexOf(marker, source.indexOf('function runAcceptanceIsolationMetatests', start));
+    assert.ok(start >= 0 && end > start, 'L04 exact extracted gate boundary');
+    const extracted = source.slice(start, end + marker.length);
+    const realm = vm.createContext({require, fs, path, assert, __dirname:path.join(root, 'scripts'), console:{log(){}}});
+    vm.runInContext(extracted + ';globalThis.report=runAcceptanceIsolationMetatests((file,text)=>acceptancePrivateEdge(file,text));', realm);
+    const report = JSON.parse(JSON.stringify(realm.report));
+    assert.equal(report.cases, report.names.length); assert.equal(report.witnessCount, report.witnesses.length);
+    assert.equal(report.mutantCount, report.mutantHashes.length);
+    report.mutantHashes.forEach(h => mutantHashes.add(h));
+    const hash = crypto.createHash('sha256').update(extracted).digest('hex'); gateHashes.add(hash);
+    reports.push({file:name, extractedHash:hash, ...report});
+  }
+  const cases = [], witnesses = [], boundaryMutantHashes = new Set();
+  const bypass = () => true;
+  function check(name, file, text, expected) {
+    assert.equal(consentBoundaryEdge(file,text),expected,'L04-R3 '+name); cases.push(name);
+    if (!expected) {
+      const witness = gate => assert.equal(gate(file,text),false,'L04-R3 causal '+name);
+      witness(consentBoundaryEdge);
+      assert.throws(()=>witness(bypass),e=>e.code==='ERR_ASSERTION'&&e.message.startsWith('L04-R3 causal '+name));
+      witnesses.push(name); boundaryMutantHashes.add(crypto.createHash('sha256').update(bypass.toString()).digest('hex'));
+    }
+  }
+  for (const [file,pin] of Object.entries(consentBoundaryPins)) {
+    const source=fs.readFileSync(path.join(root,file),'utf8'), module=path.basename(file,'.js');
+    check('exact '+module,file,source,true);
+    check('LF/CRLF '+module,file,source.replace(/\r?\n/g,'\r\n'),true);
+    for (const [kind,text] of [['body',source+'\nvoid 0;'],['import',source+"\nimport 'buffer';"],['export',source+'\nexport const extra=1;']]) {
+      assert.equal(new vm.SourceTextModule(text).status,'unlinked');
+      check(kind+' drift '+module,file,text,false);
+    }
+    check('alias '+module,'velo/backend/nested/../'+module+'.js',source,false);
+    for (const consumer of ['velo/public/inert.js','velo/pages/inert.js','velo/backend/inert.js','velo/backend/inert.web.js','velo/backend/inert.jsw']) {
+      for (const [form,wrap] of [['static',s=>`import * as x from '${s}';`],['dynamic',s=>`import('${s}');`],['reexport',s=>`export * from '${s}';`],['encoded',null]]) {
+        for (const forbidden of [false,true]) {
+          const spec=forbidden?'backend/'+module:'backend/benignFixture';
+          // Encode only the module's first character; both sides remain parser-valid.
+          const text=form==='encoded'?`export * from 'backend/\\u{${spec.charCodeAt(8).toString(16)}}${spec.slice(9)}';`:wrap(spec);
+          const parsed=new vm.SourceTextModule(text); assert.equal(parsed.status,'unlinked');
+          if(form!=='dynamic') assert.deepEqual(parsed.dependencySpecifiers,[spec]);
+          check([module,consumer,form,forbidden].join(' '),consumer,text,!forbidden);
+        }
+      }
+    }
+    for(const declaration of pin.exports) {
+      const name=declaration.match(/function (\w+)/)[1];
+      if (module === 'guestConsentContext' && name !== 'resolveGuestConsentBrowserContext') continue;
+      check('export reference '+name,'velo/backend/inert.js',`export { ${name} } from 'backend/other';`,false);
+    }
+  }
+  assert.equal(new Set(cases).size,cases.length); assert.equal(new Set(witnesses).size,witnesses.length);
+  const summary={scope:'extracted acceptance gates plus consent boundary ONLY; not full five scripts',
+    gateApplications:reports.length,uniqueGateHashes:gateHashes.size,
+    acceptanceFixtures:reports.reduce((n,r)=>n+r.cases,0),
+    acceptanceWitnessApplications:reports.reduce((n,r)=>n+r.witnessCount,0),
+    acceptanceUniqueMutantHashes:[...mutantHashes],boundaryFixtures:cases.length,
+    boundaryWitnessApplications:witnesses.length,boundaryUniqueMutantHashes:[...boundaryMutantHashes],reports,cases,witnesses};
+  console.log(JSON.stringify({T2Isolation:summary}));
+}
+
+async function linkTests() {
+  await linkExpiryClassificationTests();
+  await linkClosureTests();
+  await linkCausalTests();
+  const file = path.join(root, 'velo/backend/guestConsentBookingLink.js');
+  assert.ok(fs.existsSync(file), 'L01 MISSING-FEATURE RED: actual private link module absent (not behavioral RED)');
+  const s = linkFixture(), o = await s.load('backend/guestBookingOfferIssuer').issueGuestBookingOffer(s.realm(s.input()));
+  assert.notEqual(o, 'DENIED');
+  assert.equal((await s.load('backend/guestBookingAcceptance').acceptGuestBookingOffer(o.token, o.capsule)).status, 'ACCEPTED_PENDING');
+  const context = s.load('backend/guestConsentContext'), browser = await context.createGuestConsentBrowserContext();
+  assert.equal(browser.status, 'CREATED');
+  s.state.trace = [];
+  assert.equal((await s.load('backend/guestConsentBookingLink').linkGuestConsentBrowserToAcceptedBooking(browser.token, o.token, o.capsule)).status, 'LINKED', 'L01 actual issuer/root/browser link');
+  assert.equal(s.state.db.rows.GuestConsentBookingLinks.length, 1);
+  console.log('L01 first actual authenticated link vertical slice PASS');
+  const link = s.load('backend/guestConsentBookingLink'), row = s.state.db.rows.GuestBookingAcceptances[0];
+  const create = (...args) => link.linkGuestConsentBrowserToAcceptedBooking(...args);
+  const writes = () => s.state.trace.filter(t => t.op === 'insert');
+  const secretReads = () => s.state.trace.filter(t => t.op === 'secret');
+  const reset = () => { s.state.trace = []; };
+  const creds = s.load('backend/guestBookingCredentials').createGuestBookingCredentials(s.realm(s.state.db.keys));
+  const access = creds.attenuateBootstrap(s.realm({ bootstrapToken: o.token, nowMs: s.state.now }));
+  assert.notEqual(access, 'DENIED'); reset();
+  assert.equal((await create(browser.token, access, o.capsule)).status, 'LINKED'); assert.equal(writes().length, 0);
+  for (const args of [[browser.token, o.token, o.capsule, {}], ['booking-number', o.token, o.capsule], [browser.token, 'booking-number', o.capsule], [browser.token, o.token, 'x'], [browser.token, o.token, ' '.repeat(120001)]]) {
+    reset(); assert.equal((await create(...args)).status, 'DENIED'); assert.equal(s.state.trace.length, 0);
+  }
+  reset();
+  assert.equal((await create(browser.token.slice(0,-1) + (browser.token.endsWith('0')?'1':'0'), o.token, o.capsule)).status, 'DENIED');
+  assert.equal(secretReads().length, 0); assert.equal(writes().length, 0); assert.ok(s.state.trace.every(t=>t.collection===contexts));
+  reset(); assert.equal((await create(browser.token, o.token.slice(0,-1)+(o.token.endsWith('A')?'B':'A'), o.capsule)).status, 'DENIED');
+  assert.ok(s.state.trace.every(t=>t.op==='secret'||t.collection===contexts)); assert.equal(writes().length,0);
+  reset(); assert.equal((await create(browser.token, o.token, '{}')).status, 'INTEGRITY'); assert.equal(writes().length, 0);
+  // An independently writer-produced, internally valid foreign root, returned at the exact read boundary.
+  const foreign = await s.load('backend/guestBookingOfferIssuer').issueGuestBookingOffer(s.realm({...s.input(),guestName:'Foreign Fixture'}));
+  assert.equal((await s.load('backend/guestBookingAcceptance').acceptGuestBookingOffer(foreign.token,foreign.capsule)).status,'ACCEPTED_PENDING');
+  const foreignRow = s.state.db.rows.GuestBookingAcceptances[1];
+  assert.notEqual(s.load('backend/guestBookingAcceptance').validateGuestBookingAcceptanceRoot(s.realm(foreignRow)),'DENIED');
+  const originalQuery = s.wix.query;
+  function readHook(hook) {
+    s.wix.query = collection => {
+      const q = originalQuery(collection), find = q.find;
+      q.find = async options => { const p = await find(options); return await hook(collection,p) || p; }; return q;
+    };
+  }
+  readHook(async (collection,p)=>collection==='GuestBookingAcceptances'?{items:s.realm([foreignRow]),hasNext(){return false;}}:p);
+  reset(); assert.equal((await create(browser.token,o.token,o.capsule)).status,'INTEGRITY'); assert.equal(writes().length,0); s.wix.query=originalQuery;
+  const savedRoots = s.state.db.rows.GuestBookingAcceptances; s.state.db.rows.GuestBookingAcceptances=[];
+  reset(); assert.equal((await create(browser.token,o.token,o.capsule)).status,'UNKNOWN'); assert.equal(writes().length,0); s.state.db.rows.GuestBookingAcceptances=savedRoots;
+  for (const boundary of ['key','root','pre-read','queued-insert','regression']) {
+    const next = await context.createGuestConsentBrowserContext(); assert.equal(next.status,'CREATED');
+    s.state.now=o.offerExpiresAtMs-5;
+    if(boundary==='key')s.state.secretHook=async()=>{s.state.now=o.offerExpiresAtMs;};
+    readHook(async(collection,p)=>{
+      if(boundary==='root'&&collection==='GuestBookingAcceptances')s.state.now=o.offerExpiresAtMs;
+      if(boundary==='pre-read'&&collection==='GuestConsentBookingLinks')s.state.now=o.offerExpiresAtMs;
+      if(boundary==='regression'&&collection==='GuestBookingAcceptances')s.state.now--;
+      if(boundary==='queued-insert'&&collection==='GuestConsentBookingLinks')return {items:[],hasNext(){queueMicrotask(()=>{s.state.now=o.offerExpiresAtMs;});return false;}};
+      return p;
+    });
+    reset(); assert.equal((await create(next.token,o.token,o.capsule)).status,'DENIED','L01 '+boundary); assert.equal(writes().length,0,'L01 '+boundary+' zero insert');
+    s.state.secretHook=null; s.wix.query=originalQuery; s.state.now=s.NOW;
+  }
+  console.log('L01 focused real attenuation/authentication/binding/expiry-boundary controls PASS (not full contract matrix)');
+  const second = await context.createGuestConsentBrowserContext(); assert.equal(second.status,'CREATED');
+  assert.equal((await create(second.token, o.token, o.capsule)).status,'LINKED');
+  assert.equal((await context.withdrawGuestConsentBrowser(browser.token)).status,'RECORDED');
+  assert.equal((await link.readGuestConsentBookingNegative(row._id)).status,'WITHDRAWN');
+  assert.equal((await link.readGuestConsentBookingNegative(foreignRow._id)).status,'UNRESOLVED');
+  const third = await context.createGuestConsentBrowserContext(); assert.equal(third.status,'CREATED');
+  assert.equal((await context.withdrawGuestConsentBrowser(third.token)).status,'RECORDED');
+  assert.equal((await create(third.token,foreign.token,foreign.capsule)).status,'LINKED');
+  assert.equal((await link.readGuestConsentBookingNegative(foreignRow._id)).status,'WITHDRAWN');
+  console.log('L03 both actual link/withdraw orderings PASS');
+  const history = JSON.parse(JSON.stringify(s.state.db)); history.rows[contexts]=[]; history.keys=null; history.config=null; history.rows.GuestBookingFinancialRevisions=[];
+  // Provider metadata added to actual writer-produced application rows, serialized for restart.
+  for(const collection of ['GuestBookingAcceptances','GuestConsentBookingLinks',negatives]) for(const item of history.rows[collection]) {
+    item._createdDate=new Date(s.NOW).toISOString();item._updatedDate=new Date(s.NOW).toISOString();
+    if(collection!=='GuestBookingAcceptances')item._owner='fixture';
+  }
+  const evidence = fs.mkdtempSync(path.join(os.tmpdir(),'wbe-consent-t2-'));
+  const historyPath=path.join(evidence,'writer-history.json'); fs.writeFileSync(historyPath,JSON.stringify({db:history,id:row._id,now:o.offerExpiresAtMs+1}));
+  const child=spawnSync(process.execPath,['--experimental-vm-modules',__filename,'--link-restart',historyPath],{encoding:'utf8',timeout:15000});
+  assert.equal(child.status,0,child.stderr); assert.match(child.stdout,/L02 fresh-process retained negative PASS/);
+  const reversal=spawnSync(process.execPath,['--experimental-vm-modules',__filename,'--link-restart',historyPath,'required-context'],{encoding:'utf8',timeout:15000});
+  assert.equal(reversal.status,1);assert.match(reversal.stderr,/L02 fresh-process durable association/);assert.match(reversal.stderr,/UNRESOLVED/);
+  console.log('L02-R1 native metadata restart and L02-R2 context-required causal reversal PASS');
+  console.log('L02 expired/keyless/contextless actual writer-history fresh process PASS: '+historyPath);
+  for(const mode of ['lost-ack','absent','corrupt','concurrent','late-started']) {
+    const b=await context.createGuestConsentBrowserContext(); assert.equal(b.status,'CREATED');
+    const insert=s.wix.insert;
+    s.wix.insert=async(collection,value,options)=>{
+      if(collection!=='GuestConsentBookingLinks')return insert(collection,value,options);
+      if(mode==='absent'){s.state.trace.push({op:'insert',collection});throw Error('before commit');}
+      const result=await insert(collection,value,options);
+      if(mode==='corrupt')s.state.db.rows[collection].find(r=>r._id===value._id).extra=true;
+      if(mode==='late-started')s.state.now=o.offerExpiresAtMs;
+      if(mode!=='concurrent')throw Error('lost acknowledgement');return result;
+    };
+    if(mode==='late-started')s.state.now=o.offerExpiresAtMs-5;
+    reset();
+    if(mode==='concurrent')assert.deepEqual((await Promise.all([create(b.token,o.token,o.capsule),create(b.token,o.token,o.capsule)])).map(r=>r.status),['LINKED','LINKED']);
+    else assert.equal((await create(b.token,o.token,o.capsule)).status,mode==='lost-ack'?'LINKED':mode==='corrupt'?'INTEGRITY':mode==='late-started'?'DENIED':'UNKNOWN','L03 '+mode);
+    s.wix.insert=insert; s.state.now=s.NOW;
+  }
+  console.log('L03 focused immutable duplicate/concurrent/lost-ack/absent/corrupt/valid-start-late-ack PASS');
+  // Bounded observation is not a link-creation cap; all rows below are actual writer output.
+  s.state.db.rows.GuestConsentBookingLinks=s.state.db.rows.GuestConsentBookingLinks.filter(r=>!r.extra);
+  const additional=[];
+  for(let i=0;i<27;i++) { const b=await context.createGuestConsentBrowserContext(); assert.equal(b.status,'CREATED'); assert.equal((await create(b.token,foreign.token,foreign.capsule)).status,'LINKED');additional.push(b.token); }
+  const sorted=s.state.db.rows.GuestConsentBookingLinks.filter(r=>r.acceptanceId===foreignRow._id).sort((a,b)=>a._id<b._id?-1:1);
+  const lastContext=sorted[sorted.length-1].contextId, lastToken=additional.find(t=>t.split('.')[1]===lastContext)||third.token;
+  s.state.db.rows[negatives]=[]; assert.equal((await context.withdrawGuestConsentBrowser(lastToken)).status,'RECORDED');
+  reset(); assert.equal((await link.readGuestConsentBookingNegative(foreignRow._id)).status,'UNRESOLVED'); assert.ok(s.state.trace.length<=27);
+  const firstToken=additional.find(t=>t.split('.')[1]===sorted[0].contextId)||third.token;
+  assert.equal((await context.withdrawGuestConsentBrowser(firstToken)).status,'RECORDED');
+  reset(); assert.equal((await link.readGuestConsentBookingNegative(foreignRow._id)).status,'WITHDRAWN');
+  assert.ok(s.state.trace.every(t=>t.op==='find'&&['GuestBookingAcceptances','GuestConsentBookingLinks',negatives].includes(t.collection)));
+  for(const t of s.state.trace)assert.deepEqual(JSON.parse(JSON.stringify(t.options)),{suppressAuth:true,suppressHooks:true,consistentRead:true});
+  assert.deepEqual(Object.keys(link).sort(),['linkGuestConsentBrowserToAcceptedBooking','readGuestConsentBookingNegative'].sort());
+  console.log('L03 bounded first-page negative/overflow and L04 focused fixed read options/counts/negative-only exports PASS');
+  // Real 10-second timer, deliberately nonadvancing valid clock: timeout must latch,
+  // not restart orchestration merely because the sampled clock has not advanced.
+  const timedBrowser=await context.createGuestConsentBrowserContext(); assert.equal(timedBrowser.status,'CREATED');
+  const originalInsert=s.wix.insert; let rejectLate,pendingRow;
+  s.wix.insert=(collection,value,options)=>{
+    if(collection!=='GuestConsentBookingLinks')return originalInsert(collection,value,options);
+    s.state.trace.push({op:'insert',collection}); pendingRow=JSON.parse(JSON.stringify(value));
+    return new Promise((_,reject)=>{rejectLate=reject;});
+  };
+  const errors=[],listener=e=>errors.push(e);process.on('unhandledRejection',listener);
+  const watchdog=setTimeout(()=>{throw Error('L03 timeout watchdog');},15000);
+  try {
+    reset(); assert.equal((await create(timedBrowser.token,o.token,o.capsule)).status,'UNKNOWN');
+    assert.equal(s.state.trace[s.state.trace.length-1].op,'insert','L03 timeout stops readback even with stationary clock');
+    const atReturn=JSON.stringify(s.state.trace); s.state.db.rows.GuestConsentBookingLinks.push(pendingRow);rejectLate(Error('late rejection'));
+    await new Promise(resolve=>setTimeout(resolve,20));assert.equal(JSON.stringify(s.state.trace),atReturn);assert.equal(errors.length,0);
+  } finally {clearTimeout(watchdog);process.removeListener('unhandledRejection',listener);s.wix.insert=originalInsert;if(rejectLate)rejectLate(Error('cleanup'));}
+  console.log('L03 actual shared-deadline timeout/no post-return IO/late commit-rejection PASS');
+  console.log('T2 permitted implementation/coverage PASS: L01-R1, L01-R2, L01-R3, L01-R4, L02-R1, L02-R2, L03-R1, L03-R2, L04-R1. L04-R2 and isolation-specific L04-R3 PENDING independent exact-hash review/pin phase; NOT full-suite GREEN.');
+}
+async function linkRestart() {
+  const h=JSON.parse(fs.readFileSync(process.argv[3],'utf8'));
+  const mutations=process.argv[4]==='required-context'?{'guestConsentBookingLink.js':source=>linkReplace(source,
+    "const raw = await b.io(() => wixData.query(COLLECTION).eq('acceptanceId', acceptanceId)",
+    "if ((await wixData.query('GuestConsentBrowserContexts').limit(2).find(READ)).items.length === 0) return { status: 'UNRESOLVED' }; const raw = await b.io(() => wixData.query(COLLECTION).eq('acceptanceId', acceptanceId)")} : {};
+  const s=linkFixture(h.db,mutations);s.state.now=h.now;let restored=0;
+  linkIntercept(s,(collection,page)=>{
+    for(const item of page.items)for(const field of ['_createdDate','_updatedDate'])if(Object.hasOwn(item,field)){
+      s.context.metadataText=item[field];item[field]=vm.runInContext('new Date(metadataText)',s.context);
+      assert.equal(vm.runInContext('(value)=>value instanceof Date && Number.isFinite(Date.prototype.getTime.call(value))',s.context)(item[field]),true,'L02-R1 native metadata identity');restored++;
+    }
+    return page;
+  });
+  assert.equal((await s.load('backend/guestConsentBookingLink').readGuestConsentBookingNegative(h.id)).status,'WITHDRAWN','L02 fresh-process durable association');
+  assert.ok(restored>=6,'L02-R1 root/link/negative metadata restored');
+  assert.ok(s.state.trace.every(t=>t.op==='find'&&['GuestBookingAcceptances','GuestConsentBookingLinks',negatives].includes(t.collection)));
+  console.log('L02 fresh-process retained negative PASS');
+}
+(process.argv[2] === '--isolation' ? isolationTests() : process.argv[2] === '--link' ? linkTests() : process.argv[2] === '--link-restart' ? linkRestart() : main()).catch(error => { console.error(error); process.exitCode = 1; });

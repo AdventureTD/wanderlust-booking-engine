@@ -522,6 +522,23 @@ function runAllocationIsolationMetatests(gate) {
 // Exact private acceptance graph reviewed in acceptance-private-slice-review-v3.
 // Local isolation pins only: no public activation or implementation self-approval.
 const acceptancePrivatePins = {
+  "velo/backend/guestConsentBookingLink.js": {
+    "sha256": "2f7fbbce5fef566430349d84be0c267849873190952c1ced0222f26303029441",
+    "imports": [
+      "import wixData from 'wix-data';",
+      "import crypto from 'crypto';",
+      "import { Buffer } from 'buffer';",
+      "import { resolveGuestConsentBrowserContext } from 'backend/guestConsentContext';",
+      "import { readConsentBrowserWithdrawal } from 'backend/guestConsentWithdrawalStore';",
+      "import { readGuestBookingCredentialAuthority, acceptanceDigest, acceptanceTime, snapshotAcceptancePage } from 'backend/guestBookingIssuerAuthority';",
+      "import { readGuestBookingAcceptance } from 'backend/guestBookingAcceptanceStore';",
+      "import { validateGuestBookingAcceptanceRoot } from 'backend/guestBookingAcceptance';"
+    ],
+    "exports": [
+      "export async function linkGuestConsentBrowserToAcceptedBooking(browserToken, bookingToken, capsule) {",
+      "export async function readGuestConsentBookingNegative(acceptanceId) {"
+    ]
+  },
   "velo/backend/guestBookingIssuerAuthority.js": {
     "sha256": "b5578ae7bcdef12eb54ad37f3775a5ac3ccccdbe292e89b4561ed5498804919b",
     "imports": [
@@ -593,7 +610,7 @@ const acceptancePrivatePins = {
     ]
   }
 };
-const acceptancePrivateReferences = /acceptGuestBookingOffer|acceptanceDigest|acceptanceTime|boundedJson|buildGuestBookingAcceptanceRoot|discoverGuestBookingAcceptances|exactFields|guestBookingAcceptance|guestBookingAcceptanceDiscovery|guestBookingAcceptanceStore|guestBookingIssuerAuthority|guestBookingOfferIssuer|insertGuestBookingAcceptance|issueGuestBookingOffer|readGuestBookingAcceptance|readGuestBookingCredentialAuthority|readGuestBookingIssuerAuthority|readOwnGuestBookingAcceptance|scanGuestBookingAcceptances|snapshotAcceptancePage|validateGuestBookingAcceptanceRoot|validateGuestBookingOfferCapsule/i;
+const acceptancePrivateReferences = /guestConsentBookingLink|linkGuestConsentBrowserToAcceptedBooking|readGuestConsentBookingNegative|acceptGuestBookingOffer|acceptanceDigest|acceptanceTime|boundedJson|buildGuestBookingAcceptanceRoot|discoverGuestBookingAcceptances|exactFields|guestBookingAcceptance|guestBookingAcceptanceDiscovery|guestBookingAcceptanceStore|guestBookingIssuerAuthority|guestBookingOfferIssuer|insertGuestBookingAcceptance|issueGuestBookingOffer|readGuestBookingAcceptance|readGuestBookingCredentialAuthority|readGuestBookingIssuerAuthority|readOwnGuestBookingAcceptance|scanGuestBookingAcceptances|snapshotAcceptancePage|validateGuestBookingAcceptanceRoot|validateGuestBookingOfferCapsule/i;
 
 function acceptanceReferenceText(text) {
   return text.replace(/\\(?:\r\n|[\n\r\u2028\u2029])/g, '')

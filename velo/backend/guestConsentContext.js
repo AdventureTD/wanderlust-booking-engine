@@ -20,6 +20,18 @@ async function authenticate(token, deadline) {
   if (!crypto.timingSafeEqual(actual, expected)) return { status: 'DENIED' };
   return { status: 'AUTHENTICATED', id };
 }
+// Private T2 consumer only; never expose this ID through a guest endpoint.
+export async function resolveGuestConsentBrowserContext(token, deadline) {
+  const start = Date.now();
+  if (arguments.length !== 2 || typeof token !== 'string' || !Number.isSafeInteger(start) || start < 0 ||
+      !Number.isSafeInteger(deadline) || deadline <= start || deadline > start + 10000) return { status: 'DENIED' };
+  try {
+    const result = await authenticate(token, deadline);
+    const now = Date.now();
+    if (!Number.isSafeInteger(now) || now < start || now >= deadline) return { status: 'UNKNOWN' };
+    return result;
+  } catch (_) { return { status: 'UNKNOWN' }; }
+}
 export async function createGuestConsentBrowserContext() {
   if (arguments.length !== 0) return { status: 'UNKNOWN' };
   const deadline = Date.now() + 10000;
