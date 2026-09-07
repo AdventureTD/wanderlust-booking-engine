@@ -159,3 +159,38 @@ def send_invoice_email(to_email: str, guest_name: str, invoice_number: str,
             "cc": None if owner_only else BCC_COPY,
             "invoice_number": invoice_number,
             "owner_only": owner_only}
+
+
+def prepare_journal_token():
+    """Prepare OAuth before START; never persist credentials or send mail here."""
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+    with open(GMAIL_TOKEN_PATH, encoding='utf-8') as source:
+        info = json.load(source)
+    credentials = Credentials.from_authorized_user_info(info, scopes=GMAIL_SCOPES)
+    if not credentials.valid:
+        credentials.refresh(Request())
+    if not credentials.token or any(c in credentials.token for c in '\r\n'):
+        raise ValueError('journal_token_unavailable')
+    return credentials.token
+
+
+def send_journal_mime(raw_mime: bytes, token: str):
+    """One fixed POST. Caller must spend its live START grant before entry."""
+    import re
+    import requests
+    from requests.adapters import HTTPAdapter
+    with requests.Session() as session:
+        session.trust_env = False
+        session.mount('https://', HTTPAdapter(max_retries=0))
+        response = session.post('https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+            headers={'Authorization': 'Bearer ' + token},
+            json={'raw': base64.urlsafe_b64encode(raw_mime).decode('ascii')},
+            allow_redirects=False, timeout=(5, 30))
+        if response.status_code != 200 or len(response.content) > 100000:
+            raise ValueError('gmail_outcome_uncertain')
+        result = response.json()
+        message_id = result.get('id') if type(result) is dict else None
+        if type(message_id) is not str or re.fullmatch(r'[A-Za-z0-9_-]{1,256}', message_id) is None:
+            raise ValueError('gmail_outcome_uncertain')
+        return message_id

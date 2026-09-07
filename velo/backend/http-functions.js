@@ -1,0 +1,24 @@
+// Fixed private service bridge. Never creates Admin REQUEST/ISSUANCE authority.
+import { response } from 'wix-http-functions';
+import { getSecret } from 'wix-secrets-backend';
+import { createHash, timingSafeEqual } from 'crypto';
+import { invoiceJournalOperation } from 'backend/invoiceEmailJournal';
+
+const OWNER_INVOICE_JOURNAL_ENABLED = false;
+export async function post_invoiceEmailJournal(request) {
+  const reply = (status, value) => response({status, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(value)});
+  if (!OWNER_INVOICE_JOURNAL_ENABLED) return reply(503, {error: 'disabled'});
+  const secret = await getSecret('WBE_SHARED_SECRET');
+  const supplied = request.headers['x-wbe-secret'];
+  if (typeof secret !== 'string' || !secret || typeof supplied !== 'string' || supplied.length > 4096 ||
+      !timingSafeEqual(createHash('sha256').update(secret).digest(), createHash('sha256').update(supplied).digest())) {
+    return reply(401, {error: 'unauthorized'});
+  }
+  try {
+    const body = await request.body.text();
+    if (typeof body !== 'string' || Buffer.byteLength(body, 'utf8') > 160000) return reply(413, {error: 'oversize'});
+    return reply(200, await invoiceJournalOperation(JSON.parse(body)));
+  } catch (_) {
+    return reply(409, {error: 'journal_unavailable_or_conflict'});
+  }
+}

@@ -178,10 +178,30 @@ def recompute(req: RecomputeRequest, x_wbe_secret: str = Header(default="")):
     return {"report_record": out}
 
 
+OWNER_INVOICE_JOURNAL_ENABLED = False
+
+
 @app.post("/issue-invoice")
-async def issue_invoice(req: IssueRequest, background_tasks: BackgroundTasks, x_wbe_secret: str = Header(default="")):
+async def issue_invoice(req: dict, background_tasks: BackgroundTasks, x_wbe_secret: str = Header(default="")):
     if not SHARED_SECRET or x_wbe_secret != SHARED_SECRET:
         raise HTTPException(status_code=401, detail="Bad or missing X-WBE-Secret")
+
+    if 'protocol' in req or 'issuance_id' in req:
+        import re
+        if (set(req) != {'protocol', 'issuance_id'} or
+                req.get('protocol') != 'owner-invoice-journal-v1' or
+                not isinstance(req.get('issuance_id'), str) or
+                re.fullmatch(r'[a-f0-9]{64}', req['issuance_id']) is None):
+            raise HTTPException(status_code=422, detail='invalid_owner_invoice_command')
+        if not OWNER_INVOICE_JOURNAL_ENABLED:
+            raise HTTPException(status_code=503, detail='owner_invoice_journal_disabled')
+        from booking_engine.invoice_email_dispatch import dispatch_issuance
+        from booking_engine.invoice_email_journal import InvoiceEmailJournal
+        return dispatch_issuance(req['issuance_id'], InvoiceEmailJournal.from_environment())
+    try:
+        req = IssueRequest(**req)
+    except ValueError:
+        raise HTTPException(status_code=422, detail='invalid_invoice_request')
 
     try:
         guest = Guest(name=req.guest.name, email=req.guest.email,

@@ -13,6 +13,56 @@ import { Permissions, webMethod } from 'wix-web-module';
 import { fetch } from 'wix-fetch';
 import { getSecret } from 'wix-secrets-backend';
 import { getAllSettings } from 'backend/settings.web';
+import { currentUser } from 'wix-users-backend';
+import { prepareOwnerIssuance, invoiceJournalOperation } from 'backend/invoiceEmailJournal';
+
+// Deliberately not connected to live/default issuance. Runtime rollout is separate.
+const OWNER_INVOICE_JOURNAL_ENABLED = false;
+export const prepareOwnerInvoiceDispatch = webMethod(Permissions.Admin, async (command) => {
+  if (!OWNER_INVOICE_JOURNAL_ENABLED) throw new Error('owner_invoice_journal_disabled');
+  const actorId = currentUser.id;
+  if (typeof actorId !== 'string' || !actorId.trim()) throw new Error('owner_invoice_actor_required');
+  return prepareOwnerIssuance(actorId, command);
+});
+
+function ownerDispatchAuthority(issuanceId) {
+  if (!OWNER_INVOICE_JOURNAL_ENABLED) throw new Error('owner_invoice_journal_disabled');
+  const actorId = currentUser.id;
+  if (typeof actorId !== 'string' || !actorId.trim()) throw new Error('owner_invoice_actor_required');
+  if (typeof issuanceId !== 'string' || !/^[a-f0-9]{64}$/.test(issuanceId)) throw new Error('owner_invoice_id');
+  // Actor is authenticated audit, not an invented per-Admin ownership predicate.
+  return actorId;
+}
+
+async function ownerDispatchStatus(issuanceId) {
+  const state = await invoiceJournalOperation({operation: 'readIssuance', issuanceId, payload: {}});
+  const result = {issuanceId, revision: JSON.parse(state.root.document).revision};
+  if (state.ack) return {...result, status: 'provider_accepted', providerMessageId: state.ack.providerMessageId};
+  return {...result, status: state.start ? 'owner_review_required' : 'preparation_retryable'};
+}
+
+export const getOwnerInvoiceDispatch = webMethod(Permissions.Admin, async (issuanceId) => {
+  ownerDispatchAuthority(issuanceId);
+  return ownerDispatchStatus(issuanceId);
+});
+
+export const dispatchOwnerInvoice = webMethod(Permissions.Admin, async (issuanceId) => {
+  ownerDispatchAuthority(issuanceId);
+  const existing = await ownerDispatchStatus(issuanceId);
+  if (existing.status !== 'preparation_retryable') return existing;
+  const serviceUrl = await getSecret(INVOICE_SERVICE_URL_KEY);
+  const secret = await getSecret(SHARED_SECRET_KEY);
+  if (typeof serviceUrl !== 'string' || !/^https:\/\/[^\s/?#@]+\/?$/.test(serviceUrl) ||
+      typeof secret !== 'string' || !secret) throw new Error('owner_invoice_service_unavailable');
+  const res = await fetch(`${serviceUrl.replace(/\/$/, '')}/issue-invoice`, {
+    method: 'post',
+    headers: {'Content-Type': 'application/json', 'X-WBE-Secret': secret},
+    body: JSON.stringify({protocol: 'owner-invoice-journal-v1', issuance_id: issuanceId}),
+  });
+  if (!res.ok) throw new Error('owner_invoice_service_unavailable');
+  // Durable journal readback, never a caller/provider-shaped response, is status authority.
+  return ownerDispatchStatus(issuanceId);
+});
 
 const INVOICE_SERVICE_URL_KEY = 'WBE_INVOICE_SERVICE_URL';
 const SHARED_SECRET_KEY = 'WBE_SHARED_SECRET';
