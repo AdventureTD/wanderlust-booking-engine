@@ -380,15 +380,42 @@ causal('historical unqualified event after stored denial', oldSource, code => {
   h.event('wbeConsentGranted');
   assert.deepEqual(h.state(), denied, 'CAUSAL: event name must not override denial');
 });
-// Exact pre-correction source reconstruction: move the IIFE opening back below
-// the category function and remove only the new API-hygiene comment. LF hash
-// pins the actual pre-correction inline bytes, not the older git baseline.
+// Remove precisely the reviewed B06 denial addition only for historical input.
+// Current-source behavior and every causal witness continue to use source.
+const reviewedDenialAddition = `
+    // FAIL CLOSED until the actual Wix sandbox origin and exact iframe DOM
+    // identity are independently verified and activation is approved. Empty is
+    // intentionally disabled, not a wildcard. Fixture configuration is not live proof.
+    var DENIAL_BRIDGE_ORIGIN = '';
+    window.addEventListener('message', function (event) {
+      try {
+        var d = event && event.data;
+        if (!DENIAL_BRIDGE_ORIGIN || window.location.origin !== 'https://www.wanderlustcaribbean.com' ||
+            event.origin !== DENIAL_BRIDGE_ORIGIN || !d || typeof d !== 'object' || Array.isArray(d) ||
+            d.type !== 'wbe-consent-deny' || d.version !== 1 || Object.keys(d).length !== 2 ||
+            !Object.prototype.hasOwnProperty.call(d, 'type') || !Object.prototype.hasOwnProperty.call(d, 'version')) return;
+        var bridge = document.getElementById('wbeEventBridge');
+        if (!bridge || !bridge.contentWindow || event.source !== bridge.contentWindow) return;
+        denyAll();
+      } catch (_) { /* Unknown topology/malformed transport cannot grant. */ }
+    });
+`;
+const beforeIngress = replaceOnce(source, reviewedDenialAddition, '');
+const ingressBaselineHtml = execFileSync('git', ['show',
+  '0a3f8914909e27d5e892c4354d2298b408543fd2:velo/custom-code/google-tag-and-consent.html'],
+  { cwd: root, encoding: 'utf8' }).replace(/\r\n/g, '\n');
+const ingressBaselineSource = [...ingressBaselineHtml.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)]
+  .find(m => !/\bsrc=/.test(m[1]))[2];
+assert.equal(beforeIngress, ingressBaselineSource, 'unique B06 removal restores exact baseline LF inline source');
+// Exact pre-correction reconstruction preserves the original historical hash.
+// Keep this anchor compatible with the existing isolated B scaffold, which also
+// strips this same branch. Uniqueness is asserted against current source above.
 const globalGrantReversal = replaceOnce(replaceOnce(source,
   '  // Private transitions and control callbacks are API hygiene, not same-realm\n' +
   '  // isolation: page scripts can still manipulate the DOM or dataLayer.\n' +
   '  (function () {\n', ''),
   '  // The loading architecture is unchanged: denied mode can still send pings.\n',
-  '  // The loading architecture is unchanged: denied mode can still send pings.\n  (function () {\n');
+  '  // The loading architecture is unchanged: denied mode can still send pings.\n  (function () {\n').replace(reviewedDenialAddition, '');
 assert.equal(hash(globalGrantReversal), 'bfad2df268d89fc8da2a962f2e3691e1d1bb7db06fb9ba005d5cae085eb7fe0f',
   'exact LF pre-correction source, not a fabricated replacement function');
 causal('exact pre-correction global grant exposure', globalGrantReversal, globalGrantWithdrawalWitness);

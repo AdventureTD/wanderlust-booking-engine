@@ -90,6 +90,23 @@
     // wiring is a separate deployment gate; this does not create a receipt.
     window.wbeWithdrawConsent = denyAll;
 
+    // FAIL CLOSED until the actual Wix sandbox origin and exact iframe DOM
+    // identity are independently verified and activation is approved. Empty is
+    // intentionally disabled, not a wildcard. Fixture configuration is not live proof.
+    var DENIAL_BRIDGE_ORIGIN = '';
+    window.addEventListener('message', function (event) {
+      try {
+        var d = event && event.data;
+        if (!DENIAL_BRIDGE_ORIGIN || window.location.origin !== 'https://www.wanderlustcaribbean.com' ||
+            event.origin !== DENIAL_BRIDGE_ORIGIN || !d || typeof d !== 'object' || Array.isArray(d) ||
+            d.type !== 'wbe-consent-deny' || d.version !== 1 || Object.keys(d).length !== 2 ||
+            !Object.prototype.hasOwnProperty.call(d, 'type') || !Object.prototype.hasOwnProperty.call(d, 'version')) return;
+        var bridge = document.getElementById('wbeEventBridge');
+        if (!bridge || !bridge.contentWindow || event.source !== bridge.contentWindow) return;
+        denyAll();
+      } catch (_) { /* Unknown topology/malformed transport cannot grant. */ }
+    });
+
     // Cross-tab storage is suppression only, never permission. Do not write back.
     window.addEventListener('storage', function (event) {
       if (!event || (event.key !== CHOICE_KEY && event.key !== null)) { return; }

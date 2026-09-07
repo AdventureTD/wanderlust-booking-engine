@@ -81,8 +81,31 @@ function memoryOnly(source) {
     .replace("const after = await read('GuestConsentWithdrawals', row._id, row, deadline);", "memoryOnlyContexts.add(contextId); const after = await read('GuestConsentWithdrawals', row._id, row, deadline);")
     .replace(anchor, "memoryOnlyContexts.has(contextId) && result.status === 'FOUND' ? 'WITHDRAWN'");
 }
-// Frozen T2 correction-review payload; LF pins do not authorize live consumers.
+// Exact reviewed T2 and B06 payloads; LF pins do not authorize live activation.
 const consentBoundaryPins = {
+  "velo/backend/guestConsent.web.js": {
+    "sha256": "d08ed967b4b709a84ee65e1847b3c4782b8f977a7a4f4f066a68164fb9da0a72",
+    "imports": [
+      "import { webMethod, Permissions } from 'wix-web-module';",
+      "import { createGuestConsentBrowserContext as issue, withdrawGuestConsentBrowser as withdraw, readGuestConsentBrowserNegative as observe } from 'backend/guestConsentContext';"
+    ],
+    "exports": [
+      "export const createGuestConsentBrowserContext = webMethod(Permissions.Anyone, async (...args) => {",
+      "export const withdrawGuestConsentBrowser = webMethod(Permissions.Anyone, async (...args) => {",
+      "export const readGuestConsentBrowserNegative = webMethod(Permissions.Anyone, async (...args) => {"
+    ]
+  },
+  "velo/masterPage.js": {
+    "sha256": "ff25144a6640274b9da44fc8907c22f2c9efc14e93f0e86164946431c52d38f9",
+    "imports": [
+      "import { captureClickIds, initTracking, setSuspendGoogleAds } from 'public/tracking';",
+      "import { getAllSettings } from 'backend/settings';",
+      "import { consentPolicy, rendering } from 'wix-window-frontend';",
+      "import { local } from 'wix-storage-frontend';",
+      "import { createGuestConsentBrowserContext, withdrawGuestConsentBrowser, readGuestConsentBrowserNegative } from 'backend/guestConsent.web';"
+    ],
+    "exports": []
+  },
   "velo/backend/guestConsentBookingLink.js": {
     "sha256": "2f7fbbce5fef566430349d84be0c267849873190952c1ced0222f26303029441",
     "imports": [
@@ -139,7 +162,7 @@ function consentReferenceText(text) {
 function consentBoundaryEdge(file, source) {
   const text = source.replace(/\r\n/g, '\n');
   const pin = Object.hasOwn(consentBoundaryPins, file) ? consentBoundaryPins[file] : null;
-  if (!pin) return !/guestConsentContext|guestConsentWithdrawalStore|guestConsentBookingLink|resolveGuestConsentBrowserContext|insertConsentBrowserContext|readConsentBrowserContext|recordConsentBrowserWithdrawal|readConsentBrowserWithdrawal|linkGuestConsentBrowserToAcceptedBooking|readGuestConsentBookingNegative/i.test(consentReferenceText(text));
+  if (!pin) return !/guestConsent\.web|guestConsentContext|guestConsentWithdrawalStore|guestConsentBookingLink|resolveGuestConsentBrowserContext|insertConsentBrowserContext|readConsentBrowserContext|recordConsentBrowserWithdrawal|readConsentBrowserWithdrawal|linkGuestConsentBrowserToAcceptedBooking|readGuestConsentBookingNegative/i.test(consentReferenceText(text));
   return JSON.stringify(text.match(/^import .*$/gm) || []) === JSON.stringify(pin.imports) &&
     JSON.stringify(text.match(/^export .*$/gm) || []) === JSON.stringify(pin.exports) &&
     crypto.createHash('sha256').update(text).digest('hex') === pin.sha256;
@@ -270,6 +293,59 @@ async function main() {
       }
     }
   }
+  // B06 fixtures exercise the actual scanner, not a parallel reference predicate.
+  function assertWebScreen(edge = consentBoundaryEdge) {
+    for (const [file, reexport, escaped] of [
+      ['velo/pages/inert-consent-page.js', false, false],
+      ['velo/public/inert-consent-reexport.js', true, false],
+      ['velo/public/inert-consent-reexport.jsw', true, true],
+      ['velo/pages/inert-consent-escaped.js', false, true]
+    ]) for (const forbidden of [false, true]) {
+      const dependency = forbidden ? 'backend/guestConsent.web' : 'backend/benignFixture';
+      const literal = escaped ? dependency.replace('Consent', 'Con\\u0073ent') : dependency;
+      const body = reexport ? `export { withdrawGuestConsentBrowser } from '${literal}';` :
+        `import { withdrawGuestConsentBrowser } from '${literal}';`;
+      const parsed = new vm.SourceTextModule(body);
+      assert.deepEqual(parsed.dependencySpecifiers, [dependency]);
+      assert.equal(parsed.status, 'unlinked');
+      const absolute = path.join(root, file), fixtureHashes = new Map();
+      const fakeFS = { readdirSync: () => [{ name: path.basename(absolute), isDirectory: () => false }],
+        readFileSync: () => Buffer.from(body) };
+      const realm = vm.createContext({ fs: fakeFS, path, crypto, assert, contextPath, storePath,
+        oldHashes: fixtureHashes, dir: path.dirname(absolute), root, consentBoundaryEdge: edge });
+      let denied = false;
+      try { vm.runInContext(`(${scan.toString()})(dir)`, realm); }
+      catch (error) {
+        assert.equal(error.code, 'ERR_ASSERTION');
+        assert.ok(error.message.startsWith('unexpected incoming production consumer: ' + absolute));
+        denied = true;
+      }
+      assert.equal(fixtureHashes.get(absolute), crypto.createHash('sha256').update(body).digest('hex'));
+      assert.equal(denied, forbidden, 'B06 web reference screening: ' + file + ' forbidden=' + forbidden);
+    }
+  }
+  assertWebScreen();
+  const webAnchor = 'guestConsent\\.web|';
+  assert.equal(consentBoundaryEdge.toString().split(webAnchor).length, 2);
+  const missingWebScreen = consentBoundaryEdge.toString().replace(webAnchor, '');
+  const oldEdge = vm.runInNewContext('(' + missingWebScreen + ')', { consentBoundaryPins, consentReferenceText, crypto });
+  assert.throws(() => assertWebScreen(oldEdge), error => error.code === 'ERR_ASSERTION' &&
+    error.message.startsWith('B06 web reference screening: velo/pages/inert-consent-page.js forbidden=true'));
+  for (const file of ['velo/backend/guestConsent.web.js', 'velo/masterPage.js']) {
+    const actual = fs.readFileSync(path.join(root, file), 'utf8').replace(/\r\n/g, '\n');
+    assert.equal(consentBoundaryEdge(file, actual), true, 'B06 exact reviewed consumer ' + file);
+    assert.equal(consentBoundaryEdge('velo/pages/unapproved-copy.js', actual), false, 'B06 copied consumer path denied');
+    for (const [kind, drift] of [
+      ['byte', actual + '\n// inert byte drift\n'],
+      ['import', actual.replace(/^import .*$/m, "import { inert } from 'backend/benignFixture';")],
+      ['export', actual + '\nexport const inertFixture = 1;\n']
+    ]) {
+      const parsed = new vm.SourceTextModule(drift);
+      assert.equal(parsed.status, 'unlinked');
+      assert.equal(consentBoundaryEdge(file, drift), false, 'B06 exact pinned ' + kind + ' drift denied: ' + file);
+    }
+  }
+  console.log('B06 exact web/master pins, paired decoded page/reexport fixtures and byte/import/export/path negatives PASS; missing-web-screen reversal rejected; mutant-sha256=' + crypto.createHash('sha256').update(missingWebScreen).digest('hex'));
   scan(path.join(root, 'velo'));
   // Inert, parser-valid public wrappers: never linked, evaluated or written to velo.
   function assertJswScreen(scanSource) {

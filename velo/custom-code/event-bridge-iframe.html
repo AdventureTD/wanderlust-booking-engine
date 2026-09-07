@@ -14,6 +14,16 @@
   window.onmessage = function (event) {
     try {
       var d = event && event.data;
+      // Separate suppression-only channel. No learned origins, bearer or reply.
+      var siteOrigin = 'https://www.wanderlustcaribbean.com';
+      if (d && d.type === 'wbe-consent-deny') {
+        if (event.source !== window.parent || event.origin !== siteOrigin ||
+            typeof d !== 'object' || Array.isArray(d) || d.version !== 1 ||
+            Object.keys(d).length !== 2 || !Object.prototype.hasOwnProperty.call(d, 'version') ||
+            !Object.prototype.hasOwnProperty.call(d, 'type')) return;
+        window.parent.postMessage({ type: 'wbe-consent-deny', version: 1 }, siteOrigin);
+        return;
+      }
       if (d && d.type === 'wbe-datalayer-event' && d.payload) {
         window.parent.postMessage({
           source: 'wbe-event-bridge',
