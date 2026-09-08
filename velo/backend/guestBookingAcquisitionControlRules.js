@@ -27,7 +27,7 @@ function snapshot(value,metadata){
  for(const k of names){
   const d=desc(value,k);if(typeof k!=='string'||!d||!desc(d,'value')||!d.enumerable)fail();ds.push(d);
   const v=d.value;
-  if(metadata&&k==='_owner'){if(typeof v!=='string'||v.length>256)fail();}
+  if(metadata&&k==='_owner'){if(v!==null&&(typeof v!=='string'||v.length>256))fail();}
   else if(metadata&&(k==='_createdDate'||k==='_updatedDate')){if(!v||proto(v)!==dateProto||keys(v).length)fail();const t=apply(getTime,v,[]);if(!Number.isSafeInteger(t))fail();dates.push([v,t]);}
   else {if(typeof v!=='string'&&typeof v!=='number'&&v!==null)fail();out[k]=v;}
  }

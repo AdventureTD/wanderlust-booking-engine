@@ -311,7 +311,7 @@ const acquisitionPrivatePins = {
     ]
   },
   "velo/backend/guestBookingAcquisitionControlRules.js": {
-    "sha256": "cba4477c5f3ec2758154474121e84342ed97486d8d487f9349c0795571b6a7d3",
+    "sha256": "461939a94ee6790ad9442adde32b2abda51f6f1bb674462c5d7d6cc1dad5b728",
     "imports": [
       "import { Buffer } from 'buffer';"
     ],
