@@ -435,6 +435,216 @@ def test_PR01_F_causal_admission_order(recovery_io):
     assert io.calls[0][1]['operation'] == 'recoverRequests'
 
 
+@pytest.fixture
+def lifecycle_inert(monkeypatch):
+    import requests
+    from booking_engine import invoice_email_journal, gmail_sender
+    def deny(*a, **kw):
+        pytest.fail('lifecycle reached external effect')
+    monkeypatch.setattr(invoice_email_journal.InvoiceEmailJournal, 'from_environment', deny)
+    monkeypatch.setattr(requests.Session, 'send', deny)
+    monkeypatch.setattr(gmail_sender, 'prepare_journal_token', deny)
+    monkeypatch.setattr(service, '_bg_send_email', deny)
+    monkeypatch.setattr(service, '_bg_calendar_event', deny)
+    monkeypatch.setattr(service, 'render_invoice_pdf_for_service', deny)
+
+
+@pytest.mark.parametrize('recurring', [False, True])
+def test_L02_actual_client_OFF_no_resources(monkeypatch, lifecycle_inert, recurring):
+    import ast
+    from pathlib import Path
+    from fastapi.testclient import TestClient
+    source = ast.parse(Path(service.__file__).read_text())
+    gates = {n.targets[0].id: n.value.value for n in source.body
+             if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name)
+             and isinstance(n.value, ast.Constant)}
+    assert gates['OWNER_INVOICE_JOURNAL_ENABLED'] is False
+    assert gates['OWNER_INVOICE_RECURRING_ENABLED'] is False
+    monkeypatch.setattr(service, 'OWNER_INVOICE_RECURRING_ENABLED', recurring)
+    def deny(*a, **kw): pytest.fail('OFF admitted worker')
+    monkeypatch.setattr(service, 'recover_owner_invoice_periodic_once', deny)
+    monkeypatch.setattr(service, 'Thread', deny)
+    state = service._owner_invoice_recovery_state
+    before = (state.request_cursor, state.issuance_cursor, tuple(service.app.routes))
+    with TestClient(service.app):
+        owner = service._owner_invoice_invocation
+        assert owner.thread is None and owner.task is None
+    assert not owner.active
+    assert before == (state.request_cursor, state.issuance_cursor, tuple(service.app.routes))
+
+
+def test_L03_cadence_statuses_reentry_and_gate_stop(monkeypatch, lifecycle_inert, caplog):
+    import asyncio, threading, logging
+    caplog.set_level(logging.INFO, logger='uvicorn.error')
+    monkeypatch.setattr(service, 'OWNER_INVOICE_JOURNAL_ENABLED', True)
+    monkeypatch.setattr(service, 'OWNER_INVOICE_RECURRING_ENABLED', True)
+    marker = 'PRIVATE-recipient-token-payload'
+    values = [{'status': s} for s in ['busy', 'degraded', 'unavailable']]
+    values += [{'status': marker}, ValueError(marker), {'status': 'ok'}]
+    trace = []; threads = []; state = service._owner_invoice_recovery_state
+    def tick():
+        assert service._owner_invoice_recovery_state is state
+        assert not any(t.is_alive() for t in threads)
+        threads.append(threading.current_thread())
+        value = values[len(threads)-1]
+        trace.append('complete')
+        if isinstance(value, Exception): raise value
+        return value
+    monkeypatch.setattr(service, 'recover_owner_invoice_periodic_once', tick)
+    async def scenario():
+        reached = asyncio.Queue(); release = asyncio.Queue()
+        async def delay(seconds):
+            assert seconds == 60
+            trace.append('delay'); reached.put_nowait(True)
+            await release.get()
+        monkeypatch.setattr(service, '_owner_invoice_delay', delay)
+        async with service.app.router.lifespan_context(service.app):
+            owner = service._owner_invoice_invocation
+            for i in range(len(values)):
+                await asyncio.wait_for(reached.get(), 2)
+                assert len(threads) == i + 1
+                assert trace == ['complete', 'delay'] * (i + 1)
+                assert service.recover_owner_invoice_periodic_once is tick
+                if i == 0:
+                    with pytest.raises(RuntimeError, match='^owner_invoice_lifespan_active$'):
+                        async with service.app.router.lifespan_context(service.app): pass
+                if i < len(values)-1: release.put_nowait(True)
+            monkeypatch.setattr(service, 'OWNER_INVOICE_RECURRING_ENABLED', False)
+            release.put_nowait(True)
+            await asyncio.wait_for(owner.task, 2)
+        assert owner.task.done() and not owner.active
+        assert len(threads) == len(values)
+    asyncio.run(asyncio.wait_for(scenario(), 8))
+    messages = [r.getMessage() for r in caplog.records if r.name == 'uvicorn.error']
+    assert marker not in '\n'.join(messages)
+    assert [m for m in messages if 'pass_complete' in m] == [
+        'owner_invoice_pass_complete ' + s for s in
+        ['busy', 'degraded', 'unavailable', 'invalid_result', 'unavailable', 'ok']]
+    assert messages.count('owner_invoice_tick_failure') == 1
+
+
+@pytest.mark.parametrize('mode', ['sleeping', 'drain', 'timeout', 'startup_cancel'])
+def test_L04_shutdown_and_responsiveness(monkeypatch, lifecycle_inert, caplog, mode):
+    import asyncio, threading, httpx
+    monkeypatch.setattr(service, 'OWNER_INVOICE_JOURNAL_ENABLED', True)
+    monkeypatch.setattr(service, 'OWNER_INVOICE_RECURRING_ENABLED', True)
+    actual_tick = service.recover_owner_invoice_periodic_once
+    state = service._owner_invoice_recovery_state
+    before = (state.request_cursor, state.issuance_cursor)
+    entered = threading.Event(); release = threading.Event(); calls = []
+    def tick():
+        calls.append(True)
+        if mode != 'startup_cancel' and len(calls) == 1: return {'status': 'ok'}
+        with state.lock:
+            entered.set()
+            assert release.wait(3), 'test barrier watchdog'
+        return {'status': 'ok'}
+    monkeypatch.setattr(service, 'recover_owner_invoice_periodic_once', tick)
+    async def scenario():
+        delayed = asyncio.Event(); advance = asyncio.Event()
+        async def delay(seconds):
+            assert seconds == 60
+            delayed.set(); await advance.wait()
+        monkeypatch.setattr(service, '_owner_invoice_delay', delay)
+        cm = service.app.router.lifespan_context(service.app)
+        startup = asyncio.create_task(cm.__aenter__())
+        if mode != 'startup_cancel':
+            await startup
+            await asyncio.wait_for(delayed.wait(), 2)
+            if mode != 'sleeping': advance.set()
+        if mode != 'sleeping':
+            while not entered.is_set(): await asyncio.sleep(0)
+            assert actual_tick() == {'status': 'busy'}
+            assert before == (state.request_cursor, state.issuance_cursor)
+            heartbeat = []
+            asyncio.get_running_loop().call_soon(heartbeat.append, True)
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=service.app),
+                                         base_url='http://inert') as client:
+                assert (await client.get('/')).json()['status'] == 'ok'
+            assert heartbeat == [True]
+        owner = service._owner_invoice_invocation
+        assert service._OWNER_INVOICE_SHUTDOWN_GRACE == 5
+        if mode in ('timeout', 'startup_cancel'):
+            # Inject elapsed monotonic grace, never wait five real seconds.
+            monkeypatch.setattr(service, '_OWNER_INVOICE_SHUTDOWN_GRACE', 0)
+        if mode == 'startup_cancel':
+            startup.cancel()
+            with pytest.raises(asyncio.CancelledError): await startup
+        else:
+            closing = asyncio.create_task(cm.__aexit__(None, None, None))
+            await asyncio.sleep(0)
+            if mode == 'drain':
+                assert not closing.done()
+                release.set()
+            await asyncio.wait_for(closing, 2)
+        assert owner.stopping and not owner.active
+        assert owner.task is None or owner.task.done()
+        count = len(calls)
+        if mode in ('timeout', 'startup_cancel'):
+            assert owner.thread.is_alive() and state.lock.locked()
+            with pytest.raises(RuntimeError, match='^owner_invoice_lifespan_active$'):
+                async with service.app.router.lifespan_context(service.app): pass
+            assert 'owner_invoice_shutdown_inflight' in caplog.text
+        release.set()
+        while owner.thread.is_alive(): await asyncio.sleep(0)
+        assert owner.done.is_set() and not state.lock.locked()
+        assert len(calls) == count
+        monkeypatch.setattr(service, 'OWNER_INVOICE_JOURNAL_ENABLED', False)
+        async with service.app.router.lifespan_context(service.app):
+            assert service._owner_invoice_invocation is not owner
+    try:
+        asyncio.run(asyncio.wait_for(scenario(), 5))
+    finally:
+        release.set()
+        owner = service._owner_invoice_invocation
+        if owner and owner.thread: owner.thread.join(2)  # Test thread only, never ASGI.
+
+
+@pytest.mark.parametrize('failure', ['thread', 'runner'])
+def test_L05_terminal_failure_consumed(monkeypatch, lifecycle_inert, caplog, failure):
+    import asyncio
+    monkeypatch.setattr(service, 'OWNER_INVOICE_JOURNAL_ENABLED', True)
+    monkeypatch.setattr(service, 'OWNER_INVOICE_RECURRING_ENABLED', True)
+    calls = []
+    def tick():
+        calls.append(True)
+        if failure == 'thread': raise SystemExit('PRIVATE-terminal-payload')
+        return {'status': 'ok'}
+    monkeypatch.setattr(service, 'recover_owner_invoice_periodic_once', tick)
+    async def delay(seconds): raise ValueError('PRIVATE-terminal-payload')
+    monkeypatch.setattr(service, '_owner_invoice_delay', delay)
+    async def scenario():
+        async with service.app.router.lifespan_context(service.app):
+            owner = service._owner_invoice_invocation
+            if owner.task: await asyncio.wait_for(owner.task, 2)
+            else: assert owner.terminal
+        assert len(calls) == 1
+    asyncio.run(asyncio.wait_for(scenario(), 3))
+    assert 'PRIVATE-terminal-payload' not in caplog.text
+    assert sum(r.getMessage() == 'owner_invoice_terminal_failure' for r in caplog.records) == 1
+
+
+def test_L01_actual_lifespan_startup_offloop(monkeypatch, lifecycle_inert):
+    import asyncio, threading
+    from fastapi.testclient import TestClient
+    calls = []
+    def tick():
+        try:
+            asyncio.get_running_loop()
+            on_loop = True
+        except RuntimeError:
+            on_loop = False
+        calls.append((on_loop, threading.current_thread().daemon))
+        return {'status': 'ok'}
+    monkeypatch.setattr(service, 'OWNER_INVOICE_JOURNAL_ENABLED', True)
+    monkeypatch.setattr(service, 'recover_owner_invoice_periodic_once', tick)
+    with TestClient(service.app) as client:
+        assert calls == [(False, True)]
+        assert client.get('/').json()['status'] == 'ok'
+        assert service.app.router.on_startup == []
+    assert calls == [(False, True)]
+
+
 def test_PR02_O_OFF_all_entry_counters(monkeypatch):
     import requests
     from fastapi.testclient import TestClient
@@ -453,7 +663,7 @@ def test_PR02_O_OFF_all_entry_counters(monkeypatch):
     state.request_cursor = 'a'*64; state.issuance_cursor = 'b'*64
     assert service.OWNER_INVOICE_JOURNAL_ENABLED is False
     registrations = (tuple(service.app.routes), tuple(service.app.router.on_startup))
-    assert service.app.router.on_startup.count(service.recover_owner_invoice_startup) == 1
+    assert service.app.router.lifespan_context is service._owner_invoice_lifespan
     with TestClient(service.app): pass
     assert service.recover_owner_invoice_startup() == {'status': 'disabled'}
     assert service.recover_owner_invoice_periodic_once() == {'status': 'disabled'}
@@ -559,7 +769,8 @@ def test_PR12_S_exact_legacy_and_jobs():
     before = bodies(committed('invoice_service.py').decode().replace('\r\n', '\n'))
     after = bodies(Path('invoice_service.py').read_text())
     assert all(after[name] == body for name, body in before.items())
-    assert set(after) - set(before) == {'recover_owner_invoice_periodic_once'}
+    assert set(after) - set(before) == {
+        'recover_owner_invoice_periodic_once', '_owner_invoice_delay', '_owner_invoice_lifespan'}
 
 
 def _pr04_report(case='empty'):
@@ -1045,7 +1256,7 @@ def test_R7_retained_prepared_actual_TestClient_fresh_startup(recovery_io, monke
         assert rebuilt is not old and rebuilt.BOOT_ID != old.BOOT_ID
         fresh.setattr(rebuilt,'render_invoice_pdf_for_service',lambda *a: pytest.fail('prepared history rerendered'))
         fresh.setattr(service,'OWNER_INVOICE_JOURNAL_ENABLED',True)
-        assert service.recover_owner_invoice_startup in service.app.router.on_startup
+        assert service.app.router.lifespan_context is service._owner_invoice_lifespan
         with TestClient(service.app): pass
     operations = [b.get('operation','provider') for u,b in io.calls[count:]]
     assert operations == ['recoverRequests','scanPending','readIssuance','tryStart','provider','recordAck']

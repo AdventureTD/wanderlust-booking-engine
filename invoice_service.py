@@ -38,7 +38,119 @@ from booking_engine.calendar import create_calendar_event
 
 SHARED_SECRET = os.environ.get("WBE_SHARED_SECRET", "")
 
-app = FastAPI(title="Wanderlust Invoice Service")
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+from threading import Event, Thread
+
+OWNER_INVOICE_RECURRING_ENABLED = False
+_OWNER_INVOICE_RECURRING_DELAY = 60
+_OWNER_INVOICE_SHUTDOWN_GRACE = 5
+_owner_invoice_log = logging.getLogger('uvicorn.error')
+_owner_invoice_invocation = None
+
+
+async def _owner_invoice_delay(seconds):
+    await asyncio.sleep(seconds)
+
+
+class _OwnerInvoiceInvocation:
+    """One lifespan's ownership, separate from recovery authority and cursors."""
+    def __init__(self):
+        self.active = True
+        self.stopping = False
+        self.thread = None
+        self.done = Event()
+        self.status = 'invalid_result'
+        self.terminal = False
+        self.task = None
+
+    def run(self):
+        try:
+            result = recover_owner_invoice_periodic_once()
+            status = result.get('status') if type(result) is dict else None
+            self.status = status if type(status) is str and status in (
+                'disabled', 'busy', 'ok', 'degraded', 'unavailable') else 'invalid_result'
+        except Exception:
+            self.status = 'unavailable'
+            _owner_invoice_log.warning('owner_invoice_tick_failure')
+        except BaseException:
+            self.terminal = True
+        finally:
+            self.done.set()
+
+    async def pass_once(self):
+        if self.stopping or (self.thread is not None and self.thread.is_alive()):
+            return False
+        self.done.clear()
+        self.thread = Thread(target=self.run, name='owner-invoice-pass', daemon=True)
+        self.thread.start()
+        while not self.done.is_set() or self.thread.is_alive():
+            await asyncio.sleep(0.1)
+        if self.terminal:
+            _owner_invoice_log.error('owner_invoice_terminal_failure')
+            return False
+        _owner_invoice_log.info('owner_invoice_pass_complete %s', self.status)
+        return True
+
+    async def repeat(self):
+        try:
+            while not self.stopping:
+                await _owner_invoice_delay(_OWNER_INVOICE_RECURRING_DELAY)
+                if (self.stopping or not OWNER_INVOICE_JOURNAL_ENABLED
+                        or not OWNER_INVOICE_RECURRING_ENABLED):
+                    return
+                if not await self.pass_once():
+                    return
+        except asyncio.CancelledError:
+            raise
+        except BaseException:
+            # Consume terminal failures without payloads or unobserved task errors.
+            _owner_invoice_log.error('owner_invoice_terminal_failure')
+
+    async def close(self):
+        self.stopping = True
+        try:
+            if self.task is not None:
+                self.task.cancel()
+                try:
+                    await self.task
+                except asyncio.CancelledError:
+                    pass
+            loop = asyncio.get_running_loop()
+            deadline = loop.time() + _OWNER_INVOICE_SHUTDOWN_GRACE
+            while self.thread is not None and self.thread.is_alive():
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    _owner_invoice_log.warning('owner_invoice_shutdown_inflight')
+                    break
+                await asyncio.sleep(min(0.1, remaining))
+        finally:
+            self.active = False
+            _owner_invoice_log.info('owner_invoice_lifecycle_stop')
+
+
+@asynccontextmanager
+async def _owner_invoice_lifespan(app):
+    global _owner_invoice_invocation
+    previous = _owner_invoice_invocation
+    if previous is not None and (previous.active or (
+            previous.thread is not None and previous.thread.is_alive())):
+        raise RuntimeError('owner_invoice_lifespan_active')
+    owner = _OwnerInvoiceInvocation()
+    _owner_invoice_invocation = owner
+    _owner_invoice_log.info('owner_invoice_lifecycle_start')
+    try:
+        if OWNER_INVOICE_JOURNAL_ENABLED:
+            healthy = await owner.pass_once()
+            if healthy and OWNER_INVOICE_JOURNAL_ENABLED and OWNER_INVOICE_RECURRING_ENABLED:
+                owner.task = asyncio.create_task(owner.repeat(), name='owner-invoice-recurring')
+        yield
+    finally:
+        await owner.close()
+
+
+app = FastAPI(title="Wanderlust Invoice Service", lifespan=_owner_invoice_lifespan)
 
 
 def _bg_send_email(to_email, guest_name, invoice_number, pdf_path, total_str,
@@ -218,7 +330,7 @@ def recover_owner_invoice_periodic_once():
         state.lock.release()
 
 
-app.router.add_event_handler('startup', recover_owner_invoice_startup)
+
 
 
 @app.post("/issue-invoice")

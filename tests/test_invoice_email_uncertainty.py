@@ -7,8 +7,15 @@ import invoice_service as service
 @pytest.fixture(autouse=True)
 def endpoint_only_lifecycle(monkeypatch):
     # This suite isolates explicit endpoint invocations. Actual startup discovery
-    # is exercised separately in test_invoice_email_recovery.py.
-    monkeypatch.setattr(service.app.router, 'on_startup', [])
+    # and lifespan ownership are exercised in test_invoice_email_recovery.py.
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def endpoint_lifespan(app):
+        yield
+
+    # monkeypatch restores the production lifespan after each endpoint-only test.
+    monkeypatch.setattr(service.app.router, 'lifespan_context', endpoint_lifespan)
 
 
 @pytest.mark.parametrize('operation', ['REQUEST', 'ISSUANCE', 'insert', 'update', 'remove', 'save', 'prepareOwnerIssuance'])
