@@ -30,7 +30,8 @@ for (const env of ['browser','backend']) {
   const ready=[], trace=[]; const w=()=>({onClick(){}});w.onReady=f=>ready.push(f);
   vm.runInNewContext(source,{$w:w,rendering:{env},local:{getItem(){return null;}},
     observeMicrosoftPage(given){assert.equal(given,w);trace.push('observe');},
-    getAllSettings(){trace.push('settings');return new Promise(()=>{});},console:{log(){},error(){}}});
+    withdrawTracking(){}, initTracking(){}, captureClickIds(){},
+    observeTrackingSuspension(){trace.push('settings');return new Promise(()=>{});},console:{log(){},error(){}}});
   ready.forEach(f=>f());
   assert.equal(trace.filter(x=>x==='observe').length,env==='browser'?1:0,'CAUSAL: browser-only ordinary master observation');
   if(env==='browser') assert.ok(trace.indexOf('observe')<trace.indexOf('settings'),'observation before backend await');

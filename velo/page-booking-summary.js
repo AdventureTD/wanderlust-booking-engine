@@ -20,7 +20,7 @@ import { getRoomNames } from 'backend/rooms';
 import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights, getPackagesByNights } from 'backend/packages';
 import { readPricingQuote } from 'backend/pricingQuotes';
 import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
-import { trackPurchase, getStoredClickIds, clearClickIds, initTracking, setSuspendGoogleAds } from 'public/tracking';
+import { trackPurchase, getStoredClickIds, clearClickIds, initTracking, observeTrackingSuspension } from 'public/tracking';
 import { recordBookingConversion } from 'backend/googleAdsConversions.web';
 import { recordMicrosoftBookingConversion } from 'backend/microsoftAdsConversions.web';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
@@ -215,6 +215,7 @@ let _pricingQuoteToken = '';
 $w.onReady(function () {
   hideInitialSummaryValues();
   initTracking($w);
+  observeTrackingSuspension().catch(() => {});
   initSummary().catch(function (e) { console.log('>>> init error:', e.message); });
 });
 
@@ -351,12 +352,7 @@ async function initSummary() {
     }
   }
 
-  const suspend = String(settings.suspendGoogleAds).trim() === '1' || Number(settings.suspendGoogleAds) === 1;
-  if (typeof setSuspendGoogleAds === 'function') {
-    setSuspendGoogleAds(suspend);
-  } else {
-    console.log('[WBE-SUMMARY] setSuspendGoogleAds import not ready, suspend defaults to false');
-  }
+
 
   initRoomRepeater();
   safeCollapse('promoAmount');

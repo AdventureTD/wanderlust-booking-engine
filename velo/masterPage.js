@@ -6,8 +6,8 @@
 // 'wbeConsentGranted' DOM event that custom-code/google-tag-and-consent.html
 // listens for, upgrading consent from denied → granted (enables remarketing).
 
-import { captureClickIds, initTracking, setSuspendGoogleAds, observeMicrosoftPage } from 'public/tracking';
-import { getAllSettings } from 'backend/settings';
+import { captureClickIds, initTracking, observeTrackingSuspension, observeMicrosoftPage, withdrawTracking } from 'public/tracking';
+
 import { consentPolicy, rendering } from 'wix-window-frontend';
 import { local } from 'wix-storage-frontend';
 import { createGuestConsentBrowserContext, withdrawGuestConsentBrowser, readGuestConsentBrowserNegative } from 'backend/guestConsent.web';
@@ -22,6 +22,7 @@ function feedback(text) {
   try { $w('#consentWithdrawalStatus').text = text; } catch (_) { /* Optional UI. */ }
 }
 function localDenial() {
+  withdrawTracking();
   try { $w('#wbeEventBridge').postMessage({ type: 'wbe-consent-deny', version: 1 }); } catch (_) { /* Still attempt server withdrawal. */ }
 }
 function refreshCustody() {
@@ -143,14 +144,7 @@ async function initConsentBridge() {
 
 $w.onReady(async function () {
   try {
-    let settings = {};
-    try { settings = await getAllSettings(); } catch (e) {}
-    const suspend = String(settings.suspendGoogleAds).trim() === '1' || Number(settings.suspendGoogleAds) === 1;
-    if (typeof setSuspendGoogleAds === 'function') {
-      setSuspendGoogleAds(suspend);
-    } else {
-      console.log('[WBE-MASTER] setSuspendGoogleAds import not ready, suspend defaults to false');
-    }
+    observeTrackingSuspension().catch(() => {});
 
     initTracking($w);
     console.log('[WBE-MASTER] captureClickIds started');

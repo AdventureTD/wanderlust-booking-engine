@@ -17,6 +17,7 @@ function setup(configured=true) {
   const $w=()=>bridge;
   const producer={local:{getItem(){return null;}},wixLocationFrontend:{url:site+'/'},console:{log(){},warn(){},error(){}},setTimeout(f){timers.set(++timerId,f);return timerId;},clearTimeout(id){timers.delete(id);}};
   vm.createContext(producer);vm.runInContext(read('velo/public/tracking.js').replace(/^import .*;\r?\n/gm,'').replace(/export /g,''),producer);
+  producer.setSuspendGoogleAds(false); // Explicit OFF for historical normal-path assertions only.
   const document={addEventListener(t,f){(listeners[t] ||= []).push(f);},getElementById(){return {contentWindow:frame};},createElement(){return {};},getElementsByTagName(){return [{parentNode:{insertBefore(s){loader=s;}}}];}};
   parent.window=parent;parent.document=document;parent.console=producer.console;
   parent.UET=function(o){calls.push(['constructor',o.ti,o.tm,o.enableAutoSpaTracking]);this.push=(...a)=>{calls.push(JSON.parse(JSON.stringify(a)));if(onPush)onPush(a);};};
@@ -103,7 +104,8 @@ function masterFixture(h, env='browser') {
  const context={$w:w,rendering:{env},local:h.producer.local,console:h.producer.console,
   observeMicrosoftPage:h.producer.observeMicrosoftPage,initTracking:h.producer.initTracking,
   captureClickIds:h.producer.captureClickIds,setSuspendGoogleAds:h.producer.setSuspendGoogleAds,
-  getAllSettings(){trace.push('settings');return new Promise(()=>{});}};
+  withdrawTracking:h.producer.withdrawTracking,
+  observeTrackingSuspension(){trace.push('settings');return new Promise(()=>{});}};
  vm.runInNewContext(read('velo/masterPage.js').split('\n').filter(line=>!line.startsWith('import ')).join('\n'),context);
  return {trace,ready(p){h.producer.wixLocationFrontend.url=site+p;h.parent.location.pathname=p.split(/[?#]/)[0];callbacks.forEach(f=>f());}};
 }

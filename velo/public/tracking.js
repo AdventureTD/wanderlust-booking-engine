@@ -5,6 +5,7 @@
 
 import { local } from 'wix-storage-frontend';
 import wixLocationFrontend from 'wix-location-frontend';
+import { getAdvertisingSuspension } from 'backend/settings.web';
 
 const STORAGE_KEY = 'wl_click_attribution';
 const CLICK_PARAMS = ['gclid', 'gbraid', 'wbraid', 'msclkid'];
@@ -33,7 +34,7 @@ function parseUrlParams(url) {
 // Reads click IDs from URL query and stores them (first-touch wins).
 export function captureClickIds() {
   try {
-    if (_suspendGoogleAds) {
+    if (_suspendGoogleAds !== false || microsoftWithdrawn) {
       console.log('[WBE-TRACKING] suspended — skipping click-id capture');
       return null;
     }
@@ -116,32 +117,36 @@ export function clearClickIds() {
 // Page: Velo -> iframe.postMessage -> parent window -> head snippet -> dataLayer.
 // Public modules can't use the $w global, so page code injects it once.
 let _$w = null;
-let _suspendGoogleAds = false;
+let _suspendGoogleAds = null;
 
 // Ordered Microsoft-only transport. Readiness retains work while the iframe loads.
 let microsoftBridge = null, microsoftReady = false, microsoftTimer = null;
 let microsoftQueue = [], microsoftObservation = null, microsoftSequence = 0;
 const microsoftSession = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
 let microsoftRetryCount = 0, microsoftWithdrawn = false;
+export function withdrawTracking() { withdrawMicrosoft(); }
 function withdrawMicrosoft() {
   microsoftWithdrawn = true;
+  googleQueue = [];
+  observationGeneration++;
   microsoftQueue = [];
   if (microsoftTimer) clearTimeout(microsoftTimer);
   microsoftTimer = null;
 }
 function flushMicrosoft() {
-  if (microsoftWithdrawn || _suspendGoogleAds) { microsoftQueue = []; return; }
+  if (microsoftWithdrawn || _suspendGoogleAds !== false) return;
   if (!microsoftReady || !microsoftBridge) return;
-  while (microsoftQueue.length) {
-    try { microsoftBridge.postMessage(microsoftQueue[0]); }
+  while (permitted() && microsoftQueue.length) {
+    const envelope = microsoftQueue[0];
+    try { microsoftBridge.postMessage(envelope); }
     catch (_) {
-      if (!microsoftWithdrawn && !microsoftTimer && microsoftRetryCount < 4) {
+      if (permitted() && !microsoftTimer && microsoftRetryCount < 4) {
         microsoftRetryCount++;
         microsoftTimer = setTimeout(function () { microsoftTimer = null; flushMicrosoft(); }, 250);
       }
       return;
     }
-    microsoftQueue.shift();
+    if (microsoftQueue[0] === envelope) microsoftQueue.shift();
     microsoftRetryCount = 0;
   }
   if (microsoftTimer) clearTimeout(microsoftTimer);
@@ -149,9 +154,9 @@ function flushMicrosoft() {
 }
 function probeMicrosoft() {
   microsoftTimer = null;
-  if (microsoftWithdrawn || microsoftReady || !microsoftBridge) return;
+  if (_suspendGoogleAds !== false || microsoftWithdrawn || microsoftReady || !microsoftBridge) return;
   try { microsoftBridge.postMessage({ type: 'wbe-microsoft-probe', version: 1 }); } catch (_) {}
-  if (!microsoftWithdrawn && !microsoftReady) microsoftTimer = setTimeout(probeMicrosoft, 250);
+  if (permitted() && !microsoftReady) microsoftTimer = setTimeout(probeMicrosoft, 250);
 }
 export function initTracking(w) {
   _$w = w;
@@ -177,43 +182,68 @@ export function initTracking(w) {
 }
 export function observeMicrosoftPage(w) {
   initTracking(w);
-  if (microsoftWithdrawn) return;
+  if (microsoftWithdrawn || _suspendGoogleAds === true) return;
   const url = String(wixLocationFrontend.url || '');
   const match = /^https:\/\/[^/]+(\/[^?#]*)?/.exec(url);
   const page = match && (match[1] || '/');
   if (!['/', '/wanderlust-booking', '/booking-summary'].includes(page)) return;
   microsoftObservation = page;
+  // Readiness may arrive before the scalar: retain only the current route
+  // while delivery is unresolved, without removing ordered business work.
+  if (_suspendGoogleAds !== false || !microsoftReady) {
+    microsoftQueue = microsoftQueue.filter(item => item.kind !== 'route');
+  }
   microsoftQueue.push({ type: 'wbe-microsoft-message', version: 1,
     id: microsoftSession + '-' + (++microsoftSequence), kind: 'route', page_path: page, payload: null });
   try { flushMicrosoft(); } catch (_) { /* Retain unsent work. */ }
 }
 
-export function setSuspendGoogleAds(value) {
-  _suspendGoogleAds = !!value;
-  console.log('[WBE-TRACKING] Google Ads / Analytics suspended:', _suspendGoogleAds);
+let googleQueue = [], observationFlight = null, observationGeneration = 0;
+function permitted() { return _suspendGoogleAds === false && !microsoftWithdrawn; }
+function applySuspension(value) {
+  _suspendGoogleAds = value;
+  if (microsoftTimer) clearTimeout(microsoftTimer);
+  microsoftTimer = null;
+  if (value === true) { microsoftQueue = []; googleQueue = []; }
+  if (!permitted()) return;
+  captureClickIds();
+  if (!microsoftReady) probeMicrosoft();
+  flushMicrosoft();
+  flushGoogle();
 }
-
-export function pushDataLayer(payload) {
-  try {
-    if (_suspendGoogleAds) {
-      console.log('[WBE-TRACKING] suspended — dropping event:', payload.event || payload);
-      return;
-    }
-    if (!_$w) {
-      console.warn('[WBE-GTAG] initTracking($w) not called; dropping event:', payload.event || payload);
-      return;
-    }
-    const bridge = _$w('#wbeEventBridge');
-    // Separate envelope: Google retains its unchanged business payload only.
-    if (!microsoftWithdrawn) microsoftQueue.push({ type: 'wbe-microsoft-message', version: 1,
-      id: microsoftSession + '-' + (++microsoftSequence), kind: 'event',
-      page_path: microsoftObservation || '/', payload: { ...payload } });
-    try { flushMicrosoft(); } catch (_) { /* Retain unsent work. */ }
-    bridge.postMessage({ type: 'wbe-datalayer-event', payload: payload });
-    console.log('[WBE-GTAG] sent event to bridge:', payload.event || payload);
-  } catch (err) {
-    console.error('[WBE-GTAG] bridge send failed:', err && err.message || err);
+// Legacy setter is a local operational transition, never a consent command.
+export function setSuspendGoogleAds(value) {
+  observationGeneration++;
+  applySuspension(value === false ? false : value === true ? true : null);
+}
+export function observeTrackingSuspension() {
+  if (observationFlight) return observationFlight;
+  const generation = ++observationGeneration;
+  applySuspension(null);
+  const flight = Promise.resolve().then(() => getAdvertisingSuspension('suspendGoogleAds')).then(value => {
+    if (generation !== observationGeneration) return;
+    const scalar = typeof value === 'string' ? value.trim() : value;
+    applySuspension(scalar === 0 || scalar === '0' ? false : scalar === 1 || scalar === '1' ? true : null);
+  }, () => { if (generation === observationGeneration) applySuspension(null); });
+  observationFlight = flight.finally(() => { observationFlight = null; });
+  return observationFlight;
+}
+function flushGoogle() {
+  while (permitted() && googleQueue.length && _$w) {
+    const payload = googleQueue.shift();
+    try { _$w('#wbeEventBridge').postMessage({ type: 'wbe-datalayer-event', payload }); }
+    catch (_) { /* Legacy Google transport has no retry or delivery acknowledgment. */ }
   }
+}
+export function pushDataLayer(payload) {
+  if (microsoftWithdrawn || _suspendGoogleAds === true || !_$w) return;
+  const retained = { ...payload };
+  microsoftQueue.push({ type: 'wbe-microsoft-message', version: 1,
+    id: microsoftSession + '-' + (++microsoftSequence), kind: 'event',
+    page_path: microsoftObservation || '/', payload: retained });
+  googleQueue.push(retained);
+  flushMicrosoft();
+  flushGoogle();
 }
 
 // Fires when a visitor begins the booking funnel.
