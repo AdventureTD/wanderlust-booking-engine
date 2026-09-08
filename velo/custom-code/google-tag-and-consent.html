@@ -224,8 +224,126 @@
   // through the iframe is the reliable cross-context channel).
   // Plain-object dataLayer pushes are inert to raw gtag — translate them into
   // real gtag('event', ...) calls so GA4 actually receives the hits.
-  window.addEventListener('message', function (event) {
-    var d = event && event.data;
+
+// Receiver-observed snapshots, not loss-tolerant remote revocation.
+function headRecord(value) {
+  if (!value || typeof value!=='object' || Array.isArray(value)) return false;
+  var proto=Object.getPrototypeOf(value);
+  if(proto===null)return true;
+  var ctor=Object.getOwnPropertyDescriptor(proto,'constructor');
+  if(Object.getPrototypeOf(proto)!==null || !ctor || !('value' in ctor) || typeof ctor.value!=='function')return false;
+  var name=Object.getOwnPropertyDescriptor(ctor.value,'name'), owner=Object.getOwnPropertyDescriptor(ctor.value,'prototype');
+  return !!name && 'value' in name && name.value==='Object' && !!owner && 'value' in owner && owner.value===proto;
+}
+function headData(value, seen) {
+  if (value === null || typeof value !== 'object') {
+    if (typeof value === 'function' || typeof value === 'symbol') throw Error('data only');
+    return value;
+  }
+  if (seen.indexOf(value) >= 0) throw Error('cycle');
+  var array=Array.isArray(value);
+  if(!array && !headRecord(value))throw Error('prototype');
+  var ds=Object.getOwnPropertyDescriptors(value), result=array?[]:Object.create(null);
+  seen.push(value);
+  Reflect.ownKeys(ds).forEach(function(k){
+    if(array && k==='length')return;
+    var field=ds[k];
+    if(typeof k!=='string'||!('value' in field)||!field.enumerable)throw Error('own data only');
+    Object.defineProperty(result,k,{value:headData(field.value,seen),enumerable:true,writable:true,configurable:true});
+  });
+  seen.pop();return result;
+}
+function opId() { try { var b=new Uint8Array(16); crypto.getRandomValues(b); return Array.from(b,function(x){return x.toString(16).padStart(2,'0');}).join(''); } catch (_) { return ''; } }
+var opTupleKeys=['producerSession','relayBoot','googleBoot','microsoftBoot'];
+function opValid(d) {
+  try { if(!headRecord(d))return false; } catch (_) { return false; }
+  var ds=Object.getOwnPropertyDescriptors(d), keys=Reflect.ownKeys(ds);
+  if(keys.some(function(k){return typeof k!=='string'||!('value' in ds[k])||!ds[k].enumerable;})) return false;
+  var types={probe:['producerSession'],discovery:['producerSession','receiver','headBoot'],ready:['producerSession','relayBoot','receiver','headBoot'],bind:opTupleKeys,state:opTupleKeys.concat(['revision','state','discardThrough']),ack:opTupleKeys.concat(['receiver','revision','state','discardThrough','phase']),business:opTupleKeys.concat(['revision','channel','message'])};
+  if(!ds.type||!ds.version||ds.version.value!==1||typeof ds.type.value!=='string')return false;
+  var shape=types[ds.type.value.replace('wbe-operational-','')];
+  if(!shape||ds.type.value.indexOf('wbe-operational-')!==0||keys.sort().join(',')!==['type','version'].concat(shape).sort().join(','))return false;
+  for(var k of shape){var v=ds[k].value;if(opTupleKeys.concat(['headBoot']).indexOf(k)>=0 && (typeof v!=='string'||!/^[a-f0-9]{32}$/.test(v)))return false;if(['revision','discardThrough'].indexOf(k)>=0&&(!Number.isSafeInteger(v)||v<0))return false;}
+  if(ds.receiver&&['google','microsoft'].indexOf(ds.receiver.value)<0)return false;
+  if(ds.channel&&['google','microsoft'].indexOf(ds.channel.value)<0)return false;
+  if(ds.state&&['OFF','ON','UNRESOLVED'].indexOf(ds.state.value)<0)return false;
+  if(ds.phase&&['bound','state'].indexOf(ds.phase.value)<0)return false;
+  if(ds.discardThrough&&(d.discardThrough>d.revision||(d.state==='ON'&&d.discardThrough!==d.revision)))return false;
+  return true;
+}
+function opSame(a,b){return !!a&&!!b&&opTupleKeys.every(function(k){return a[k]===b[k];});}
+function opEnvelope(type,t,extra){return Object.assign({type:'wbe-operational-'+type,version:1},t||{},extra||{});}
+
+function opHead(receiver,origin,clear,resume) {
+  var boot=opId(), tuple=null, frame=null, source=null, fault=false, state='UNRESOLVED', revision=0, watermark=0, acknowledged=false;
+  var generation=(window['__wbeOpGeneration_'+receiver]||0)+1;window['__wbeOpGeneration_'+receiver]=generation;
+  function live(){if(window['__wbeOpGeneration_'+receiver]!==generation)fault=true;if(frame&&(document.getElementById('wbeEventBridge')!==frame||frame.contentWindow!==source))fault=true;return !fault;}
+  function trusted(e){var f=document.getElementById('wbeEventBridge');return origin&&window.location.origin==='https://www.wanderlustcaribbean.com'&&f&&e.origin===origin&&e.source===f.contentWindow;}
+  function send(d){source.postMessage(d,origin);}
+  var pending=[], retry=null, attempts=0, ackSerial=0, draining=false, negative=false, replay=null;
+  function cancelRetry(){if(retry!==null)clearTimeout(retry);retry=null;}
+  document.addEventListener('wbeAdvertisingWithdrawn',function(){negative=true;pending=[];cancelRetry();});
+  function drain(){
+    if(draining)return;draining=true;
+    try{while(allowed()&&pending.length){
+      // Remove before calling provider code: an emitted business event is never retried.
+      var item=pending.shift();
+      replay={data:Object.assign({},item.data,{revision:revision}),source:source,origin:origin};
+      try{item.receive(replay);}catch(_){
+        // Delivery is uncertain: never retry this item; recheck fences for its successor.
+      }finally{replay=null;}
+    }}finally{draining=false;}
+    if(allowed())resume();
+  }
+  function ack(phase){
+    var serial=phase==='state'?++ackSerial:ackSerial, rev=revision;
+    if(phase==='state'){acknowledged=false;cancelRetry();attempts++;}
+    var sent=false;
+    try{send(opEnvelope('ack',tuple,{receiver:receiver,phase:phase,revision:phase==='bound'?0:rev,state:phase==='bound'?'UNRESOLVED':state,discardThrough:phase==='bound'?0:watermark}));sent=true;}catch(_){}
+    if(phase!=='state'||serial!==ackSerial||rev!==revision||!live()||negative)return;
+    acknowledged=sent;
+    if(sent)setTimeout(function(){if(serial===ackSerial&&allowed())drain();},0);
+    else if(attempts<5)retry=setTimeout(function(){retry=null;if(serial===ackSerial&&rev===revision&&live()&&!negative)ack('state');},200);
+  }
+  function allowed(){return !negative&&live()&&tuple&&acknowledged&&state==='OFF'&&revision>0;}
+  window.addEventListener('message',function(e){
+    if(!trusted(e)||!opValid(e.data)||!live()||!boot)return;var x=e.data;
+    if(x.type==='wbe-operational-probe'){e.source.postMessage(opEnvelope('discovery',null,{producerSession:x.producerSession,receiver:receiver,headBoot:boot}),origin);return;}
+    if(x.type==='wbe-operational-bind'){
+      if(x[receiver+'Boot']!==boot)return;
+      if(tuple){if(!opSame(tuple,x)){fault=true;return;}ack('bound');return;}
+      tuple={};opTupleKeys.forEach(function(k){tuple[k]=x[k];});frame=document.getElementById('wbeEventBridge');source=frame.contentWindow;
+      frame.addEventListener('load',function(){fault=true;acknowledged=false;});ack('bound');return;
+    }
+    if(x.type!=='wbe-operational-state'||!opSame(tuple,x))return;
+    if(x.revision<revision||x.discardThrough<watermark)return;
+    if(x.revision===revision&&(x.state!==state||x.discardThrough!==watermark)){fault=true;acknowledged=false;return;}
+    var changed=x.revision!==revision;state=x.state;revision=x.revision;watermark=x.discardThrough;
+    if(changed){acknowledged=false;cancelRetry();attempts=0;pending=pending.filter(function(item){return item.data.revision>watermark;});if(state==='ON')pending=[];clear(state,watermark);}ack('state');
+  });
+  return {allowed:allowed,revision:function(){return revision;},business:function(e,channel,receive){
+    var x=e&&e.data;
+    if(!trusted(e)||!opValid(x)||x.type!=='wbe-operational-business'||x.channel!==channel||!opSame(tuple,x)||x.revision!==revision||!live()||negative||state!=='OFF')return null;
+    if(!acknowledged || (e!==replay&&(pending.length||draining))){
+      // Retain only never-dispatched own-data work while ACK delivery is uncertain.
+      try{pending.push({data:headData(x,[]),receive:receive});}catch(_){}
+      return null;
+    }
+    return x.message;
+  }};
+}
+
+  var OPERATIONAL_BRIDGE_ORIGIN = '';
+  var googleNegative=false;
+  document.addEventListener('wbeAdvertisingWithdrawn',function(){googleNegative=true;});
+  var googleOp=opHead('google',OPERATIONAL_BRIDGE_ORIGIN,function(){},function(){});
+  window.addEventListener('message', function receiveGoogle(event) {
+    try {if(window.wbeAdvertisingWithdrawn===true||localStorage.getItem('wbe_consent_choice')==='denied')googleNegative=true;}catch(_){googleNegative=true;}
+    if(googleNegative)return;
+    var raw=googleOp.business(event,'google',receiveGoogle);
+    try { raw=headData(raw,[]); } catch (_) { return; }
+    if(!headRecord(raw) || Object.keys(raw).sort().join(',')!=='payload,type' || !headRecord(raw.payload))return;
+    var d = raw && raw.type==='wbe-datalayer-event' ? {source:'wbe-event-bridge',payload:raw.payload} : null;
     if (d && d.source === 'wbe-event-bridge' && d.payload) {
       var p = d.payload;
       if (p.event) {

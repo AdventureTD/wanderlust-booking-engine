@@ -11,50 +11,122 @@
 </head>
 <body>
 <script>
-  window.onmessage = function (event) {
-    try {
-      var d = event && event.data;
-      // Separate suppression-only channel. No learned origins, bearer or reply.
-      var siteOrigin = 'https://www.wanderlustcaribbean.com';
-      if (d && d.type === 'wbe-consent-deny') {
-        if (event.source !== window.parent || event.origin !== siteOrigin ||
-            typeof d !== 'object' || Array.isArray(d) || d.version !== 1 ||
-            Object.keys(d).length !== 2 || !Object.prototype.hasOwnProperty.call(d, 'version') ||
-            !Object.prototype.hasOwnProperty.call(d, 'type')) return;
-        window.parent.postMessage({ type: 'wbe-consent-deny', version: 1 }, siteOrigin);
-        return;
+
+(function () {
+// Receiver-observed snapshots, not loss-tolerant remote revocation.
+// Detach own data before inspecting values, including legacy nested payloads.
+function relayData(value, seen) {
+  if (value === null || typeof value !== 'object') {
+    if (typeof value === 'function' || typeof value === 'symbol') throw Error('data only');
+    return value;
+  }
+  if (seen.indexOf(value) >= 0) throw Error('cycle');
+  var proto=Object.getPrototypeOf(value), array=Array.isArray(value);
+  if (!array && proto !== null) {
+    var ctor=Object.getOwnPropertyDescriptor(proto,'constructor');
+    if (Object.getPrototypeOf(proto)!==null || !ctor || !('value' in ctor) || typeof ctor.value!=='function') throw Error('prototype');
+    var name=Object.getOwnPropertyDescriptor(ctor.value,'name'), owner=Object.getOwnPropertyDescriptor(ctor.value,'prototype');
+    if(!name || !('value' in name) || name.value!=='Object' || !owner || !('value' in owner) || owner.value!==proto)throw Error('prototype');
+  }
+  var ds=Object.getOwnPropertyDescriptors(value), result=array?[]:Object.create(null);
+  seen.push(value);
+  Reflect.ownKeys(ds).forEach(function(k){
+    if(array && k==='length')return;
+    var field=ds[k];
+    if(typeof k!=='string'||!('value' in field)||!field.enumerable)throw Error('own data only');
+    Object.defineProperty(result,k,{value:relayData(field.value,seen),enumerable:true,writable:true,configurable:true});
+  });
+  seen.pop();return result;
+}
+function opId() { try { var b=new Uint8Array(16); crypto.getRandomValues(b); return Array.from(b,function(x){return x.toString(16).padStart(2,'0');}).join(''); } catch (_) { return ''; } }
+var opTupleKeys=['producerSession','relayBoot','googleBoot','microsoftBoot'];
+function opValid(d) {
+  if (!d || typeof d!=='object' || Array.isArray(d)) return false;
+  var ds=Object.getOwnPropertyDescriptors(d), keys=Reflect.ownKeys(ds);
+  if(keys.some(function(k){return typeof k!=='string'||!('value' in ds[k])||!ds[k].enumerable;})) return false;
+  var types={probe:['producerSession'],discovery:['producerSession','receiver','headBoot'],ready:['producerSession','relayBoot','receiver','headBoot'],bind:opTupleKeys,state:opTupleKeys.concat(['revision','state','discardThrough']),ack:opTupleKeys.concat(['receiver','revision','state','discardThrough','phase']),business:opTupleKeys.concat(['revision','channel','message'])};
+  if(!ds.type||!ds.version||ds.version.value!==1||typeof ds.type.value!=='string')return false;
+  var shape=types[ds.type.value.replace('wbe-operational-','')];
+  if(!shape||ds.type.value.indexOf('wbe-operational-')!==0||keys.sort().join(',')!==['type','version'].concat(shape).sort().join(','))return false;
+  for(var k of shape){var v=ds[k].value;if(opTupleKeys.concat(['headBoot']).indexOf(k)>=0 && (typeof v!=='string'||!/^[a-f0-9]{32}$/.test(v)))return false;if(['revision','discardThrough'].indexOf(k)>=0&&(!Number.isSafeInteger(v)||v<0))return false;}
+  if(ds.receiver&&['google','microsoft'].indexOf(ds.receiver.value)<0)return false;
+  if(ds.channel&&['google','microsoft'].indexOf(ds.channel.value)<0)return false;
+  if(ds.state&&['OFF','ON','UNRESOLVED'].indexOf(ds.state.value)<0)return false;
+  if(ds.phase&&['bound','state'].indexOf(ds.phase.value)<0)return false;
+  if(ds.discardThrough&&(d.discardThrough>d.revision||(d.state==='ON'&&d.discardThrough!==d.revision)))return false;
+  return true;
+}
+function opSame(a,b){return !!a&&!!b&&opTupleKeys.every(function(k){return a[k]===b[k];});}
+function opEnvelope(type,t,extra){return Object.assign({type:'wbe-operational-'+type,version:1},t||{},extra||{});}
+
+var relayBoot=opId(), session=null, discovery=Object.create(null), tuple=null;
+var bound=false, boundReceipts=Object.create(null), receipts=Object.create(null);
+var revision=0, state='UNRESOLVED', watermark=0, fault=false;
+var siteOrigin='https://www.wanderlustcaribbean.com';
+function post(d){window.parent.postMessage(d,siteOrigin);}
+function businessValid(d){
+  var m=d.message;
+  if(!m || typeof m!=='object' || Array.isArray(m))return false;
+  if(d.channel==='google')return Object.keys(m).sort().join(',')==='payload,type' && m.type==='wbe-datalayer-event' && m.payload && typeof m.payload==='object' && !Array.isArray(m.payload);
+  return Object.keys(m).sort().join(',')==='id,kind,page_path,payload,type,version' && m.type==='wbe-microsoft-message' && m.version===1 && typeof m.id==='string' && /^[a-z0-9-]{1,100}$/.test(m.id) && ['/', '/wanderlust-booking', '/booking-summary'].indexOf(m.page_path)>=0 && (m.kind==='route'?m.payload===null:m.kind==='event'&&m.payload&&typeof m.payload==='object'&&!Array.isArray(m.payload));
+}
+window.onmessage=function(event){
+  try {
+    // Native event fields are browser custody; message data is descriptor-only.
+    if(!event || event.source!==window.parent || event.origin!==siteOrigin)return;
+    var d=relayData(event.data,[]);
+    if(!d || typeof d!=='object' || Array.isArray(d))return;
+    // Suppression stays independent of positive protocol fault/binding.
+    if((d.type==='wbe-consent-deny'||d.type==='wbe-microsoft-withdrawn') && d.version===1 && Object.keys(d).sort().join(',')==='type,version'){post(d);return;}
+    if(d.type==='wbe-microsoft-probe' && d.version===1 && Object.keys(d).sort().join(',')==='type,version'){post(d);post({type:'wbe-microsoft-ready',version:1});return;}
+    if(!relayBoot || fault || !opValid(d))return;
+    if(d.type==='wbe-operational-probe'){
+      if(session && session!==d.producerSession)return;
+      session=d.producerSession;post(d);return;
+    }
+    if(d.type==='wbe-operational-discovery'){
+      if(d.producerSession!==session)return;
+      if(discovery[d.receiver] && discovery[d.receiver]!==d.headBoot){fault=true;return;}
+      discovery[d.receiver]=d.headBoot;
+      post(opEnvelope('ready',null,{producerSession:session,relayBoot:relayBoot,receiver:d.receiver,headBoot:d.headBoot}));return;
+    }
+    // READY is output only. Neither it nor an unobserved tuple can bind us.
+    if(d.relayBoot!==relayBoot || d.producerSession!==session)return;
+    if(d.type==='wbe-operational-bind'){
+      if(tuple && !opSame(tuple,d)){fault=true;return;}
+      if(d.googleBoot!==discovery.google || d.microsoftBoot!==discovery.microsoft)return;
+      if(!tuple){tuple={};opTupleKeys.forEach(function(k){tuple[k]=d[k];});}
+      if(bound){
+        // Re-forward actual retained head receipts, never fabricate ACKs or
+        // replay BIND into heads whose current snapshot must not be reset.
+        post(boundReceipts.google);post(boundReceipts.microsoft);return;
       }
-      if (d && d.type === 'wbe-microsoft-withdrawn') {
-        if (event.source !== window.parent || event.origin !== siteOrigin ||
-            typeof d !== 'object' || Array.isArray(d) || d.version !== 1 || Object.keys(d).length !== 2) return;
-        window.parent.postMessage({ type: 'wbe-microsoft-withdrawn', version: 1 }, siteOrigin);
-        return;
+      post(d);return;
+    }
+    if(!opSame(tuple,d))return;
+    if(d.type==='wbe-operational-ack'){
+      if(d.phase==='bound'){
+        if(d.revision!==0 || d.state!=='UNRESOLVED' || d.discardThrough!==0)return;
+        boundReceipts[d.receiver]=d;
+        bound=!!(boundReceipts.google && boundReceipts.microsoft);
+        // This is the ONLY pre-bound ACK path: avoids circular binding.
+        post(d);return;
       }
-      if (d && (d.type === 'wbe-microsoft-probe' || d.type === 'wbe-microsoft-message')) {
-        if (event.source !== window.parent || event.origin !== siteOrigin ||
-            typeof d !== 'object' || Array.isArray(d) || d.version !== 1) return;
-        if (d.type === 'wbe-microsoft-probe') {
-          if (Object.keys(d).length !== 2) return;
-          window.parent.postMessage({ type: 'wbe-microsoft-probe', version: 1 }, siteOrigin);
-          window.parent.postMessage({ type: 'wbe-microsoft-ready', version: 1 }, siteOrigin);
-          return;
-        }
-        if (Object.keys(d).sort().join(',') !== 'id,kind,page_path,payload,type,version' ||
-            typeof d.id !== 'string' || !/^[a-z0-9-]{1,100}$/.test(d.id) ||
-            ['/', '/wanderlust-booking', '/booking-summary'].indexOf(d.page_path) === -1 ||
-            (d.kind !== 'route' && d.kind !== 'event') ||
-            (d.kind === 'route' ? d.payload !== null : !d.payload || typeof d.payload !== 'object' || Array.isArray(d.payload))) return;
-        window.parent.postMessage(d, siteOrigin);
-        return;
-      }
-      if (d && d.type === 'wbe-datalayer-event' && d.payload) {
-        window.parent.postMessage({
-          source: 'wbe-event-bridge',
-          payload: d.payload
-        }, '*');
-      }
-    } catch (e) {}
-  };
+      if(!bound || d.revision!==revision || d.state!==state || d.discardThrough!==watermark)return;
+      receipts[d.receiver]=d;post(d);return;
+    }
+    if(!bound)return;
+    if(d.type==='wbe-operational-state'){
+      if(d.revision<revision)return;
+      if(d.revision===revision && (d.state!==state || d.discardThrough!==watermark)){fault=true;receipts=Object.create(null);return;}
+      if(d.discardThrough<watermark || (d.state==='OFF' && d.revision===0))return;
+      if(d.revision!==revision){revision=d.revision;state=d.state;watermark=d.discardThrough;receipts=Object.create(null);}
+      post(d);return;
+    }
+    if(d.type==='wbe-operational-business' && state==='OFF' && revision>watermark && d.revision===revision && receipts.google && receipts.microsoft && businessValid(d))post(d);
+  }catch(_){} // Malformed data / known post failure never supplies a receipt.
+};
+})();
 </script>
 </body>
 </html>

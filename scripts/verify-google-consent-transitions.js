@@ -33,10 +33,11 @@ function harness(options = {}) {
     };
     elements.push(el); return el;
   }
+  const receipts=[],frameWindow={postMessage(d){receipts.push(d);}},frameElement={contentWindow:frameWindow,addEventListener(){}};
   const document = {
     readyState: options.loading ? 'loading' : 'complete', body: element('body'),
     createElement: element,
-    getElementById(id) { if (domError) throw Error('synthetic DOM failure'); return elements.find(e => e.id === id && e.parentNode) || null; },
+    getElementById(id) { if(id==='wbeEventBridge')return frameElement; if (domError) throw Error('synthetic DOM failure'); return elements.find(e => e.id === id && e.parentNode) || null; },
     addEventListener(type, fn) { listen(documentListeners, type, fn); }
   };
   const dataLayer = [];
@@ -53,7 +54,7 @@ function harness(options = {}) {
     addEventListener(type, fn) { listen(windowListeners, type, fn); }
   };
   // Model browser window/global identity; top-level var/functions are window APIs.
-  Object.assign(window, { window, document, localStorage, console: { log() {} } });
+  Object.assign(window, { window, document, localStorage, crypto:require('node:crypto').webcrypto, Uint8Array, setTimeout(f){f();}, console: { log() {} } });
   const context = vm.createContext(window);
   let code = options.source || source;
   if (options.enabled) {
@@ -68,14 +69,27 @@ function harness(options = {}) {
     assert.equal(code.split(anchor).length, 2, 'unique test-only category instrumentation anchor');
     code = code.replace(anchor, '  window.__testOnlyGrantConsent = grantConsent;\n' + anchor);
   }
-  vm.runInContext(code, context);
+  const operational=code.includes('function opHead('), origin='https://bridge.synthetic.invalid';
+ if(operational){window.location.origin='https://www.wanderlustcaribbean.com';code=replaceOnce(code,"var OPERATIONAL_BRIDGE_ORIGIN = '';","var OPERATIONAL_BRIDGE_ORIGIN = '"+origin+"';");}
+ vm.runInContext(code, context);
+ const native=d=>emit(windowListeners,'message',{data:d,origin,source:frameWindow});
+ let tuple;
+ if(operational){
+  native({type:'wbe-operational-probe',version:1,producerSession:'a'.repeat(32)});
+  const discovery=receipts.find(d=>d.type==='wbe-operational-discovery');assert.ok(discovery);
+  tuple={producerSession:'a'.repeat(32),relayBoot:'b'.repeat(32),googleBoot:discovery.headBoot,microsoftBoot:'c'.repeat(32)};
+  native({type:'wbe-operational-bind',version:1,...tuple});
+  native({type:'wbe-operational-state',version:1,...tuple,revision:1,state:'OFF',discardThrough:0});
+  assert.ok(receipts.some(d=>d.type==='wbe-operational-ack'&&d.phase==='state'&&d.state==='OFF'));
+ }
+
   const testOnlyGrantConsent = window.__testOnlyGrantConsent;
   if (options.testOnlyTransitions) delete window.__testOnlyGrantConsent;
   return { context, window, trace, storage, elements, testOnlyGrantConsent,
     ready() { emit(documentListeners, 'DOMContentLoaded'); },
     event(type, event) { emit(documentListeners, type, event); },
     storageEvent(event) { emit(windowListeners, 'storage', { storageArea: localStorage, ...event }); },
-    message(payload) { emit(windowListeners, 'message', { data: { source: 'wbe-event-bridge', payload } }); },
+    message(payload) { if(operational)native({type:'wbe-operational-business',version:1,...tuple,revision:1,channel:'google',message:{type:'wbe-datalayer-event',payload}});else emit(windowListeners, 'message', { data: { source: 'wbe-event-bridge', payload } }); },
     button(label) { const el = elements.find(e => e.tag === 'button' && e.textContent === label); assert.ok(el, `actual ${label} control exists`); return el; },
     setDomError(value) { domError = value; },
     setTagError(value) { tagError = value; },
@@ -104,7 +118,7 @@ function globalGrantWithdrawalWitness(code = source) {
     }
     assert.equal(h.testOnlyGrantConsent, undefined, 'full-source control regression is not instrumented');
     assert.deepEqual(Object.keys(h.window).filter(key => typeof h.window[key] === 'function').sort(),
-      ['addEventListener', 'gtag', 'wbeWithdrawConsent'], 'no replacement public grant callback/API');
+      ['Uint8Array', 'addEventListener', 'gtag', 'wbeWithdrawConsent', ...(code.includes('function opHead(')?['headRecord','headData','opId','opValid','opSame','opEnvelope','opHead']:[]), 'setTimeout'].sort(), 'no replacement public grant callback/API');
     assert.equal(h.window.wbeWithdrawConsent(true, true, true, true), undefined, 'withdrawal exposes no return capability');
     assert.deepEqual(h.state(), denied, 'withdrawal arguments cannot request grants');
     if (enabled) {
@@ -235,7 +249,7 @@ test('DOM failures do not escape consent initialization or withdrawal into booki
     h.window.wbeWithdrawConsent();
     assert.deepEqual(h.state(), denied);
     h.message({ event: 'begin_booking', value: 123, currency: 'USD' });
-    assert.deepEqual(h.calls().at(-1), ['event', 'begin_booking', { value: 123, currency: 'USD' }]);
+    assert.equal(h.calls().filter(a=>a[0]==='event').length,0,'withdrawal suppresses business independently of consent-purpose state');
   }
   const h = harness({ testOnlyTransitions: true, enabled: true });
   h.testOnlyGrantConsent(true, true, true, true);
@@ -273,7 +287,7 @@ test('consent queue errors cannot interrupt withdrawal storage or booking; next 
   h.window.wbeWithdrawConsent();
   assert.equal(h.storage.get('wbe_consent_choice'), 'denied');
   h.message({ event: 'begin_booking', nights: 3 });
-  assert.deepEqual(h.calls().at(-1), ['event', 'begin_booking', { nights: 3 }]);
+  assert.equal(h.calls().filter(a=>a[0]==='event').length,0,'withdrawal still suppresses business after consent queue error');
   h.setTagError(false);
   h.window.wbeWithdrawConsent();
   assert.deepEqual(h.state(), denied, 'failed queue update not cached as delivered');
@@ -293,7 +307,8 @@ test('storage matrix stays denied before configs and events in both DOM/visibili
         assert.ok(calls.filter(a => a[0] === 'config').length === 2);
         assert.ok(calls.every((a, i) => a[0] !== 'config' || i > defaultIndex));
         h.message({ event: 'begin_booking', currency: 'USD', value: 42 });
-        assert.deepEqual(h.calls().at(-1), ['event', 'begin_booking', { currency: 'USD', value: 42 }]);
+        if(choice==='denied'||readError)assert.equal(h.calls().filter(a=>a[0]==='event').length,0);
+        else assert.deepEqual(h.calls().at(-1), ['event', 'begin_booking', { currency: 'USD', value: 42 }]);
         assert.deepEqual(h.state(), denied);
       }
     }
@@ -412,7 +427,20 @@ function beforePublisher(text) {
   assert.equal((text.match(/^[ ]+publishAdvertisingWithdrawal\(\);\n/gm) || []).length, 3);
   return text.replace(/^[ ]+publishAdvertisingWithdrawal\(\);\n/gm, '');
 }
-const beforeIngress = replaceOnce(beforePublisher(source), reviewedDenialAddition, '');
+// Exact reviewed P2 tail only; historical hashes below remain immutable.
+const p2Tail = source.slice(source.indexOf('  // Receive GA4/Ads events'));
+// Remove only the exact successor catch for the existing historical reconstruction.
+const beforeSuccessorP2Tail = replaceOnce(p2Tail,
+  'try{item.receive(replay);}catch(_){\n        // Delivery is uncertain: never retry this item; recheck fences for its successor.\n      }finally{replay=null;}',
+  'try{item.receive(replay);}finally{replay=null;}');
+// Subtract only the exact ACK-uncertainty addition; do not repin historical source.
+const priorP2Tail=replaceOnce(replaceOnce(replaceOnce(beforeSuccessorP2Tail,"function opHead(receiver,origin,clear,resume) {\n  var boot=opId(), tuple=null, frame=null, source=null, fault=false, state='UNRESOLVED', revision=0, watermark=0, acknowledged=false;\n  var generation=(window['__wbeOpGeneration_'+receiver]||0)+1;window['__wbeOpGeneration_'+receiver]=generation;\n  function live(){if(window['__wbeOpGeneration_'+receiver]!==generation)fault=true;if(frame&&(document.getElementById('wbeEventBridge')!==frame||frame.contentWindow!==source))fault=true;return !fault;}\n  function trusted(e){var f=document.getElementById('wbeEventBridge');return origin&&window.location.origin==='https://www.wanderlustcaribbean.com'&&f&&e.origin===origin&&e.source===f.contentWindow;}\n  function send(d){source.postMessage(d,origin);}\n  var pending=[], retry=null, attempts=0, ackSerial=0, draining=false, negative=false, replay=null;\n  function cancelRetry(){if(retry!==null)clearTimeout(retry);retry=null;}\n  document.addEventListener('wbeAdvertisingWithdrawn',function(){negative=true;pending=[];cancelRetry();});\n  function drain(){\n    if(draining)return;draining=true;\n    try{while(allowed()&&pending.length){\n      // Remove before calling provider code: an emitted business event is never retried.\n      var item=pending.shift();\n      replay={data:Object.assign({},item.data,{revision:revision}),source:source,origin:origin};\n      try{item.receive(replay);}finally{replay=null;}\n    }}finally{draining=false;}\n    if(allowed())resume();\n  }\n  function ack(phase){\n    var serial=phase==='state'?++ackSerial:ackSerial, rev=revision;\n    if(phase==='state'){acknowledged=false;cancelRetry();attempts++;}\n    var sent=false;\n    try{send(opEnvelope('ack',tuple,{receiver:receiver,phase:phase,revision:phase==='bound'?0:rev,state:phase==='bound'?'UNRESOLVED':state,discardThrough:phase==='bound'?0:watermark}));sent=true;}catch(_){}\n    if(phase!=='state'||serial!==ackSerial||rev!==revision||!live()||negative)return;\n    acknowledged=sent;\n    if(sent)setTimeout(function(){if(serial===ackSerial&&allowed())drain();},0);\n    else if(attempts<5)retry=setTimeout(function(){retry=null;if(serial===ackSerial&&rev===revision&&live()&&!negative)ack('state');},200);\n  }\n  function allowed(){return !negative&&live()&&tuple&&acknowledged&&state==='OFF'&&revision>0;}\n  window.addEventListener('message',function(e){\n    if(!trusted(e)||!opValid(e.data)||!live()||!boot)return;var x=e.data;\n    if(x.type==='wbe-operational-probe'){e.source.postMessage(opEnvelope('discovery',null,{producerSession:x.producerSession,receiver:receiver,headBoot:boot}),origin);return;}\n    if(x.type==='wbe-operational-bind'){\n      if(x[receiver+'Boot']!==boot)return;\n      if(tuple){if(!opSame(tuple,x)){fault=true;return;}ack('bound');return;}\n      tuple={};opTupleKeys.forEach(function(k){tuple[k]=x[k];});frame=document.getElementById('wbeEventBridge');source=frame.contentWindow;\n      frame.addEventListener('load',function(){fault=true;acknowledged=false;});ack('bound');return;\n    }\n    if(x.type!=='wbe-operational-state'||!opSame(tuple,x))return;\n    if(x.revision<revision||x.discardThrough<watermark)return;\n    if(x.revision===revision&&(x.state!==state||x.discardThrough!==watermark)){fault=true;acknowledged=false;return;}\n    var changed=x.revision!==revision;state=x.state;revision=x.revision;watermark=x.discardThrough;\n    if(changed){acknowledged=false;cancelRetry();attempts=0;pending=pending.filter(function(item){return item.data.revision>watermark;});if(state==='ON')pending=[];clear(state,watermark);}ack('state');\n  });\n  return {allowed:allowed,revision:function(){return revision;},business:function(e,channel,receive){\n    var x=e&&e.data;\n    if(!trusted(e)||!opValid(x)||x.type!=='wbe-operational-business'||x.channel!==channel||!opSame(tuple,x)||x.revision!==revision||!live()||negative||state!=='OFF')return null;\n    if(!acknowledged || (e!==replay&&(pending.length||draining))){\n      // Retain only never-dispatched own-data work while ACK delivery is uncertain.\n      try{pending.push({data:headData(x,[]),receive:receive});}catch(_){}\n      return null;\n    }\n    return x.message;\n  }};\n}","function opHead(receiver,origin,clear,resume) {\n  var boot=opId(), tuple=null, frame=null, source=null, fault=false, state='UNRESOLVED', revision=0, watermark=0, acknowledged=false;\n  var generation=(window['__wbeOpGeneration_'+receiver]||0)+1;window['__wbeOpGeneration_'+receiver]=generation;\n  function live(){if(window['__wbeOpGeneration_'+receiver]!==generation)fault=true;if(frame&&(document.getElementById('wbeEventBridge')!==frame||frame.contentWindow!==source))fault=true;return !fault;}\n  function trusted(e){var f=document.getElementById('wbeEventBridge');return origin&&window.location.origin==='https://www.wanderlustcaribbean.com'&&f&&e.origin===origin&&e.source===f.contentWindow;}\n  function send(d){source.postMessage(d,origin);}\n  function ack(phase){if(phase==='state')acknowledged=false;try{send(opEnvelope('ack',tuple,{receiver:receiver,phase:phase,revision:phase==='bound'?0:revision,state:phase==='bound'?'UNRESOLVED':state,discardThrough:phase==='bound'?0:watermark}));if(phase==='state')acknowledged=true;}catch(_){}if(phase==='state'&&acknowledged)setTimeout(function(){if(allowed())resume();},0);}\n  function allowed(){return live()&&tuple&&acknowledged&&state==='OFF'&&revision>0;}\n  window.addEventListener('message',function(e){\n    if(!trusted(e)||!opValid(e.data)||!live()||!boot)return;var x=e.data;\n    if(x.type==='wbe-operational-probe'){e.source.postMessage(opEnvelope('discovery',null,{producerSession:x.producerSession,receiver:receiver,headBoot:boot}),origin);return;}\n    if(x.type==='wbe-operational-bind'){\n      if(x[receiver+'Boot']!==boot)return;\n      if(tuple){if(!opSame(tuple,x)){fault=true;return;}ack('bound');return;}\n      tuple={};opTupleKeys.forEach(function(k){tuple[k]=x[k];});frame=document.getElementById('wbeEventBridge');source=frame.contentWindow;\n      frame.addEventListener('load',function(){fault=true;acknowledged=false;});ack('bound');return;\n    }\n    if(x.type!=='wbe-operational-state'||!opSame(tuple,x))return;\n    if(x.revision<revision||x.discardThrough<watermark)return;\n    if(x.revision===revision&&(x.state!==state||x.discardThrough!==watermark)){fault=true;acknowledged=false;return;}\n    var changed=x.revision!==revision;state=x.state;revision=x.revision;watermark=x.discardThrough;\n    if(changed)clear(state,watermark);ack('state');\n  });\n  return {allowed:allowed,revision:function(){return revision;},business:function(e,channel){var x=e&&e.data;return trusted(e)&&opValid(x)&&x.type==='wbe-operational-business'&&x.channel===channel&&opSame(tuple,x)&&x.revision===revision&&allowed()?x.message:null;}};\n}"),'function receiveGoogle(event)', 'function (event)'),"googleOp.business(event,'google',receiveGoogle)","googleOp.business(event,'google')");
+assert.equal(hash(priorP2Tail), '6a504b5d4194e8095acaf82f61c4e9ee7774bf120662c88269b6730a21151991', 'reviewed P2 tail bytes');
+const preP2Html = execFileSync('git',['show','875f1800704b7309daa45a6074abfdd78e0ba0b7:velo/custom-code/google-tag-and-consent.html'],{cwd:root,encoding:'utf8'}).replace(/\r\n/g,'\n');
+const preP2Source = [...preP2Html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].find(m=>!/\bsrc=/.test(m[1]))[2];
+const historicalSource = replaceOnce(source,p2Tail,preP2Source.slice(preP2Source.indexOf('  // Receive GA4/Ads events')));
+assert.equal(historicalSource,preP2Source,'only exact P2 addition removed');
+const beforeIngress = replaceOnce(beforePublisher(historicalSource), reviewedDenialAddition, '');
 const ingressBaselineHtml = execFileSync('git', ['show',
   '0a3f8914909e27d5e892c4354d2298b408543fd2:velo/custom-code/google-tag-and-consent.html'],
   { cwd: root, encoding: 'utf8' }).replace(/\r\n/g, '\n');
@@ -422,7 +450,7 @@ assert.equal(beforeIngress, ingressBaselineSource, 'unique B06 removal restores 
 // Exact pre-correction reconstruction preserves the original historical hash.
 // Keep this anchor compatible with the existing isolated B scaffold, which also
 // strips this same branch. Uniqueness is asserted against current source above.
-const globalGrantReversal = replaceOnce(replaceOnce(source,
+const globalGrantReversal = replaceOnce(replaceOnce(historicalSource,
   '  // Private transitions and control callbacks are API hygiene, not same-realm\n' +
   '  // isolation: page scripts can still manipulate the DOM or dataLayer.\n' +
   '  (function () {\n', ''),
@@ -462,7 +490,7 @@ causal('withdrawal denial deletion', withdrawalReversal, code => {
 test('unchanged loading IDs click capture appearance and actual event transport versus baseline', () => {
   assert.equal(html.slice(0, html.indexOf('  // Local provider signals')), oldHtml.slice(0, oldHtml.indexOf('  // Grant consent per-category')));
   assert.equal(segment(source, '    function showBanner()', '    var initialized'), segment(oldSource, '    function showBanner()', '    function initBanner()'));
-  assert.equal(html.slice(html.indexOf('  // Receive GA4/Ads events')).trimEnd(), oldHtml.slice(oldHtml.indexOf('  // Receive GA4/Ads events')).trimEnd());
+  assert.equal(historicalSource.slice(historicalSource.indexOf('  // Receive GA4/Ads events')).trimEnd(), oldSource.slice(oldSource.indexOf('  // Receive GA4/Ads events')).trimEnd());
   for (const event of ['begin_booking', 'purchase', 'synthetic_custom']) {
     const payload = { event, value: 42, currency: 'USD', transaction_id: 'public-fixture', items: [{ item_id: 'fixture', quantity: 1 }] };
     const current = harness(), old = harness({ source: oldSource });
@@ -472,6 +500,18 @@ test('unchanged loading IDs click capture appearance and actual event transport 
   }
 });
 
+test('historical withdrawal business retained only as pinned history; current explicit OFF negative gate',()=>{
+ for(const options of [{},{choice:'denied'},{readError:true}]){
+  const current=harness(options),historical=harness({...options,source:preP2Source});
+  if(!options.choice&&!options.readError){current.message({event:'purchase',transaction_id:'eligible',value:0,currency:'EUR'});assert.deepEqual(current.calls().at(-1),['event','purchase',{transaction_id:'eligible',value:0,currency:'EUR'}]);}
+  current.window.wbeWithdrawConsent();historical.window.wbeWithdrawConsent();
+  const before=current.calls().filter(a=>a[0]==='event');
+  current.message({event:'begin_booking',nights:3});historical.message({event:'begin_booking',nights:3});
+  assert.deepEqual(current.calls().filter(a=>a[0]==='event'),before);
+  assert.deepEqual(historical.calls().at(-1),['event','begin_booking',{nights:3}]);
+  assert.deepEqual(current.state(),denied);assert.deepEqual(historical.state(),denied);
+ }
+});
 let failed = 0;
 for (const { name, run } of tests) {
   try { run(); console.log(`PASS | ${name}`); }

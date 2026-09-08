@@ -4,13 +4,127 @@
      UET tag: 17524068 (Remarketing Tom 1) -->
 <script>
   (function (w, d, t, src, queueName) {
+
+// Receiver-observed snapshots, not loss-tolerant remote revocation.
+function headRecord(value) {
+  if (!value || typeof value!=='object' || Array.isArray(value)) return false;
+  var proto=Object.getPrototypeOf(value);
+  if(proto===null)return true;
+  var ctor=Object.getOwnPropertyDescriptor(proto,'constructor');
+  if(Object.getPrototypeOf(proto)!==null || !ctor || !('value' in ctor) || typeof ctor.value!=='function')return false;
+  var name=Object.getOwnPropertyDescriptor(ctor.value,'name'), owner=Object.getOwnPropertyDescriptor(ctor.value,'prototype');
+  return !!name && 'value' in name && name.value==='Object' && !!owner && 'value' in owner && owner.value===proto;
+}
+function headData(value, seen) {
+  if (value === null || typeof value !== 'object') {
+    if (typeof value === 'function' || typeof value === 'symbol') throw Error('data only');
+    return value;
+  }
+  if (seen.indexOf(value) >= 0) throw Error('cycle');
+  var array=Array.isArray(value);
+  if(!array && !headRecord(value))throw Error('prototype');
+  var ds=Object.getOwnPropertyDescriptors(value), result=array?[]:Object.create(null);
+  seen.push(value);
+  Reflect.ownKeys(ds).forEach(function(k){
+    if(array && k==='length')return;
+    var field=ds[k];
+    if(typeof k!=='string'||!('value' in field)||!field.enumerable)throw Error('own data only');
+    Object.defineProperty(result,k,{value:headData(field.value,seen),enumerable:true,writable:true,configurable:true});
+  });
+  seen.pop();return result;
+}
+function opId() { try { var b=new Uint8Array(16); crypto.getRandomValues(b); return Array.from(b,function(x){return x.toString(16).padStart(2,'0');}).join(''); } catch (_) { return ''; } }
+var opTupleKeys=['producerSession','relayBoot','googleBoot','microsoftBoot'];
+function opValid(d) {
+  try { if(!headRecord(d))return false; } catch (_) { return false; }
+  var ds=Object.getOwnPropertyDescriptors(d), keys=Reflect.ownKeys(ds);
+  if(keys.some(function(k){return typeof k!=='string'||!('value' in ds[k])||!ds[k].enumerable;})) return false;
+  var types={probe:['producerSession'],discovery:['producerSession','receiver','headBoot'],ready:['producerSession','relayBoot','receiver','headBoot'],bind:opTupleKeys,state:opTupleKeys.concat(['revision','state','discardThrough']),ack:opTupleKeys.concat(['receiver','revision','state','discardThrough','phase']),business:opTupleKeys.concat(['revision','channel','message'])};
+  if(!ds.type||!ds.version||ds.version.value!==1||typeof ds.type.value!=='string')return false;
+  var shape=types[ds.type.value.replace('wbe-operational-','')];
+  if(!shape||ds.type.value.indexOf('wbe-operational-')!==0||keys.sort().join(',')!==['type','version'].concat(shape).sort().join(','))return false;
+  for(var k of shape){var v=ds[k].value;if(opTupleKeys.concat(['headBoot']).indexOf(k)>=0 && (typeof v!=='string'||!/^[a-f0-9]{32}$/.test(v)))return false;if(['revision','discardThrough'].indexOf(k)>=0&&(!Number.isSafeInteger(v)||v<0))return false;}
+  if(ds.receiver&&['google','microsoft'].indexOf(ds.receiver.value)<0)return false;
+  if(ds.channel&&['google','microsoft'].indexOf(ds.channel.value)<0)return false;
+  if(ds.state&&['OFF','ON','UNRESOLVED'].indexOf(ds.state.value)<0)return false;
+  if(ds.phase&&['bound','state'].indexOf(ds.phase.value)<0)return false;
+  if(ds.discardThrough&&(d.discardThrough>d.revision||(d.state==='ON'&&d.discardThrough!==d.revision)))return false;
+  return true;
+}
+function opSame(a,b){return !!a&&!!b&&opTupleKeys.every(function(k){return a[k]===b[k];});}
+function opEnvelope(type,t,extra){return Object.assign({type:'wbe-operational-'+type,version:1},t||{},extra||{});}
+
+function opHead(receiver,origin,clear,resume) {
+  var boot=opId(), tuple=null, frame=null, source=null, fault=false, state='UNRESOLVED', revision=0, watermark=0, acknowledged=false;
+  var generation=(window['__wbeOpGeneration_'+receiver]||0)+1;window['__wbeOpGeneration_'+receiver]=generation;
+  function live(){if(window['__wbeOpGeneration_'+receiver]!==generation)fault=true;if(frame&&(document.getElementById('wbeEventBridge')!==frame||frame.contentWindow!==source))fault=true;return !fault;}
+  function trusted(e){var f=document.getElementById('wbeEventBridge');return origin&&window.location.origin==='https://www.wanderlustcaribbean.com'&&f&&e.origin===origin&&e.source===f.contentWindow;}
+  function send(d){source.postMessage(d,origin);}
+  var pending=[], retry=null, attempts=0, ackSerial=0, draining=false, negative=false, replay=null;
+  function cancelRetry(){if(retry!==null)clearTimeout(retry);retry=null;}
+  document.addEventListener('wbeAdvertisingWithdrawn',function(){negative=true;pending=[];cancelRetry();});
+  function drain(){
+    if(draining)return;draining=true;
+    try{while(allowed()&&pending.length){
+      // Remove before calling provider code: an emitted business event is never retried.
+      var item=pending.shift();
+      replay={data:Object.assign({},item.data,{revision:revision}),source:source,origin:origin};
+      try{item.receive(replay);}catch(_){
+        // Delivery is uncertain: never retry this item; recheck fences for its successor.
+      }finally{replay=null;}
+    }}finally{draining=false;}
+    if(allowed())resume();
+  }
+  function ack(phase){
+    var serial=phase==='state'?++ackSerial:ackSerial, rev=revision;
+    if(phase==='state'){acknowledged=false;cancelRetry();attempts++;}
+    var sent=false;
+    try{send(opEnvelope('ack',tuple,{receiver:receiver,phase:phase,revision:phase==='bound'?0:rev,state:phase==='bound'?'UNRESOLVED':state,discardThrough:phase==='bound'?0:watermark}));sent=true;}catch(_){}
+    if(phase!=='state'||serial!==ackSerial||rev!==revision||!live()||negative)return;
+    acknowledged=sent;
+    if(sent)setTimeout(function(){if(serial===ackSerial&&allowed())drain();},0);
+    else if(attempts<5)retry=setTimeout(function(){retry=null;if(serial===ackSerial&&rev===revision&&live()&&!negative)ack('state');},200);
+  }
+  function allowed(){return !negative&&live()&&tuple&&acknowledged&&state==='OFF'&&revision>0;}
+  window.addEventListener('message',function(e){
+    if(!trusted(e)||!opValid(e.data)||!live()||!boot)return;var x=e.data;
+    if(x.type==='wbe-operational-probe'){if(isWithdrawn())notifyProducerWithdrawal();e.source.postMessage(opEnvelope('discovery',null,{producerSession:x.producerSession,receiver:receiver,headBoot:boot}),origin);return;}
+    if(x.type==='wbe-operational-bind'){
+      if(x[receiver+'Boot']!==boot)return;
+      if(tuple){if(!opSame(tuple,x)){fault=true;return;}ack('bound');return;}
+      tuple={};opTupleKeys.forEach(function(k){tuple[k]=x[k];});frame=document.getElementById('wbeEventBridge');source=frame.contentWindow;
+      frame.addEventListener('load',function(){fault=true;acknowledged=false;});ack('bound');return;
+    }
+    if(x.type!=='wbe-operational-state'||!opSame(tuple,x))return;
+    if(x.revision<revision||x.discardThrough<watermark)return;
+    if(x.revision===revision&&(x.state!==state||x.discardThrough!==watermark)){fault=true;acknowledged=false;return;}
+    var changed=x.revision!==revision;state=x.state;revision=x.revision;watermark=x.discardThrough;
+    if(changed){acknowledged=false;cancelRetry();attempts=0;pending=pending.filter(function(item){return item.data.revision>watermark;});if(state==='ON')pending=[];clear(state,watermark);}ack('state');
+  });
+  return {allowed:allowed,revision:function(){return revision;},business:function(e,channel,receive){
+    var x=e&&e.data;
+    if(!trusted(e)||!opValid(x)||x.type!=='wbe-operational-business'||x.channel!==channel||!opSame(tuple,x)||x.revision!==revision||!live()||negative||state!=='OFF')return null;
+    if(!acknowledged || (e!==replay&&(pending.length||draining))){
+      // Retain only never-dispatched own-data work while ACK delivery is uncertain.
+      try{pending.push({data:headData(x,[]),receive:receive});}catch(_){}
+      return null;
+    }
+    return x.message;
+  }};
+}
+
     var pendingEvents = [];
+    var MICROSOFT_BRIDGE_ORIGIN = '';
+    var MICROSOFT_BRIDGE_ORIGIN_CONFIG = MICROSOFT_BRIDGE_ORIGIN;
+    var op = opHead('microsoft', MICROSOFT_BRIDGE_ORIGIN_VALUE(), function(state,watermark){pendingEvents=pendingEvents.filter(function(x){return x[2]>watermark;});if(currentPageRevision<=watermark)currentPage=null;if(state==='ON'){pendingEvents=[];currentPage=null;}},function(){if(loaded)loadTag();});
+    function MICROSOFT_BRIDGE_ORIGIN_VALUE(){return MICROSOFT_BRIDGE_ORIGIN_CONFIG;}
+
     var uetReady = false;
-    var initialized = false;
+    var initialized = false, draining=false;
     var withdrawn = false;
     // Deployment must supply the exact iframe origin; never learn it from traffic.
-    var MICROSOFT_BRIDGE_ORIGIN = '';
-    var currentPage = null, loaded = false;
+    var MICROSOFT_BRIDGE_ORIGIN = MICROSOFT_BRIDGE_ORIGIN_CONFIG;
+    var currentPage = null, currentPageRevision=0, loaded = false;
     var observations = Object.create(null);
     function validMessage(event) {
       var data = event && event.data, frame;
@@ -53,9 +167,9 @@
     });
 
     function sendEvent(action, params) {
-      if (isWithdrawn()) return;
+      if (!op.allowed() || isWithdrawn()) return;
       if (!uetReady) {
-        pendingEvents.push([action, params]);
+        pendingEvents.push([action, params, op.revision()]);
         return;
       }
       if (action !== 'page_view') params.page_path = currentPage;
@@ -72,17 +186,21 @@
       search_no_results: 'search_no_results',
       purchase: 'purchase'
     };
-    w.addEventListener('message', function (event) {
+    w.addEventListener('message', function receiveMicrosoft(event) {
       if (isWithdrawn()) {
         if (event && event.data && event.data.type === 'wbe-microsoft-probe') notifyProducerWithdrawal();
         return;
       }
+      var wrapped=op.business(event,'microsoft',receiveMicrosoft);
+      if(!wrapped)return;
+      try { wrapped=headData(wrapped,[]); } catch (_) { return; }
+      event={data:wrapped,source:event.source,origin:event.origin};
       if (!validMessage(event)) return;
       var data = event.data;
       if (observations[data.id]) return;
       observations[data.id] = true; // Transport identity only, not purchase authority/dedup.
       if (data.kind === 'route') {
-        currentPage = data.page_path;
+        currentPage = data.page_path;currentPageRevision=op.revision();
         if (uetReady) sendEvent('page_view', { page_path: currentPage });
         else if (loaded) loadTag();
         return;
@@ -107,25 +225,21 @@
 
     w[queueName] = w[queueName] || [];
     var loadTag = function () {
-      if (initialized || isWithdrawn() || !currentPage || !MICROSOFT_BRIDGE_ORIGIN) return;
-      initialized = true;
-      var options = {
-        ti: '17524068',
-        tm: 'wix_ui',
-        // Only the configured, trusted ordinary-page replacement owns SPA views.
-        enableAutoSpaTracking: false
-      };
-      options.q = w[queueName];
-      if (isWithdrawn()) return;
-      w[queueName] = new UET(options);
-      if (isWithdrawn()) return;
-      w[queueName].push('pageLoad');
-      uetReady = true;
-
-      for (var i = 0; i < pendingEvents.length; i++) {
-        sendEvent(pendingEvents[i][0], pendingEvents[i][1]);
+      if (!op.allowed() || isWithdrawn() || !currentPage || !MICROSOFT_BRIDGE_ORIGIN) return;
+      if (!initialized) {
+        initialized=true; // A throwing constructor is uncertain, never retried.
+        w[queueName]=new UET({ti:'17524068',tm:'wix_ui',enableAutoSpaTracking:false,q:w[queueName]});
       }
-      pendingEvents = [];
+      if(!op.allowed()||isWithdrawn())return;
+      if(!uetReady){uetReady=true;w[queueName].push('pageLoad');}
+      if(draining)return;draining=true;
+      try { while(op.allowed()&&!isWithdrawn()&&pendingEvents.length){
+        // Own the attempt before provider code: a thrown return cannot authorize replay.
+        var item=pendingEvents.shift();
+        try { sendEvent(item[0],item[1]); } catch (_) {
+          // Only untouched successors may continue, after the loop rechecks all fences.
+        }
+      } } finally {draining=false;}
       console.log('[WBE-UET] tag initialized on:', w.location.pathname);
     };
 

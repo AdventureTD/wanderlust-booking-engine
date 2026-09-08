@@ -116,6 +116,56 @@ export function clearClickIds() {
 // so events go through the hidden wbeEventBridge HTML iframe on the Master
 // Page: Velo -> iframe.postMessage -> parent window -> head snippet -> dataLayer.
 // Public modules can't use the $w global, so page code injects it once.
+
+// Receiver-observed snapshots, not loss-tolerant remote revocation.
+function opId() { try { var b=new Uint8Array(16); crypto.getRandomValues(b); return Array.from(b,function(x){return x.toString(16).padStart(2,'0');}).join(''); } catch (_) { return ''; } }
+var opTupleKeys=['producerSession','relayBoot','googleBoot','microsoftBoot'];
+function opValid(d) {
+  if (!d || typeof d!=='object' || Array.isArray(d)) return false;
+  var ds=Object.getOwnPropertyDescriptors(d), keys=Reflect.ownKeys(ds);
+  if(keys.some(function(k){return typeof k!=='string'||!('value' in ds[k])||!ds[k].enumerable;})) return false;
+  var types={probe:['producerSession'],discovery:['producerSession','receiver','headBoot'],ready:['producerSession','relayBoot','receiver','headBoot'],bind:opTupleKeys,state:opTupleKeys.concat(['revision','state','discardThrough']),ack:opTupleKeys.concat(['receiver','revision','state','discardThrough','phase']),business:opTupleKeys.concat(['revision','channel','message'])};
+  if(!ds.type||!ds.version||ds.version.value!==1||typeof ds.type.value!=='string')return false;
+  var shape=types[ds.type.value.replace('wbe-operational-','')];
+  if(!shape||ds.type.value.indexOf('wbe-operational-')!==0||keys.sort().join(',')!==['type','version'].concat(shape).sort().join(','))return false;
+  for(var k of shape){var v=ds[k].value;if(opTupleKeys.concat(['headBoot']).indexOf(k)>=0 && (typeof v!=='string'||!/^[a-f0-9]{32}$/.test(v)))return false;if(['revision','discardThrough'].indexOf(k)>=0&&(!Number.isSafeInteger(v)||v<0))return false;}
+  if(ds.receiver&&['google','microsoft'].indexOf(ds.receiver.value)<0)return false;
+  if(ds.channel&&['google','microsoft'].indexOf(ds.channel.value)<0)return false;
+  if(ds.state&&['OFF','ON','UNRESOLVED'].indexOf(ds.state.value)<0)return false;
+  if(ds.phase&&['bound','state'].indexOf(ds.phase.value)<0)return false;
+  if(ds.discardThrough&&(d.discardThrough>d.revision||(d.state==='ON'&&d.discardThrough!==d.revision)))return false;
+  return true;
+}
+function opSame(a,b){return !!a&&!!b&&opTupleKeys.every(function(k){return a[k]===b[k];});}
+function opEnvelope(type,t,extra){return Object.assign({type:'wbe-operational-'+type,version:1},t||{},extra||{});}
+
+let opSession=opId(), attachment=0, opFault=false, opTuple=null, opBound=false, opRevision=0, opWatermark=0, opReceipts={}, opReady={}, opFlight=null;
+function opCancel(){if(opFlight){opFlight.closed=true;clearTimeout(opFlight.timer);}opFlight=null;}
+function opStart(message,phase){
+  opCancel();if(!microsoftBridge||!opSession||opFault)return;
+  const bridge=microsoftBridge, generation=attachment, flight={message,phase,tries:0,closed:false,timer:null};opFlight=flight;
+  function attempt(){if(opFlight!==flight||flight.closed||generation!==attachment||bridge!==microsoftBridge)return;
+    if(flight.tries===5){flight.closed=true;opReceipts={};return;}
+    flight.tries++;try{bridge.postMessage(message);}catch(_){}
+    if(opFlight===flight&&!flight.closed)flight.timer=setTimeout(attempt,250);
+  }attempt();
+}
+function opState(){opReceipts={};if(opBound)opStart(opEnvelope('state',opTuple,{revision:opRevision,state:_suspendGoogleAds===false?'OFF':_suspendGoogleAds===true?'ON':'UNRESOLVED',discardThrough:opWatermark}),'state');}
+function opReceive(d){
+  if(!opValid(d)||!opFlight||opFlight.closed||opFault)return;
+  if(d.type==='wbe-operational-ready'&&opFlight.phase==='probe'&&d.producerSession===opSession){
+    if(opReady[d.receiver]&&(opReady[d.receiver].headBoot!==d.headBoot||opReady[d.receiver].relayBoot!==d.relayBoot)){opFault=true;opCancel();return;}
+    opReady[d.receiver]=d;
+    if(opReady.google&&opReady.microsoft){if(opReady.google.relayBoot!==opReady.microsoft.relayBoot){opFault=true;return;}
+      opTuple={producerSession:opSession,relayBoot:d.relayBoot,googleBoot:opReady.google.headBoot,microsoftBoot:opReady.microsoft.headBoot};opReceipts={};opStart(opEnvelope('bind',opTuple),'bound');}
+  }else if(d.type==='wbe-operational-ack'&&opSame(opTuple,d)&&d.phase===opFlight.phase){
+    const expected=opFlight.message;
+    if(d.phase==='bound'?(d.revision!==0||d.state!=='UNRESOLVED'||d.discardThrough!==0):(d.revision!==expected.revision||d.state!==expected.state||d.discardThrough!==expected.discardThrough))return;
+    opReceipts[d.receiver]=true;
+    if(opReceipts.google&&opReceipts.microsoft){const phase=d.phase;opCancel();if(phase==='bound'){opBound=true;microsoftReady=true;opState();}else{const generation=attachment,revision=opRevision;setTimeout(function(){if(generation===attachment&&revision===opRevision){flushMicrosoft();flushGoogle();}},0);}}
+  }
+}
+function opWrap(channel,message){return opEnvelope('business',opTuple,{revision:opRevision,channel,message});}
 let _$w = null;
 let _suspendGoogleAds = null;
 
@@ -138,7 +188,7 @@ function flushMicrosoft() {
   if (!microsoftReady || !microsoftBridge) return;
   while (permitted() && microsoftQueue.length) {
     const envelope = microsoftQueue[0];
-    try { microsoftBridge.postMessage(envelope); }
+    try { microsoftBridge.postMessage(opWrap('microsoft',envelope)); }
     catch (_) {
       if (permitted() && !microsoftTimer && microsoftRetryCount < 4) {
         microsoftRetryCount++;
@@ -159,26 +209,25 @@ function probeMicrosoft() {
   if (permitted() && !microsoftReady) microsoftTimer = setTimeout(probeMicrosoft, 250);
 }
 export function initTracking(w) {
-  _$w = w;
+  _$w=w;
   try {
-    const bridge = w('#wbeEventBridge');
-    if (microsoftBridge === bridge) return;
-    microsoftBridge = bridge; microsoftReady = false;
-    bridge.onMessage(function (event) {
-      const d = event && event.data;
-      if (d && d.type === 'wbe-microsoft-withdrawn' && d.version === 1 && Object.keys(d).length === 2) { withdrawMicrosoft(); return; }
-      if (microsoftWithdrawn) return;
-      if (!d || d.type !== 'wbe-microsoft-ready' || d.version !== 1 || Object.keys(d).length !== 2) return;
-      // Coalesce only pre-iframe route observations; never discard business events.
-      const latest = microsoftQueue.filter(item => item.kind === 'route').pop();
-      microsoftQueue = microsoftQueue.filter(item => item.kind !== 'route' || item === latest);
-      microsoftReady = true;
-      if (microsoftTimer) clearTimeout(microsoftTimer);
-      microsoftTimer = null;
-      flushMicrosoft();
+    const bridge=w('#wbeEventBridge');if(!bridge||typeof bridge.postMessage!=='function'||typeof bridge.onMessage!=='function')throw Error('missing');
+    if(bridge===microsoftBridge)return;
+    if(microsoftBridge){opFault=true;opBound=false;opCancel();}
+    const generation=++attachment;microsoftBridge=bridge;microsoftReady=false;
+    bridge.onMessage(function(event){if(generation!==attachment||bridge!==microsoftBridge)return;const d=event&&event.data;
+      // Independent negative channel must not depend on operational readiness.
+      if(d&&typeof d==='object'&&!Array.isArray(d)){
+        const ds=Object.getOwnPropertyDescriptors(d), keys=Reflect.ownKeys(ds);
+        if(keys.length===2&&Object.prototype.hasOwnProperty.call(ds,'type')&&Object.prototype.hasOwnProperty.call(ds,'version')&&
+          Object.prototype.hasOwnProperty.call(ds.type,'value')&&ds.type.enumerable&&
+          Object.prototype.hasOwnProperty.call(ds.version,'value')&&ds.version.enumerable&&
+          ds.type.value==='wbe-microsoft-withdrawn'&&ds.version.value===1){withdrawMicrosoft();return;}
+      }
+      opReceive(d);
     });
-    probeMicrosoft();
-  } catch (_) { /* Optional bridge must not interrupt booking. */ }
+    opStart(opEnvelope('probe',null,{producerSession:opSession}),'probe');
+  } catch(_){attachment++;opFault=true;opBound=false;opReceipts={};microsoftBridge=null;opCancel();}
 }
 export function observeMicrosoftPage(w) {
   initTracking(w);
@@ -190,7 +239,7 @@ export function observeMicrosoftPage(w) {
   microsoftObservation = page;
   // Readiness may arrive before the scalar: retain only the current route
   // while delivery is unresolved, without removing ordered business work.
-  if (_suspendGoogleAds !== false || !microsoftReady) {
+  if (!permitted() || !microsoftReady) {
     microsoftQueue = microsoftQueue.filter(item => item.kind !== 'route');
   }
   microsoftQueue.push({ type: 'wbe-microsoft-message', version: 1,
@@ -199,14 +248,30 @@ export function observeMicrosoftPage(w) {
 }
 
 let googleQueue = [], observationFlight = null, observationGeneration = 0;
-function permitted() { return _suspendGoogleAds === false && !microsoftWithdrawn; }
+function permitted() { return _suspendGoogleAds === false && !microsoftWithdrawn && !opFault && opBound && opReceipts.google && opReceipts.microsoft; }
+// Automatic capture belongs to the existing OFF completion, not init/replays.
+// Direct captureClickIds retains its independent scalar/withdrawal contract.
+let capturedRevision = -1;
+function resumeClickCapture() {
+  if (_suspendGoogleAds !== false || microsoftWithdrawn || capturedRevision === opRevision) return;
+  capturedRevision = opRevision;
+  captureClickIds();
+}
 function applySuspension(value) {
   _suspendGoogleAds = value;
+  opReceipts={};
+  if(opRevision===Number.MAX_SAFE_INTEGER){opFault=true;opCancel();return;}
+  opRevision++;if(value===true)opWatermark=opRevision;
+  // Clear this transition's old work before any reentrant control transport.
   if (microsoftTimer) clearTimeout(microsoftTimer);
   microsoftTimer = null;
   if (value === true) { microsoftQueue = []; googleQueue = []; }
+  const revision = opRevision;
+  if(opBound)opState();
+  else if(microsoftBridge&&(!opFlight||opFlight.closed)){opReady={};opStart(opEnvelope('probe',null,{producerSession:opSession}),'probe');}
+  if (revision !== opRevision) return;
+  resumeClickCapture();
   if (!permitted()) return;
-  captureClickIds();
   if (!microsoftReady) probeMicrosoft();
   flushMicrosoft();
   flushGoogle();
@@ -231,7 +296,7 @@ export function observeTrackingSuspension() {
 function flushGoogle() {
   while (permitted() && googleQueue.length && _$w) {
     const payload = googleQueue.shift();
-    try { _$w('#wbeEventBridge').postMessage({ type: 'wbe-datalayer-event', payload }); }
+    try { microsoftBridge.postMessage(opWrap('google',{ type: 'wbe-datalayer-event', payload })); }
     catch (_) { /* Legacy Google transport has no retry or delivery acknowledgment. */ }
   }
 }

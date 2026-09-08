@@ -4,25 +4,36 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), vm = requ
 const root = path.resolve(__dirname, '..');
 const read = p => fs.readFileSync(path.join(root,p),'utf8');
 const inline = p => read(p).match(/<script>([\s\S]*?)<\/script>/)[1];
+const business = data => data.type === 'wbe-operational-business' ? data.message : data;
+// Queue browser transport separately from timers; never fabricate head receipts.
+const crypto = require('node:crypto').webcrypto;
 const site='https://www.wanderlustcaribbean.com', origin='https://bridge.synthetic.invalid';
 function setup(configured=true) {
   const calls=[], messages=[], google=[], listeners={}, timers=new Map(), attempts=[]; let loader, receive, ready=false, timerId=0, failures=0, afterFailures=0, onPush=null;
-  const tick=()=>{const batch=[...timers.values()];timers.clear();batch.forEach(f=>f());};
-  const frame={}; const parent={location:{origin:site,pathname:'/'},localStorage:{getItem(){return null;}},addEventListener(t,f){(listeners[t] ||= []).push(f);}};
-  const emit=e=>(listeners.message||[]).forEach(f=>f(e));
-  parent.postMessage=(data,target)=>{messages.push({data:JSON.parse(JSON.stringify(data)),target});if(data.source==='wbe-event-bridge')google.push(data.payload);else if(data.type==='wbe-microsoft-ready' || data.type==='wbe-microsoft-withdrawn'){if(receive)receive({data});}else emit({data,origin,source:frame});};
-  frame.parent=parent;frame.postMessage=(data,target)=>{assert.equal(target,origin);if(ready)frame.onmessage({data,origin:site,source:parent});};
-  vm.runInNewContext(inline('velo/custom-code/event-bridge-iframe.html'),{window:frame});
-  const bridge={onMessage(f){receive=f;},postMessage(data){if(data.type==='wbe-microsoft-message'){attempts.push(JSON.parse(JSON.stringify(data)));if(failures>0){failures--;throw Error('inert send failure');}}if(ready)frame.onmessage({data,origin:site,source:parent});if(data.type==='wbe-microsoft-message' && afterFailures>0){afterFailures--;throw Error('inert post-delivery failure');}}};
+  const queue=[];let pumping=false;
+  const pump=()=>{if(pumping)return;pumping=true;try{let n=0;while(queue.length){assert.ok(++n<500,'bounded queued transport');queue.shift()();}}finally{pumping=false;}};
+  const tick=()=>{const batch=[...timers.values()];timers.clear();batch.forEach(f=>f());pump();};
+  const frame={}; const parent={location:{origin:site,pathname:'/',href:site+'/'},localStorage:{getItem(){return null;}},addEventListener(t,f){(listeners[t] ||= []).push(f);}};
+  const emit=e=>{(listeners.message||[]).forEach(f=>f(e));pump();};
+  parent.postMessage=(data,target)=>{messages.push({data:JSON.parse(JSON.stringify(data)),target});queue.push(()=>{if(!ready)return;if(receive)receive({data});emit({data,origin,source:frame});});};
+  frame.parent=parent;frame.postMessage=(data,target)=>{assert.equal(target,origin);if(ready)queue.push(()=>frame.onmessage({data,origin:site,source:parent}));};
+  vm.runInNewContext(inline('velo/custom-code/event-bridge-iframe.html'),{window:frame,crypto,Uint8Array});
+  const bridge={onMessage(f){receive=f;},postMessage(data){const message=business(data);if(message.type==='wbe-microsoft-message'){attempts.push(JSON.parse(JSON.stringify(message)));if(failures>0){failures--;throw Error('inert send failure');}}if(ready)queue.push(()=>frame.onmessage({data,origin:site,source:parent}));if(message.type==='wbe-microsoft-message' && afterFailures>0){afterFailures--;throw Error('inert post-delivery failure');}}};
   const $w=()=>bridge;
-  const producer={local:{getItem(){return null;}},wixLocationFrontend:{url:site+'/'},console:{log(){},warn(){},error(){}},setTimeout(f){timers.set(++timerId,f);return timerId;},clearTimeout(id){timers.delete(id);}};
+  const producer={crypto,Uint8Array,local:{getItem(){return null;}},wixLocationFrontend:{url:site+'/'},console:{log(){},warn(){},error(){}},setTimeout(f,ms){if(ms===0){queue.push(f);return ++timerId;}timers.set(++timerId,f);return timerId;},clearTimeout(id){timers.delete(id);}};
   vm.createContext(producer);vm.runInContext(read('velo/public/tracking.js').replace(/^import .*;\r?\n/gm,'').replace(/export /g,''),producer);
   producer.setSuspendGoogleAds(false); // Explicit OFF for historical normal-path assertions only.
-  const document={addEventListener(t,f){(listeners[t] ||= []).push(f);},getElementById(){return {contentWindow:frame};},createElement(){return {};},getElementsByTagName(){return [{parentNode:{insertBefore(s){loader=s;}}}];}};
+  Object.assign(producer,{crypto,Uint8Array});
+  const frameElement={contentWindow:frame,addEventListener(){}};
+  const document={readyState:'complete',addEventListener(t,f){(listeners[t] ||= []).push(f);},getElementById(id){return id==='wbeEventBridge'?frameElement:null;},createElement(){return {};},getElementsByTagName(){return [{parentNode:{insertBefore(s){loader=s;}}}];}};
   parent.window=parent;parent.document=document;parent.console=producer.console;
+  Object.assign(parent,{crypto,Uint8Array,setTimeout:producer.setTimeout,clearTimeout:producer.clearTimeout});
   parent.UET=function(o){calls.push(['constructor',o.ti,o.tm,o.enableAutoSpaTracking]);this.push=(...a)=>{calls.push(JSON.parse(JSON.stringify(a)));if(onPush)onPush(a);};};
   vm.runInNewContext(inline('velo/custom-code/microsoft-uet-and-events.html').replace("var MICROSOFT_BRIDGE_ORIGIN = '';",`var MICROSOFT_BRIDGE_ORIGIN = '${configured?origin:''}';`),parent);
-  return {calls,messages,google,producer,parent,frame,emit,dispatch(type,event){(listeners[type]||[]).forEach(f=>f(event));},$w,tick,timers,attempts,onPush(f){onPush=f;},failAfter(n){afterFailures=n;},fail(n){failures=n;},observe(p){producer.wixLocationFrontend.url=site+p;parent.location.pathname=p.split(/[?#]/)[0];producer.observeMicrosoftPage($w);},connect(){ready=true;tick();},complete(){assert.ok(loader);const f=loader.onload;f.call(loader);f.call(loader);}};
+  vm.runInNewContext(inline('velo/custom-code/google-tag-and-consent.html').replace("var OPERATIONAL_BRIDGE_ORIGIN = '';",`var OPERATIONAL_BRIDGE_ORIGIN = '${configured?origin:''}';`),parent);
+  const push=parent.dataLayer.push;parent.dataLayer.push=function(value){if(value[0]==='event')google.push({event:value[1],...value[2]});return push.call(this,value);};
+  for(const name of [...read('velo/public/tracking.js').matchAll(/export function (\w+)/g)].map(m=>m[1])){const original=producer[name];producer[name]=(...args)=>{const result=original(...args);pump();return result;};}
+  return {calls,messages,google,producer,parent,frame,emit,pump,bridge,dispatch(type,event){(listeners[type]||[]).forEach(f=>f(event));pump();},$w,tick,timers,attempts,onPush(f){onPush=f;},failAfter(n){afterFailures=n;},fail(n){failures=n;},observe(p){producer.wixLocationFrontend.url=site+p;parent.location.pathname=p.split(/[?#]/)[0];producer.observeMicrosoftPage($w);},connect(){ready=true;tick();},complete(){assert.ok(loader);const f=loader.onload;f.call(loader);f.call(loader);pump();}};
 }
 function retryRegression(){
  const h=setup();h.observe('/');h.connect();h.complete();h.fail(1);
@@ -177,7 +188,7 @@ function handlerCoverage() {
   if(order==='iframe-first')h.complete();else h.connect();
   assert.deepEqual(h.calls,[['constructor','17524068','wix_ui',false],['pageLoad'],['event','purchase',{page_path:'/',revenue_value:0,currency:'EUR',transaction_id:'master-first'}],['event','purchase',{page_path:'/',revenue_value:12,currency:'USD',transaction_id:'master-second'}]],'actual master -> producer -> iframe -> head retains original financial order; approved current-page association');
   assert.equal(m.trace.length,3,'master settings boundary reached without waiting to observe');
-  const routes=h.messages.filter(x=>x.data.kind==='route');assert.ok(routes.length>0);
+  const routes=h.messages.filter(x=>business(x.data).kind==='route');assert.ok(routes.length>0);
   const last=routes.at(-1);h.emit({data:last.data,origin,source:h.frame});assert.equal(h.calls.length,4,'exact transport replay does not duplicate');
  }
  const ssr=setup(),ssrMaster=masterFixture(ssr,'backend');ssrMaster.ready('/');ssr.connect();ssr.complete();assert.deepEqual(ssr.calls,[]);
@@ -194,7 +205,7 @@ function run(){
  assert.deepEqual(h.calls,[['constructor','17524068','wix_ui',false],['pageLoad'],['event','purchase',{page_path:'/',revenue_value:42,currency:'USD',transaction_id:'fixture-original'}]]);
  h.observe('/booking-summary');h.observe('/');h.observe('/');
  assert.deepEqual(h.calls.slice(-3),[['event','page_view',{page_path:'/booking-summary'}],['event','page_view',{page_path:'/'}],['event','page_view',{page_path:'/'}]]);
- const route=h.messages.filter(x=>x.data.type==='wbe-microsoft-message').at(-1);const before=h.calls.length;
+ const route=h.messages.filter(x=>business(x.data).type==='wbe-microsoft-message').at(-1);const before=h.calls.length;
  h.emit({data:route.data,origin,source:h.frame});assert.equal(h.calls.length,before,'repeat observation ignored');
  for(const bad of [{origin:'https://evil.invalid',source:h.frame},{origin,source:{}}])h.emit({data:{...route.data,id:'bad'},...bad});
  for(const data of [{...route.data,id:'bad',extra:true},{...route.data,id:'bad',version:2},{...route.data,id:'bad',page_path:'/?token=bad'},{source:'wbe-event-bridge',payload:{event:'purchase'}}])h.emit({data,origin,source:h.frame});
