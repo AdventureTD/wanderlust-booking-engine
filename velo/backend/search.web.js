@@ -9,17 +9,43 @@ const HOTEL_CLOSURES = 'HotelClosures';
 const MIN_N = 4;
 const DAY = 86400000;
 
+// Temporary diagnostics: fixed build identity; no request or record data.
+function searchDiagnostic(stage, error) {
+  try {
+    const details = {};
+    if (error !== undefined) details.classification = 'unclassified';
+    // Exact documented Wix codes only; classification is a hint, not a predicate.
+    // https://dev.wix.com/docs/velo/apis/wix-data/error-codes
+    // Never emit error strings: even an own message/code can contain guest data.
+    for (const key of ['name', 'code', 'message']) {
+      try {
+        const d = error && Object.getOwnPropertyDescriptor(error, key);
+        if (d && (typeof d.value === 'string' || typeof d.value === 'number' || typeof d.value === 'boolean')) {
+          details[key + 'Type'] = typeof d.value;
+          if (key === 'code') {
+            if (d.value === 'WDE0027') details.classification = 'permission';
+            else if (d.value === 'WDE0033' || d.value === 'WDE0076') details.classification = 'validation';
+          }
+        }
+      } catch (_) {}
+    }
+    console.log('[WBE-SEARCH-DIAG-legacy-a07b213-v1]', stage, details);
+  } catch (_) { /* Diagnostics must not change availability outcomes. */ }
+}
+
 function dstr(d) {
   if (!d) return '';
   try { const dt = d instanceof Date ? d : new Date(d); if (isNaN(dt.getTime())) return String(d); return dt.toISOString().slice(0, 10); } catch (e) { return String(d); }
 }
 
 async function checkHotelClosure(checkIn, checkOut) {
+  searchDiagnostic('HotelClosures:start');
   try {
     const q = wixData.query(HOTEL_CLOSURES)
       .le('startDate', checkOut)
       .ge('endDate', checkIn);
     const res = await q.limit(100).find({ suppressAuth: true });
+    searchDiagnostic('HotelClosures:ok');
     if (res.items.length) {
       const c = res.items[0];
       return {
@@ -29,7 +55,7 @@ async function checkHotelClosure(checkIn, checkOut) {
         reason: c.reason || '',
       };
     }
-  } catch (e) {}
+  } catch (e) { searchDiagnostic('HotelClosures:failed', e); }
   return { closed: false };
 }
 
@@ -85,6 +111,9 @@ function nb(a, b) {
 export const searchAvailability = webMethod(
   Permissions.Anyone,
   async (checkIn, checkOut) => {
+    searchDiagnostic('entry');
+    let diagnosticStage = 'validation';
+    try {
     const ci = ds(checkIn);
     const co = ds(checkOut);
     if (co <= ci) {
@@ -97,6 +126,7 @@ export const searchAvailability = webMethod(
 
     const closure = await checkHotelClosure(ci, co);
     if (closure.closed) {
+      searchDiagnostic('closure:blocked');
       return {
         ok: false,
         error: closure.reason || 'The resort is closed from ' + closure.startDate + ' to ' + closure.endDate + '.',
@@ -108,13 +138,25 @@ export const searchAvailability = webMethod(
     const nights = [];
     for (let i = 0; i < rq; i++) { nights.push(ad(ci, i)); }
 
+    diagnosticStage = 'Rooms';
+    searchDiagnostic('Rooms:start');
     const roomRes = await wixData.query(ROOMS).limit(50).find({ suppressAuth: true });
+    searchDiagnostic('Rooms:ok');
+    diagnosticStage = 'Bookings';
+    searchDiagnostic('Bookings:start');
     const bookingRes = await wixData.query(BOOKINGS).limit(1000).find({ suppressAuth: true });
+    searchDiagnostic('Bookings:ok');
+    diagnosticStage = 'processing';
 
     const rooms = roomRes.items;
     const allBookings = bookingRes.items;
     // Fetch all BookingSummary records once; BookingSummary stores dates as text.
+    diagnosticStage = 'BookingSummary';
+    searchDiagnostic('BookingSummary:start');
     const summaryAllRes = await wixData.query(BOOKING_SUMMARIES).limit(1000).find({ suppressAuth: true });
+    searchDiagnostic('BookingSummary:ok');
+    diagnosticStage = 'processing';
+    searchDiagnostic('processing:start');
     const allSummaries = summaryAllRes.items;
 
     const normalizedSummaries = [];
@@ -199,7 +241,7 @@ export const searchAvailability = webMethod(
         bpn.push(count);
         debugCounts.push({ night: dstr(nt), count: count, matched: matched });
       }
-      console.log('>>> searchAvailability counts for', code, JSON.stringify(debugCounts));
+      // Legacy booking-number/count log suppressed: diagnostics must not expose guest data.
 
       let allAvail = true;
       let maxBooked = 0;
@@ -282,11 +324,16 @@ export const searchAvailability = webMethod(
     }
 
     const filtered = deduped.filter(r => r.maxQty > 0);
+    searchDiagnostic('processing:ok');
 
     return {
       ok: true, error: null, requestedNights: rq, results: filtered,
       _ver: 'string-date-overlap-fix',
     };
+    } catch (error) {
+      searchDiagnostic(diagnosticStage + ':failed', error);
+      throw error;
+    }
   }
 );
 
