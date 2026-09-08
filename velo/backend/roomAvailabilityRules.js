@@ -1,6 +1,7 @@
 import { chooseAutomaticUnits } from 'backend/roomAssignmentRules';
 
-// Pure availability decisions over a previously built inventory snapshot.
+// Availability decisions over a previously built inventory snapshot.
+// Temporary source-local diagnostics emit fixed literals only, best-effort.
 // This module performs no reads, writes, network calls, or Wix API operations.
 
 const MAX_QUANTITY_BY_ROOM_CODE = {
@@ -81,6 +82,7 @@ export function evaluateAutomaticAvailability(snapshot, roomCode, quantity) {
     Array.isArray(snapshot.duplicateUnitClaims) &&
     Array.isArray(snapshot.unknownStatusRows);
   if (!validSnapshot || !projectionMatches(snapshot)) {
+    try { console.log('[WBE-SEARCH-PHYSICAL-DIAG-1]', 'snapshot_invalid'); } catch (_) {}
     throw new Error('Invalid inventory snapshot');
   }
   if (!isSupportedRoomCode(roomCode)) {
@@ -91,12 +93,15 @@ export function evaluateAutomaticAvailability(snapshot, roomCode, quantity) {
     throw new Error('Invalid room quantity');
   }
   if (snapshot && Array.isArray(snapshot.migrationIssueRows) && snapshot.migrationIssueRows.length) {
+    try { console.log('[WBE-SEARCH-PHYSICAL-DIAG-1]', 'inventory_migration_required'); } catch (_) {}
     throw new Error('Inventory migration required');
   }
   if (snapshot && Array.isArray(snapshot.duplicateUnitClaims) && snapshot.duplicateUnitClaims.length) {
+    try { console.log('[WBE-SEARCH-PHYSICAL-DIAG-1]', 'inventory_conflict_review_required'); } catch (_) {}
     throw new Error('Inventory conflict review required');
   }
   if (snapshot && Array.isArray(snapshot.unknownStatusRows) && snapshot.unknownStatusRows.length) {
+    try { console.log('[WBE-SEARCH-PHYSICAL-DIAG-1]', 'inventory_status_review_required'); } catch (_) {}
     throw new Error('Inventory status review required');
   }
   const occupiedUnits = snapshot && Array.isArray(snapshot.occupiedUnits)

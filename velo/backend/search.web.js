@@ -10,6 +10,10 @@ const HOTEL_CLOSURES = 'HotelClosures';
 const MIN_N = 4;
 const DAY = 86400000;
 
+// Historical candidate identity only, not proof of a published Wix revision.
+// Diagnostics use fixed stage literals; source markers, not error-message inference,
+// classify inventory rejection. All logging is best-effort and contains no inputs.
+
 function dstr(d) {
   if (!d) return '';
   try { const dt = d instanceof Date ? d : new Date(d); if (isNaN(dt.getTime())) return String(d); return dt.toISOString().slice(0, 10); } catch (e) { return String(d); }
@@ -190,7 +194,15 @@ export const searchAvailability = webMethod(
         const coordinatorEndDate = new Date(endDate.getTime());
         physicalAvailabilityByWindow[key] = Promise.resolve()
           .then(function() { return loadRoomAvailability(coordinatorStartDate, coordinatorEndDate); })
-          .then(physicalCapMap);
+          .then(function(rows) {
+            try { return physicalCapMap(rows); } catch (error) {
+              try { console.log('[WBE-SEARCH-PHYSICAL-DIAG-1]', 'physical_dto_invalid'); } catch (_) {}
+              throw error;
+            }
+          }, function(error) {
+            try { console.log('[WBE-SEARCH-PHYSICAL-DIAG-1]', 'coordinator_unknown_failure'); } catch (_) {}
+            throw error;
+          });
       }
       return physicalAvailabilityByWindow[key];
     }
@@ -199,6 +211,7 @@ export const searchAvailability = webMethod(
     try {
       physicalCaps = await physicalAvailabilityFor(ci, co);
     } catch (error) {
+      try { console.log('[WBE-SEARCH-PHYSICAL-DIAG-1]', 'initial_physical_failed'); } catch (_) {}
       return {
         ok: false,
         error: 'Unable to check room availability. Please try again.',
@@ -221,6 +234,7 @@ export const searchAvailability = webMethod(
       normalizedRooms.push({ room: room, roomCode: roomCode });
       if (typeof roomCode !== 'string') continue;
       if (Object.prototype.hasOwnProperty.call(seenRoomCodes, roomCode)) {
+        try { console.log('[WBE-SEARCH-PHYSICAL-DIAG-1]', 'duplicate_room_code'); } catch (_) {}
         return {
           ok: false,
           error: 'Unable to check room availability. Please try again.',
@@ -316,7 +330,8 @@ export const searchAvailability = webMethod(
         bpn.push(count);
         debugCounts.push({ night: dstr(nt), count: count, matched: matched });
       }
-      console.log('>>> searchAvailability counts for', code, JSON.stringify(debugCounts));
+      // Identifying debugCounts log suppressed: booking numbers and stay dates.
+      // This also intentionally removes that log/serialization exception surface.
 
       let allAvail = true;
       let maxBooked = 0;
@@ -364,6 +379,7 @@ export const searchAvailability = webMethod(
         try {
           partialCaps = await physicalAvailabilityFor(aci, aco);
         } catch (error) {
+          try { console.log('[WBE-SEARCH-PHYSICAL-DIAG-1]', 'partial_physical_failed'); } catch (_) {}
           return {
             ok: false,
             error: 'Unable to check room availability. Please try again.',
