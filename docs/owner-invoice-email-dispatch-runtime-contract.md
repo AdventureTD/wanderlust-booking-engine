@@ -1,4 +1,4 @@
-# Owner invoice email journal — OFF, local review/recovery candidate
+# Owner invoice email journal — committed local lifecycle, OFF
 
 ## Authoritative bounded increment (historical sections below superseded)
 
@@ -6,11 +6,20 @@ Committed queue/recovery closure: `d03daf60debb2add3ad2a1cc8b893ac3f5a0f5c8`.
 Active-profile checkpoints `essential-email-review-recovery-final-review.json` and
 `essential-email-review-recovery-parent-commit.json` retain the prior closure evidence.
 Private REQUEST recovery L1 is committed at `7a26303ba4ad82565072b4fb171c4ee710a354dd`.
-The actual local caller composition is an uncommitted, partially tested candidate;
-the frozen PR01–PR12 matrix and independent byte review are not yet complete.
+The integrated caller is committed at `58232975e307b635ef4acb4e8538614c1d55840d`;
+the private recurring lifecycle is committed at `25d4721570db1d4cf9b24d71424424b072940e8a`.
+`essential-email-recurring-final-review.json` records `PASS_LOCAL_THREE_FILE_BYTE_REVIEW`;
+`essential-email-recurring-parent-commit.json` binds that review to committed blobs.
+Saved isolated evidence: 217 unique passing tests, not rerun for this documentation
+refresh. This is local byte review, not native/runtime readiness or activation approval.
 
-The existing startup calls zero-argument `recover_owner_invoice_periodic_once`.
-No periodic caller is registered. A process-local nonblocking lock protects separate
+The explicit FastAPI lifespan is registered (`invoice_service.py:133–153`), but OFF.
+When the service journal gate is ON it awaits one off-event-loop daemon-thread pass
+of zero-argument `recover_owner_invoice_periodic_once` before yielding. With both
+service gates ON, one owned recurring task waits 60 seconds after completion before
+each later pass, rechecking both gates before admission (`invoice_service.py:46–109`).
+The preserved startup wrapper also delegates to that tick (`invoice_service.py:308–330`);
+it is no longer a separate startup-event registration. A process-local nonblocking lock protects separate
 REQUEST/ISSUANCE positions; OFF returns before configuration and busy returns without
 IO. One authenticated `recoverRequests` completes before independent `scanPending`.
 Admission results never grant sending or feed issuance IDs directly to dispatch.
@@ -21,7 +30,27 @@ attempt, validated continuation/end observations advance or wrap on a later tick
 Restart resets positions. This is conditional finite, process-local opportunity,
 not distributed fairness, stable absence or recovery past permanently malformed
 pages/permanent provider failure. START exclusion and the original dispatcher remain
-unchanged. No scheduler, jobs configuration, activation or runtime deployment changed.
+unchanged. No Wix Scheduler/jobs configuration, activation or runtime deployment changed.
+
+Shutdown marks stopping before task cancellation and uses a monotonic five-second
+asynchronous drain (`invoice_service.py:111–150`). It does not terminate in-flight
+IO, release the tick lock, erase START or replace a still-live retained thread. Active
+ownership or a retained live thread rejects lifespan reentry. Terminal thread/runner
+failures are consumed with fixed sanitized logging and no automatic restart. Routine
+busy/degraded/unavailable/invalid-result passes retain the normal completion-relative
+delay. Logs expose sanitized lifecycle/pass statuses, not an installed owner alert
+or dashboard, provider delivery proof or a hosted availability guarantee.
+
+All five source gates are literal OFF, not environment toggles:
+`invoice_service.py:46` OWNER_INVOICE_RECURRING_ENABLED;
+`invoice_service.py:293` OWNER_INVOICE_JOURNAL_ENABLED;
+`velo/backend/issueInvoice.web.js:20` OWNER_INVOICE_JOURNAL_ENABLED;
+`velo/backend/http-functions.js:7` OWNER_INVOICE_JOURNAL_ENABLED;
+`velo/backend/invoiceEmailJournal.js:349` OWNER_INVOICE_REQUEST_RECOVERY_ENABLED.
+Journal OFF creates no recovery pass/thread/task or journal configuration/provider
+work; recurring OFF alone retains the single startup pass when journal is ON.
+Neither gate stops separate legacy email routes. No public recurring trigger, durable
+cursor collection, distributed lock or full-backlog/fairness guarantee is added.
 
 The fourth new Admin method (fifth total including legacy `issueInvoice`),
 `listOwnerInvoiceReviews(cursor)`, uses fixed two-root
@@ -37,14 +66,15 @@ The strict private no-store `scanPending` variant and Python adapter feed
 128 bridge-operation facade. Partial pages deny work from that page, pending rows
 skipped after the attempt are explicitly deferred. The existing dispatcher freshly
 reads state and alone owns unique START arbitration. START never expires or grants
-resend. No admission/financial/dispatcher body changed. Named service startup runs
-one pass behind the existing literal false gate; OFF returns before configuration
-or journal/provider work. No timer, periodic scheduler or live activation is added.
-The bound counts IO, not wall-clock cancellation.
+resend. No admission/financial/dispatcher body changed by the lifecycle increment.
+Startup and later passes use the registered dormant lifecycle described above.
+The bound counts IO, not wall-clock cancellation; the five-second shutdown grace
+is not a whole-tick deadline or proof that provider IO has stopped. Sources:
+`booking_engine/invoice_email_recovery.py:7–113`; `velo/backend/invoiceEmailJournal.js:348–509`.
 
 Legacy/guest producers, full keyless booking integration, durable scan cursors and
 periodic delivery guarantees remain excluded. REQUEST recovery is private and OFF.
-Later callers must preserve cursors/reset cycles; short restarts do not guarantee
+The registered caller preserves process-local positions/reset cycles; short restarts do not guarantee
 full backlog progress. Booking recovery remains independent of email uncertainty.
 Hosted auth, consistency/uniqueness, quotas/privacy/retention/restore, exact deployed
 transport, integration and runtime rollout remain gates. Live systems unverified.
@@ -52,7 +82,11 @@ transport, integration and runtime rollout remain gates. Live systems unverified
 Prior R1-R12 closure is committed; historical partial labels below are not current
 readiness claims. New RR01-RR12 execution and exact hashes are recorded in
 active-profile checkpoints/essential-email-request-recovery-implementation.md.
-L1 review is committed; independent review of the new caller bytes and all hosted/runtime gates remain pending.
+L1, integrated-caller and recurring-lifecycle local reviews are complete for their
+exact committed scopes. Hosted/native auth, storage custody/uniqueness/consistency,
+transport, availability, topology, retention/restore and approved coordinated rollout
+remain unverified. Guest complete-booking/effect authority and consent purchase-sender
+integration remain separate dependencies; Admin issuance is not completed booking.
 
 ### New local REQUEST-only admission recovery (independently OFF)
 
@@ -95,7 +129,11 @@ already_present does not clear owner review or claim delivery. HTTP and Python s
 are locally composed as above; all activation gates remain OFF. No live proof or
 full-booking/keyless integration is established by the synthetic native SDK fixtures.
 
-## Historical records
+## Historical records — every section below is superseded status
+
+The following snapshots retain original evidence wording, including then-missing
+features, old test counts and blockers subsequently closed. They are not current
+remaining-work criteria; use the authoritative sections above for current status.
 
 
 ## Historical final scoped closure (not current readiness)
@@ -267,7 +305,7 @@ real anonymous/member/Admin Wix authentication remains unverified. Incoming
 consumer isolation across JS, web.js and JSW still needs the complete executable
 gate. Legacy public deputies remain unchanged and not declared safe.
 
-## Remaining frozen criteria
+## Historical remaining frozen criteria (not current readiness)
 
 1. Partial Admin admission only; actual endpoint positive control, complete
    public-consumer isolation and all authority negatives remain.
