@@ -2,7 +2,7 @@ import { Permissions, webMethod } from 'wix-web-module';
 import { getSecret } from 'wix-secrets-backend';
 import { fetch } from 'wix-fetch';
 import wixData from 'wix-data';
-import { getAllSettings } from 'backend/settings.web';
+import { observeAdvertisingSuspension } from 'backend/settings.web';
 import { buildUserIdentifiers } from 'backend/hashUtils.web';
 
 const MICROSOFT_AUTH_URL = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
@@ -10,10 +10,8 @@ let cachedToken = null;
 
 async function isMicrosoftAdsSuspended() {
   try {
-    const settings = await getAllSettings();
-    const v = settings.suspendMicrosoftAds;
-    return String(v).trim() === '1' || Number(v) === 1;
-  } catch (e) { return false; }
+    return (await observeAdvertisingSuspension('suspendMicrosoftAds')) !== 0;
+  } catch (e) { return true; }
 }
 
 function stripEmpty(obj) {

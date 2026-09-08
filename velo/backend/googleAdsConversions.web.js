@@ -2,7 +2,7 @@ import { Permissions, webMethod } from 'wix-web-module';
 import { getSecret } from 'wix-secrets-backend';
 import { ingestEvent } from 'backend/dataManagerClient.web';
 import { buildUserIdentifiers } from 'backend/hashUtils.web';
-import { getAllSettings } from 'backend/settings.web';
+import { getAllSettings, observeAdvertisingSuspension } from 'backend/settings.web';
 import wixData from 'wix-data';
 // v2026-07-20-hashutils-import
 
@@ -12,6 +12,14 @@ export async function isGoogleAdsSuspended() {
     const v = settings.suspendGoogleAds;
     return String(v).trim() === '1' || Number(v) === 1;
   } catch (e) { return false; }
+}
+
+// Positive purchases require an explicit resolved OFF value. Keep the legacy
+// exported suspension helper separate: cancellation callers also use it.
+async function isGoogleAdsPurchaseBlocked() {
+  try {
+    return (await observeAdvertisingSuspension('suspendGoogleAds')) !== 0;
+  } catch (e) { return true; }
 }
 
 function stripEmpty(obj) {
@@ -28,8 +36,8 @@ export const recordBookingConversion = webMethod(
   Permissions.Anyone,
   async (booking) => {
     try {
-      if (await isGoogleAdsSuspended()) {
-        console.log('[WBE-GOOGLE] recordBookingConversion skipped — suspendGoogleAds is enabled');
+      if (await isGoogleAdsPurchaseBlocked()) {
+        console.log('[WBE-GOOGLE] recordBookingConversion skipped — suspension enabled or unresolved');
         return { ok: false, suspended: true };
       }
       validateBooking(booking);
@@ -54,8 +62,8 @@ export const retryBookingConversion = webMethod(
   Permissions.Admin,
   async (bookingNumber) => {
     try {
-      if (await isGoogleAdsSuspended()) {
-        console.log('[WBE-GOOGLE] retryBookingConversion skipped — suspendGoogleAds is enabled');
+      if (await isGoogleAdsPurchaseBlocked()) {
+        console.log('[WBE-GOOGLE] retryBookingConversion skipped — suspension enabled or unresolved');
         return { ok: false, suspended: true };
       }
       const summaryRes = await wixData.query('BookingSummary')
