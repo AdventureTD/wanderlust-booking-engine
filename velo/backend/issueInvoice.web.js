@@ -14,15 +14,32 @@ import { fetch } from 'wix-fetch';
 import { getSecret } from 'wix-secrets-backend';
 import { getAllSettings } from 'backend/settings.web';
 import { currentUser } from 'wix-users-backend';
+import { associateOwnerInvoiceRevision, readOwnerInvoiceCurrentRevision } from 'backend/ownerInvoiceCurrentRevision';
 import { prepareOwnerIssuance, ownerInvoiceReview, scanOwnerInvoiceJournal } from 'backend/invoiceEmailJournal';
 
 // Deliberately not connected to live/default issuance. Runtime rollout is separate.
 const OWNER_INVOICE_JOURNAL_ENABLED = false;
-export const prepareOwnerInvoiceDispatch = webMethod(Permissions.Admin, async (command) => {
+function captureOwnerDocumentAuthority() {
   if (!OWNER_INVOICE_JOURNAL_ENABLED) throw new Error('owner_invoice_journal_disabled');
   const actorId = currentUser.id;
-  if (typeof actorId !== 'string' || !actorId.trim()) throw new Error('owner_invoice_actor_required');
-  return prepareOwnerIssuance(actorId, command);
+  const check = () => {
+    if (currentUser.loggedIn !== true || typeof actorId !== 'string' || !actorId.trim() ||
+        currentUser.id !== actorId) throw new Error('owner_invoice_actor_required');
+  };
+  check();
+  return {actorId, check};
+}
+export const prepareOwnerInvoiceDispatch = webMethod(Permissions.Admin, async (...args) => {
+  const {actorId, check} = captureOwnerDocumentAuthority();
+  if (args.length === 2) {
+    if (args[0] !== null) throw new Error('owner_invoice_mixed_modes');
+    // Association branches BEFORE preparation (including its duplicate ISSUANCE insert).
+    const result = await associateOwnerInvoiceRevision(args[1], actorId, check);
+    check(); return result;
+  }
+  if (args.length !== 1) throw new Error('owner_invoice_arguments');
+  const result = await prepareOwnerIssuance(actorId, args[0]);
+  check(); return result;
 });
 
 function ownerDispatchAuthority(issuanceId) {
@@ -38,9 +55,23 @@ async function ownerDispatchStatus(issuanceId) {
   return ownerInvoiceReview(issuanceId, true);
 }
 
-export const getOwnerInvoiceDispatch = webMethod(Permissions.Admin, async (issuanceId) => {
+export const getOwnerInvoiceDispatch = webMethod(Permissions.Admin, async (...args) => {
+  const {actorId, check} = captureOwnerDocumentAuthority();
+  if (args.length < 1 || args.length > 2) throw new Error('owner_invoice_arguments');
+  const issuanceId = args[0];
   ownerDispatchAuthority(issuanceId);
-  return ownerDispatchStatus(issuanceId);
+  if (args.length === 2) {
+    const descriptors = args[1] && Object.getOwnPropertyDescriptors(args[1]);
+    if (!descriptors || Reflect.ownKeys(descriptors).length !== 1 ||
+        !descriptors.currentRevision || descriptors.currentRevision.value !== true ||
+        !descriptors.currentRevision.enumerable) throw new Error('owner_invoice_options');
+  }
+  check();
+  const delivery = await ownerDispatchStatus(issuanceId);
+  check();
+  if (args.length === 1) return delivery;
+  const documentCurrent = await readOwnerInvoiceCurrentRevision(issuanceId, actorId, check);
+  check(); return {...delivery, documentCurrent};
 });
 
 export const dispatchOwnerInvoice = webMethod(Permissions.Admin, async (issuanceId) => {

@@ -10,6 +10,8 @@ const rows = new Map();
 const trace = [];
 let role = 'Admin';
 let actor = 'fixture-admin';
+let loggedIn = true;
+const legacyIdentity = {get role() {return role;}, get id() {return actor;}, get loggedIn() {return loggedIn;}};
 let failRoot = false;
 let loseRequestAck = false;
 let loseRootAck = false;
@@ -21,23 +23,123 @@ let bridgeSecrets = false;
 let dispatchFetch = null;
 const externalTrace = [];
 
-// Traverse actual production consumers; parse fixtures in exactly the same gate.
-function incomingExclusions(files, oldFilter = false) {
+// Syntax-only AST parser bundled with Node, not a dirty-tree dependency.
+// Fail closed if this Node distribution omits it. Only trusted parser code is
+// compiled; scanned sources are parsed, NEVER linked or evaluated.
+let incomingParser;
+function parseIncoming(source, sourceType = 'module') {
+  if (!incomingParser) {
+    const bundled = process.binding('natives')['internal/deps/acorn/acorn/dist/acorn'];
+    assert.equal(typeof bundled, 'string', 'Node bundled Acorn prerequisite missing');
+    const exports = {};
+    new vm.Script('(function(exports,module){' + bundled + '\n})', {filename:'node-bundled-acorn'})
+      .runInThisContext()(exports,{exports});
+    assert.equal(typeof exports.parse, 'function', 'Node bundled Acorn parser unavailable');
+    incomingParser = exports;
+  }
+  return incomingParser.parse(source, {ecmaVersion:'latest', sourceType});
+}
+const lineageEdge = "import { readOwnerInvoiceDocumentLineage } from 'backend/invoiceEmailJournal';";
+const ownerConsumer = 'velo/backend/ownerInvoiceCurrentRevision.js';
+function reviewedConsumerBody(source, removeEdge = true) {
+  assert.equal(crypto.createHash('sha256').update(source.replace(/\r\n/g, '\n')).digest('hex'),
+    'a8e4ca7bda6c91414fcb83f9043b59df7646300d919242939ace27e02e492590', 'exact reviewed consumer only');
+  assert.equal(source.split(lineageEdge).length - 1, 1, 'one exact reader edge');
+  return removeEdge ? source.replace(lineageEdge, '') : source;
+}
+function htmlScripts(source) {
+  assert.ok(source.length <= 2000000, 'unsupported HTML size');
+  const scripts = [];
+  // Bounded HTML tokenizer: comments, quoted tags and raw script bodies.
+  const tags = /<!--[\s\S]*?-->|<![^>]*>|<\/?[A-Za-z][^>"']*(?:(?:"[^"]*"|'[^']*')[^>"']*)*>/g;
+  let match;
+  while ((match = tags.exec(source))) {
+    const tag = match[0];
+    if (/^<!--|^<!/.test(tag)) continue;
+    if (!/^<script\b/i.test(tag)) continue;
+    assert.ok(!/\/\s*>$/.test(tag), 'unsupported self-closing script');
+    const attrs = Object.create(null);
+    let rest = tag.replace(/^<script\b/i, '').slice(0,-1);
+    while (rest.trim()) {
+      const attr = /^\s+([^\s=<>/'"]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s<>`'"=]+)))?/.exec(rest);
+      assert.ok(attr, 'unsupported script attribute');
+      const key = attr[1].toLowerCase();
+      assert.ok(!Object.hasOwn(attrs,key), 'duplicate script attribute');
+      let value = attr[2] ?? attr[3] ?? attr[4] ?? '';
+      value = value.replace(/&(#x[0-9a-f]+|#\d+|amp|quot|apos|lt|gt);/gi, (_, entity) => {
+        if (entity[0] === '#') return String.fromCodePoint(entity[1].toLowerCase() === 'x' ? parseInt(entity.slice(2),16) : Number(entity.slice(1)));
+        return {amp:'&',quot:'"',apos:"'",lt:'<',gt:'>'}[entity.toLowerCase()];
+      });
+      assert.ok(!value.includes('&'), 'unsupported script entity');
+      attrs[key] = value; rest = rest.slice(attr[0].length);
+    }
+    const closing = /<\/script\s*>/gi; closing.lastIndex = tags.lastIndex;
+    const end = closing.exec(source);
+    assert.ok(end, 'malformed unclosed script');
+    const body = source.slice(tags.lastIndex,end.index);
+    assert.ok(!attrs.type || ['module','text/javascript','application/javascript'].includes(attrs.type.toLowerCase()), 'unsupported script type');
+    if (Object.hasOwn(attrs,'src')) {
+      assert.ok(attrs.src && !body.trim(), 'unsupported script src/body');
+      scripts.push({src:attrs.src});
+    } else scripts.push({source:body, type:attrs.type?.toLowerCase() === 'module' ? 'module' : 'script'});
+    tags.lastIndex = closing.lastIndex;
+  }
+  // A script opener skipped by the bounded tokenizer must not disappear.
+  const openers = source.replace(/<!--[\s\S]*?-->/g,'').match(/<script\b/gi) || [];
+  assert.equal(scripts.length,openers.length,'unsupported HTML script syntax');
+  return scripts;
+}
+function incomingExclusions(files, oldFilter = false, removeEdge = true) {
   const seen = [];
-  for (const [filename, source] of files) {
-    if (!(oldFilter ? /\.js$/ : /\.(?:js|jsw)$/).test(filename)) continue;
+  for (let [filename, source] of files) {
+    if (!(oldFilter ? /\.js$/ : /\.(?:js|jsw|html)$/).test(filename)) continue;
     seen.push(filename);
-    const module = new vm.SourceTextModule(source, { identifier: filename });
+    if (filename === ownerConsumer) source = reviewedConsumerBody(source, removeEdge);
     if (filename !== 'velo/backend/invoiceEmailJournal.js') assert.ok(!/\brecoverOwnerInvoiceRequestsOnce\b/.test(source), `forbidden recovery consumer: ${filename}`);
-    if (['velo/backend/issueInvoice.web.js', 'velo/backend/http-functions.js',
-         'velo/backend/invoiceEmailJournal.js'].includes(filename)) continue;
+    const privileged = ['velo/backend/issueInvoice.web.js', 'velo/backend/http-functions.js',
+         'velo/backend/invoiceEmailJournal.js'].includes(filename);
+    if (!privileged) {
     assert.ok(!/\b(?:prepareOwnerInvoiceDispatch|dispatchOwnerInvoice|getOwnerInvoiceDispatch|listOwnerInvoiceReviews|invoiceEmailJournal|post_invoiceEmailJournal)\b/.test(source),
       `forbidden journal consumer: ${filename}`);
-    for (const dependency of module.dependencySpecifiers) {
-      if (/issueInvoice(?:\.web)?(?:\.js)?$/.test(dependency)) {
+    }
+    function edge(dependency, node) {
+      assert.equal(typeof dependency,'string', `unsupported computed dependency: ${filename}`);
+      // Normalize relative segments and URL spelling for classification only;
+      // admission below still requires the EXACT reviewed literal target.
+      const clean = path.posix.normalize(dependency.replace(/\\/g,'/').split(/[?#]/)[0]);
+      const basename = clean.split('/').pop().replace(/\.(?:jsw|js)$/,'');
+      if (basename === 'ownerInvoiceCurrentRevision') {
+        assert.ok(filename === 'velo/backend/issueInvoice.web.js' && node?.type === 'ImportDeclaration' &&
+          dependency === 'backend/ownerInvoiceCurrentRevision' && node.specifiers.length === 2 &&
+          node.specifiers.every((s,i) => s.type === 'ImportSpecifier' && s.imported.name === ['associateOwnerInvoiceRevision','readOwnerInvoiceCurrentRevision'][i] && s.local.name === s.imported.name),
+        `forbidden owner consumer: ${filename}`);
+      }
+      if (basename === 'invoiceEmailJournal' && !privileged) assert.fail(`forbidden journal consumer: ${filename}`);
+      if (/^issueInvoice(?:\.web)?$/.test(basename)) {
         assert.match(source, /import\s*\{\s*issueInvoice(?:\s+as\s+\w+)?\s*\}\s*from\s*['"]backend\/issueInvoice(?:\.web)?['"]/, filename);
         assert.ok(!/import\s*\(|export\s*\*/.test(source), `indirect invoice consumer: ${filename}`);
+        assert.ok(node?.type === 'ImportDeclaration' && /^backend\/issueInvoice(?:\.web)?$/.test(dependency) &&
+          node.specifiers.length === 1 && node.specifiers[0].type === 'ImportSpecifier' && node.specifiers[0].imported.name === 'issueInvoice',
+        `indirect invoice consumer: ${filename}`);
       }
+    }
+    function walk(node) {
+      if (!node || typeof node !== 'object') return;
+      if (node.type === 'ImportDeclaration' || node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration') {
+        if (node.source) edge(node.source.value,node);
+      } else if (node.type === 'ImportExpression') {
+        assert.ok(node.source.type === 'Literal' && typeof node.source.value === 'string', `unsupported computed dependency: ${filename}`);
+        edge(node.source.value,node);
+      } else if (node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'require') {
+        assert.ok(node.arguments.length === 1 && node.arguments[0].type === 'Literal', `unsupported computed dependency: ${filename}`);
+        edge(node.arguments[0].value,node);
+      }
+      if (node.type === 'Identifier' && node.name === 'recoverOwnerInvoiceRequestsOnce' && filename !== 'velo/backend/invoiceEmailJournal.js') assert.fail(`forbidden recovery consumer: ${filename}`);
+      for (const value of Object.values(node)) if (Array.isArray(value)) value.forEach(walk); else if (value && typeof value === 'object') walk(value);
+    }
+    for (const script of /\.html$/.test(filename) ? htmlScripts(source) : [{source,type:'module'}]) {
+      if (script.src !== undefined) edge(script.src,null);
+      else walk(parseIncoming(script.source,script.type));
     }
   }
   return seen;
@@ -48,7 +150,7 @@ function verifyIncomingExclusions() {
     for (const entry of fs.readdirSync(path.join(root, directory), { withFileTypes: true })) {
       const filename = `${directory}/${entry.name}`;
       if (entry.isDirectory()) walk(filename);
-      else if (/\.(?:js|jsw)$/.test(filename)) files.push([filename, fs.readFileSync(path.join(root, filename), 'utf8')]);
+      else if (/\.(?:js|jsw|html)$/.test(filename)) files.push([filename, fs.readFileSync(path.join(root, filename), 'utf8')]);
     }
   }
   walk('velo');
@@ -60,10 +162,96 @@ function verifyIncomingExclusions() {
     assert.deepEqual(incomingExclusions([[filename, "import { issueInvoice as legacy } from 'backend/issueInvoice.web'; export const call = legacy;"]]), [filename]);
     if (extension === 'jsw') assert.deepEqual(incomingExclusions(forbidden, true), [], 'old JS-only filter misses forbidden JSW');
   }
-  console.log(`PASS N2 incoming exclusions: ${files.length} actual JS/web.js/JSW files; forbidden/legacy-alias controls`);
+  const controls = [];
+  for (const directory of ['backend','pages']) for (const extension of ['js','web.js','jsw','html']) {
+    const filename = `velo/${directory}/n2-control.${extension}`;
+    const wrap = s => extension === 'html' ? `<script type="module">${s}</script>` : s;
+    for (const [form, make] of [
+      ['static',s=>`import * as value from '${s}';`],
+      ['reexport',s=>`export * from '${s}';`],
+      ['dynamic',s=>`const value = import('${s}');`],
+      ['escaped',s=>`const value = import('${s.replace('backend','\\u0062ackend')}');`],
+      ['braced-zero',s=>`const value = import('${s.replace('backend','\\u{000000000062}ackend')}');`],
+    ]) {
+      const id = `${directory}.${extension}.${form}`;
+      const bad = [[filename,wrap(make('backend/ownerInvoiceCurrentRevision'))]];
+      const good = [[filename,wrap(make('backend/benign'))]];
+      assert.deepEqual(incomingExclusions(good),[filename],id+' visited positive');
+      assert.throws(()=>incomingExclusions(bad), /forbidden owner consumer/,id+' forbidden edge');
+      if (['jsw','html'].includes(extension)) {
+        assert.deepEqual(incomingExclusions(bad,true),[],id+' old filter misses edge');
+        assert.throws(()=>assert.throws(()=>incomingExclusions(bad,true),/forbidden owner consumer/),{code:'ERR_ASSERTION'},id+' old-filter assertion reversal');
+      }
+      controls.push(id);
+    }
+    for (const bad of ["import(target);", "import('backend/' + target);", "import(`backend/benign`);"]) {
+      assert.throws(()=>incomingExclusions([[filename,wrap(bad)]]),/unsupported computed dependency/);
+    }
+    assert.throws(()=>incomingExclusions([[filename,wrap("import('\\u{110000}');")]]),SyntaxError);
+    assert.throws(()=>incomingExclusions([[filename,wrap('import {;')]]),SyntaxError);
+    if (extension === 'html') {
+      for (const quoted of ["'backend/ownerInvoiceCurrentRevision.js'",'"backend/ownerInvoiceCurrentRevision.js"','backend/ownerInvoiceCurrentRevision.js',"'backend/&#111;wnerInvoiceCurrentRevision.js'"]) {
+        assert.throws(()=>incomingExclusions([[filename,`<script src=${quoted}></script>`]]),/forbidden owner consumer/);
+      }
+      assert.deepEqual(incomingExclusions([[filename,'<script src="backend/benign.js"></script>']]),[filename]);
+      assert.throws(()=>incomingExclusions([[filename,"<script>import('backend/ownerInvoiceCurrentRevision');</script>"]]),/forbidden owner consumer/);
+      assert.deepEqual(incomingExclusions([[filename,"<script>import('backend/benign');</script>"]]),[filename]);
+      for (const malformed of ['<script>', '<script src="x" src="y"></script>', '<script type="unknown"></script>', '<script src="&unknown;"></script>']) {
+        assert.throws(()=>incomingExclusions([[filename,malformed]]),/malformed|duplicate|unsupported/);
+      }
+    }
+  }
+  const consumer = [[ownerConsumer,fs.readFileSync(path.join(root,ownerConsumer),'utf8')]];
+  assert.deepEqual(incomingExclusions(consumer),[ownerConsumer],'N2 exact consumer body remains scanned');
+  assert.throws(()=>incomingExclusions(consumer,false,false),/forbidden journal consumer/,'N2 exact-edge-removal reversal');
+  assert.throws(()=>assert.deepEqual(incomingExclusions(consumer,false,false),[ownerConsumer]),/forbidden journal consumer/,'N2 positive reverses at original exclusion, not syntax');
+  assert.equal(new Set(controls).size,40);
+  console.log(JSON.stringify({n2IncomingControls:controls,visitedPaths:files.map(([filename])=>filename)}));
+  console.log(`PASS N2 incoming exclusions: ${files.length} actual JS/web.js/JSW/HTML files; finite syntax-aware controls`);
+}
+function resolveFixtureSource(name, importer) {
+  assert.ok(typeof name === 'string' && !/[\\?#:]/.test(name), 'unsupported fixture source');
+  let filename;
+  if (name === 'entry') filename = 'velo/backend/issueInvoice.web.js';
+  else if (name.startsWith('backend/')) filename = `velo/${name}`;
+  else if (/^\.\.?\//.test(name) && typeof importer === 'string' && importer.startsWith('velo/backend/')) {
+    filename = path.posix.join(path.posix.dirname(importer), name);
+  } else assert.fail('unsupported fixture source');
+  filename = path.posix.normalize(filename);
+  if (!filename.endsWith('.js')) filename += '.js';
+  assert.ok(['issueInvoice.web', 'http-functions', 'ownerInvoiceCurrentRevision', 'invoiceEmailJournal',
+    'bookingCurrentRevision', 'bookingCurrentRevisionStore', 'bookingCurrentRevisionRules']
+    .some(leaf => filename === `velo/backend/${leaf}.js`), 'unsupported fixture source');
+  return filename;
+}
+// Source-path controls only: no source reads, linking or backend evaluation.
+function verifyFixtureResolution(resolveSource) {
+  const parent = 'velo/backend/ownerInvoiceCurrentRevision.js';
+  for (const leaf of ['bookingCurrentRevision', 'bookingCurrentRevisionStore', 'bookingCurrentRevisionRules']) {
+    assert.equal(resolveSource(`./${leaf}.js`, parent), `velo/backend/${leaf}.js`);
+    assert.equal(resolveSource(`backend/${leaf}`, parent), `velo/backend/${leaf}.js`);
+    assert.equal(resolveSource(`backend/${leaf}.js`, parent), `velo/backend/${leaf}.js`);
+  }
+  for (const parent of ['velo/backend/bookingCurrentRevision.js', 'velo/backend/bookingCurrentRevisionStore.js']) {
+    assert.equal(resolveSource('./bookingCurrentRevisionRules.js', parent), 'velo/backend/bookingCurrentRevisionRules.js');
+  }
+  assert.equal(resolveSource('entry'), 'velo/backend/issueInvoice.web.js');
+  for (const leaf of ['issueInvoice.web', 'http-functions', 'ownerInvoiceCurrentRevision', 'invoiceEmailJournal']) {
+    assert.equal(resolveSource(`backend/${leaf}`), `velo/backend/${leaf}.js`);
+  }
+  // No actual dependency requires a parent-directory traversal outside backend.
+  for (const name of ['../bookingCurrentRevision.js', '../../../bookingCurrentRevision.js',
+    './guestBookingAcceptance.js', 'backend/guestBookingAcceptance', 'backend/../pages/x',
+    '/velo/backend/bookingCurrentRevision.js', 'file:///x.js', 'https://fixture.invalid/x.js',
+    'bookingCurrentRevision', './bookingCurrentRevision.js.js', './bookingCurrentRevision.js?x',
+    './bookingCurrentRevision.js#x', '.\\bookingCurrentRevision.js', 'node:fs']) {
+    assert.throws(() => resolveSource(name, parent), /unsupported fixture source/);
+  }
+  assert.throws(() => resolveSource('./bookingCurrentRevision.js'), /unsupported fixture source/);
 }
 const clone = value => JSON.parse(JSON.stringify(value));
-async function load(enabled = true, entry = 'entry') {
+async function load(enabled = true, entry = 'entry', identity = legacyIdentity) {
+  verifyFixtureResolution(resolveFixtureSource);
   const context = vm.createContext({ Buffer, console });
   const modules = new Map();
   const synthetic = (name, exports) => new vm.SyntheticModule(Object.keys(exports), function () {
@@ -72,10 +260,10 @@ async function load(enabled = true, entry = 'entry') {
   const fixtures = {
     'wix-web-module': { Permissions: { Admin: 'Admin' }, webMethod: (permission, callback) => async (...args) => {
       assert.equal(permission, 'Admin');
-      if (role !== 'Admin') throw new Error('platform_denied');
+      if (identity.role !== 'Admin') throw new Error('platform_denied');
       return callback(...args);
     } },
-    'wix-users-backend': { currentUser: { get id() { return actor; } } },
+    'wix-users-backend': { currentUser: { get id() { return identity.id; }, get loggedIn() { return identity.loggedIn; } } },
     'wix-fetch': { fetch: (...args) => { externalTrace.push(['fetch', ...args]); if (dispatchFetch) return dispatchFetch(...args); throw new Error('NETWORK_DENIED'); } },
     'wix-secrets-backend': { getSecret: name => { externalTrace.push(['secret', name]); if (dispatchFetch && name === 'WBE_INVOICE_SERVICE_URL') return 'https://fixture.invalid'; if (process.env.ENDPOINT_FIXTURE || bridgeSecrets || dispatchFetch) return 'fixture-only'; throw new Error('SECRET_DENIED'); } },
     'wix-http-functions': { response: value => value },
@@ -126,19 +314,20 @@ async function load(enabled = true, entry = 'entry') {
       },
     } },
   };
-  async function resolve(name) {
-    if (modules.has(name)) return modules.get(name);
+  async function resolve(name, importer) {
+    const fixture = Object.hasOwn(fixtures, name);
+    const filename = fixture ? name : resolveFixtureSource(name, importer?.identifier);
+    if (modules.has(filename)) return modules.get(filename);
     let module;
-    if (fixtures[name]) module = synthetic(name, fixtures[name]);
+    if (fixture) module = synthetic(name, fixtures[name]);
     else {
-      const filename = name === 'entry' ? 'velo/backend/issueInvoice.web.js' : `${name.replace(/^backend\//, 'velo/backend/')}.js`;
       let source = fs.readFileSync(path.join(root, filename), 'utf8');
       // Only activation is substituted. No validator, authority or writer is replaced.
       if (enabled) source = source.replace('const OWNER_INVOICE_JOURNAL_ENABLED = false;', 'const OWNER_INVOICE_JOURNAL_ENABLED = true;');
       if (enabled) source = source.replace('const OWNER_INVOICE_REQUEST_RECOVERY_ENABLED = false;', 'const OWNER_INVOICE_REQUEST_RECOVERY_ENABLED = true;');
       module = new vm.SourceTextModule(source, { context, identifier: filename });
     }
-    modules.set(name, module);
+    modules.set(filename, module);
     await module.link(resolve);
     return module;
   }
@@ -158,6 +347,77 @@ const command = {
     lines: [{ label: 'Fixture room', taxClass: 'accommodation', quantity: 1, roomQuantity: 1,
       unitPriceCents: 10000, netCents: 10000, vatCents: 1000, grossCents: 11000, vatRateBasisPoints: 1000 }] },
 };
+async function verifyConcurrentIdentities() {
+  const identityA = Object.freeze({role:'Admin',id:'fixture-admin',loggedIn:true});
+  const identityB = Object.freeze({role:'Admin',id:'second-admin',loggedIn:true});
+  const a = await load(true,'entry',identityA), b = await load(true,'entry',identityB);
+  assert.notEqual(identityA,identityB); assert.ok(Object.isFrozen(identityA) && Object.isFrozen(identityB));
+  assert.notEqual(a,b); assert.notEqual(a.prepareOwnerInvoiceDispatch,b.prepareOwnerInvoiceDispatch);
+  const inputA = clone(command), inputB = {...clone(command),requestId:'d2345678-1234-4234-8234-123456789abc'};
+  const deferred = () => {let resolve; const promise = new Promise(r=>{resolve=r;}); return {promise,resolve};};
+  const arrivedA=deferred(), arrivedB=deferred(), releaseA=deferred(), releaseB=deferred(), rootStored=deferred();
+  let timer, rootSnapshot, rootsStored=0;
+  const watchdog=new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('CI1 barrier timeout NOT causal evidence')),5000);});
+  const bounded=p=>Promise.race([p,watchdog]);
+  const before=trace.length, outside=externalTrace.length;
+  let first,second,winners;
+  insertHook=async record=>{
+    if(record.kind==='REQUEST' && record.actorId===identityA.id && record.requestId===inputA.requestId) {arrivedA.resolve();await releaseA.promise;}
+    if(record.kind==='REQUEST' && record.actorId===identityB.id && record.requestId===inputB.requestId) {arrivedB.resolve();await releaseB.promise;}
+    if(record.kind==='ISSUANCE') {rootsStored++;rootSnapshot=clone(rows.get(record._id));rootStored.resolve();}
+  };
+  try {
+    first=a.prepareOwnerInvoiceDispatch(inputA); first.catch(()=>{});
+    await bounded(arrivedA.promise);
+    second=b.prepareOwnerInvoiceDispatch(inputB); second.catch(()=>{});
+    await bounded(arrivedB.promise);
+    assert.equal([...rows.values()].filter(r=>r.kind==='REQUEST').length,2,'CI1 both active native REQUEST barriers');
+    assert.equal([...rows.values()].filter(r=>r.kind==='ISSUANCE').length,0);
+    releaseA.resolve(); await bounded(rootStored.promise); releaseB.resolve();
+    winners=await bounded(Promise.all([first,second]));
+    assert.ok(winners.every(r=>r.status==='durably_prepared'),'CI1 actual callback discriminators');
+    assert.equal(winners[0].documentDigest,winners[1].documentDigest); assert.equal(winners[0].revision,winners[1].revision);
+    assert.deepEqual([...rows.values()].filter(r=>r.kind==='REQUEST').map(r=>[r.actorId,r.requestId]).sort(),
+      [[identityA.id,inputA.requestId],[identityB.id,inputB.requestId]].sort());
+    assert.deepEqual(trace.slice(before).filter(t=>t[0]==='insert' && t[2]===winners[0].issuanceId),
+      [['insert','InvoiceEmailJournal',winners[0].issuanceId],['insert','InvoiceEmailJournal',winners[0].issuanceId]],'CI1 both native root attempts');
+    assert.equal(rootsStored,1,'CI1 one successful native root insertion');
+    assert.deepEqual(rows.get(winners[0].issuanceId),rootSnapshot,'CI1 winner unchanged after B duplicate reconciliation');
+    assert.equal(externalTrace.length,outside);
+  } finally {
+    releaseA.resolve();releaseB.resolve();insertHook=null;
+    try {await bounded(Promise.allSettled([first,second].filter(Boolean)));} finally {clearTimeout(timer);}
+  }
+  // CI2 actual reconstructed contexts, retained shared Map; duplicate attempts allowed.
+  const retained=JSON.stringify([...rows]);
+  for(const [identity,input,old] of [[identityA,inputA,a],[identityB,inputB,b]]) {
+    const fresh=await load(true,'entry',identity);assert.notEqual(fresh,old);assert.notEqual(fresh.prepareOwnerInvoiceDispatch,old.prepareOwnerInvoiceDispatch);
+    const replay=await fresh.prepareOwnerInvoiceDispatch(input);
+    assert.equal(replay.status,'durably_prepared');assert.equal(replay.issuanceId,winners[0].issuanceId);
+    assert.equal(JSON.stringify([...rows]),retained);assert.deepEqual(rows.get(replay.issuanceId),rootSnapshot);
+  }
+  // CI3 independent authentication state, never role-derived login.
+  for(const identity of [Object.freeze({...identityA,loggedIn:false}),Object.freeze({...identityA,role:'Anonymous'}),Object.freeze({...identityA,role:'Member'})]) {
+    const denied=await load(true,'entry',identity), before=[trace.length,externalTrace.length];
+    await assert.rejects(()=>denied.prepareOwnerInvoiceDispatch(clone(command)),/owner_invoice_actor|platform_denied/);
+    assert.deepEqual([trace.length,externalTrace.length],before);assert.equal(JSON.stringify([...rows]),retained);
+  }
+  assert.equal((await b.prepareOwnerInvoiceDispatch(inputB)).status,'durably_prepared');
+  // CI4 negative-only session changes during actual awaited SDK readback.
+  for(const mode of ['id','logout']) {
+    const session={...identityA};const drifted=await load(true,'entry',session);
+    let reads=0;
+    getHook=async id=>{reads++; if(mode==='id') session.id='drifted-admin';else session.loggedIn=false;return rows.has(id)?clone(rows.get(id)):null;};
+    try {await assert.rejects(()=>drifted.prepareOwnerInvoiceDispatch(inputA),/owner_invoice_actor/);}
+    finally {getHook=null;}
+    assert.ok(reads>0,'CI4 actual readback reached');assert.deepEqual(identityB,{role:'Admin',id:'second-admin',loggedIn:true});
+    assert.equal(JSON.stringify([...rows]),retained,'CI4 replay denial does not fabricate rollback');
+    assert.equal((await b.prepareOwnerInvoiceDispatch(inputB)).status,'durably_prepared');
+  }
+  assert.equal(externalTrace.length,outside);assert.equal(JSON.stringify([...rows]),retained);
+  console.log(JSON.stringify({concurrentIdentityCases:['CI1','CI2','CI3','CI4'],moduleContextsOnly:true}));
+  return winners;
+}
 async function verifyRequestRecovery() {
   for (const purpose of ['guest_invoice', 'owner_copy']) {
     rows.clear();
@@ -1028,10 +1288,7 @@ async function verifyRequestRecovery() {
   await assert.rejects(() => api.prepareOwnerInvoiceDispatch(clone(command)), /conflict/);
   insertHook = null; cases++;
   rows.clear();
-  const first = api.prepareOwnerInvoiceDispatch(clone(command));
-  actor = 'second-admin';
-  const second = api.prepareOwnerInvoiceDispatch({ ...clone(command), requestId: 'd2345678-1234-4234-8234-123456789abc' });
-  const winners = await Promise.all([first, second]);
+  const winners = await verifyConcurrentIdentities();
   assert.ok(winners.every(x => x.issuanceId === result.issuanceId));
   assert.equal([...rows.values()].filter(r => r.kind === 'ISSUANCE').length, 1);
   assert.deepEqual([...rows.values()].filter(r => r.kind === 'REQUEST').map(r => r.actorId).sort(), ['fixture-admin', 'second-admin']);

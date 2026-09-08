@@ -20,6 +20,7 @@ const imports = [
 const exportDeclaration = 'export const issueInvoice =';
 const admissionImports = [
   "import { currentUser } from 'wix-users-backend';",
+  "import { associateOwnerInvoiceRevision, readOwnerInvoiceCurrentRevision } from 'backend/ownerInvoiceCurrentRevision';",
   "import { prepareOwnerIssuance, ownerInvoiceReview, scanOwnerInvoiceJournal } from 'backend/invoiceEmailJournal';",
 ];
 const admissionDeclaration = 'export const prepareOwnerInvoiceDispatch =';
@@ -57,6 +58,8 @@ function inspect(text, admission = true) {
     getAllSettings: unexpected,
     currentUser: { get id() { return unexpected(); } },
     prepareOwnerIssuance: unexpected,
+    associateOwnerInvoiceRevision: unexpected,
+    readOwnerInvoiceCurrentRevision: unexpected,
     invoiceJournalOperation: unexpected,
   }, { codeGeneration: { strings: false, wasm: false } });
   vm.runInContext(executable, context, { filename, timeout: 1000 });
@@ -133,6 +136,21 @@ for (const name of dispatchExports) {
   });
   console.log(`PASS: ${name} single-site Admin-to-Anyone reversal caught by the same declaration assertion`);
 }
+
+// RB1-RB7: exact current import/export shape; callbacks never invoked.
+const revisionImport = admissionImports[1];
+for (const candidate of [
+  source.replace(revisionImport, ''),
+  source.replace(revisionImport, revisionImport + '\n' + revisionImport),
+  source.replace(revisionImport, revisionImport.replace('readOwnerInvoiceCurrentRevision }', 'readOwnerInvoiceCurrentRevision, extra }')),
+  source.replace(revisionImport, revisionImport.replace('backend/ownerInvoiceCurrentRevision', 'backend/unreviewed')),
+]) assert.throws(() => inspect(candidate), /Expected exact import/);
+assert.throws(() => inspect(source.replace('export const getOwnerInvoiceDispatch =', 'const getOwnerInvoiceDispatch =')), /Preserve exact getOwnerInvoiceDispatch export/);
+assert.throws(() => inspect(source + '\nexport const extra = 1;'), { name: 'SyntaxError' });
+const reorderedExports = source.replace('export const getOwnerInvoiceDispatch =', 'export const REORDER_TEMP =')
+  .replace('export const dispatchOwnerInvoice =', 'export const getOwnerInvoiceDispatch =')
+  .replace('export const REORDER_TEMP =', 'export const dispatchOwnerInvoice =');
+assert.throws(() => inspect(reorderedExports), { code: 'ERR_ASSERTION' });
 
 // Keep the historical permission witness and legacy callback causal comparison.
 const baseline = execFileSync('git', ['show', '6bce9b12ce0a557f4eb7c73601a96a3e88d4b48b:velo/backend/issueInvoice.web.js'],

@@ -244,6 +244,46 @@ async function rootFor(id) {
   if (root._id !== id) deny('integrity');
   return application(root);
 }
+// Private document-only reader. No preparation, stage reads or dispatch authority.
+// checkAuthority is a server-captured invocation guard, never a caller DTO flag.
+export async function readOwnerInvoiceDocumentLineage(rootId, selectedId, checkAuthority) {
+  digestId(rootId); digestId(selectedId);
+  if (typeof checkAuthority !== 'function') deny('actor_required');
+  const read = async id => {
+    checkAuthority();
+    const stored = await wixData.get(COLLECTION, id, READ);
+    checkAuthority();
+    const facts = validRoot(stored);
+    if (stored._id !== id) deny('integrity');
+    return { record: application(stored), facts };
+  };
+  const root = await read(rootId);
+  if (Object.hasOwn(root.facts, 'parentIssuanceId')) deny('parent_root');
+  let selected = root;
+  if (selectedId !== rootId) {
+    const seen = new Set([rootId]);
+    let id = selectedId;
+    for (let n = 0; ; n++) {
+      if (n >= 100 || seen.has(id)) deny('parent_lineage');
+      seen.add(id);
+      const child = await read(id);
+      if (n === 0) selected = child;
+      if (child.facts.invoiceNumber !== root.facts.invoiceNumber) deny('parent_invoice');
+      const parent = child.facts.parentIssuanceId;
+      if (parent === rootId) break;
+      if (!parent) deny('parent_lineage');
+      id = parent;
+    }
+  }
+  const invariant = facts => {
+    const { guest, revision, parentIssuanceId, reissueReason, ...rest } = facts;
+    return canonical(rest);
+  };
+  if (invariant(root.facts) !== invariant(selected.facts)) deny('document_changes');
+  checkAuthority();
+  return JSON.parse(JSON.stringify({root, selected}));
+}
+
 async function artifactBytes(root, manifest) {
   shape(manifest, ['_id', 'kind', 'issuanceId', 'documentDigest', 'to', 'cc', 'from', 'chunkIds', 'mimeDigest', 'byteLength', 'pdfDigest', 'rendererVersion']);
   if (manifest._id !== key('invoice-artifact/v1', root._id) || manifest.kind !== 'ARTIFACT' ||
