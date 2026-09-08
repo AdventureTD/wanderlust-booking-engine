@@ -55,6 +55,11 @@
   // Private transitions and control callbacks are API hygiene, not same-realm
   // isolation: page scripts can still manipulate the DOM or dataLayer.
   (function () {
+  // Negative-only same-page seam; not consent, identity or purchase authority.
+  function publishAdvertisingWithdrawal() {
+    window.wbeAdvertisingWithdrawn = true;
+    try { document.dispatchEvent(new Event('wbeAdvertisingWithdrawn')); } catch (_) {}
+  }
   var _granted = { analytics_storage: false, ad_storage: false,
     ad_user_data: false, ad_personalization: false };
   function grantConsent(analytics, adStorage, adUserData, adPersonalization) {
@@ -113,6 +118,7 @@
       try {
         if (event.storageArea && event.storageArea !== localStorage) { return; }
       } catch (e) {} // Unreadable storage cannot preserve optional grants.
+      publishAdvertisingWithdrawal();
       grantConsent(false, false, false, false);
     });
 
@@ -139,6 +145,7 @@
     }
 
     function denyAll() {
+      publishAdvertisingWithdrawal();
       grantConsent(false, false, false, false);
       setChoice('denied');
       hideBanner();
@@ -197,6 +204,7 @@
       var choice = getChoice();
       // Legacy 'granted' has no verified purpose/provenance; require a new choice.
       if (choice === 'denied') {
+        publishAdvertisingWithdrawal();
         grantConsent(false, false, false, false);
         return;
       }

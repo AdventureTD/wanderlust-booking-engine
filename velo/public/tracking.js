@@ -118,7 +118,75 @@ export function clearClickIds() {
 let _$w = null;
 let _suspendGoogleAds = false;
 
-export function initTracking(w) { _$w = w; }
+// Ordered Microsoft-only transport. Readiness retains work while the iframe loads.
+let microsoftBridge = null, microsoftReady = false, microsoftTimer = null;
+let microsoftQueue = [], microsoftObservation = null, microsoftSequence = 0;
+const microsoftSession = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+let microsoftRetryCount = 0, microsoftWithdrawn = false;
+function withdrawMicrosoft() {
+  microsoftWithdrawn = true;
+  microsoftQueue = [];
+  if (microsoftTimer) clearTimeout(microsoftTimer);
+  microsoftTimer = null;
+}
+function flushMicrosoft() {
+  if (microsoftWithdrawn || _suspendGoogleAds) { microsoftQueue = []; return; }
+  if (!microsoftReady || !microsoftBridge) return;
+  while (microsoftQueue.length) {
+    try { microsoftBridge.postMessage(microsoftQueue[0]); }
+    catch (_) {
+      if (!microsoftWithdrawn && !microsoftTimer && microsoftRetryCount < 4) {
+        microsoftRetryCount++;
+        microsoftTimer = setTimeout(function () { microsoftTimer = null; flushMicrosoft(); }, 250);
+      }
+      return;
+    }
+    microsoftQueue.shift();
+    microsoftRetryCount = 0;
+  }
+  if (microsoftTimer) clearTimeout(microsoftTimer);
+  microsoftTimer = null;
+}
+function probeMicrosoft() {
+  microsoftTimer = null;
+  if (microsoftWithdrawn || microsoftReady || !microsoftBridge) return;
+  try { microsoftBridge.postMessage({ type: 'wbe-microsoft-probe', version: 1 }); } catch (_) {}
+  if (!microsoftWithdrawn && !microsoftReady) microsoftTimer = setTimeout(probeMicrosoft, 250);
+}
+export function initTracking(w) {
+  _$w = w;
+  try {
+    const bridge = w('#wbeEventBridge');
+    if (microsoftBridge === bridge) return;
+    microsoftBridge = bridge; microsoftReady = false;
+    bridge.onMessage(function (event) {
+      const d = event && event.data;
+      if (d && d.type === 'wbe-microsoft-withdrawn' && d.version === 1 && Object.keys(d).length === 2) { withdrawMicrosoft(); return; }
+      if (microsoftWithdrawn) return;
+      if (!d || d.type !== 'wbe-microsoft-ready' || d.version !== 1 || Object.keys(d).length !== 2) return;
+      // Coalesce only pre-iframe route observations; never discard business events.
+      const latest = microsoftQueue.filter(item => item.kind === 'route').pop();
+      microsoftQueue = microsoftQueue.filter(item => item.kind !== 'route' || item === latest);
+      microsoftReady = true;
+      if (microsoftTimer) clearTimeout(microsoftTimer);
+      microsoftTimer = null;
+      flushMicrosoft();
+    });
+    probeMicrosoft();
+  } catch (_) { /* Optional bridge must not interrupt booking. */ }
+}
+export function observeMicrosoftPage(w) {
+  initTracking(w);
+  if (microsoftWithdrawn) return;
+  const url = String(wixLocationFrontend.url || '');
+  const match = /^https:\/\/[^/]+(\/[^?#]*)?/.exec(url);
+  const page = match && (match[1] || '/');
+  if (!['/', '/wanderlust-booking', '/booking-summary'].includes(page)) return;
+  microsoftObservation = page;
+  microsoftQueue.push({ type: 'wbe-microsoft-message', version: 1,
+    id: microsoftSession + '-' + (++microsoftSequence), kind: 'route', page_path: page, payload: null });
+  try { flushMicrosoft(); } catch (_) { /* Retain unsent work. */ }
+}
 
 export function setSuspendGoogleAds(value) {
   _suspendGoogleAds = !!value;
@@ -136,6 +204,11 @@ export function pushDataLayer(payload) {
       return;
     }
     const bridge = _$w('#wbeEventBridge');
+    // Separate envelope: Google retains its unchanged business payload only.
+    if (!microsoftWithdrawn) microsoftQueue.push({ type: 'wbe-microsoft-message', version: 1,
+      id: microsoftSession + '-' + (++microsoftSequence), kind: 'event',
+      page_path: microsoftObservation || '/', payload: { ...payload } });
+    try { flushMicrosoft(); } catch (_) { /* Retain unsent work. */ }
     bridge.postMessage({ type: 'wbe-datalayer-event', payload: payload });
     console.log('[WBE-GTAG] sent event to bridge:', payload.event || payload);
   } catch (err) {

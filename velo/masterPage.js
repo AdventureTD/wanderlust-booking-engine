@@ -6,7 +6,7 @@
 // 'wbeConsentGranted' DOM event that custom-code/google-tag-and-consent.html
 // listens for, upgrading consent from denied → granted (enables remarketing).
 
-import { captureClickIds, initTracking, setSuspendGoogleAds } from 'public/tracking';
+import { captureClickIds, initTracking, setSuspendGoogleAds, observeMicrosoftPage } from 'public/tracking';
 import { getAllSettings } from 'backend/settings';
 import { consentPolicy, rendering } from 'wix-window-frontend';
 import { local } from 'wix-storage-frontend';
@@ -102,6 +102,13 @@ $w.onReady(function () {
         feedback('Server withdrawal observed for this browser context. Local denial delivery is not verified.');
       }
     }).catch(() => {});
+  }
+});
+
+$w.onReady(function () {
+  // Ordinary page-ready observation, not settled rendering/title or onChange.
+  if (rendering.env === 'browser') {
+    try { observeMicrosoftPage($w); } catch (_) { /* Booking remains independent. */ }
   }
 });
 

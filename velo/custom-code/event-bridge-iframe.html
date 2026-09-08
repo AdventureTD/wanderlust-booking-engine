@@ -24,6 +24,29 @@
         window.parent.postMessage({ type: 'wbe-consent-deny', version: 1 }, siteOrigin);
         return;
       }
+      if (d && d.type === 'wbe-microsoft-withdrawn') {
+        if (event.source !== window.parent || event.origin !== siteOrigin ||
+            typeof d !== 'object' || Array.isArray(d) || d.version !== 1 || Object.keys(d).length !== 2) return;
+        window.parent.postMessage({ type: 'wbe-microsoft-withdrawn', version: 1 }, siteOrigin);
+        return;
+      }
+      if (d && (d.type === 'wbe-microsoft-probe' || d.type === 'wbe-microsoft-message')) {
+        if (event.source !== window.parent || event.origin !== siteOrigin ||
+            typeof d !== 'object' || Array.isArray(d) || d.version !== 1) return;
+        if (d.type === 'wbe-microsoft-probe') {
+          if (Object.keys(d).length !== 2) return;
+          window.parent.postMessage({ type: 'wbe-microsoft-probe', version: 1 }, siteOrigin);
+          window.parent.postMessage({ type: 'wbe-microsoft-ready', version: 1 }, siteOrigin);
+          return;
+        }
+        if (Object.keys(d).sort().join(',') !== 'id,kind,page_path,payload,type,version' ||
+            typeof d.id !== 'string' || !/^[a-z0-9-]{1,100}$/.test(d.id) ||
+            ['/', '/wanderlust-booking', '/booking-summary'].indexOf(d.page_path) === -1 ||
+            (d.kind !== 'route' && d.kind !== 'event') ||
+            (d.kind === 'route' ? d.payload !== null : !d.payload || typeof d.payload !== 'object' || Array.isArray(d.payload))) return;
+        window.parent.postMessage(d, siteOrigin);
+        return;
+      }
       if (d && d.type === 'wbe-datalayer-event' && d.payload) {
         window.parent.postMessage({
           source: 'wbe-event-bridge',

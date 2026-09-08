@@ -24,4 +24,16 @@ for (const [name, input, expected] of cases) {
   ok ? pass++ : fail++;
 }
 console.log(`${pass} passed, ${fail} failed`);
+const assert = require('node:assert/strict'), fs = require('node:fs'), vm = require('node:vm'), path = require('node:path');
+const source = fs.readFileSync(path.join(__dirname,'../velo/masterPage.js'),'utf8').replace(/^import .*;\r?\n/gm,'');
+for (const env of ['browser','backend']) {
+  const ready=[], trace=[]; const w=()=>({onClick(){}});w.onReady=f=>ready.push(f);
+  vm.runInNewContext(source,{$w:w,rendering:{env},local:{getItem(){return null;}},
+    observeMicrosoftPage(given){assert.equal(given,w);trace.push('observe');},
+    getAllSettings(){trace.push('settings');return new Promise(()=>{});},console:{log(){},error(){}}});
+  ready.forEach(f=>f());
+  assert.equal(trace.filter(x=>x==='observe').length,env==='browser'?1:0,'CAUSAL: browser-only ordinary master observation');
+  if(env==='browser') assert.ok(trace.indexOf('observe')<trace.indexOf('settings'),'observation before backend await');
+}
+console.log('PASS | actual master browser-only page-ready observation before settings await');
 process.exit(fail ? 1 : 0);

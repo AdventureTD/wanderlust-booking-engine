@@ -6,12 +6,59 @@
   (function (w, d, t, src, queueName) {
     var pendingEvents = [];
     var uetReady = false;
+    var initialized = false;
+    var withdrawn = false;
+    // Deployment must supply the exact iframe origin; never learn it from traffic.
+    var MICROSOFT_BRIDGE_ORIGIN = '';
+    var currentPage = null, loaded = false;
+    var observations = Object.create(null);
+    function validMessage(event) {
+      var data = event && event.data, frame;
+      try { frame = d.getElementById('wbeEventBridge'); } catch (_) { return false; }
+      return !!(MICROSOFT_BRIDGE_ORIGIN && w.location.origin === 'https://www.wanderlustcaribbean.com' &&
+        frame && event.source === frame.contentWindow && event.origin === MICROSOFT_BRIDGE_ORIGIN &&
+        data && typeof data === 'object' && !Array.isArray(data) && data.type === 'wbe-microsoft-message' && data.version === 1 &&
+        Object.keys(data).sort().join(',') === 'id,kind,page_path,payload,type,version' &&
+        typeof data.id === 'string' && /^[a-z0-9-]{1,100}$/.test(data.id) &&
+        ['/', '/wanderlust-booking', '/booking-summary'].indexOf(data.page_path) !== -1 &&
+        (data.kind === 'route' ? data.payload === null : data.kind === 'event' && data.payload && typeof data.payload === 'object' && !Array.isArray(data.payload)));
+    }
+    function notifyProducerWithdrawal() {
+      try {
+        var frame = d.getElementById('wbeEventBridge');
+        if (MICROSOFT_BRIDGE_ORIGIN && frame && frame.contentWindow)
+          frame.contentWindow.postMessage({ type: 'wbe-microsoft-withdrawn', version: 1 }, MICROSOFT_BRIDGE_ORIGIN);
+      } catch (_) { /* A later iframe probe recovers the negative notification. */ }
+    }
+    function denyMicrosoft() {
+      var first = !withdrawn;
+      withdrawn = true;
+      pendingEvents = [];
+      if (first) notifyProducerWithdrawal();
+    }
+    function isWithdrawn() {
+      if (withdrawn) return true;
+      try {
+        if (w.wbeAdvertisingWithdrawn === true || w.localStorage.getItem('wbe_consent_choice') === 'denied') denyMicrosoft();
+      } catch (_) { denyMicrosoft(); } // Uncertain storage is suppression, not permission.
+      return withdrawn;
+    }
+    d.addEventListener('wbeAdvertisingWithdrawn', function () {
+      if (w.wbeAdvertisingWithdrawn === true) denyMicrosoft();
+    });
+    w.addEventListener('storage', function (event) {
+      if (!event || (event.key !== 'wbe_consent_choice' && event.key !== null)) return;
+      try { if (event.storageArea && event.storageArea !== w.localStorage) return; } catch (_) {}
+      denyMicrosoft(); // No echo write and no grant/reset transition.
+    });
 
     function sendEvent(action, params) {
+      if (isWithdrawn()) return;
       if (!uetReady) {
         pendingEvents.push([action, params]);
         return;
       }
+      if (action !== 'page_view') params.page_path = currentPage;
       w[queueName].push('event', action, params);
       console.log('[WBE-UET] UET event sent:', action, JSON.stringify(params));
     }
@@ -26,9 +73,20 @@
       purchase: 'purchase'
     };
     w.addEventListener('message', function (event) {
-      var data = event && event.data;
-      if (!data || data.source !== 'wbe-event-bridge' || !data.payload) return;
-
+      if (isWithdrawn()) {
+        if (event && event.data && event.data.type === 'wbe-microsoft-probe') notifyProducerWithdrawal();
+        return;
+      }
+      if (!validMessage(event)) return;
+      var data = event.data;
+      if (observations[data.id]) return;
+      observations[data.id] = true; // Transport identity only, not purchase authority/dedup.
+      if (data.kind === 'route') {
+        currentPage = data.page_path;
+        if (uetReady) sendEvent('page_view', { page_path: currentPage });
+        else if (loaded) loadTag();
+        return;
+      }
       var payload = data.payload;
       if (!payload.event) return;
 
@@ -49,35 +107,42 @@
 
     w[queueName] = w[queueName] || [];
     var loadTag = function () {
+      if (initialized || isWithdrawn() || !currentPage || !MICROSOFT_BRIDGE_ORIGIN) return;
+      initialized = true;
       var options = {
         ti: '17524068',
         tm: 'wix_ui',
-        enableAutoSpaTracking: true
+        // Only the configured, trusted ordinary-page replacement owns SPA views.
+        enableAutoSpaTracking: false
       };
       options.q = w[queueName];
+      if (isWithdrawn()) return;
       w[queueName] = new UET(options);
+      if (isWithdrawn()) return;
       w[queueName].push('pageLoad');
       uetReady = true;
 
       for (var i = 0; i < pendingEvents.length; i++) {
-        w[queueName].push('event', pendingEvents[i][0], pendingEvents[i][1]);
-        console.log('[WBE-UET] queued UET event sent:', pendingEvents[i][0], JSON.stringify(pendingEvents[i][1]));
+        sendEvent(pendingEvents[i][0], pendingEvents[i][1]);
       }
       pendingEvents = [];
       console.log('[WBE-UET] tag initialized on:', w.location.pathname);
     };
 
+    if (isWithdrawn()) return;
     var script = d.createElement(t);
     script.src = src;
     script.async = true;
     script.onload = script.onreadystatechange = function () {
       var state = this.readyState;
       if (!state || state === 'loaded' || state === 'complete') {
+        loaded = true;
         loadTag();
         script.onload = script.onreadystatechange = null;
       }
     };
     var firstScript = d.getElementsByTagName(t)[0];
+    if (isWithdrawn()) return;
     firstScript.parentNode.insertBefore(script, firstScript);
   })(window, document, 'script', 'https://bat.bing.com/bat.js', 'uetq');
 </script>

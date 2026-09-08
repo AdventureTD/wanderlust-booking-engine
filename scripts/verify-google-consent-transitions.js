@@ -400,7 +400,19 @@ const reviewedDenialAddition = `
       } catch (_) { /* Unknown topology/malformed transport cannot grant. */ }
     });
 `;
-const beforeIngress = replaceOnce(source, reviewedDenialAddition, '');
+// Exact additive negative publisher subtraction for historical inputs only.
+const publisherAddition = `  // Negative-only same-page seam; not consent, identity or purchase authority.
+  function publishAdvertisingWithdrawal() {
+    window.wbeAdvertisingWithdrawn = true;
+    try { document.dispatchEvent(new Event('wbeAdvertisingWithdrawn')); } catch (_) {}
+  }
+`;
+function beforePublisher(text) {
+  text = replaceOnce(text, publisherAddition, '');
+  assert.equal((text.match(/^[ ]+publishAdvertisingWithdrawal\(\);\n/gm) || []).length, 3);
+  return text.replace(/^[ ]+publishAdvertisingWithdrawal\(\);\n/gm, '');
+}
+const beforeIngress = replaceOnce(beforePublisher(source), reviewedDenialAddition, '');
 const ingressBaselineHtml = execFileSync('git', ['show',
   '0a3f8914909e27d5e892c4354d2298b408543fd2:velo/custom-code/google-tag-and-consent.html'],
   { cwd: root, encoding: 'utf8' }).replace(/\r\n/g, '\n');
@@ -416,9 +428,10 @@ const globalGrantReversal = replaceOnce(replaceOnce(source,
   '  (function () {\n', ''),
   '  // The loading architecture is unchanged: denied mode can still send pings.\n',
   '  // The loading architecture is unchanged: denied mode can still send pings.\n  (function () {\n').replace(reviewedDenialAddition, '');
-assert.equal(hash(globalGrantReversal), 'bfad2df268d89fc8da2a962f2e3691e1d1bb7db06fb9ba005d5cae085eb7fe0f',
+const historicalGlobalGrantReversal = beforePublisher(globalGrantReversal);
+assert.equal(hash(historicalGlobalGrantReversal), 'bfad2df268d89fc8da2a962f2e3691e1d1bb7db06fb9ba005d5cae085eb7fe0f',
   'exact LF pre-correction source, not a fabricated replacement function');
-causal('exact pre-correction global grant exposure', globalGrantReversal, globalGrantWithdrawalWitness);
+causal('exact pre-correction global grant exposure', historicalGlobalGrantReversal, globalGrantWithdrawalWitness);
 
 const oldCategories = segment(oldSource, '  var _granted =', '  // Path 1:');
 const categoryReversal = replaceOnce(source, segment(source, '  var _granted =', '  // Unqualified'), oldCategories);
@@ -435,8 +448,8 @@ causal('exact old advertising purpose conflation', categoryReversal, code => {
   assert.deepEqual(h.state(), { ...denied, ad_storage: 'granted' }, 'CAUSAL: ad storage alone cannot grant transfer or personalization');
 });
 const withdrawalReversal = replaceOnce(source,
-  "    function denyAll() {\n      grantConsent(false, false, false, false);",
-  '    function denyAll() {');
+  "    function denyAll() {\n      publishAdvertisingWithdrawal();\n      grantConsent(false, false, false, false);",
+  '    function denyAll() {\n      publishAdvertisingWithdrawal();');
 causal('withdrawal denial deletion', withdrawalReversal, code => {
   const h = harness({ testOnlyTransitions: true, source: code });
   h.testOnlyGrantConsent(true, true, true, true);

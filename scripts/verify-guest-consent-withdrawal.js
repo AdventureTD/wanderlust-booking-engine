@@ -160,7 +160,16 @@ function consentReferenceText(text) {
     }).replace(/\\([^\r\n])/g, '$1');
 }
 function consentBoundaryEdge(file, source) {
-  const text = source.replace(/\r\n/g, '\n');
+  let text = source.replace(/\r\n/g, '\n');
+  // Only the independently reviewed Microsoft addition may reconstruct the historical master.
+  // Keep its original import/body pin below: neither arbitrary observers nor new web edges qualify.
+  if (file === 'velo/masterPage.js' &&
+      crypto.createHash('sha256').update(text).digest('hex') === '1c9d6695a340022138697f649cef101ac770729c1f3f20227a440b6b8187c2c6') {
+    text = text.replace(
+      "import { captureClickIds, initTracking, setSuspendGoogleAds, observeMicrosoftPage } from 'public/tracking';",
+      "import { captureClickIds, initTracking, setSuspendGoogleAds } from 'public/tracking';"
+    ).replace("$w.onReady(function () {\n  // Ordinary page-ready observation, not settled rendering/title or onChange.\n  if (rendering.env === 'browser') {\n    try { observeMicrosoftPage($w); } catch (_) { /* Booking remains independent. */ }\n  }\n});\n\n", '');
+  }
   const pin = Object.hasOwn(consentBoundaryPins, file) ? consentBoundaryPins[file] : null;
   if (!pin) return !/guestConsent\.web|guestConsentContext|guestConsentWithdrawalStore|guestConsentBookingLink|resolveGuestConsentBrowserContext|insertConsentBrowserContext|readConsentBrowserContext|recordConsentBrowserWithdrawal|readConsentBrowserWithdrawal|linkGuestConsentBrowserToAcceptedBooking|readGuestConsentBookingNegative/i.test(consentReferenceText(text));
   return JSON.stringify(text.match(/^import .*$/gm) || []) === JSON.stringify(pin.imports) &&
