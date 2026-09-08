@@ -9,8 +9,17 @@ const root = path.resolve(__dirname, '..');
 const graph = {
   'googleAdsConversions.web.js': ['wix-web-module', 'wix-secrets-backend', 'backend/dataManagerClient.web', 'backend/hashUtils.web', 'backend/settings.web', 'wix-data'],
   'microsoftAdsConversions.web.js': ['wix-web-module', 'wix-secrets-backend', 'wix-fetch', 'wix-data', 'backend/settings.web', 'backend/hashUtils.web'],
-  'settings.web.js': ['wix-data']
+  'settings.web.js': ['wix-data', 'wix-web-module']
 };
+function assertImportClosure(mod, file) {
+  assert.ok(Object.hasOwn(graph, file), 'unexpected actual module');
+  assert.deepEqual(Array.from(mod.dependencySpecifiers), graph[file], 'exact import closure');
+}
+function webMethod(permission, fn) {
+  const wrapped = (...args) => fn(...args);
+  wrapped.permission = permission;
+  return wrapped;
+}
 async function load(provider, setting) {
   const trace = { sends: [], secrets: [], writes: [], queries: [] };
   const summary = { _id: 'fixture', bookingNumber: 'fixture', grandTotal: 125, gclid: 'fixture-click', msclkid: 'fixture-click', status: 'Confirmed' };
@@ -35,7 +44,7 @@ async function load(provider, setting) {
     async update(collection, value) { trace.writes.push(collection); assert.equal(collection, 'BookingSummary'); return value; }
   };
   const inert = {
-    'wix-web-module': { Permissions: { Anyone: 'Anyone', Admin: 'Admin' }, webMethod(permission, fn) { fn.permission = permission; return fn; } },
+    'wix-web-module': { Permissions: { Anyone: 'Anyone', Admin: 'Admin' }, webMethod },
     'wix-secrets-backend': { async getSecret(key) { trace.secrets.push(key); return 'inert-public-fixture'; } },
     'wix-data': { default: sdk },
     'backend/hashUtils.web': { buildUserIdentifiers() { return []; } },
@@ -50,7 +59,7 @@ async function load(provider, setting) {
     if (cache.has(file)) return cache.get(file);
     assert.ok(Object.hasOwn(graph, file), 'unexpected actual module');
     const mod = new vm.SourceTextModule(fs.readFileSync(path.join(root, 'velo/backend', file), 'utf8'), { context, identifier: file });
-    assert.deepEqual(Array.from(mod.dependencySpecifiers), graph[file], 'exact import closure');
+    assertImportClosure(mod, file);
     cache.set(file, mod);
     await mod.link(async (specifier) => {
       if (specifier === 'backend/settings.web') return actual('settings.web.js');
@@ -66,6 +75,51 @@ async function load(provider, setting) {
 }
 const cases = [];
 function test(id, fn) { cases.push({ id, fn }); }
+// Fixture-only controls run before any backend linking or evaluation.
+test('fixture/webMethod-distinct-forwarding-no-callback-mutation', () => {
+  const input = {};
+  const output = {};
+  const calls = [];
+  const callback = (...args) => { calls.push(args); return output; };
+  const before = Object.getOwnPropertyDescriptors(callback);
+  const wrapped = webMethod('Anyone', callback);
+  assert.notEqual(wrapped, callback);
+  assert.deepEqual(Object.getOwnPropertyDescriptors(callback), before);
+  assert.equal(callback.permission, undefined);
+  assert.equal(wrapped.permission, 'Anyone');
+  assert.equal(wrapped(input, 7), output);
+  assert.deepEqual(calls, [[input, 7]]);
+  assert.deepEqual(Object.getOwnPropertyDescriptors(callback), before);
+});
+test('fixture/webMethod-forwards-rejection', async () => {
+  const failure = Error('inert callback failure');
+  const callback = async () => { throw failure; };
+  await assert.rejects(webMethod('Admin', callback)(), error => error === failure);
+  assert.equal(callback.permission, undefined);
+});
+test('fixture/settings-old-guard-red-exact-new-edge-green', () => {
+  const mod = new vm.SourceTextModule(fs.readFileSync(path.join(root, 'velo/backend/settings.web.js'), 'utf8'));
+  assert.equal(mod.status, 'unlinked');
+  assert.throws(() => assert.deepEqual(Array.from(mod.dependencySpecifiers), ['wix-data'], 'exact import closure'), { code: 'ERR_ASSERTION' });
+  assertImportClosure(mod, 'settings.web.js');
+  assert.equal(mod.status, 'unlinked');
+});
+for (const file of Object.keys(graph)) test('fixture/exact-edge-controls/' + file, () => {
+  const source = fs.readFileSync(path.join(root, 'velo/backend', file), 'utf8');
+  const mod = new vm.SourceTextModule(source);
+  assertImportClosure(mod, file);
+  for (const extra of ['wix-users-backend', 'backend/unapproved']) {
+    const forbidden = new vm.SourceTextModule(source + '\nimport ' + JSON.stringify(extra) + ';');
+    assert.throws(() => assertImportClosure(forbidden, file), { code: 'ERR_ASSERTION' });
+    assert.equal(forbidden.status, 'unlinked');
+  }
+  assert.throws(() => assertImportClosure({ dependencySpecifiers: graph[file].slice(1) }, file), { code: 'ERR_ASSERTION' });
+  assert.throws(() => assertImportClosure({ dependencySpecifiers: [...graph[file]].reverse() }, file), { code: 'ERR_ASSERTION' });
+  assert.equal(mod.status, 'unlinked');
+});
+test('fixture/unknown-module-denied', () => {
+  assert.throws(() => assertImportClosure({ dependencySpecifiers: [] }, 'unapproved.js'), { code: 'ERR_ASSERTION' });
+});
 const booking = { transactionId: 'fixture', value: 125, currency: 'USD', gclid: 'fixture-click', msclkid: 'fixture-click', conversionTime: '2026-01-01T00:00:00Z' };
 for (const provider of ['google', 'microsoft']) {
   for (const operation of ['record', 'retry']) {

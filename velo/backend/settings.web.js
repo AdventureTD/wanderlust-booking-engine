@@ -1,4 +1,8 @@
 import wixData from 'wix-data';
+import { Permissions, webMethod } from 'wix-web-module';
+
+// Public scalar only; no web-method cache so each call observes Settings anew.
+export const getAdvertisingSuspension = webMethod(Permissions.Anyone, observeAdvertisingSuspension);
 
 export async function getAllSettings() {
   const res = await wixData.query('Settings').limit(1000).find({ suppressAuth: true });
