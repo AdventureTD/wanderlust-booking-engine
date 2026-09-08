@@ -39,7 +39,7 @@ async function load(provider, setting) {
     'wix-secrets-backend': { async getSecret(key) { trace.secrets.push(key); return 'inert-public-fixture'; } },
     'wix-data': { default: sdk },
     'backend/hashUtils.web': { buildUserIdentifiers() { return []; } },
-    'backend/dataManagerClient.web': { async ingestEvent(payload) { trace.sends.push({ kind: 'conversion', payload }); return { ok: true }; } },
+    'backend/dataManagerClient.web': { async ingestEvent(payload) { trace.sends.push({ kind: 'conversion', payload }); return { ok: true, requestId: 'inert-request' }; } },
     'wix-fetch': { async fetch(url, options) {
       const auth = url.includes('login.microsoftonline.com');
       trace.sends.push({ kind: auth ? 'auth' : 'conversion', payload: JSON.parse(auth ? '{}' : options.body) });

@@ -416,12 +416,13 @@ export const adminCancelBooking = webMethod(
 
     // 2. Google Ads retraction (if conversion was uploaded and not yet retracted)
     let adsRetraction = { attempted: false };
+    try {
     if (summary.googleConversionUploaded && !summary.googleConversionRetracted) {
       adsRetraction.attempted = true;
       let result;
       if (await isGoogleAdsSuspended()) {
         console.log('[WBE-ADMIN] skipping Google Ads retraction — suspendGoogleAds is enabled');
-        result = { ok: true, suspended: true };
+        result = { ok: false, suspended: true };
       } else {
         result = await adjustBookingConversion({
           transactionId: bookingNumber,
@@ -437,9 +438,12 @@ export const adminCancelBooking = webMethod(
         });
       }
       adsRetraction.result = result;
-      if (result && result.ok) {
+      if (result && result.ok === true && !result.suspended && !result.skipped) {
         summary.googleConversionRetracted = true;
       }
+    }
+    } catch (e) {
+      adsRetraction.result = { ok: false, error: String(e && e.message || e) };
     }
 
     // 3. Update BookingSummary status and append cancellation note

@@ -121,6 +121,69 @@ export const retryBookingConversion = webMethod(
   }
 );
 
+// FieldWarning / WarningReason: non-blocking optional-field validation warnings.
+// https://developers.google.com/data-manager/api/reference/rest/v1/FieldWarning
+function validAdjustmentWarnings(warnings) {
+  if (!Array.isArray(warnings) || Object.getPrototypeOf(warnings) !== Array.prototype) return false;
+  const items = Object.getOwnPropertyDescriptors(warnings);
+  // Dense ordinary array only; iterate actual own keys, never a sparse declared length.
+  const keys = Reflect.ownKeys(items);
+  if (keys.length !== items.length.value + 1) return false;
+  const reasons = [
+    'WARNING_REASON_UNSPECIFIED',
+    'WARNING_REASON_CUSTOM_VARIABLE_NOT_ENABLED',
+    'WARNING_REASON_CUSTOM_VARIABLE_NOT_PREDEFINED',
+    'WARNING_REASON_CART_DATA_NOT_SUPPORTED_WITH_GBRAID_OR_WBRAID',
+    'WARNING_REASON_CART_DATA_ITEM_MERCHANT_PRODUCT_ID_MISSING',
+    'WARNING_REASON_CART_DATA_ITEM_UNIT_PRICE_MISSING',
+    'WARNING_REASON_GENERIC',
+    'WARNING_REASON_INVALID_CLIENT_ID',
+    'WARNING_REASON_INVALID_SUBDIVISION_CODE',
+    'WARNING_REASON_INVALID_REGION_CODE',
+    'WARNING_REASON_INVALID_SUBCONTINENT_CODE',
+    'WARNING_REASON_INVALID_CONTINENT_CODE',
+    'WARNING_REASON_INVALID_DEVICE_CATEGORY',
+    'WARNING_REASON_INVALID_DEVICE_SCREEN_RESOLUTION',
+    'WARNING_REASON_INVALID_MERCHANT_ID'
+  ];
+  for (let i = 0; i < keys.length - 1; i++) {
+    const item = items[i];
+    if (!item || !Object.prototype.hasOwnProperty.call(item, 'value')) return false;
+    const warning = item.value;
+    if (!warning || typeof warning !== 'object' || Object.getPrototypeOf(warning) !== Object.prototype) return false;
+    const fields = Object.getOwnPropertyDescriptors(warning);
+    for (const key of Reflect.ownKeys(fields)) {
+      if (!['field', 'description', 'reason'].includes(key)) return false;
+      const descriptor = fields[key];
+      if (!Object.prototype.hasOwnProperty.call(descriptor, 'value') || typeof descriptor.value !== 'string') return false;
+      if (key === 'reason' && !reasons.includes(descriptor.value)) return false;
+    }
+  }
+  return true;
+}
+
+// Conservative local request acceptance, not final attribution/processing proof.
+// events.ingest documents requestId and optional fieldWarnings; other fields deny.
+function isAcknowledgedAdjustment(response) {
+  if (!response || typeof response !== 'object' || Array.isArray(response)) return false;
+  const fields = Object.getOwnPropertyDescriptors(response);
+  for (const key of ['requestId', 'ok', 'errors', 'fieldWarnings']) {
+    if (key in response && !Object.prototype.hasOwnProperty.call(fields, key)) return false;
+  }
+  if (Reflect.ownKeys(fields).some(k => !['requestId', 'ok', 'errors', 'fieldWarnings'].includes(k))) return false;
+  for (const key of Reflect.ownKeys(fields)) {
+    if (!Object.prototype.hasOwnProperty.call(fields[key], 'value')) return false;
+  }
+  if (!fields.requestId || typeof fields.requestId.value !== 'string' || !fields.requestId.value.trim()) return false;
+  if (fields.fieldWarnings && !validAdjustmentWarnings(fields.fieldWarnings.value)) return false;
+  if (fields.ok && fields.ok.value !== true) return false;
+  if (fields.errors) {
+    const errors = fields.errors.value;
+    if (!Array.isArray(errors) || !Array.isArray(Object.getPrototypeOf(errors)) || errors.length !== 0 || Reflect.ownKeys(errors).length !== 1) return false;
+  }
+  return true;
+}
+
 export const adjustBookingConversion = webMethod(
   Permissions.Admin,
   async ({ transactionId, gclid, gbraid, wbraid, adjustmentType, newValue, currency, adjustmentTime, originalEvent, email, phone }) => {
@@ -142,7 +205,10 @@ export const adjustBookingConversion = webMethod(
       }, adjustmentType || 'RETRACTION');
 
       const response = await ingestEvent(payload);
-      console.log('[WBE-GOOGLE] adjustment ingestEvent raw response:', JSON.stringify(response));
+      console.log('[WBE-GOOGLE] adjustment ingestEvent response received');
+      if (!isAcknowledgedAdjustment(response)) {
+        return { ok: false, error: 'Google Ads retraction not acknowledged; owner review required' };
+      }
       return { ok: true, transactionId, adjustmentType, response };
     } catch (err) {
       console.error('[WBE-GOOGLE] adjustBookingConversion error:', err);

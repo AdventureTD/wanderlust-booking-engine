@@ -1046,7 +1046,7 @@ export const cancelBooking = webMethod(
             let adjResult;
             if (await isGoogleAdsSuspended()) {
               console.log('[WBE-CANCEL] skipping Google Ads conversion retraction — suspendGoogleAds is enabled');
-              adjResult = { ok: true, suspended: true };
+              adjResult = { ok: false, suspended: true };
             } else {
               adjResult = await adjustBookingConversion({
                 transactionId: b.bookingNumber,
@@ -1060,10 +1060,9 @@ export const cancelBooking = webMethod(
                 currency: 'USD'
               });
             }
-            console.log('>>> SERVER cancelBooking adjustment result:', JSON.stringify(adjResult).substring(0, 300));
-            if (adjResult && adjResult.ok) {
+            console.log('>>> SERVER cancelBooking adjustment result:', adjResult && adjResult.ok === true, !!(adjResult && adjResult.suspended));
+            if (adjResult && adjResult.ok === true && !adjResult.suspended && !adjResult.skipped) {
               summary.googleConversionRetracted = true;
-              summary.status = 'In Process';
               await wixData.update(BOOKING_SUMMARIES, summary);
             }
           }
