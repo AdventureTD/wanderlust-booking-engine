@@ -345,7 +345,7 @@ export async function scanOwnerInvoiceJournal(cursor) {
   } catch (_) { return unavailable; }
 }
 
-// Independent local admission recovery gate. No production consumer is authorized.
+// Independent local admission recovery gate; fixed authenticated bridge only.
 const OWNER_INVOICE_REQUEST_RECOVERY_ENABLED = false;
 function recoveryRoot(stored, id) {
   shape(stored, ['_id', 'kind', 'actorId', 'requestId', 'issuanceId', 'documentDigest', 'document'],
@@ -367,9 +367,9 @@ export async function recoverOwnerInvoiceRequestsOnce(cursor) {
   if (!OWNER_INVOICE_REQUEST_RECOVERY_ENABLED) return { status: 'disabled' };
   if (arguments.length !== 1) deny('cursor');
   if (cursor !== null) digestId(cursor);
-  const report = { protocol: 'owner-invoice-request-recovery/v1', status: 'ok', pages: 0,
+  const report = { protocol: 'owner-invoice-request-recovery/v2', status: 'ok', pages: 0,
     examined: 0, insertAttempts: 0, sdkOperations: 0, outcomes: [], deferred: [],
-    nextCursor: cursor, cycleEndObserved: false, snapshot: false };
+    attemptedRequestId: null, nextCursor: cursor, cycleEndObserved: false, snapshot: false };
   const invoke = async call => {
     if (report.sdkOperations >= 24) deny('budget');
     report.sdkOperations++;
@@ -434,7 +434,7 @@ export async function recoverOwnerInvoiceRequestsOnce(cursor) {
         if (report.sdkOperations + 2 > 24) { report.status = 'unavailable'; return report; }
         report.insertAttempts++;
         let acknowledged = false;
-        try { await invoke(() => wixData.insert(COLLECTION, c.root, WRITE)); acknowledged = true; }
+        try { await invoke(() => { report.attemptedRequestId = c.id; return wixData.insert(COLLECTION, c.root, WRITE); }); acknowledged = true; }
         catch (_) { /* Readback can reconcile admission only, never a send grant. */ }
         try {
           const stored = await get(c.root._id);
@@ -460,6 +460,11 @@ export async function recoverOwnerInvoiceRequestsOnce(cursor) {
 }
 
 export async function invoiceJournalOperation(input) {
+  if (input && input.operation === 'recoverRequests') {
+    shape(input, ['operation', 'cursor']);
+    if (input.cursor !== null) digestId(input.cursor);
+    return recoverOwnerInvoiceRequestsOnce(input.cursor);
+  }
   if (input && input.operation === 'scanPending') {
     shape(input, ['operation', 'cursor']);
     return scanOwnerInvoiceJournal(input.cursor);

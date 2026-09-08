@@ -5,7 +5,23 @@
 Committed queue/recovery closure: `d03daf60debb2add3ad2a1cc8b893ac3f5a0f5c8`.
 Active-profile checkpoints `essential-email-review-recovery-final-review.json` and
 `essential-email-review-recovery-parent-commit.json` retain the prior closure evidence.
-The new private REQUEST recovery below is uncommitted and awaits exact-byte review.
+Private REQUEST recovery L1 is committed at `7a26303ba4ad82565072b4fb171c4ee710a354dd`.
+The actual local caller composition is an uncommitted, partially tested candidate;
+the frozen PR01–PR12 matrix and independent byte review are not yet complete.
+
+The existing startup calls zero-argument `recover_owner_invoice_periodic_once`.
+No periodic caller is registered. A process-local nonblocking lock protects separate
+REQUEST/ISSUANCE positions; OFF returns before configuration and busy returns without
+IO. One authenticated `recoverRequests` completes before independent `scanPending`.
+Admission results never grant sending or feed issuance IDs directly to dispatch.
+Both lanes share 128 bridge invocations, including admission and nested ACK attempts.
+The REQUEST native cap stays 24; 128 is not a native SDK bound or total deadline.
+An actual attempted ID becomes the next strict-gt input even after failure; with no
+attempt, validated continuation/end observations advance or wrap on a later tick.
+Restart resets positions. This is conditional finite, process-local opportunity,
+not distributed fairness, stable absence or recovery past permanently malformed
+pages/permanent provider failure. START exclusion and the original dispatcher remain
+unchanged. No scheduler, jobs configuration, activation or runtime deployment changed.
 
 The fourth new Admin method (fifth total including legacy `issueInvoice`),
 `listOwnerInvoiceReviews(cursor)`, uses fixed two-root
@@ -36,12 +52,12 @@ transport, integration and runtime rollout remain gates. Live systems unverified
 Prior R1-R12 closure is committed; historical partial labels below are not current
 readiness claims. New RR01-RR12 execution and exact hashes are recorded in
 active-profile checkpoints/essential-email-request-recovery-implementation.md.
-Independent review of these new bytes and all hosted/runtime gates remain pending.
+L1 review is committed; independent review of the new caller bytes and all hosted/runtime gates remain pending.
 
 ### New local REQUEST-only admission recovery (independently OFF)
 
-`recoverOwnerInvoiceRequestsOnce(cursor)` is a private module export, not a web or
-HTTP operation. Its independent literal `OWNER_INVOICE_REQUEST_RECOVERY_ENABLED = false`
+`recoverOwnerInvoiceRequestsOnce(cursor)` remains private; only the exact authenticated
+`recoverRequests` cursor envelope delegates to it. Its independent literal `OWNER_INVOICE_REQUEST_RECOVERY_ENABLED = false`
 returns `{status:'disabled'}` before SDK/configuration work. Activated local fixtures
 accept exactly one argument: null or primitive lowercase 64-hex discovery cursor.
 No supplied REQUEST object, command, actor or service secret provides authority.
@@ -70,13 +86,13 @@ actor; duplicate/lost ACK may reconcile a valid same-content other-creator winne
 Unknown readback remains unresolved, never retries within that pass and never rolls
 back retained storage. The next fresh pass adopts an existing root without mutation.
 
-Sanitized protocol owner-invoice-request-recovery/v1 reports status, counters,
+Sanitized protocol owner-invoice-request-recovery/v2 reports attemptedRequestId, status, counters,
 request-record/issuance IDs, admission-only outcomes/deferred IDs, nextCursor,
 cycleEndObserved and snapshot:false. Invalid/partial pages retain their input cursor.
 Explicit deferrals are not a durable queue; no fairness/backlog completion claim.
 This SDK budget is not a wall-clock deadline. Existing effect review remains separate:
-already_present does not clear owner review or claim delivery. HTTP, Python startup,
-periodic behavior and all existing activation gates are unchanged. No live proof or
+already_present does not clear owner review or claim delivery. HTTP and Python startup
+are locally composed as above; all activation gates remain OFF. No live proof or
 full-booking/keyless integration is established by the synthetic native SDK fixtures.
 
 ## Historical records

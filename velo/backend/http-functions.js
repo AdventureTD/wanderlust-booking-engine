@@ -1,4 +1,4 @@
-// Fixed private service bridge. Never creates Admin REQUEST/ISSUANCE authority.
+// Fixed private bridge: reconstruct original admitted roots, never new command authority.
 import { response } from 'wix-http-functions';
 import { getSecret } from 'wix-secrets-backend';
 import { createHash, timingSafeEqual } from 'crypto';

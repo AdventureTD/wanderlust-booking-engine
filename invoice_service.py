@@ -180,17 +180,42 @@ def recompute(req: RecomputeRequest, x_wbe_secret: str = Header(default="")):
 
 OWNER_INVOICE_JOURNAL_ENABLED = False
 
+from threading import Lock
+
+
+class _OwnerInvoiceRecoveryState:
+    def __init__(self):
+        self.request_cursor = None
+        self.issuance_cursor = None
+        self.lock = Lock()
+
+
+_owner_invoice_recovery_state = _OwnerInvoiceRecoveryState()
+
 
 def recover_owner_invoice_startup():
+    return recover_owner_invoice_periodic_once()
+
+
+def recover_owner_invoice_periodic_once():
     """One pass only. OFF returns before configuration or journal/provider work."""
     if not OWNER_INVOICE_JOURNAL_ENABLED:
         return {'status': 'disabled'}
-    from booking_engine.invoice_email_journal import InvoiceEmailJournal
-    from booking_engine.invoice_email_recovery import recover_pending_once
+    state = _owner_invoice_recovery_state
+    if not state.lock.acquire(blocking=False):
+        return {'status': 'busy'}
     try:
-        return recover_pending_once(InvoiceEmailJournal.from_environment())
+        from booking_engine.invoice_email_journal import InvoiceEmailJournal
+        from booking_engine.invoice_email_recovery import recover_integrated_once
+        result = recover_integrated_once(InvoiceEmailJournal.from_environment(),
+                                         state.request_cursor, state.issuance_cursor)
+        state.request_cursor = result['requestCursor']
+        state.issuance_cursor = result['issuanceCursor']
+        return result
     except Exception:
         return {'status': 'unavailable'}
+    finally:
+        state.lock.release()
 
 
 app.router.add_event_handler('startup', recover_owner_invoice_startup)

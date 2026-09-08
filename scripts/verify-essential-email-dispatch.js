@@ -105,7 +105,10 @@ async function load(enabled = true, entry = 'entry') {
         if (nativeFault) nativeFault();
         assert.equal(collection, 'InvoiceEmailJournal');
         assert.deepEqual(clone(options), { suppressAuth: true, suppressHooks: true });
-        if (failRoot && record.kind === 'ISSUANCE') throw new Error('fixture_root_offline');
+        if (record.kind === 'ISSUANCE' && (failRoot ||
+            (process.env.ENDPOINT_FIXTURE && process.env.ENDPOINT_FAULT === 'lowest_request_insert' &&
+             record._id === [...rows.values()].filter(r => r.kind === 'REQUEST')
+               .sort((a,b) => a._id.localeCompare(b._id))[0]?.issuanceId))) throw new Error('fixture_root_offline');
         if (rows.has(record._id)) throw new Error('duplicate');
         rows.set(record._id, clone(record));
         if (insertHook) await insertHook(record);
@@ -380,9 +383,54 @@ async function verifyRequestRecovery() {
       }
       return record ? clone(record) : null;
     };
+    // Fault only the admission SDK boundary; never substitute module reports.
+    if (input.fixturePayload?.operation === 'recoverRequests') {
+      if (process.env.ENDPOINT_FAULT === 'stage_after_absence') {
+        const request = [...rows.values()].find(r => r.kind === 'REQUEST');
+        const sha = value => crypto.createHash('sha256').update(value).digest('hex');
+        const key = (ns, id) => sha(JSON.stringify([ns, id]));
+        const target = key('invoice-send-ack/v1', request.issuanceId);
+        let scheduled = false;
+        getHook = async id => {
+          const observed = rows.has(id) ? clone(rows.get(id)) : null;
+          if (id === target && observed === null && !scheduled) {
+            scheduled = true; // retained absence response, then another actual writer runs
+            assert.equal(rows.has(request.issuanceId), false);
+            const admin = await load();
+            await admin.prepareOwnerInvoiceDispatch(clone(command));
+            const journal = await load(true, 'backend/invoiceEmailJournal');
+            const rootRow = rows.get(request.issuanceId);
+            const op = (operation, payload) => journal.invoiceJournalOperation({operation, issuanceId: request.issuanceId, payload});
+            const bytes = Buffer.from('inert stage scheduling artifact'), digest = sha(bytes);
+            const chunk = {_id:key('invoice-artifact-chunk/v1',digest),kind:'ARTIFACT_CHUNK',data:bytes.toString('base64'),digest};
+            await op('putChunk',chunk);
+            const state = await op('commitArtifact', {_id:key('invoice-artifact/v1',request.issuanceId),kind:'ARTIFACT',issuanceId:request.issuanceId,documentDigest:rootRow.documentDigest,to:rootRow.to,cc:rootRow.cc,from:rootRow.from,chunkIds:[chunk._id],mimeDigest:digest,byteLength:bytes.length,pdfDigest:sha('inert PDF'),rendererVersion:'PR08/v1'});
+            assert.equal((await op('tryStart',{artifactDigest:state.artifactDigest,workerBootId:'stage-worker',invocationNonce:'stage-nonce'})).won,true);
+          }
+          return observed;
+        };
+      }
+      if (process.env.ENDPOINT_FAULT === 'request_unknown') {
+        getHook = async id => rows.get(id)?.kind === 'REQUEST' ? undefined :
+          (rows.has(id) ? clone(rows.get(id)) : null);
+      }
+      if (process.env.ENDPOINT_FAULT === 'request_bad_page') {
+        queryHook = page => ({...page, hasNext: () => 'unknown'});
+      }
+    }
     let result;
-    if (input.fixture === 'prepare') {
-      result = await (await load()).prepareOwnerInvoiceDispatch(clone(command));
+    if (input.fixture === 'prepare' || input.fixture === 'prepare-request-only' || input.fixture === 'prepare-child-request-only') {
+      failRoot = input.fixture !== 'prepare';
+      const cmd = clone(command);
+      if (input.purpose) cmd.purpose = input.purpose;
+      if (input.fixture === 'prepare-child-request-only') {
+        cmd.invoiceNumber = JSON.parse(rows.get(input.parentIssuanceId).document).invoiceNumber;
+        cmd.parentIssuanceId = input.parentIssuanceId;
+        cmd.reissueReason = 'explicit retained child';
+      }
+      try { result = await (await load()).prepareOwnerInvoiceDispatch(cmd); }
+      catch (error) { if (!failRoot) throw error; result = {status: 'retained_request', fixtureError: String(error)}; }
+      if (failRoot) assert.ok([...rows.values()].some(r => r.kind === 'REQUEST'));
     } else if (input.fixture === 'status' || input.fixture === 'dispatch-retained') {
       const api = await load();
       const before = trace.length;
@@ -391,7 +439,7 @@ async function verifyRequestRecovery() {
       assert.deepEqual(externalTrace, [], 'retained status/dispatch never wakes sender or reads secrets');
     } else {
       const api = await load(true, 'backend/http-functions');
-      const response = await api.post_invoiceEmailJournal({headers: {'x-wbe-secret': 'fixture-only'}, body: {text: async () => JSON.stringify(input)}});
+      const response = await api.post_invoiceEmailJournal({headers: {'x-wbe-secret': input.fixtureSecret === undefined ? 'fixture-only' : input.fixtureSecret}, body: {text: async () => JSON.stringify(input.fixturePayload || input)}});
       assert.equal(response.status, Number(process.env.ENDPOINT_EXPECT_STATUS || 200), response.body);
       result = JSON.parse(response.body);
     }
@@ -403,7 +451,7 @@ async function verifyRequestRecovery() {
   verifyIncomingExclusions();
   bridgeSecrets = true;
   const bridge = await load(true, 'backend/http-functions');
-  for (const supplied of [undefined, '', 'wrong']) {
+  for (const supplied of [undefined, '', 'wrong', 'x'.repeat(4097)]) {
     const before = trace.length;
     const response = await bridge.post_invoiceEmailJournal({ headers: {'x-wbe-secret': supplied},
       body: { text: async () => { throw new Error('unauthenticated_body_read'); } } });
@@ -413,6 +461,9 @@ async function verifyRequestRecovery() {
   }
   const invalidBridgeBodies = ['recoverOwnerInvoiceRequestsOnce', 'REQUEST', 'ISSUANCE', 'insert', 'update', 'remove', 'save', 'prepareOwnerIssuance'].map(operation =>
     ({operation, issuanceId: 'a'.repeat(64), payload: {}}));
+  for (const cursor of [[], {}, true, 'A'.repeat(64), '']) invalidBridgeBodies.push({operation:'recoverRequests', cursor});
+  for (const field of ['callback', 'budget', 'actor', 'document', 'REQUEST', 'issuanceId']) invalidBridgeBodies.push({operation:'recoverRequests', cursor:null, [field]:'forbidden'});
+  invalidBridgeBodies.push({operation:'recoverRequests'});
   invalidBridgeBodies.push({operation: 'readIssuance', issuanceId: 'a'.repeat(64), payload: {}, callbackUrl: 'https://forbidden.invalid'},
     {operation: 'insert', collection: 'Bookings', payload: {kind: 'ISSUANCE'}});
   for (const body of invalidBridgeBodies) {

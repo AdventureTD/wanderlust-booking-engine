@@ -1,6 +1,7 @@
 """One bounded pass over durable Admin roots, not a scheduler or send grant."""
+from requests.exceptions import RequestException
 from .invoice_email_dispatch import dispatch_issuance
-from .invoice_email_journal import validate_cursor, validate_review_page
+from .invoice_email_journal import validate_cursor, validate_review_page, validate_request_report
 
 
 class _BudgetedJournal:
@@ -19,6 +20,10 @@ class _BudgetedJournal:
         self._charge()
         return validate_review_page(self._journal.scan_pending(cursor), cursor)
 
+    def recover_requests(self, cursor):
+        self._charge()
+        return validate_request_report(self._journal.recover_requests(cursor), cursor)
+
     def call(self, operation, issuance_id, payload=None):
         self._charge()
         return self._journal.call(operation, issuance_id, payload)
@@ -27,9 +32,16 @@ class _BudgetedJournal:
 def recover_pending_once(journal, cursor=None):
     validate_cursor(cursor)
     budget = _BudgetedJournal(journal)
+    result = _recover_pending_core(budget, cursor)
+    result['bridgeOperations'] = budget.used
+    return result
+
+
+def _recover_pending_core(budget, cursor):
+    before = budget.used
     result = {'status': 'ok', 'pages': 0, 'examined': 0, 'attempts': 0,
               'nextCursor': cursor, 'cycleEndObserved': False, 'snapshot': False,
-              'outcomes': [], 'issues': [], 'deferred': []}
+              'outcomes': [], 'issues': [], 'deferred': [], 'attemptedIssuanceId': None}
     for _ in range(2):
         try:
             page = budget.scan_pending(cursor)
@@ -52,6 +64,7 @@ def recover_pending_once(journal, cursor=None):
                     result['deferred'].append(item['issuanceId'])
                 else:
                     result['attempts'] = 1
+                    result['attemptedIssuanceId'] = item['issuanceId']
                     outcome = dispatch_issuance(item['issuanceId'], budget)
                     result['outcomes'].append({'issuanceId': item['issuanceId'], 'status': outcome['status']})
             else:
@@ -65,5 +78,36 @@ def recover_pending_once(journal, cursor=None):
             break
         if page['cycleEndObserved']:
             break
-    result['bridgeOperations'] = budget.used
+    result['bridgeOperations'] = budget.used - before
     return result
+
+
+def recover_integrated_once(journal, request_cursor=None, issuance_cursor=None):
+    validate_cursor(request_cursor)
+    validate_cursor(issuance_cursor)
+    budget = _BudgetedJournal(journal)
+    try:
+        admission = budget.recover_requests(request_cursor)
+    except ValueError:
+        admission = {'status': 'malformed_response'}
+    except RequestException:
+        admission = {'status': 'transport_error'}
+    except Exception:
+        admission = {'status': 'unavailable'}
+    request_calls = budget.used
+    roots = _recover_pending_core(budget, issuance_cursor)
+    return {**roots, 'admission': admission,
+            'requestCursor': _next_position(admission, request_cursor, 'attemptedRequestId'),
+            'issuanceCursor': _next_position(roots, issuance_cursor, 'attemptedIssuanceId'),
+            'status': 'ok' if admission['status'] in ('ok', 'deferred') and roots['status'] == 'ok' else 'degraded',
+            'requestBridgeOperations': request_calls,
+            'issuanceBridgeOperations': roots['bridgeOperations'],
+            'bridgeOperations': budget.used}
+
+
+def _next_position(report, previous, attempt_field):
+    if report.get(attempt_field) is not None:
+        return report[attempt_field]
+    if report.get('cycleEndObserved'):
+        return None
+    return report.get('nextCursor', previous)
