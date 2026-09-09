@@ -2,7 +2,7 @@
 // Run: node scripts/verify-room-search-isolation.js
 const fs = require('fs');
 const path = require('path');
-const childProcess = require('child_process');
+const crypto = require('crypto');
 
 function check(condition, message) {
   console.log((condition ? 'PASS' : 'FAIL') + ': ' + message);
@@ -19,7 +19,7 @@ const coordinator = fs.readFileSync(coordinatorPath, 'utf8');
 
 const coordinatorImports = search.match(/^import[^\n;]+from ['"]backend\/roomAvailability['"];?\s*$/gm) || [];
 check(coordinatorImports.length === 1 &&
-  /import \{ loadRoomAvailability \} from ['"]backend\/roomAvailability['"]/.test(coordinatorImports[0]),
+  /import \{ loadRoomAvailabilityWindowReader \} from ['"]backend\/roomAvailability['"]/.test(coordinatorImports[0]),
   'Search has exactly one narrow coordinator import');
 check(!/roomAssignments|wixDataPaging|ownerBlocks|roomAvailabilityRules|roomInventory(?:Rules)?/.test(search),
   'Search does not import or reference rejected or lower-level inventory modules');
@@ -27,18 +27,18 @@ check(!/\.(insert|update|remove|save|bulkInsert|bulkUpdate|bulkRemove)\s*\(/.tes
   'Search integration adds no data-write operation');
 check(/physicalCapMap\s*\(/.test(search) && /physicalAvailabilityFor\s*\(/.test(search),
   'Search validates and request-locally caches coordinator results');
-check(/Math\.min\(units - maxBooked, physicalMaxQty\)/.test(search),
-  'full availability remains the minimum of legacy and physical capacity');
-check(/Math\.min\(minFreePartial, partialPhysicalMax\)/.test(search),
-  'partial availability remains the minimum of legacy and exact-window physical capacity');
+check(search.includes('? physicalCaps[code] : 0;') && !/maxBooked|BOOKING_SUMMARY|loadAllBookings/.test(search),
+  'full availability uses only validated Bookings-first snapshot capacity');
+check(search.includes('const caps = await physicalAvailabilityFor(windowStart, windowEnd);') &&
+  search.includes('const partialMaxQty = partialWindow.quantity;'),
+  'partial availability uses the validated exact-window quantity');
 check(!/search\.web|page-booking-search/.test(coordinator),
   'coordinator remains independent of Search and page modules');
 
-const baselinePage = childProcess.execFileSync('git', [
-  'show', 'HEAD:velo/page-booking-search.js'
-], { cwd: root, encoding: 'utf8' });
-check(page.replace(/\r\n/g, '\n') === baselinePage.replace(/\r\n/g, '\n'),
-  'Booking Search page source remains identical to HEAD');
+// Exact approved source pin; only checkout CRLF is canonicalized, never trim.
+check(crypto.createHash('sha256').update(page.replace(/\r\n/g, '\n')).digest('hex') ===
+  'ee23bdd0948adc34ca51bbb83bd3470588f13c450de5a1f48661fb88902722f6',
+  'Booking Search page matches the approved picker source');
 check(!/backend\/roomAvailability['"]/.test(page),
   'Booking Search page does not directly import the coordinator');
 

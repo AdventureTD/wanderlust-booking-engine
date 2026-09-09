@@ -651,7 +651,7 @@ async function searchHandler() {
   safeText('Searching...');
 
   try {
-    const res = await searchAvailability(ciDate, coDate);
+    const res = await searchAvailability(pickerCalendarDate(ciDate), pickerCalendarDate(coDate));
     console.log('>>> [WBE-SEARCH] raw results:', JSON.stringify(res));
     if (!res.ok) { hideSearchHeader(); safeText(res.error); return; }
 
@@ -1006,6 +1006,14 @@ function showSearchHeader(ciDate, coDate, nights) {
   }
 }
 
+// Picker Dates describe browser-local calendar days, not UTC instants.
+// Serialize that intent before the web-method proxy converts Dates to JSON.
+function pickerCalendarDate(date) {
+  return String(date.getFullYear()).padStart(4, '0') + '-' +
+    String(date.getMonth() + 1).padStart(2, '0') + '-' +
+    String(date.getDate()).padStart(2, '0');
+}
+
 function parseDate(v) {
   if (!v) return null;
   if (v instanceof Date) return v;
@@ -1033,7 +1041,7 @@ function safeText(txt, opts) {
 
 async function showAlternateDates(ciDate, coDate) {
   try {
-    const res = await suggestAlternateDates(ciDate, coDate);
+    const res = await suggestAlternateDates(pickerCalendarDate(ciDate), pickerCalendarDate(coDate));
     const sug = (res && res.suggestions) || [];
 
     if (sug.length === 0) {
@@ -1055,8 +1063,9 @@ async function showAlternateDates(ciDate, coDate) {
 function buildAltUrl(checkInIso, checkOutIso) {
   const ci = new Date(checkInIso);
   const co = new Date(checkOutIso);
+  // These are Search's UTC-normalized response dates, not picker Dates.
   const fmt = function (d) {
-    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    return d.getUTCFullYear() + '-' + ('0' + (d.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + d.getUTCDate()).slice(-2);
   };
   return '/wanderlust-booking?ci=' + fmt(ci) + '&co=' + fmt(co) + '&auto=1';
 }

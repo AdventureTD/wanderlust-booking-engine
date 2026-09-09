@@ -1,5 +1,6 @@
 // Golden compatibility tests for Booking Search plus physical-cap integration.
-// Run: node scripts/verify-room-search-compatibility.js
+// Finite selector: node scripts/verify-room-search-compatibility.js snapshot-contract
+// No-selector historical tail is retained but is not admission to execute it.
 process.env.TZ = 'UTC';
 const fs = require('fs');
 const path = require('path');
@@ -40,6 +41,11 @@ const wixData = {
   }
 };
 
+// Pinned declaration prefix only: no borrowed selector or producer executes.
+const snapshotFixture = vm.compileFunction("'use strict';\n// Extracted real page handlers, never page/onReady evaluation or producers.\nconst fs = require('fs'), path = require('path'), vm = require('vm');\nconst assert = require('assert/strict'), crypto = require('crypto');\nconst root = path.resolve(__dirname, '..');\nconst pins = {\n  'velo/backend/search.web.js':'9ee7cec295395cdc77b57015fa34978bb8deb072da7e5516641fbcf97b2b5017',\n  'velo/backend/roomAvailability.js':'416c0611ec37c5e8363ae7119ad93c8122bd830f7c9d3b38a3c65394745acfe6',\n  'velo/backend/roomInventory.js':'ea98da3edb69254dc1ffd008886a43df653ab54bc9d034412537274760cdebc5',\n  'velo/backend/roomInventoryRules.js':'6bc0520cb3940b0399f43d8f5df7b493c666f221621bb80bc3e7004c8de89899',\n  'velo/backend/roomAvailabilityRules.js':'578b42bcc63c28720b9a08aae9dea42761a42febcfc62449efe5313a7164b6f4',\n  'velo/backend/roomAssignmentRules.js':'9d685cc29821181e482c84cf1d9ecf0fd463fc03dbf12617d3fcfb76e9dd46b2',\n  'velo/backend/wbeConfig.js':'ab2605869199c1d586dad2643f1f838abda1f6f3d1d18cc4ac4d0743edce70f2',\n  'scripts/verify-search-bookings-first.cjs':'e05dade6dd92e0013192f7a0013d289df9f8e157dba5982dd47d263a49fa709f'\n};\nfor (const [file,hash] of Object.entries(pins)) assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(root,file),'utf8').replace(/\\r\\n/g,'\\n')).digest('hex'),hash,file);\n\nconst fixtureSource=fs.readFileSync(path.join(root,'scripts/verify-search-bookings-first.cjs'),'utf8').replace(/\\r\\n/g,'\\n');\nconst prefix=fixtureSource.slice(0,fixtureSource.indexOf('async function check('));\nreturn vm.compileFunction(prefix+'\\nreturn {database,loader};',['require','__dirname'])(require,__dirname);", ['require','__dirname'])(require,__dirname);
+let snapshotLoads = 0;
+let snapshotReads = [];
+let snapshotDb = null;
 const context = {
   Array,
   Date,
@@ -54,12 +60,24 @@ const context = {
   Permissions: { Anyone: 'Anyone' },
   webMethod: function(permission, handler) { return handler; },
   console: { log: function() {} },
-  loadRoomAvailability: async function() {
-    return [
-      { roomCode: 'penthouse_apartment', available: true, maxQuantity: 1 },
-      { roomCode: 'two_bedroom_apartment', available: true, maxQuantity: 1 },
-      { roomCode: 'adventure_suite', available: true, maxQuantity: 3 }
-    ];
+  // The historical DTO fault seam remains separate from the actual reader.
+  loadRoomAvailabilityWindowReader: async function(start, end) {
+    snapshotLoads += 1;
+    if (context.loadRoomAvailability) return context.loadRoomAvailability;
+    snapshotDb = snapshotFixture.database(fixture.bookings, fixture.summaries, 1000);
+    snapshotReads = snapshotDb.trace;
+    const strict = require('assert/strict');
+    const retained = structuredClone(snapshotDb.storage);
+    const read = await snapshotFixture.loader(snapshotDb).load('backend/roomAvailability')
+      .loadRoomAvailabilityWindowReader(start, end);
+    strict.equal(snapshotReads.length, 2, 'one Bookings/Summary traversal');
+    return function(a, b) {
+      const result = read(a, b);
+      strict.deepEqual(snapshotDb.storage, retained, 'raw retained fixture unchanged');
+      strict.equal(snapshotDb.writes, 0);
+      strict.equal(snapshotReads.length, 2, 'subwindows add no collection reads');
+      return result;
+    };
   }
 };
 vm.createContext(context);
@@ -84,6 +102,13 @@ function room(overrides) {
 function reset(overrides) {
   fixture = Object.assign({ closures: [], rooms: [room()], bookings: [], summaries: [] }, overrides || {});
   queryCalls.length = 0;
+  snapshotLoads = 0;
+  snapshotReads = [];
+  // Explicit synthetic physical rows, not writer output or aggregate admission.
+  fixture.bookings = fixture.bookings.flatMap(function(row, index) {
+    if (row.quantity !== 3) return [Object.assign({_id: 'fixture-'+index, assignedRoom: row.roomCode === 'two_bedroom_apartment' ? 2 : 3}, row)];
+    return [3,4,5].map(unit => Object.assign({}, row, {_id:'fixture-'+index+'-'+unit, assignedRoom:unit, quantity:1}));
+  });
 }
 
 function booking(number, status, quantity) {
@@ -153,15 +178,15 @@ function summary(number, checkIn, checkOut) {
     bookings: [booking('PENDING', ' pending ', 3)],
     summaries: [summary('PENDING', '2027-11-05', '2027-11-09')]
   });
-  assertEqual((await context.searchApi.searchAvailability('2027-11-05', '2027-11-09')).results, [],
-    'legacy Search continues counting pending bookings');
+  assertEqual((await context.searchApi.searchAvailability('2027-11-05', '2027-11-09')).results[0].maxQty, 3,
+    'approved inactive pending lifecycle does not occupy inventory');
 
   reset({
     bookings: [booking('BLANK', '', 3)],
     summaries: [summary('BLANK', '2027-11-05', '2027-11-09')]
   });
   assertEqual((await context.searchApi.searchAvailability('2027-11-05', '2027-11-09')).results, [],
-    'legacy Search continues counting blank-status bookings');
+    'blank lifecycle denies availability');
 
   reset({
     bookings: [booking('CANCELLED', ' Cancelled ', 3)],
@@ -184,8 +209,8 @@ function summary(number, checkIn, checkOut) {
     })],
     summaries: [summary('SUMMARY-AUTHORITY', '2027-12-01', '2027-12-05')]
   });
-  assertEqual((await context.searchApi.searchAvailability('2027-11-05', '2027-11-09')).results[0].maxQty, 3,
-    'legacy Search ignores direct Bookings dates and uses BookingSummary dates only');
+  assertEqual((await context.searchApi.searchAvailability('2027-11-05', '2027-11-09')).results, [],
+    'direct Bookings overlap wins over nonoverlapping Summary dates');
 
   reset({
     bookings: [booking('PARTIAL', 'confirmed', 3)],
@@ -228,8 +253,28 @@ function summary(number, checkIn, checkOut) {
     bookings: [booking('FALLBACK', 'confirmed')],
     summaries: [summary('FALLBACK', '2027-11-05', '2027-11-09')]
   });
-  assertEqual((await context.searchApi.searchAvailability('2027-11-05', '2027-11-09')).results[0].maxQty, 2,
-    'BookingSummary-only dates and missing-quantity fallback remain unchanged');
+  assertEqual((await context.searchApi.searchAvailability('2027-11-05', '2027-11-09')).ok, false,
+    'missing physical quantity is denied rather than defaulted');
+
+  if (process.argv[2] === 'snapshot-contract') {
+    reset({bookings:[Object.assign(booking('DIRECT', 'confirmed', 3), {
+      checkIn:'2027-12-01', checkOut:'2027-12-05'
+    })], summaries:[summary('DIRECT','2027-11-05','2027-11-09')]});
+    const direct = await context.searchApi.searchAvailability('2027-11-05','2027-11-09');
+    assertEqual([direct.ok,direct.results[0].maxQty,snapshotLoads,snapshotReads.length], [true,3,1,2],
+      'stale overlapping Summary does not override direct nonoverlap; one snapshot');
+    for (const [label, row, summaries] of [
+      ['blank status',booking('STRICT','',1),[summary('STRICT','2027-11-05','2027-11-09')]],
+      ['half direct',Object.assign(booking('STRICT','confirmed',1),{checkIn:'2027-11-05'}),[summary('STRICT','2027-11-05','2027-11-09')]],
+      ['duplicate fallback',booking('STRICT','confirmed',1),[summary('STRICT','2027-11-05','2027-11-09'),summary('STRICT','2027-11-05','2027-11-09')]]
+    ]) {
+      reset({bookings:[row],summaries});
+      assertEqual(await context.searchApi.searchAvailability('2027-11-05','2027-11-09'), {
+        ok:false,error:'Unable to check room availability. Please try again.',requestedNights:4,results:[]
+      }, 'strict snapshot denial: '+label);
+    }
+    return;
+  }
 
   const physicalCalls = [];
   context.loadRoomAvailability = async function(checkIn, checkOut) {
@@ -285,16 +330,21 @@ function summary(number, checkIn, checkOut) {
     'partial maxQty is capped using physical availability for the exact partial interval');
   assertEqual(partialPhysicalCalls, [
     ['2027-11-05T00:00:00.000Z', '2027-11-11T00:00:00.000Z'],
+    ['2027-11-05T00:00:00.000Z', '2027-11-10T00:00:00.000Z'],
+    ['2027-11-06T00:00:00.000Z', '2027-11-11T00:00:00.000Z'],
+    ['2027-11-05T00:00:00.000Z', '2027-11-09T00:00:00.000Z'],
+    ['2027-11-06T00:00:00.000Z', '2027-11-10T00:00:00.000Z'],
     ['2027-11-07T00:00:00.000Z', '2027-11-11T00:00:00.000Z']
   ], 'partial availability evaluates the full request and exact derived partial interval');
 
   const cachedWindowCalls = [];
   context.loadRoomAvailability = async function(checkIn, checkOut) {
     cachedWindowCalls.push([checkIn.toISOString(), checkOut.toISOString()]);
+    const free = checkIn.toISOString() >= '2027-11-07T00:00:00.000Z';
     return [
-      { roomCode: 'penthouse_apartment', available: true, maxQuantity: 1 },
-      { roomCode: 'two_bedroom_apartment', available: true, maxQuantity: 1 },
-      { roomCode: 'adventure_suite', available: true, maxQuantity: 3 }
+      { roomCode: 'penthouse_apartment', available: free, maxQuantity: free ? 1 : 0 },
+      { roomCode: 'two_bedroom_apartment', available: free, maxQuantity: free ? 1 : 0 },
+      { roomCode: 'adventure_suite', available: free, maxQuantity: free ? 3 : 0 }
     ];
   };
   reset({
@@ -314,6 +364,10 @@ function summary(number, checkIn, checkOut) {
   await context.searchApi.searchAvailability('2027-11-05', '2027-11-11');
   assertEqual(cachedWindowCalls, [
     ['2027-11-05T00:00:00.000Z', '2027-11-11T00:00:00.000Z'],
+    ['2027-11-05T00:00:00.000Z', '2027-11-10T00:00:00.000Z'],
+    ['2027-11-06T00:00:00.000Z', '2027-11-11T00:00:00.000Z'],
+    ['2027-11-05T00:00:00.000Z', '2027-11-09T00:00:00.000Z'],
+    ['2027-11-06T00:00:00.000Z', '2027-11-10T00:00:00.000Z'],
     ['2027-11-07T00:00:00.000Z', '2027-11-11T00:00:00.000Z']
   ], 'identical partial windows share one coordinator snapshot read');
 

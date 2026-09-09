@@ -1,10 +1,8 @@
 import wixData from 'wix-data';
 import { Permissions, webMethod } from 'wix-web-module';
 import { ROOM_UNITS } from 'backend/wbeConfig';
-import { loadRoomAvailability } from 'backend/roomAvailability';
+import { loadRoomAvailabilityWindowReader } from 'backend/roomAvailability';
 
-const BOOKINGS = 'Bookings';
-const BOOKING_SUMMARIES = 'BookingSummary';
 const ROOMS = 'Rooms';
 const HOTEL_CLOSURES = 'HotelClosures';
 const MIN_N = 4;
@@ -69,13 +67,14 @@ function imgUrl(v) {
 
 function ds(dt) {
   const x = new Date(dt);
-  x.setHours(0, 0, 0, 0);
+  // Match the inventory UTC-day contract, not the backend host timezone.
+  x.setUTCHours(0, 0, 0, 0);
   return x;
 }
 
 function ad(dt, n) {
   const x = new Date(dt);
-  x.setDate(x.getDate() + n);
+  x.setUTCDate(x.getUTCDate() + n);
   return x;
 }
 
@@ -183,13 +182,16 @@ export const searchAvailability = webMethod(
     }
 
     const physicalAvailabilityByWindow = Object.create(null);
+    const windowReader = Promise.resolve().then(function() {
+      return loadRoomAvailabilityWindowReader(new Date(ci.getTime()), new Date(co.getTime()));
+    });
     async function physicalAvailabilityFor(startDate, endDate) {
       const key = startDate.toISOString() + '|' + endDate.toISOString();
       if (!Object.prototype.hasOwnProperty.call(physicalAvailabilityByWindow, key)) {
         const coordinatorStartDate = new Date(startDate.getTime());
         const coordinatorEndDate = new Date(endDate.getTime());
-        physicalAvailabilityByWindow[key] = Promise.resolve()
-          .then(function() { return loadRoomAvailability(coordinatorStartDate, coordinatorEndDate); })
+        physicalAvailabilityByWindow[key] = windowReader
+          .then(function(readWindow) { return readWindow(coordinatorStartDate, coordinatorEndDate); })
           .then(physicalCapMap);
       }
       return physicalAvailabilityByWindow[key];
@@ -210,10 +212,8 @@ export const searchAvailability = webMethod(
     for (let i = 0; i < rq; i++) { nights.push(ad(ci, i)); }
 
     const roomRes = await wixData.query(ROOMS).limit(50).find({ suppressAuth: true });
-    const bookingRes = await wixData.query(BOOKINGS).limit(1000).find({ suppressAuth: true });
 
     const rooms = roomRes.items;
-    const allBookings = bookingRes.items;
     const seenRoomCodes = Object.create(null);
     const normalizedRooms = [];
     for (const room of rooms) {
@@ -230,25 +230,6 @@ export const searchAvailability = webMethod(
       }
       seenRoomCodes[roomCode] = true;
     }
-    // Fetch all BookingSummary records once; BookingSummary stores dates as text.
-    const summaryAllRes = await wixData.query(BOOKING_SUMMARIES).limit(1000).find({ suppressAuth: true });
-    const allSummaries = summaryAllRes.items;
-
-    const normalizedSummaries = [];
-    for (const s of allSummaries) {
-      const bn = s.bookingNumber != null ? String(s.bookingNumber) : null;
-      if (!bn) continue;
-      const ciRaw = s.checkIn;
-      const coRaw = s.checkOut;
-      if (ciRaw == null || coRaw == null) continue;
-      try {
-        const dsCi = ds(ciRaw);
-        const dsCo = ds(coRaw);
-        if (isNaN(dsCi.getTime()) || isNaN(dsCo.getTime())) continue;
-        normalizedSummaries.push({ bn: bn, dsCi: dsCi, dsCo: dsCo });
-      } catch (e) { continue; }
-    }
-
     const out = [];
 
     for (let r = 0; r < normalizedRooms.length; r++) {
@@ -281,53 +262,11 @@ export const searchAvailability = webMethod(
         continue;
       }
 
-      const rBookings = allBookings.filter(b => b.roomCode === code);
-
-      // Build summaryMap scoped to this room's booking numbers only.
-      const summaryMap = {};
-      for (const bk of rBookings) {
-        if (bk.bookingNumber) summaryMap[String(bk.bookingNumber)] = null;
-      }
-      for (const ns of normalizedSummaries) {
-        if (summaryMap.hasOwnProperty(ns.bn)) {
-          summaryMap[ns.bn] = { dsCi: ns.dsCi, dsCo: ns.dsCo };
-        }
-      }
-
-      const bpn = [];
-      const debugCounts = [];
-      for (let i = 0; i < nights.length; i++) {
-        const nt = nights[i];
-        const nx = ad(nt, 1);
-        let count = 0;
-        const matched = [];
-        for (const bk of rBookings) {
-          const s = (bk.status || '').toLowerCase().trim();
-          if (s === 'cancelled' || s === 'canceled') continue;
-          const dates = summaryMap[String(bk.bookingNumber)];
-          if (dates) {
-            if (dates.dsCi < nx && dates.dsCo > nt) {
-              const qty = (bk.quantity || 1);
-              count += qty;
-              matched.push({ bn: bk.bookingNumber, qty: qty, ci: dstr(dates.dsCi), co: dstr(dates.dsCo), nt: dstr(nt) });
-            }
-          }
-        }
-        bpn.push(count);
-        debugCounts.push({ night: dstr(nt), count: count, matched: matched });
-      }
-      console.log('>>> searchAvailability counts for', code, JSON.stringify(debugCounts));
-
-      let allAvail = true;
-      let maxBooked = 0;
-      for (let i = 0; i < bpn.length; i++) {
-        if (bpn[i] > maxBooked) maxBooked = bpn[i];
-        if (bpn[i] >= units) allAvail = false;
-      }
-      const physicalMaxQty = Object.prototype.hasOwnProperty.call(physicalCaps, code)
+      // The validated physical reader resolves Bookings dates first and enforces
+      // continuous eligible units, lifecycle validity and nightly owner capacity.
+      const maxQty = Object.prototype.hasOwnProperty.call(physicalCaps, code)
         ? physicalCaps[code] : 0;
-      const maxQty = Math.min(units - maxBooked, physicalMaxQty);
-      if (maxQty < 1) allAvail = false;
+      const allAvail = maxQty > 0;
 
       if (allAvail) {
         out.push(Object.assign({
@@ -343,37 +282,37 @@ export const searchAvailability = webMethod(
         continue;
       }
 
-      let bs = null, bl = 0, cs = null, cl = 0;
-      for (let i = 0; i < bpn.length; i++) {
-        if (bpn[i] < units) {
-          if (cs === null) { cs = i; cl = 1; } else { cl += 1; }
-          if (cl > bl) { bl = cl; bs = cs; }
-        } else { cs = null; cl = 0; }
-      }
-
       let pushedPartial = false;
-      if (bs !== null && bl >= MIN_N) {
-        let minFreePartial = units;
-        for (let i = bs; i < bs + bl; i++) {
-          const free = units - bpn[i];
-          if (free < minFreePartial) minFreePartial = free;
+      let partialWindow = null;
+      // Longest eligible exact window wins; ascending starts retain the earliest
+      // tie. Night-by-night free counts cannot establish a continuous room.
+      // The request-local cache shares each validated window across room classes.
+      try {
+        for (let length = rq - 1; length >= MIN_N && !partialWindow; length--) {
+          for (let start = 0; start + length <= rq; start++) {
+            const windowStart = nights[start];
+            const windowEnd = ad(windowStart, length);
+            const caps = await physicalAvailabilityFor(windowStart, windowEnd);
+            const quantity = Object.prototype.hasOwnProperty.call(caps, code) ? caps[code] : 0;
+            if (quantity > 0) {
+              partialWindow = { start: windowStart, end: windowEnd, nights: length, quantity: quantity };
+              break;
+            }
+          }
         }
-        const aci = nights[bs];
-        const aco = ad(nights[bs + bl - 1], 1);
-        let partialCaps = null;
-        try {
-          partialCaps = await physicalAvailabilityFor(aci, aco);
-        } catch (error) {
-          return {
-            ok: false,
-            error: 'Unable to check room availability. Please try again.',
-            requestedNights: rq,
-            results: []
-          };
-        }
-        const partialPhysicalMax = Object.prototype.hasOwnProperty.call(partialCaps, code)
-          ? partialCaps[code] : 0;
-        const partialMaxQty = Math.min(minFreePartial, partialPhysicalMax);
+      } catch (error) {
+        return {
+          ok: false,
+          error: 'Unable to check room availability. Please try again.',
+          requestedNights: rq,
+          results: []
+        };
+      }
+      if (partialWindow) {
+        const aci = partialWindow.start;
+        const aco = partialWindow.end;
+        const bl = partialWindow.nights;
+        const partialMaxQty = partialWindow.quantity;
         if (partialMaxQty > 0) {
           out.push(Object.assign({
             roomCode: code, roomName: name, units: units,
@@ -430,7 +369,7 @@ export const searchAvailability = webMethod(
 );
 
 function fmtShort(d) {
-  return (d.getMonth() + 1) + '/' + d.getDate() + '/' + d.getFullYear();
+  return (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + '/' + d.getUTCFullYear();
 }
 
 // Scans up to 30 days past checkOut for windows of the same night count
