@@ -37,7 +37,7 @@ check(!/search\.web|page-booking-search/.test(coordinator),
 
 // Exact approved source pin; only checkout CRLF is canonicalized, never trim.
 check(crypto.createHash('sha256').update(page.replace(/\r\n/g, '\n')).digest('hex') ===
-  'ee23bdd0948adc34ca51bbb83bd3470588f13c450de5a1f48661fb88902722f6',
+  '220392d3bd25315f2a1f73bb2bedd5e9346688835932f224138d84707b73dd69',
   'Booking Search page matches the approved picker source');
 check(!/backend\/roomAvailability['"]/.test(page),
   'Booking Search page does not directly import the coordinator');

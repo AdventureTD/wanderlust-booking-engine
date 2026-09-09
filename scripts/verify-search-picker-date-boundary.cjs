@@ -24,7 +24,7 @@ function extract(name) {
   const match=source.match(new RegExp('(?:async )?function '+name+'\\([^]*?\\n\\}'));
   assert.ok(match,'missing actual function '+name); return match[0];
 }
-const names=['parseDate','searchHandler','showAlternateDates','buildAltUrl','applyUrlDatesIfPresent','setRoomSelection'];
+const names=['parseDate','searchHandler','showAlternateDates','buildAltUrl','applyUrlDatesIfPresent','setRoomSelection','pricingStay'];
 if(source.includes('function pickerCalendarDate(')) names.push('pickerCalendarDate');
 const summaryStart=source.indexOf('summaryBtn.onClick(() => {');
 const summaryEnd=source.indexOf('\n    });',summaryStart);
@@ -43,11 +43,13 @@ function page(start,end,backend,variant='full') {
     return backend[method](...wire);
   };
   const env={...Object.fromEntries(noops.map(n=>[n,()=>{}])),...api,
-    console:{log(){},error(){}},tryFind:id=>elements[id]||null,$w:()=>[],
+    assert,console:{log(){},error(){}},tryFind:id=>elements[id]||null,$w:()=>[],
     safeText:t=>messages.push(t),packageExistsForNights:async()=>true,
     wixLocation:{query:{},to:url=>navigation.push(url)},localStorage:{setItem:(k,v)=>{stored[k]=v;}},
     roomSelectionRequiredMessage:()=>'', summaryUrl:'/booking-summary'};
-  const body='let _summaryNights=0,_searchCheckIn=null,_searchCheckOut=null,_cachedPerPersonStayTotal=0,_hasCachedStayPricing=false; let _selections=[],_selectedPackage={_id:"pkg",pricingQuoteToken:"token"};\n'+pageFunctions+
+  // Inert pricing boundary only: no pricing issuer/backend is loaded here.
+  const body='let _summaryNights=0,_searchCheckIn=null,_searchCheckOut=null,_cachedPerPersonStayTotal=0,_hasCachedStayPricing=false; let _selections=[],_selectedPackage=null;\n'+pageFunctions+
+    '\nfunction loadPackageOptions(nights){const stay=pricingStay();assert.equal(nights,stay.nights);_selectedPackage={_id:"pkg",pricingQuoteToken:"token",quoteCheckIn:stay.checkIn,quoteCheckOut:stay.checkOut};}'+
     '\nconst realAlternate=showAlternateDates; showAlternateDates=(...args)=>{const p=realAlternate(...args);pending.push(p);return p;};'+
     '\nreturn {searchHandler,showAlternateDates,buildAltUrl,applyUrlDatesIfPresent,summary:()=>{'+summaryBody+'},select:rows=>{for(const r of rows)setRoomSelection(r.roomCode,r.roomName,r.qty,r.numGuests,r.availableCheckIn,r.availableCheckOut,r.roomFee);},state:()=>({_summaryNights,_searchCheckIn,_searchCheckOut})};';
   const functions=vm.compileFunction(body,[...Object.keys(env),'pending'])(...Object.values(env),pending);
@@ -78,7 +80,7 @@ async function main(){
       assert.deepEqual([start.getTime(),end.getTime()],millis);assert.equal(p.state()._searchCheckIn,start);assert.equal(p.state()._searchCheckOut,end);
       const results=p.elements.searchResultsRepeater.data;assert.equal(results.length,3);
       for(const r of results){assert.equal(r.availableCheckIn,a+'T00:00:00.000Z');assert.equal(r.availableCheckOut,b+'T00:00:00.000Z');}
-      p.select([{...results[0],qty:1,numGuests:2,roomFee:0}]);p.summary();
+      p.select([{...results[0],qty:1,numGuests:2,roomFee:0}]);assert.equal(p.state()._summaryNights,results[0].availableNights);p.summary();
       const q=new URL(p.navigation[0],'https://inert.invalid').searchParams;
       assert.equal(q.get('ci'),a);assert.equal(q.get('co'),b);assert.equal(p.stored._wbe_ci,a);assert.equal(p.stored._wbe_co,b);assert.equal(q.get('quote'),'token');
       assert.deepEqual(db.storage,before);assert.equal(db.writes,0);pass('picker-search-summary-'+label);
@@ -103,7 +105,7 @@ async function main(){
       const r=p.elements.searchResultsRepeater.data.find(r=>r.roomCode==='penthouse_apartment');
       assert.ok(r);assert.equal(r.status,'partial');assert.equal(r.availableNights,4);
       assert.equal(r.availableCheckIn,occupiedEnd+'T00:00:00.000Z');assert.equal(r.availableCheckOut,b+'T00:00:00.000Z');
-      p.select([{...r,qty:1,numGuests:2}]);p.summary();const q=new URL(p.navigation[0],'https://inert.invalid').searchParams;
+      p.select([{...r,qty:1,numGuests:2}]);assert.equal(p.state()._summaryNights,r.availableNights);p.summary();const q=new URL(p.navigation[0],'https://inert.invalid').searchParams;
       assert.equal(q.get('ci'),occupiedEnd);assert.equal(q.get('co'),b);assert.equal(p.stored._wbe_ci,occupiedEnd);assert.equal(p.stored._wbe_co,b);
       assert.deepEqual(db.storage,before);assert.equal(db.writes,0);pass('partial-'+label+'-summary');
     }

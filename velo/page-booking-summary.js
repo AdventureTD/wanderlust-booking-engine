@@ -261,11 +261,13 @@ async function initSummary() {
   const oneDay = 86400000;
   const nights = ciDate && coDate ? Math.round((coDate - ciDate) / oneDay) : 7;
 
-  _summaryCis = ciDate ? new Date(ciDate.getFullYear(), ciDate.getMonth(), ciDate.getDate()) : null;
-  _summaryCos = coDate ? new Date(coDate.getFullYear(), coDate.getMonth(), coDate.getDate()) : null;
+  // parseDateStr's date-only representation is UTC noon; recover its UTC
+  // calendar components before creating browser-local display Dates.
+  _summaryCis = ciDate ? new Date(ciDate.getUTCFullYear(), ciDate.getUTCMonth(), ciDate.getUTCDate()) : null;
+  _summaryCos = coDate ? new Date(coDate.getUTCFullYear(), coDate.getUTCMonth(), coDate.getUTCDate()) : null;
 
-  safeText('checkInDisplay', fmtDate(ciDate) || '-');
-  safeText('checkOutDisplay', fmtDate(coDate) || '-');
+  safeText('checkInDisplay', fmtDate(_summaryCis) || '-');
+  safeText('checkOutDisplay', fmtDate(_summaryCos) || '-');
 
   const rooms = [];
   if (rcParam) {
@@ -335,8 +337,8 @@ async function initSummary() {
         const quote = await readPricingQuote(
           _pricingQuoteToken,
           _selectedPackageId,
-          _summaryCis,
-          _summaryCos
+          dateToStr(_summaryCis),
+          dateToStr(_summaryCos)
         );
         _selectedPackageTitle = quote.packageTitle || _selectedPackageTitle;
         _selectedPackageBaseRate = Number(quote.baseRate) || 0;
