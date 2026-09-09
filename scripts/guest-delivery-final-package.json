@@ -1,0 +1,82 @@
+{
+  "status": "EXACT_COMBINED_BYTE_PROPOSAL_AWAITING_INDEPENDENT_APPROVAL",
+  "parent": "7d7c2aec61a7246d6a6a90805c9c1f2fdaed3f81",
+  "scope": "Finite byte custody only; no imports/effective-pin reconciliation or producer invocation. Original portable trust root unchanged.",
+  "base_manifest": {
+    "raw_sha256": "59a9e4e83367ba243ce4e09660c4bed0f84631ed4e38b8ef6d441623767c193a",
+    "canonical_sha256": "59a9e4e83367ba243ce4e09660c4bed0f84631ed4e38b8ef6d441623767c193a",
+    "eol": "LF"
+  },
+  "provenance_only_no_dispatch": [
+    "scripts/check-distinct-controls.cjs",
+    "scripts/produce-guest-invoice-distinct-fixture.cjs",
+    "scripts/fixtures/guest-booking-r2-producer-prefix.js"
+  ],
+  "additions": {
+    "scripts/check-distinct-controls.cjs": {
+      "raw_sha256": "2621ea319e73d7f2c5cb3973efd823f7aaee2b08e2c1fd2ac17063837252e009",
+      "canonical_sha256": "2621ea319e73d7f2c5cb3973efd823f7aaee2b08e2c1fd2ac17063837252e009",
+      "eol": "LF"
+    },
+    "scripts/distinct-artifact-admission.json": {
+      "raw_sha256": "bfb23c526052dd2fedf275a9c04968e212518482cfa574ae2eee0d223decb686",
+      "canonical_sha256": "bfb23c526052dd2fedf275a9c04968e212518482cfa574ae2eee0d223decb686",
+      "eol": "LF"
+    },
+    "scripts/distinct-loader.cjs": {
+      "raw_sha256": "020380d90e8ecc8b490dbbaebbe88e9d5e965299299389b9ed9e5b676511ab20",
+      "canonical_sha256": "020380d90e8ecc8b490dbbaebbe88e9d5e965299299389b9ed9e5b676511ab20",
+      "eol": "LF"
+    },
+    "scripts/distinct-source-pins.json": {
+      "raw_sha256": "98554cba7f3c9519e55d9557461f817f2062ea3c80f1e23f8cea758c8a1afa08",
+      "canonical_sha256": "d99ec405a244d335985d1261a08617d572b49f58c6c304bf0efcabc62c6990e9",
+      "eol": "CRLF"
+    },
+    "scripts/fixtures/completion-authority-distinct-groups.json": {
+      "raw_sha256": "6e7d181b7a3c6bddd6259ba86f9bc56073b2cdc1d46584b8b553ffd118b10caa",
+      "canonical_sha256": "6e7d181b7a3c6bddd6259ba86f9bc56073b2cdc1d46584b8b553ffd118b10caa",
+      "eol": "LF"
+    },
+    "scripts/fixtures/distinct-consumer-worker.js": {
+      "raw_sha256": "27a2b6cbc5bc244e00373fb17f8c437bd48776e561f8ae5fedac6704bc4d3bde",
+      "canonical_sha256": "27a2b6cbc5bc244e00373fb17f8c437bd48776e561f8ae5fedac6704bc4d3bde",
+      "eol": "LF"
+    },
+    "scripts/fixtures/guest-booking-r2-producer-prefix.js": {
+      "raw_sha256": "97fa4ede51900253b49219b4ed2911641a77934a89830594bc04c04e5fda950b",
+      "canonical_sha256": "97fa4ede51900253b49219b4ed2911641a77934a89830594bc04c04e5fda950b",
+      "eol": "LF"
+    },
+    "scripts/gp02-distinct-consumer.cjs": {
+      "raw_sha256": "738e577bb5327220e3ce10fa092135f69cad7f6884a89ac56858e095d6009299",
+      "canonical_sha256": "738e577bb5327220e3ce10fa092135f69cad7f6884a89ac56858e095d6009299",
+      "eol": "LF"
+    },
+    "scripts/guest_delivery_final_package.py": {
+      "raw_sha256": "ffb31ad3e74509dd9c9ee58d8b4f0f8d6e016feec2f6b83cc99c7404655daadf",
+      "canonical_sha256": "ffb31ad3e74509dd9c9ee58d8b4f0f8d6e016feec2f6b83cc99c7404655daadf",
+      "eol": "LF"
+    },
+    "scripts/produce-guest-invoice-distinct-fixture.cjs": {
+      "raw_sha256": "a2907bc9524a8351b7d6fb1469c9c6f1248410d127442abbe2e92c9a0da61c21",
+      "canonical_sha256": "a2907bc9524a8351b7d6fb1469c9c6f1248410d127442abbe2e92c9a0da61c21",
+      "eol": "LF"
+    },
+    "scripts/test_guest_delivery_final_package.py": {
+      "raw_sha256": "a9b245e1cca9b4b0b482ec59f46097d70b5eb4c77338b56da9ca1779204829f6",
+      "canonical_sha256": "a9b245e1cca9b4b0b482ec59f46097d70b5eb4c77338b56da9ca1779204829f6",
+      "eol": "LF"
+    },
+    "source-admission-hashes.json": {
+      "raw_sha256": "da21bdc448e4e20e3f9f305bd3734ecd8b4aa2781375326540002e05b23df94f",
+      "canonical_sha256": "80869fa3aee834a46475958e101e48fae04aa3ef752584be6ec06a97b42528e8",
+      "eol": "CRLF"
+    },
+    "tests/test_guest_invoice_distinct_mapping.py": {
+      "raw_sha256": "8fbced1e55a7f85bd052c685e739fff229c0e4bd8d62120be1313976b7595bd9",
+      "canonical_sha256": "8fbced1e55a7f85bd052c685e739fff229c0e4bd8d62120be1313976b7595bd9",
+      "eol": "LF"
+    }
+  }
+}

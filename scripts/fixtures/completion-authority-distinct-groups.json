@@ -1,0 +1,603 @@
+{
+  "version": 1,
+  "sourceHashes": {
+    "velo/backend/guestBookingOfferIssuer.js": "fc01e66d6cf480d352a29729e4350e49c0fe83db184185e220fd5e3a76e634c0",
+    "velo/backend/guestBookingPurchaseInput.js": "a3b3583d0971c06f36301aa948479315def667e0e73d4accb8c854daab17489a",
+    "velo/backend/guestBookingPriceGroups.js": "d787fea9c954650a7003953b9620e6862f4a44bcfa0b7e41818837d8ca3cfad8",
+    "velo/backend/guestBookingFinancialCalculation.js": "3dc9fae1c48a48e78b34608c57970e73fae546c65e7c3a31449359f01a67fe71",
+    "velo/backend/lockedPricingQuoteAuthority.js": "d8520ba1bc16d829062760ce63ff3f5f7400363db3830b2f4d485b6a6b504d7c",
+    "velo/backend/strictLockedPricingQuote.js": "da1c2c1f1e0b91adc37abd29c66e7fbc017c043094487917b2bb10920eae5b61",
+    "velo/backend/guestBookingIssuerAuthority.js": "b5578ae7bcdef12eb54ad37f3775a5ac3ccccdbe292e89b4561ed5498804919b",
+    "velo/backend/guestBookingCredentials.js": "c34364e2196a67016b4def3850149478015fd41d35a42fe5a590d2c6d5750c9f",
+    "velo/backend/guestBookingAccessPolicy.js": "bbc14fb6951dbc7b677e9ca9202a2906d0da7bd5a2b322e56ca147e7e21dad35",
+    "velo/backend/guestBookingAcceptance.js": "b15c33c3206ac851d8de9fdc04349488f2a31b3b8b5100b07f3b28f4fee38df2",
+    "velo/backend/guestBookingAcceptanceStore.js": "3cb3f02fbb92168364c21169e30834ba75980768de35e14ca9a2b9f8aa25a75c",
+    "velo/backend/guestBookingAllocationHandoff.js": "0e8ebc09ad6676a9c4657bc8eb2194cad4008aa4b5902cc091997f8ae8b5fe37",
+    "velo/backend/guestBookingAllocationManifestStore.js": "e26fd317eb167f867c71b30c2461c6aa890e6186d33b5e61d3fe90352bceedb1",
+    "velo/backend/guestBookingAllocationManifestRules.js": "fb5e7ed1f3c4bda3866c3a9baecbfc3adaa045432a0bce3b28c66a2f7c267b4f",
+    "velo/backend/guestBookingAllocationSourceRules.js": "013655a68168c376d0ca98b452f48042b53ef21cbb403bf361a36a98aa48aa08",
+    "velo/backend/roomInventoryRules.js": "6bc0520cb3940b0399f43d8f5df7b493c666f221621bb80bc3e7004c8de89899",
+    "velo/backend/roomAssignmentRules.js": "9d685cc29821181e482c84cf1d9ecf0fd463fc03dbf12617d3fcfb76e9dd46b2",
+    "velo/backend/guestBookingAllocationRetainedRules.js": "4c84039c5c72e3958fdcf3b30e6466c440dabe726009f25720fb5030bafd1b8c",
+    "velo/backend/roomBookingCommitRules.js": "3938448cc041e0f0e811248e97033094df66c7536222c087d2a9a02945bd5893",
+    "velo/backend/roomAvailabilityRules.js": "578b42bcc63c28720b9a08aae9dea42761a42febcfc62449efe5313a7164b6f4",
+    "velo/backend/guestBookingAllocationEvidence.js": "e2c35347407326b4b7acf84d1bd77f5163030b20cef74ad098e4ba6486d948e5",
+    "velo/backend/wholeCartPlanningRules.js": "a73d3daf474611cd19f25d18a332a650769bdcf585017cd61cb7fef0dc38bcc3",
+    "velo/backend/guestBookingPhysicalAcquisition.js": "77d8e4f9442f75be17659493451e6b4bb26662639a43bf4ed70f47e9930e1457",
+    "velo/backend/guestBookingPhysicalAcquisitionEvidence.js": "012812cdfd2ec64514444d465599d92f0eed38512a6d76ee03e02df0b95bd7f5",
+    "velo/backend/guestBookingCompletionStore.js": "cee5b0360854ff3f706b278aa0b03b1fe8502d9076966c17ad40d156c8a77dad",
+    "velo/backend/guestBookingAcquisitionControlStore.js": "3fe95f600ebece33b6e10a340ed6fbc57e6bf2403d070ab9065f2af47d14817e",
+    "velo/backend/guestBookingAcquisitionControlRules.js": "461939a94ee6790ad9442adde32b2abda51f6f1bb674462c5d7d6cc1dad5b728",
+    "velo/backend/guestBookingAcquisitionContentionEvidence.js": "cf60a8effa91031a1f7c0b2f285479522cd8dc1acd2c364e2cd3dbf8593dcfc5",
+    "velo/backend/guestBookingPhysicalAcquisitionStore.js": "ac1192dfd8d59496faf86497d45782d06d6ddd776fe41c1ad6e2145e6da818cd",
+    "velo/backend/guestBookingCompletionEvidence.js": "51971a8927e840a3f9c6909ad086965ce7027bbeda513e2e171ddea18607f195",
+    "velo/backend/guestBookingCompletionProjection.js": "c9202f6148155617d99de5250aae3a2edc6b5a527ed0f0ed8271c568dbd231b0"
+  },
+  "expected": {
+    "acceptanceId": "1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+    "operationId": "858ae316fd81b3847eb79fb105d22af09e2f5735831024abdaf087659e263c17",
+    "rootDigest": "75a3c4c983a9caae6c7f9de951fc3c3a9b362c1956b777be85a567e2c08eda48"
+  },
+  "db": {
+    "rows": {
+      "GuestBookingFinancialRevisions": [
+        {
+          "_id": "revision-1",
+          "revisionBytes": "{\"v\":1,\"package\":{\"id\":\"package\",\"nights\":2,\"baseRate\":100,\"priceModifier\":1},\"penthouseRoomFee\":10.005,\"propertyFeeRate\":0.05,\"taxRateAccommodation\":0.1,\"taxRateStandard\":0.15,\"promos\":[]}"
+        }
+      ],
+      "GuestBookingAcceptances": [
+        {
+          "schemaVersion": 2,
+          "validityPolicy": "backend-complete-validation-v2",
+          "_id": "1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "operationId": "858ae316fd81b3847eb79fb105d22af09e2f5735831024abdaf087659e263c17",
+          "audience": "wbe:fixture",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "capsule": "{\"v\":2,\"policy\":\"backend-complete-validation-v2\",\"inputCanonical\":\"[\\\"wbe.guest-purchase-input\\\",1,\\\"2027-01-01\\\",\\\"2027-01-03\\\",\\\"package\\\",\\\"eyJ2IjoxLCJub25jZSI6IjAwMDEwMjAzMDQwNTA2MDcwODA5MGEwYiIsImlzc3VlZEF0IjoxODAwMDAwMDAwMDAwLCJleHBpcmVzQXQiOjE4MDAwMDM2MDAwMDAsImNoZWNrSW4iOiIyMDI3LTAxLTAxIiwiY2hlY2tPdXQiOiIyMDI3LTAxLTAzIiwibmlnaHRzIjoyLCJwYWNrYWdlSWQiOiJwYWNrYWdlIiwicGFja2FnZVRpdGxlIjoiUHVibGljIGZpeHR1cmUgc3RheSIsImJhc2VSYXRlIjoxMDAsInByaWNlTW9kaWZpZXIiOjEsInRvdGFsUGVyUGVyc29uIjoxMDB9.vET5rF2ijE-qQDElkQ3SuBaW6Oc04MJRXTFY75MGM9o\\\",\\\"\\\",[\\\"Fixture Guest\\\",\\\"fixture@example.test\\\",\\\"1234567\\\",\\\"1\\\",\\\"Caf\\\\u00e9 \\\\u674e\\\",\\\"\\\"],[\\\"\\\",\\\"\\\",\\\"\\\",\\\"\\\"],[[\\\"adventure_suite\\\",1,2],[\\\"penthouse_apartment\\\",1,2]]]\",\"quote\":{\"v\":1,\"nonce\":\"000102030405060708090a0b\",\"issuedAt\":1800000000000,\"expiresAt\":1800003600000,\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-03\",\"nights\":2,\"packageId\":\"package\",\"packageTitle\":\"Public fixture stay\",\"baseRate\":100,\"priceModifier\":1,\"totalPerPerson\":100},\"revisionId\":\"revision-1\",\"revisionDigest\":\"231fef06be3f24bc81f7250e3fab91f1af92d86a2e0c81c17de5e63d8c47ad94\",\"revisionBytes\":\"{\\\"v\\\":1,\\\"package\\\":{\\\"id\\\":\\\"package\\\",\\\"nights\\\":2,\\\"baseRate\\\":100,\\\"priceModifier\\\":1},\\\"penthouseRoomFee\\\":10.005,\\\"propertyFeeRate\\\":0.05,\\\"taxRateAccommodation\\\":0.1,\\\"taxRateStandard\\\":0.15,\\\"promos\\\":[]}\",\"factors\":{\"v\":1,\"nights\":2,\"totalPerPerson\":100,\"penthouseRoomFee\":10.005,\"propertyFeeRate\":0.05,\"taxRateAccommodation\":0.1,\"taxRateStandard\":0.15,\"promoDiscountRate\":0,\"priceGroups\":[{\"roomCode\":\"adventure_suite\",\"quantity\":1,\"guests\":2},{\"roomCode\":\"penthouse_apartment\",\"quantity\":1,\"guests\":2}]},\"calculation\":{\"v\":1,\"currency\":\"USD\",\"rounding\":\"original-group-backend-v1\",\"groups\":[{\"index\":0,\"roomCode\":\"adventure_suite\",\"quantity\":1,\"guests\":2,\"grossCents\":20000,\"discountCents\":0,\"roomTotalCents\":20000,\"propertyFeeCents\":1000,\"accommodationVatCents\":1000,\"packageVatCents\":1500,\"grandTotalCents\":23500},{\"index\":1,\"roomCode\":\"penthouse_apartment\",\"quantity\":1,\"guests\":2,\"grossCents\":22001,\"discountCents\":0,\"roomTotalCents\":22001,\"propertyFeeCents\":1100,\"accommodationVatCents\":1100,\"packageVatCents\":1650,\"grandTotalCents\":25851}],\"totals\":{\"grossCents\":42001,\"discountCents\":0,\"roomTotalCents\":42001,\"propertyFeeCents\":2100,\"accommodationVatCents\":2100,\"packageVatCents\":3150,\"grandTotalCents\":49351,\"totalVatCents\":5250,\"totalRooms\":2,\"totalGuests\":4}},\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"issuedAtMs\":1800000000000,\"offerExpiresAtMs\":1800003600000}",
+          "intentDigest": "37c73e047b69cbf202fc3b6011e8fbd87de91c1aa7a07fdcff14b3e596556da8",
+          "quoteDigest": "3ca547a947c737875e71e6dca5441a64220e49cd543a89c943dba47f72378d55",
+          "issuedAtMs": 1800000000000,
+          "offerExpiresAtMs": 1800003600000,
+          "credentialKid": "fixture",
+          "validatedAtMs": 1800000000000,
+          "rootDigest": "75a3c4c983a9caae6c7f9de951fc3c3a9b362c1956b777be85a567e2c08eda48"
+        }
+      ],
+      "GuestBookingAllocationManifests": [
+        {
+          "_id": "ga2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc",
+          "schemaVersion": 1,
+          "manifestCanonical": "[\"wbe.acceptance-allocation-manifest\",1,\"ga2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc\",[2,\"backend-complete-validation-v2\",\"1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee\",\"858ae316fd81b3847eb79fb105d22af09e2f5735831024abdaf087659e263c17\",\"wbe:fixture\",\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"{\\\"v\\\":2,\\\"policy\\\":\\\"backend-complete-validation-v2\\\",\\\"inputCanonical\\\":\\\"[\\\\\\\"wbe.guest-purchase-input\\\\\\\",1,\\\\\\\"2027-01-01\\\\\\\",\\\\\\\"2027-01-03\\\\\\\",\\\\\\\"package\\\\\\\",\\\\\\\"eyJ2IjoxLCJub25jZSI6IjAwMDEwMjAzMDQwNTA2MDcwODA5MGEwYiIsImlzc3VlZEF0IjoxODAwMDAwMDAwMDAwLCJleHBpcmVzQXQiOjE4MDAwMDM2MDAwMDAsImNoZWNrSW4iOiIyMDI3LTAxLTAxIiwiY2hlY2tPdXQiOiIyMDI3LTAxLTAzIiwibmlnaHRzIjoyLCJwYWNrYWdlSWQiOiJwYWNrYWdlIiwicGFja2FnZVRpdGxlIjoiUHVibGljIGZpeHR1cmUgc3RheSIsImJhc2VSYXRlIjoxMDAsInByaWNlTW9kaWZpZXIiOjEsInRvdGFsUGVyUGVyc29uIjoxMDB9.vET5rF2ijE-qQDElkQ3SuBaW6Oc04MJRXTFY75MGM9o\\\\\\\",\\\\\\\"\\\\\\\",[\\\\\\\"Fixture Guest\\\\\\\",\\\\\\\"fixture@example.test\\\\\\\",\\\\\\\"1234567\\\\\\\",\\\\\\\"1\\\\\\\",\\\\\\\"Caf\\\\\\\\u00e9 \\\\\\\\u674e\\\\\\\",\\\\\\\"\\\\\\\"],[\\\\\\\"\\\\\\\",\\\\\\\"\\\\\\\",\\\\\\\"\\\\\\\",\\\\\\\"\\\\\\\"],[[\\\\\\\"adventure_suite\\\\\\\",1,2],[\\\\\\\"penthouse_apartment\\\\\\\",1,2]]]\\\",\\\"quote\\\":{\\\"v\\\":1,\\\"nonce\\\":\\\"000102030405060708090a0b\\\",\\\"issuedAt\\\":1800000000000,\\\"expiresAt\\\":1800003600000,\\\"checkIn\\\":\\\"2027-01-01\\\",\\\"checkOut\\\":\\\"2027-01-03\\\",\\\"nights\\\":2,\\\"packageId\\\":\\\"package\\\",\\\"packageTitle\\\":\\\"Public fixture stay\\\",\\\"baseRate\\\":100,\\\"priceModifier\\\":1,\\\"totalPerPerson\\\":100},\\\"revisionId\\\":\\\"revision-1\\\",\\\"revisionDigest\\\":\\\"231fef06be3f24bc81f7250e3fab91f1af92d86a2e0c81c17de5e63d8c47ad94\\\",\\\"revisionBytes\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"package\\\\\\\":{\\\\\\\"id\\\\\\\":\\\\\\\"package\\\\\\\",\\\\\\\"nights\\\\\\\":2,\\\\\\\"baseRate\\\\\\\":100,\\\\\\\"priceModifier\\\\\\\":1},\\\\\\\"penthouseRoomFee\\\\\\\":10.005,\\\\\\\"propertyFeeRate\\\\\\\":0.05,\\\\\\\"taxRateAccommodation\\\\\\\":0.1,\\\\\\\"taxRateStandard\\\\\\\":0.15,\\\\\\\"promos\\\\\\\":[]}\\\",\\\"factors\\\":{\\\"v\\\":1,\\\"nights\\\":2,\\\"totalPerPerson\\\":100,\\\"penthouseRoomFee\\\":10.005,\\\"propertyFeeRate\\\":0.05,\\\"taxRateAccommodation\\\":0.1,\\\"taxRateStandard\\\":0.15,\\\"promoDiscountRate\\\":0,\\\"priceGroups\\\":[{\\\"roomCode\\\":\\\"adventure_suite\\\",\\\"quantity\\\":1,\\\"guests\\\":2},{\\\"roomCode\\\":\\\"penthouse_apartment\\\",\\\"quantity\\\":1,\\\"guests\\\":2}]},\\\"calculation\\\":{\\\"v\\\":1,\\\"currency\\\":\\\"USD\\\",\\\"rounding\\\":\\\"original-group-backend-v1\\\",\\\"groups\\\":[{\\\"index\\\":0,\\\"roomCode\\\":\\\"adventure_suite\\\",\\\"quantity\\\":1,\\\"guests\\\":2,\\\"grossCents\\\":20000,\\\"discountCents\\\":0,\\\"roomTotalCents\\\":20000,\\\"propertyFeeCents\\\":1000,\\\"accommodationVatCents\\\":1000,\\\"packageVatCents\\\":1500,\\\"grandTotalCents\\\":23500},{\\\"index\\\":1,\\\"roomCode\\\":\\\"penthouse_apartment\\\",\\\"quantity\\\":1,\\\"guests\\\":2,\\\"grossCents\\\":22001,\\\"discountCents\\\":0,\\\"roomTotalCents\\\":22001,\\\"propertyFeeCents\\\":1100,\\\"accommodationVatCents\\\":1100,\\\"packageVatCents\\\":1650,\\\"grandTotalCents\\\":25851}],\\\"totals\\\":{\\\"grossCents\\\":42001,\\\"discountCents\\\":0,\\\"roomTotalCents\\\":42001,\\\"propertyFeeCents\\\":2100,\\\"accommodationVatCents\\\":2100,\\\"packageVatCents\\\":3150,\\\"grandTotalCents\\\":49351,\\\"totalVatCents\\\":5250,\\\"totalRooms\\\":2,\\\"totalGuests\\\":4}},\\\"bookingNumber\\\":\\\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\\\",\\\"issuedAtMs\\\":1800000000000,\\\"offerExpiresAtMs\\\":1800003600000}\",\"37c73e047b69cbf202fc3b6011e8fbd87de91c1aa7a07fdcff14b3e596556da8\",\"3ca547a947c737875e71e6dca5441a64220e49cd543a89c943dba47f72378d55\",1800000000000,1800003600000,\"fixture\",1800000000000,\"75a3c4c983a9caae6c7f9de951fc3c3a9b362c1956b777be85a567e2c08eda48\"],\"whole-cart-held-sources-v2\",[[\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"penthouse_apartment\",1,[[1,1]],[2],[\"\"],\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\"],[\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"adventure_suite\",1,[[0,1]],[2],[\"Café 李\"],\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\"]],[{\"acquisitions\":[{\"_id\":\"rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-a\",\"protocolVersion\":1,\"claimKey\":\"operation:cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"operation\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"decisionFenceVersion\":1,\"manifestVersion\":1,\"manifestCheckIn\":\"2027-01-01\",\"manifestCheckOut\":\"2027-01-03\",\"manifestRoomCode\":\"penthouse_apartment\",\"manifestUnits\":\"1\",\"manifestBookingRowIds\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"manifestResourceClaimIds\":\"rc1-20270101-s1-000001-a|rc1-20270102-s1-000001-a|rc1-20270101-u1-000001-a|rc1-20270102-u1-000001-a\"},{\"_id\":\"rc1-20270101-s1-000001-a\",\"protocolVersion\":1,\"claimKey\":\"capacity:2027-01-01:1\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"capacity\",\"night\":\"2027-01-01\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"capacitySlot\":1},{\"_id\":\"rc1-20270102-s1-000001-a\",\"protocolVersion\":1,\"claimKey\":\"capacity:2027-01-02:1\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"capacity\",\"night\":\"2027-01-02\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"capacitySlot\":1},{\"_id\":\"rc1-20270101-u1-000001-a\",\"protocolVersion\":1,\"claimKey\":\"unit:2027-01-01:1\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"unit\",\"night\":\"2027-01-01\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"unit\":1},{\"_id\":\"rc1-20270102-u1-000001-a\",\"protocolVersion\":1,\"claimKey\":\"unit:2027-01-02:1\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"unit\",\"night\":\"2027-01-02\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"unit\":1}],\"bookingRows\":[{\"_id\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"roomCode\":\"penthouse_apartment\",\"assignedRoom\":1,\"quantity\":1,\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-03\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\"}],\"primaryRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\"},{\"acquisitions\":[{\"_id\":\"rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-a\",\"protocolVersion\":1,\"claimKey\":\"operation:cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"operation\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"decisionFenceVersion\":1,\"manifestVersion\":1,\"manifestCheckIn\":\"2027-01-01\",\"manifestCheckOut\":\"2027-01-03\",\"manifestRoomCode\":\"adventure_suite\",\"manifestUnits\":\"3\",\"manifestBookingRowIds\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"manifestResourceClaimIds\":\"rc1-20270101-s2-000001-a|rc1-20270102-s2-000001-a|rc1-20270101-u3-000001-a|rc1-20270102-u3-000001-a\"},{\"_id\":\"rc1-20270101-s2-000001-a\",\"protocolVersion\":1,\"claimKey\":\"capacity:2027-01-01:2\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"capacity\",\"night\":\"2027-01-01\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"capacitySlot\":2},{\"_id\":\"rc1-20270102-s2-000001-a\",\"protocolVersion\":1,\"claimKey\":\"capacity:2027-01-02:2\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"capacity\",\"night\":\"2027-01-02\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"capacitySlot\":2},{\"_id\":\"rc1-20270101-u3-000001-a\",\"protocolVersion\":1,\"claimKey\":\"unit:2027-01-01:3\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"unit\",\"night\":\"2027-01-01\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"unit\":3},{\"_id\":\"rc1-20270102-u3-000001-a\",\"protocolVersion\":1,\"claimKey\":\"unit:2027-01-02:3\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"unit\",\"night\":\"2027-01-02\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"unit\":3}],\"bookingRows\":[{\"_id\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"roomCode\":\"adventure_suite\",\"assignedRoom\":3,\"quantity\":1,\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-03\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\"}],\"primaryRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\"}],[\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\"],\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",[2,{\"occupiedUnits\":[],\"occupiedUnitsByNight\":{\"2027-01-01\":[],\"2027-01-02\":[]},\"migrationIssueRows\":[],\"duplicateUnitClaims\":[],\"unknownStatusRows\":[]},[],[],[],[],[],[]]]",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed"
+        }
+      ],
+      "GuestBookingAcquisitionControls": [
+        {
+          "_id": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "acquisitionProtocolVersion": 2,
+          "kind": "admission",
+          "acceptanceId": "1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "manifestId": "ga2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "manifestCanonical": "[\"wbe.acceptance-allocation-manifest\",1,\"ga2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc\",[2,\"backend-complete-validation-v2\",\"1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee\",\"858ae316fd81b3847eb79fb105d22af09e2f5735831024abdaf087659e263c17\",\"wbe:fixture\",\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"{\\\"v\\\":2,\\\"policy\\\":\\\"backend-complete-validation-v2\\\",\\\"inputCanonical\\\":\\\"[\\\\\\\"wbe.guest-purchase-input\\\\\\\",1,\\\\\\\"2027-01-01\\\\\\\",\\\\\\\"2027-01-03\\\\\\\",\\\\\\\"package\\\\\\\",\\\\\\\"eyJ2IjoxLCJub25jZSI6IjAwMDEwMjAzMDQwNTA2MDcwODA5MGEwYiIsImlzc3VlZEF0IjoxODAwMDAwMDAwMDAwLCJleHBpcmVzQXQiOjE4MDAwMDM2MDAwMDAsImNoZWNrSW4iOiIyMDI3LTAxLTAxIiwiY2hlY2tPdXQiOiIyMDI3LTAxLTAzIiwibmlnaHRzIjoyLCJwYWNrYWdlSWQiOiJwYWNrYWdlIiwicGFja2FnZVRpdGxlIjoiUHVibGljIGZpeHR1cmUgc3RheSIsImJhc2VSYXRlIjoxMDAsInByaWNlTW9kaWZpZXIiOjEsInRvdGFsUGVyUGVyc29uIjoxMDB9.vET5rF2ijE-qQDElkQ3SuBaW6Oc04MJRXTFY75MGM9o\\\\\\\",\\\\\\\"\\\\\\\",[\\\\\\\"Fixture Guest\\\\\\\",\\\\\\\"fixture@example.test\\\\\\\",\\\\\\\"1234567\\\\\\\",\\\\\\\"1\\\\\\\",\\\\\\\"Caf\\\\\\\\u00e9 \\\\\\\\u674e\\\\\\\",\\\\\\\"\\\\\\\"],[\\\\\\\"\\\\\\\",\\\\\\\"\\\\\\\",\\\\\\\"\\\\\\\",\\\\\\\"\\\\\\\"],[[\\\\\\\"adventure_suite\\\\\\\",1,2],[\\\\\\\"penthouse_apartment\\\\\\\",1,2]]]\\\",\\\"quote\\\":{\\\"v\\\":1,\\\"nonce\\\":\\\"000102030405060708090a0b\\\",\\\"issuedAt\\\":1800000000000,\\\"expiresAt\\\":1800003600000,\\\"checkIn\\\":\\\"2027-01-01\\\",\\\"checkOut\\\":\\\"2027-01-03\\\",\\\"nights\\\":2,\\\"packageId\\\":\\\"package\\\",\\\"packageTitle\\\":\\\"Public fixture stay\\\",\\\"baseRate\\\":100,\\\"priceModifier\\\":1,\\\"totalPerPerson\\\":100},\\\"revisionId\\\":\\\"revision-1\\\",\\\"revisionDigest\\\":\\\"231fef06be3f24bc81f7250e3fab91f1af92d86a2e0c81c17de5e63d8c47ad94\\\",\\\"revisionBytes\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"package\\\\\\\":{\\\\\\\"id\\\\\\\":\\\\\\\"package\\\\\\\",\\\\\\\"nights\\\\\\\":2,\\\\\\\"baseRate\\\\\\\":100,\\\\\\\"priceModifier\\\\\\\":1},\\\\\\\"penthouseRoomFee\\\\\\\":10.005,\\\\\\\"propertyFeeRate\\\\\\\":0.05,\\\\\\\"taxRateAccommodation\\\\\\\":0.1,\\\\\\\"taxRateStandard\\\\\\\":0.15,\\\\\\\"promos\\\\\\\":[]}\\\",\\\"factors\\\":{\\\"v\\\":1,\\\"nights\\\":2,\\\"totalPerPerson\\\":100,\\\"penthouseRoomFee\\\":10.005,\\\"propertyFeeRate\\\":0.05,\\\"taxRateAccommodation\\\":0.1,\\\"taxRateStandard\\\":0.15,\\\"promoDiscountRate\\\":0,\\\"priceGroups\\\":[{\\\"roomCode\\\":\\\"adventure_suite\\\",\\\"quantity\\\":1,\\\"guests\\\":2},{\\\"roomCode\\\":\\\"penthouse_apartment\\\",\\\"quantity\\\":1,\\\"guests\\\":2}]},\\\"calculation\\\":{\\\"v\\\":1,\\\"currency\\\":\\\"USD\\\",\\\"rounding\\\":\\\"original-group-backend-v1\\\",\\\"groups\\\":[{\\\"index\\\":0,\\\"roomCode\\\":\\\"adventure_suite\\\",\\\"quantity\\\":1,\\\"guests\\\":2,\\\"grossCents\\\":20000,\\\"discountCents\\\":0,\\\"roomTotalCents\\\":20000,\\\"propertyFeeCents\\\":1000,\\\"accommodationVatCents\\\":1000,\\\"packageVatCents\\\":1500,\\\"grandTotalCents\\\":23500},{\\\"index\\\":1,\\\"roomCode\\\":\\\"penthouse_apartment\\\",\\\"quantity\\\":1,\\\"guests\\\":2,\\\"grossCents\\\":22001,\\\"discountCents\\\":0,\\\"roomTotalCents\\\":22001,\\\"propertyFeeCents\\\":1100,\\\"accommodationVatCents\\\":1100,\\\"packageVatCents\\\":1650,\\\"grandTotalCents\\\":25851}],\\\"totals\\\":{\\\"grossCents\\\":42001,\\\"discountCents\\\":0,\\\"roomTotalCents\\\":42001,\\\"propertyFeeCents\\\":2100,\\\"accommodationVatCents\\\":2100,\\\"packageVatCents\\\":3150,\\\"grandTotalCents\\\":49351,\\\"totalVatCents\\\":5250,\\\"totalRooms\\\":2,\\\"totalGuests\\\":4}},\\\"bookingNumber\\\":\\\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\\\",\\\"issuedAtMs\\\":1800000000000,\\\"offerExpiresAtMs\\\":1800003600000}\",\"37c73e047b69cbf202fc3b6011e8fbd87de91c1aa7a07fdcff14b3e596556da8\",\"3ca547a947c737875e71e6dca5441a64220e49cd543a89c943dba47f72378d55\",1800000000000,1800003600000,\"fixture\",1800000000000,\"75a3c4c983a9caae6c7f9de951fc3c3a9b362c1956b777be85a567e2c08eda48\"],\"whole-cart-held-sources-v2\",[[\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"penthouse_apartment\",1,[[1,1]],[2],[\"\"],\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\"],[\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"adventure_suite\",1,[[0,1]],[2],[\"Café 李\"],\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\"]],[{\"acquisitions\":[{\"_id\":\"rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-a\",\"protocolVersion\":1,\"claimKey\":\"operation:cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"operation\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"decisionFenceVersion\":1,\"manifestVersion\":1,\"manifestCheckIn\":\"2027-01-01\",\"manifestCheckOut\":\"2027-01-03\",\"manifestRoomCode\":\"penthouse_apartment\",\"manifestUnits\":\"1\",\"manifestBookingRowIds\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"manifestResourceClaimIds\":\"rc1-20270101-s1-000001-a|rc1-20270102-s1-000001-a|rc1-20270101-u1-000001-a|rc1-20270102-u1-000001-a\"},{\"_id\":\"rc1-20270101-s1-000001-a\",\"protocolVersion\":1,\"claimKey\":\"capacity:2027-01-01:1\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"capacity\",\"night\":\"2027-01-01\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"capacitySlot\":1},{\"_id\":\"rc1-20270102-s1-000001-a\",\"protocolVersion\":1,\"claimKey\":\"capacity:2027-01-02:1\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"capacity\",\"night\":\"2027-01-02\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"capacitySlot\":1},{\"_id\":\"rc1-20270101-u1-000001-a\",\"protocolVersion\":1,\"claimKey\":\"unit:2027-01-01:1\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"unit\",\"night\":\"2027-01-01\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"unit\":1},{\"_id\":\"rc1-20270102-u1-000001-a\",\"protocolVersion\":1,\"claimKey\":\"unit:2027-01-02:1\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"unit\",\"night\":\"2027-01-02\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"unit\":1}],\"bookingRows\":[{\"_id\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"roomCode\":\"penthouse_apartment\",\"assignedRoom\":1,\"quantity\":1,\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-03\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\"}],\"primaryRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\"},{\"acquisitions\":[{\"_id\":\"rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-a\",\"protocolVersion\":1,\"claimKey\":\"operation:cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"operation\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"decisionFenceVersion\":1,\"manifestVersion\":1,\"manifestCheckIn\":\"2027-01-01\",\"manifestCheckOut\":\"2027-01-03\",\"manifestRoomCode\":\"adventure_suite\",\"manifestUnits\":\"3\",\"manifestBookingRowIds\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"manifestResourceClaimIds\":\"rc1-20270101-s2-000001-a|rc1-20270102-s2-000001-a|rc1-20270101-u3-000001-a|rc1-20270102-u3-000001-a\"},{\"_id\":\"rc1-20270101-s2-000001-a\",\"protocolVersion\":1,\"claimKey\":\"capacity:2027-01-01:2\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"capacity\",\"night\":\"2027-01-01\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"capacitySlot\":2},{\"_id\":\"rc1-20270102-s2-000001-a\",\"protocolVersion\":1,\"claimKey\":\"capacity:2027-01-02:2\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"capacity\",\"night\":\"2027-01-02\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"capacitySlot\":2},{\"_id\":\"rc1-20270101-u3-000001-a\",\"protocolVersion\":1,\"claimKey\":\"unit:2027-01-01:3\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"unit\",\"night\":\"2027-01-01\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"unit\":3},{\"_id\":\"rc1-20270102-u3-000001-a\",\"protocolVersion\":1,\"claimKey\":\"unit:2027-01-02:3\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"unit\",\"night\":\"2027-01-02\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"unit\":3}],\"bookingRows\":[{\"_id\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"roomCode\":\"adventure_suite\",\"assignedRoom\":3,\"quantity\":1,\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-03\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\"}],\"primaryRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\"}],[\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\"],\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",[2,{\"occupiedUnits\":[],\"occupiedUnitsByNight\":{\"2027-01-01\":[],\"2027-01-02\":[]},\"migrationIssueRows\":[],\"duplicateUnitClaims\":[],\"unknownStatusRows\":[]},[],[],[],[],[],[]]]"
+        },
+        {
+          "acquisitionProtocolVersion": 2,
+          "admissionId": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "_id": "ra2-start-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "kind": "group-start",
+          "direction": "start"
+        },
+        {
+          "acquisitionProtocolVersion": 2,
+          "admissionId": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "_id": "ra2-root-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "kind": "root",
+          "operationIdentityId": "rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-a"
+        },
+        {
+          "acquisitionProtocolVersion": 2,
+          "admissionId": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "_id": "ra2-gate-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-p0",
+          "kind": "gate",
+          "rootId": "ra2-root-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "index": 0,
+          "resourceClaimId": "rc1-20270101-s1-000001-a",
+          "direction": "acquire"
+        },
+        {
+          "acquisitionProtocolVersion": 2,
+          "admissionId": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "_id": "ra2-gate-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-p1",
+          "kind": "gate",
+          "rootId": "ra2-root-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "index": 1,
+          "resourceClaimId": "rc1-20270102-s1-000001-a",
+          "direction": "acquire"
+        },
+        {
+          "acquisitionProtocolVersion": 2,
+          "admissionId": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "_id": "ra2-gate-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-p2",
+          "kind": "gate",
+          "rootId": "ra2-root-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "index": 2,
+          "resourceClaimId": "rc1-20270101-u1-000001-a",
+          "direction": "acquire"
+        },
+        {
+          "acquisitionProtocolVersion": 2,
+          "admissionId": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "_id": "ra2-gate-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-p3",
+          "kind": "gate",
+          "rootId": "ra2-root-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "index": 3,
+          "resourceClaimId": "rc1-20270102-u1-000001-a",
+          "direction": "acquire"
+        },
+        {
+          "acquisitionProtocolVersion": 2,
+          "admissionId": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "_id": "ra2-start-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "kind": "group-start",
+          "direction": "start"
+        },
+        {
+          "acquisitionProtocolVersion": 2,
+          "admissionId": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "_id": "ra2-root-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "kind": "root",
+          "operationIdentityId": "rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-a"
+        },
+        {
+          "acquisitionProtocolVersion": 2,
+          "admissionId": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "_id": "ra2-gate-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-p0",
+          "kind": "gate",
+          "rootId": "ra2-root-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "index": 0,
+          "resourceClaimId": "rc1-20270101-s2-000001-a",
+          "direction": "acquire"
+        },
+        {
+          "acquisitionProtocolVersion": 2,
+          "admissionId": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "_id": "ra2-gate-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-p1",
+          "kind": "gate",
+          "rootId": "ra2-root-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "index": 1,
+          "resourceClaimId": "rc1-20270102-s2-000001-a",
+          "direction": "acquire"
+        },
+        {
+          "acquisitionProtocolVersion": 2,
+          "admissionId": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "_id": "ra2-gate-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-p2",
+          "kind": "gate",
+          "rootId": "ra2-root-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "index": 2,
+          "resourceClaimId": "rc1-20270101-u3-000001-a",
+          "direction": "acquire"
+        },
+        {
+          "acquisitionProtocolVersion": 2,
+          "admissionId": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "_id": "ra2-gate-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-p3",
+          "kind": "gate",
+          "rootId": "ra2-root-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "index": 3,
+          "resourceClaimId": "rc1-20270102-u3-000001-a",
+          "direction": "acquire"
+        },
+        {
+          "_id": "ra2-direction-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "acquisitionProtocolVersion": 2,
+          "kind": "cart-direction",
+          "admissionId": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "direction": "commit-rows",
+          "causeOperationId": null,
+          "causeIndex": null,
+          "causeResourceClaimId": null
+        }
+      ],
+      "RoomBookingClaimEvents": [
+        {
+          "_id": "rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-a",
+          "protocolVersion": 1,
+          "claimKey": "operation:cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "eventType": "acquire",
+          "claimType": "operation",
+          "generation": 1,
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "payloadDigest": "7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1",
+          "manifestVersion": 1,
+          "manifestCheckIn": "2027-01-01",
+          "manifestCheckOut": "2027-01-03",
+          "manifestRoomCode": "penthouse_apartment",
+          "manifestUnits": "1",
+          "manifestBookingRowIds": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1",
+          "manifestResourceClaimIds": "rc1-20270101-s1-000001-a|rc1-20270102-s1-000001-a|rc1-20270101-u1-000001-a|rc1-20270102-u1-000001-a",
+          "decisionFenceVersion": 1
+        },
+        {
+          "_id": "rc1-20270101-s1-000001-a",
+          "protocolVersion": 1,
+          "claimKey": "capacity:2027-01-01:1",
+          "eventType": "acquire",
+          "claimType": "capacity",
+          "generation": 1,
+          "night": "2027-01-01",
+          "capacitySlot": 1,
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "payloadDigest": "7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1"
+        },
+        {
+          "_id": "rc1-20270102-s1-000001-a",
+          "protocolVersion": 1,
+          "claimKey": "capacity:2027-01-02:1",
+          "eventType": "acquire",
+          "claimType": "capacity",
+          "generation": 1,
+          "night": "2027-01-02",
+          "capacitySlot": 1,
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "payloadDigest": "7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1"
+        },
+        {
+          "_id": "rc1-20270101-u1-000001-a",
+          "protocolVersion": 1,
+          "claimKey": "unit:2027-01-01:1",
+          "eventType": "acquire",
+          "claimType": "unit",
+          "generation": 1,
+          "night": "2027-01-01",
+          "unit": 1,
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "payloadDigest": "7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1"
+        },
+        {
+          "_id": "rc1-20270102-u1-000001-a",
+          "protocolVersion": 1,
+          "claimKey": "unit:2027-01-02:1",
+          "eventType": "acquire",
+          "claimType": "unit",
+          "generation": 1,
+          "night": "2027-01-02",
+          "unit": 1,
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "payloadDigest": "7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1"
+        },
+        {
+          "_id": "rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-c",
+          "protocolVersion": 1,
+          "claimKey": "operation:cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p:completion",
+          "eventType": "complete",
+          "claimType": "operation-completion",
+          "generation": 1,
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "payloadDigest": "7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1",
+          "completionState": "complete",
+          "confirmedResourceCount": 4,
+          "decisionFenceVersion": 1
+        },
+        {
+          "_id": "rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-a",
+          "protocolVersion": 1,
+          "claimKey": "operation:cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "eventType": "acquire",
+          "claimType": "operation",
+          "generation": 1,
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "payloadDigest": "14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1",
+          "manifestVersion": 1,
+          "manifestCheckIn": "2027-01-01",
+          "manifestCheckOut": "2027-01-03",
+          "manifestRoomCode": "adventure_suite",
+          "manifestUnits": "3",
+          "manifestBookingRowIds": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1",
+          "manifestResourceClaimIds": "rc1-20270101-s2-000001-a|rc1-20270102-s2-000001-a|rc1-20270101-u3-000001-a|rc1-20270102-u3-000001-a",
+          "decisionFenceVersion": 1
+        },
+        {
+          "_id": "rc1-20270101-s2-000001-a",
+          "protocolVersion": 1,
+          "claimKey": "capacity:2027-01-01:2",
+          "eventType": "acquire",
+          "claimType": "capacity",
+          "generation": 1,
+          "night": "2027-01-01",
+          "capacitySlot": 2,
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "payloadDigest": "14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1"
+        },
+        {
+          "_id": "rc1-20270102-s2-000001-a",
+          "protocolVersion": 1,
+          "claimKey": "capacity:2027-01-02:2",
+          "eventType": "acquire",
+          "claimType": "capacity",
+          "generation": 1,
+          "night": "2027-01-02",
+          "capacitySlot": 2,
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "payloadDigest": "14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1"
+        },
+        {
+          "_id": "rc1-20270101-u3-000001-a",
+          "protocolVersion": 1,
+          "claimKey": "unit:2027-01-01:3",
+          "eventType": "acquire",
+          "claimType": "unit",
+          "generation": 1,
+          "night": "2027-01-01",
+          "unit": 3,
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "payloadDigest": "14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1"
+        },
+        {
+          "_id": "rc1-20270102-u3-000001-a",
+          "protocolVersion": 1,
+          "claimKey": "unit:2027-01-02:3",
+          "eventType": "acquire",
+          "claimType": "unit",
+          "generation": 1,
+          "night": "2027-01-02",
+          "unit": 3,
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "payloadDigest": "14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1"
+        },
+        {
+          "_id": "rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-c",
+          "protocolVersion": 1,
+          "claimKey": "operation:cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a:completion",
+          "eventType": "complete",
+          "claimType": "operation-completion",
+          "generation": 1,
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "payloadDigest": "14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1",
+          "completionState": "complete",
+          "confirmedResourceCount": 4,
+          "decisionFenceVersion": 1
+        },
+        {
+          "_id": "rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-d",
+          "protocolVersion": 1,
+          "claimKey": "operation:cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p:decision",
+          "eventType": "decide",
+          "claimType": "operation-decision",
+          "generation": 1,
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "payloadDigest": "7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1",
+          "manifestVersion": 1,
+          "completionState": "complete",
+          "confirmedResourceCount": 4,
+          "decisionFenceVersion": 1,
+          "operationIdentityId": "rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-a",
+          "operationCompletionId": "rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-c",
+          "decisionState": "commit-rows"
+        },
+        {
+          "_id": "rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-d",
+          "protocolVersion": 1,
+          "claimKey": "operation:cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a:decision",
+          "eventType": "decide",
+          "claimType": "operation-decision",
+          "generation": 1,
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "payloadDigest": "14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1",
+          "manifestVersion": 1,
+          "completionState": "complete",
+          "confirmedResourceCount": 4,
+          "decisionFenceVersion": 1,
+          "operationIdentityId": "rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-a",
+          "operationCompletionId": "rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-c",
+          "decisionState": "commit-rows"
+        }
+      ],
+      "Bookings": [
+        {
+          "_id": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1",
+          "roomCode": "penthouse_apartment",
+          "assignedRoom": 1,
+          "quantity": 1,
+          "checkIn": "2027-01-01",
+          "checkOut": "2027-01-03",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p",
+          "payloadDigest": "7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749",
+          "guests": 2,
+          "note": "",
+          "status": "pending"
+        },
+        {
+          "_id": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1",
+          "roomCode": "adventure_suite",
+          "assignedRoom": 3,
+          "quantity": 1,
+          "checkIn": "2027-01-01",
+          "checkOut": "2027-01-03",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "operationId": "cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a",
+          "payloadDigest": "14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940",
+          "guests": 2,
+          "note": "Café 李",
+          "status": "pending"
+        }
+      ],
+      "BookingSummary": [
+        {
+          "_id": "gbs1-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "bookingDate": "2027-01-15T08:00:00.000Z",
+          "checkIn": "2027-01-01",
+          "checkOut": "2027-01-03",
+          "guestName": "Fixture Guest",
+          "guestEmail": "fixture@example.test",
+          "guestPhone": "1234567",
+          "marketSource": "",
+          "notes": "Café 李",
+          "packageTitle": "Public fixture stay",
+          "roomCount": 2,
+          "status": "pending"
+        }
+      ],
+      "GuestBookingCompletions": [
+        {
+          "_id": "gbc1-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "schemaVersion": 1,
+          "kind": "booking-completion",
+          "outcome": "CONFIRMED",
+          "acceptanceId": "1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "operationId": "858ae316fd81b3847eb79fb105d22af09e2f5735831024abdaf087659e263c17",
+          "audience": "wbe:fixture",
+          "rootDigest": "75a3c4c983a9caae6c7f9de951fc3c3a9b362c1956b777be85a567e2c08eda48",
+          "manifestId": "ga2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed",
+          "admissionId": "ra2-cart-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "cartDirectionId": "ra2-direction-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "primaryBookingRowId": "pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1",
+          "projectionCanonical": "{\"v\":1,\"plannedBookingRows\":[{\"_id\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"roomCode\":\"penthouse_apartment\",\"assignedRoom\":1,\"quantity\":1,\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-03\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"originalGroupIndex\":1,\"ordinal\":0,\"guests\":2,\"note\":\"\"},{\"_id\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"roomCode\":\"adventure_suite\",\"assignedRoom\":3,\"quantity\":1,\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-03\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"originalGroupIndex\":0,\"ordinal\":0,\"guests\":2,\"note\":\"Café 李\"}],\"summary\":{\"_id\":\"gbs1-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"acceptanceId\":\"1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee\",\"rootDigest\":\"75a3c4c983a9caae6c7f9de951fc3c3a9b362c1956b777be85a567e2c08eda48\",\"manifestId\":\"ga2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc\",\"manifestDigest\":\"88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed\",\"bookingDate\":\"2027-01-15T08:00:00.000Z\",\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-03\",\"guestName\":\"Fixture Guest\",\"guestEmail\":\"fixture@example.test\",\"guestPhone\":\"1234567\",\"dialingCode\":\"1\",\"notes\":\"Café 李\",\"marketSource\":\"\",\"packageTitle\":\"Public fixture stay\",\"roomCount\":2,\"totalGuests\":4,\"acceptedCalculation\":{\"v\":1,\"currency\":\"USD\",\"rounding\":\"original-group-backend-v1\",\"groups\":[{\"index\":0,\"roomCode\":\"adventure_suite\",\"quantity\":1,\"guests\":2,\"grossCents\":20000,\"discountCents\":0,\"roomTotalCents\":20000,\"propertyFeeCents\":1000,\"accommodationVatCents\":1000,\"packageVatCents\":1500,\"grandTotalCents\":23500},{\"index\":1,\"roomCode\":\"penthouse_apartment\",\"quantity\":1,\"guests\":2,\"grossCents\":22001,\"discountCents\":0,\"roomTotalCents\":22001,\"propertyFeeCents\":1100,\"accommodationVatCents\":1100,\"packageVatCents\":1650,\"grandTotalCents\":25851}],\"totals\":{\"grossCents\":42001,\"discountCents\":0,\"roomTotalCents\":42001,\"propertyFeeCents\":2100,\"accommodationVatCents\":2100,\"packageVatCents\":3150,\"grandTotalCents\":49351,\"totalVatCents\":5250,\"totalRooms\":2,\"totalGuests\":4}},\"financialDigest\":\"e1ea09fac9c80117a8ec8c8b9104d031b348ce48e646d4ae194893d0dc00f47a\"}}",
+          "projectionDigest": "43d9d8a3a02742568dd81d3cd8be1ae2fe2308595c9c2bd6b963deabb1fe0d69",
+          "bookingRowsCanonical": "[{\"_id\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"roomCode\":\"penthouse_apartment\",\"assignedRoom\":1,\"quantity\":1,\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-03\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"guests\":2,\"note\":\"\",\"status\":\"pending\"},{\"_id\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"roomCode\":\"adventure_suite\",\"assignedRoom\":3,\"quantity\":1,\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-03\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"guests\":2,\"note\":\"Café 李\",\"status\":\"pending\"}]",
+          "bookingRowsDigest": "72b489b2621896a103dcb3eccf193e1bfd65697e422f1b0b42920fce53d9bfe2",
+          "summaryId": "gbs1-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "summaryCanonical": "{\"_id\":\"gbs1-1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"bookingDate\":\"2027-01-15T08:00:00.000Z\",\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-03\",\"guestName\":\"Fixture Guest\",\"guestEmail\":\"fixture@example.test\",\"guestPhone\":\"1234567\",\"marketSource\":\"\",\"notes\":\"Café 李\",\"packageTitle\":\"Public fixture stay\",\"roomCount\":2,\"status\":\"pending\"}",
+          "summaryDigest": "6c6e794592bf716b4a8707a0ee399c68a7a896bf038e0bab776c5aaa2e3a38d5",
+          "financialDigest": "e1ea09fac9c80117a8ec8c8b9104d031b348ce48e646d4ae194893d0dc00f47a",
+          "recipient": "fixture@example.test",
+          "recipientBindingDigest": "bd107975a16b3426a5aac71f90dcad991a3d02700db0a39c5e3b8b846c2c2e6a"
+        }
+      ],
+      "BookingPayments": []
+    },
+    "config": {
+      "v": 1,
+      "revisionId": "revision-1",
+      "revisionDigest": "231fef06be3f24bc81f7250e3fab91f1af92d86a2e0c81c17de5e63d8c47ad94",
+      "numberPrefix": "TEST-"
+    },
+    "keys": {
+      "audience": "wbe:fixture",
+      "activeKid": "fixture",
+      "keys": [
+        {
+          "kid": "fixture",
+          "keyHex": "1212121212121212121212121212121212121212121212121212121212121212"
+        }
+      ]
+    }
+  },
+  "pending": {
+    "rows": {
+      "GuestBookingFinancialRevisions": [
+        {
+          "_id": "revision-1",
+          "revisionBytes": "{\"v\":1,\"package\":{\"id\":\"package\",\"nights\":2,\"baseRate\":100,\"priceModifier\":1},\"penthouseRoomFee\":10.005,\"propertyFeeRate\":0.05,\"taxRateAccommodation\":0.1,\"taxRateStandard\":0.15,\"promos\":[]}"
+        }
+      ],
+      "GuestBookingAcceptances": [
+        {
+          "schemaVersion": 2,
+          "validityPolicy": "backend-complete-validation-v2",
+          "_id": "1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee",
+          "operationId": "858ae316fd81b3847eb79fb105d22af09e2f5735831024abdaf087659e263c17",
+          "audience": "wbe:fixture",
+          "bookingNumber": "TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38",
+          "capsule": "{\"v\":2,\"policy\":\"backend-complete-validation-v2\",\"inputCanonical\":\"[\\\"wbe.guest-purchase-input\\\",1,\\\"2027-01-01\\\",\\\"2027-01-03\\\",\\\"package\\\",\\\"eyJ2IjoxLCJub25jZSI6IjAwMDEwMjAzMDQwNTA2MDcwODA5MGEwYiIsImlzc3VlZEF0IjoxODAwMDAwMDAwMDAwLCJleHBpcmVzQXQiOjE4MDAwMDM2MDAwMDAsImNoZWNrSW4iOiIyMDI3LTAxLTAxIiwiY2hlY2tPdXQiOiIyMDI3LTAxLTAzIiwibmlnaHRzIjoyLCJwYWNrYWdlSWQiOiJwYWNrYWdlIiwicGFja2FnZVRpdGxlIjoiUHVibGljIGZpeHR1cmUgc3RheSIsImJhc2VSYXRlIjoxMDAsInByaWNlTW9kaWZpZXIiOjEsInRvdGFsUGVyUGVyc29uIjoxMDB9.vET5rF2ijE-qQDElkQ3SuBaW6Oc04MJRXTFY75MGM9o\\\",\\\"\\\",[\\\"Fixture Guest\\\",\\\"fixture@example.test\\\",\\\"1234567\\\",\\\"1\\\",\\\"Caf\\\\u00e9 \\\\u674e\\\",\\\"\\\"],[\\\"\\\",\\\"\\\",\\\"\\\",\\\"\\\"],[[\\\"adventure_suite\\\",1,2],[\\\"penthouse_apartment\\\",1,2]]]\",\"quote\":{\"v\":1,\"nonce\":\"000102030405060708090a0b\",\"issuedAt\":1800000000000,\"expiresAt\":1800003600000,\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-03\",\"nights\":2,\"packageId\":\"package\",\"packageTitle\":\"Public fixture stay\",\"baseRate\":100,\"priceModifier\":1,\"totalPerPerson\":100},\"revisionId\":\"revision-1\",\"revisionDigest\":\"231fef06be3f24bc81f7250e3fab91f1af92d86a2e0c81c17de5e63d8c47ad94\",\"revisionBytes\":\"{\\\"v\\\":1,\\\"package\\\":{\\\"id\\\":\\\"package\\\",\\\"nights\\\":2,\\\"baseRate\\\":100,\\\"priceModifier\\\":1},\\\"penthouseRoomFee\\\":10.005,\\\"propertyFeeRate\\\":0.05,\\\"taxRateAccommodation\\\":0.1,\\\"taxRateStandard\\\":0.15,\\\"promos\\\":[]}\",\"factors\":{\"v\":1,\"nights\":2,\"totalPerPerson\":100,\"penthouseRoomFee\":10.005,\"propertyFeeRate\":0.05,\"taxRateAccommodation\":0.1,\"taxRateStandard\":0.15,\"promoDiscountRate\":0,\"priceGroups\":[{\"roomCode\":\"adventure_suite\",\"quantity\":1,\"guests\":2},{\"roomCode\":\"penthouse_apartment\",\"quantity\":1,\"guests\":2}]},\"calculation\":{\"v\":1,\"currency\":\"USD\",\"rounding\":\"original-group-backend-v1\",\"groups\":[{\"index\":0,\"roomCode\":\"adventure_suite\",\"quantity\":1,\"guests\":2,\"grossCents\":20000,\"discountCents\":0,\"roomTotalCents\":20000,\"propertyFeeCents\":1000,\"accommodationVatCents\":1000,\"packageVatCents\":1500,\"grandTotalCents\":23500},{\"index\":1,\"roomCode\":\"penthouse_apartment\",\"quantity\":1,\"guests\":2,\"grossCents\":22001,\"discountCents\":0,\"roomTotalCents\":22001,\"propertyFeeCents\":1100,\"accommodationVatCents\":1100,\"packageVatCents\":1650,\"grandTotalCents\":25851}],\"totals\":{\"grossCents\":42001,\"discountCents\":0,\"roomTotalCents\":42001,\"propertyFeeCents\":2100,\"accommodationVatCents\":2100,\"packageVatCents\":3150,\"grandTotalCents\":49351,\"totalVatCents\":5250,\"totalRooms\":2,\"totalGuests\":4}},\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"issuedAtMs\":1800000000000,\"offerExpiresAtMs\":1800003600000}",
+          "intentDigest": "37c73e047b69cbf202fc3b6011e8fbd87de91c1aa7a07fdcff14b3e596556da8",
+          "quoteDigest": "3ca547a947c737875e71e6dca5441a64220e49cd543a89c943dba47f72378d55",
+          "issuedAtMs": 1800000000000,
+          "offerExpiresAtMs": 1800003600000,
+          "credentialKid": "fixture",
+          "validatedAtMs": 1800000000000,
+          "rootDigest": "75a3c4c983a9caae6c7f9de951fc3c3a9b362c1956b777be85a567e2c08eda48"
+        }
+      ],
+      "GuestBookingAllocationManifests": [
+        {
+          "_id": "ga2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc",
+          "schemaVersion": 1,
+          "manifestCanonical": "[\"wbe.acceptance-allocation-manifest\",1,\"ga2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc\",[2,\"backend-complete-validation-v2\",\"1fe9e2efb95e3b3474e165b40b9578239a56c9fc431b89691d3066eb503834ee\",\"858ae316fd81b3847eb79fb105d22af09e2f5735831024abdaf087659e263c17\",\"wbe:fixture\",\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"{\\\"v\\\":2,\\\"policy\\\":\\\"backend-complete-validation-v2\\\",\\\"inputCanonical\\\":\\\"[\\\\\\\"wbe.guest-purchase-input\\\\\\\",1,\\\\\\\"2027-01-01\\\\\\\",\\\\\\\"2027-01-03\\\\\\\",\\\\\\\"package\\\\\\\",\\\\\\\"eyJ2IjoxLCJub25jZSI6IjAwMDEwMjAzMDQwNTA2MDcwODA5MGEwYiIsImlzc3VlZEF0IjoxODAwMDAwMDAwMDAwLCJleHBpcmVzQXQiOjE4MDAwMDM2MDAwMDAsImNoZWNrSW4iOiIyMDI3LTAxLTAxIiwiY2hlY2tPdXQiOiIyMDI3LTAxLTAzIiwibmlnaHRzIjoyLCJwYWNrYWdlSWQiOiJwYWNrYWdlIiwicGFja2FnZVRpdGxlIjoiUHVibGljIGZpeHR1cmUgc3RheSIsImJhc2VSYXRlIjoxMDAsInByaWNlTW9kaWZpZXIiOjEsInRvdGFsUGVyUGVyc29uIjoxMDB9.vET5rF2ijE-qQDElkQ3SuBaW6Oc04MJRXTFY75MGM9o\\\\\\\",\\\\\\\"\\\\\\\",[\\\\\\\"Fixture Guest\\\\\\\",\\\\\\\"fixture@example.test\\\\\\\",\\\\\\\"1234567\\\\\\\",\\\\\\\"1\\\\\\\",\\\\\\\"Caf\\\\\\\\u00e9 \\\\\\\\u674e\\\\\\\",\\\\\\\"\\\\\\\"],[\\\\\\\"\\\\\\\",\\\\\\\"\\\\\\\",\\\\\\\"\\\\\\\",\\\\\\\"\\\\\\\"],[[\\\\\\\"adventure_suite\\\\\\\",1,2],[\\\\\\\"penthouse_apartment\\\\\\\",1,2]]]\\\",\\\"quote\\\":{\\\"v\\\":1,\\\"nonce\\\":\\\"000102030405060708090a0b\\\",\\\"issuedAt\\\":1800000000000,\\\"expiresAt\\\":1800003600000,\\\"checkIn\\\":\\\"2027-01-01\\\",\\\"checkOut\\\":\\\"2027-01-03\\\",\\\"nights\\\":2,\\\"packageId\\\":\\\"package\\\",\\\"packageTitle\\\":\\\"Public fixture stay\\\",\\\"baseRate\\\":100,\\\"priceModifier\\\":1,\\\"totalPerPerson\\\":100},\\\"revisionId\\\":\\\"revision-1\\\",\\\"revisionDigest\\\":\\\"231fef06be3f24bc81f7250e3fab91f1af92d86a2e0c81c17de5e63d8c47ad94\\\",\\\"revisionBytes\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"package\\\\\\\":{\\\\\\\"id\\\\\\\":\\\\\\\"package\\\\\\\",\\\\\\\"nights\\\\\\\":2,\\\\\\\"baseRate\\\\\\\":100,\\\\\\\"priceModifier\\\\\\\":1},\\\\\\\"penthouseRoomFee\\\\\\\":10.005,\\\\\\\"propertyFeeRate\\\\\\\":0.05,\\\\\\\"taxRateAccommodation\\\\\\\":0.1,\\\\\\\"taxRateStandard\\\\\\\":0.15,\\\\\\\"promos\\\\\\\":[]}\\\",\\\"factors\\\":{\\\"v\\\":1,\\\"nights\\\":2,\\\"totalPerPerson\\\":100,\\\"penthouseRoomFee\\\":10.005,\\\"propertyFeeRate\\\":0.05,\\\"taxRateAccommodation\\\":0.1,\\\"taxRateStandard\\\":0.15,\\\"promoDiscountRate\\\":0,\\\"priceGroups\\\":[{\\\"roomCode\\\":\\\"adventure_suite\\\",\\\"quantity\\\":1,\\\"guests\\\":2},{\\\"roomCode\\\":\\\"penthouse_apartment\\\",\\\"quantity\\\":1,\\\"guests\\\":2}]},\\\"calculation\\\":{\\\"v\\\":1,\\\"currency\\\":\\\"USD\\\",\\\"rounding\\\":\\\"original-group-backend-v1\\\",\\\"groups\\\":[{\\\"index\\\":0,\\\"roomCode\\\":\\\"adventure_suite\\\",\\\"quantity\\\":1,\\\"guests\\\":2,\\\"grossCents\\\":20000,\\\"discountCents\\\":0,\\\"roomTotalCents\\\":20000,\\\"propertyFeeCents\\\":1000,\\\"accommodationVatCents\\\":1000,\\\"packageVatCents\\\":1500,\\\"grandTotalCents\\\":23500},{\\\"index\\\":1,\\\"roomCode\\\":\\\"penthouse_apartment\\\",\\\"quantity\\\":1,\\\"guests\\\":2,\\\"grossCents\\\":22001,\\\"discountCents\\\":0,\\\"roomTotalCents\\\":22001,\\\"propertyFeeCents\\\":1100,\\\"accommodationVatCents\\\":1100,\\\"packageVatCents\\\":1650,\\\"grandTotalCents\\\":25851}],\\\"totals\\\":{\\\"grossCents\\\":42001,\\\"discountCents\\\":0,\\\"roomTotalCents\\\":42001,\\\"propertyFeeCents\\\":2100,\\\"accommodationVatCents\\\":2100,\\\"packageVatCents\\\":3150,\\\"grandTotalCents\\\":49351,\\\"totalVatCents\\\":5250,\\\"totalRooms\\\":2,\\\"totalGuests\\\":4}},\\\"bookingNumber\\\":\\\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\\\",\\\"issuedAtMs\\\":1800000000000,\\\"offerExpiresAtMs\\\":1800003600000}\",\"37c73e047b69cbf202fc3b6011e8fbd87de91c1aa7a07fdcff14b3e596556da8\",\"3ca547a947c737875e71e6dca5441a64220e49cd543a89c943dba47f72378d55\",1800000000000,1800003600000,\"fixture\",1800000000000,\"75a3c4c983a9caae6c7f9de951fc3c3a9b362c1956b777be85a567e2c08eda48\"],\"whole-cart-held-sources-v2\",[[\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"penthouse_apartment\",1,[[1,1]],[2],[\"\"],\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\"],[\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"adventure_suite\",1,[[0,1]],[2],[\"Café 李\"],\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\"]],[{\"acquisitions\":[{\"_id\":\"rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-a\",\"protocolVersion\":1,\"claimKey\":\"operation:cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"operation\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"decisionFenceVersion\":1,\"manifestVersion\":1,\"manifestCheckIn\":\"2027-01-01\",\"manifestCheckOut\":\"2027-01-03\",\"manifestRoomCode\":\"penthouse_apartment\",\"manifestUnits\":\"1\",\"manifestBookingRowIds\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"manifestResourceClaimIds\":\"rc1-20270101-s1-000001-a|rc1-20270102-s1-000001-a|rc1-20270101-u1-000001-a|rc1-20270102-u1-000001-a\"},{\"_id\":\"rc1-20270101-s1-000001-a\",\"protocolVersion\":1,\"claimKey\":\"capacity:2027-01-01:1\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"capacity\",\"night\":\"2027-01-01\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"capacitySlot\":1},{\"_id\":\"rc1-20270102-s1-000001-a\",\"protocolVersion\":1,\"claimKey\":\"capacity:2027-01-02:1\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"capacity\",\"night\":\"2027-01-02\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"capacitySlot\":1},{\"_id\":\"rc1-20270101-u1-000001-a\",\"protocolVersion\":1,\"claimKey\":\"unit:2027-01-01:1\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"unit\",\"night\":\"2027-01-01\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"unit\":1},{\"_id\":\"rc1-20270102-u1-000001-a\",\"protocolVersion\":1,\"claimKey\":\"unit:2027-01-02:1\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"unit\",\"night\":\"2027-01-02\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\",\"unit\":1}],\"bookingRows\":[{\"_id\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"roomCode\":\"penthouse_apartment\",\"assignedRoom\":1,\"quantity\":1,\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-03\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p\",\"payloadDigest\":\"7339a6d877751602c1cdb34cd4c7029eb61acb8b4f8588a60d8ba4b9dcbf1749\"}],\"primaryRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\"},{\"acquisitions\":[{\"_id\":\"rc1-op-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-a\",\"protocolVersion\":1,\"claimKey\":\"operation:cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"operation\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"decisionFenceVersion\":1,\"manifestVersion\":1,\"manifestCheckIn\":\"2027-01-01\",\"manifestCheckOut\":\"2027-01-03\",\"manifestRoomCode\":\"adventure_suite\",\"manifestUnits\":\"3\",\"manifestBookingRowIds\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"manifestResourceClaimIds\":\"rc1-20270101-s2-000001-a|rc1-20270102-s2-000001-a|rc1-20270101-u3-000001-a|rc1-20270102-u3-000001-a\"},{\"_id\":\"rc1-20270101-s2-000001-a\",\"protocolVersion\":1,\"claimKey\":\"capacity:2027-01-01:2\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"capacity\",\"night\":\"2027-01-01\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"capacitySlot\":2},{\"_id\":\"rc1-20270102-s2-000001-a\",\"protocolVersion\":1,\"claimKey\":\"capacity:2027-01-02:2\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"capacity\",\"night\":\"2027-01-02\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"capacitySlot\":2},{\"_id\":\"rc1-20270101-u3-000001-a\",\"protocolVersion\":1,\"claimKey\":\"unit:2027-01-01:3\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"unit\",\"night\":\"2027-01-01\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"unit\":3},{\"_id\":\"rc1-20270102-u3-000001-a\",\"protocolVersion\":1,\"claimKey\":\"unit:2027-01-02:3\",\"generation\":1,\"eventType\":\"acquire\",\"claimType\":\"unit\",\"night\":\"2027-01-02\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"bookingRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\",\"unit\":3}],\"bookingRows\":[{\"_id\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",\"roomCode\":\"adventure_suite\",\"assignedRoom\":3,\"quantity\":1,\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-03\",\"bookingNumber\":\"TEST-6bcd21e7eeac1c63bc33dcd8868bd96561b3d2bd4ae7ac38\",\"operationId\":\"cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a\",\"payloadDigest\":\"14b142b3f475444fe1f86629eec8165925fc629c1e96d6d9d898e73911a63940\"}],\"primaryRowId\":\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\"}],[\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_p-r1\",\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\"],\"pb1-cg2_hYrjFv2Bs4R-t5-xBdIq8J4vVzWDECSr2vCHZZ4mPBc_a-r1\",[2,{\"occupiedUnits\":[],\"occupiedUnitsByNight\":{\"2027-01-01\":[],\"2027-01-02\":[]},\"migrationIssueRows\":[],\"duplicateUnitClaims\":[],\"unknownStatusRows\":[]},[],[],[],[],[],[]]]",
+          "manifestDigest": "88b6a64c88292bc0424cf374a8dcfb37cd415518b803d62de5cf4bc0b7cf6fed"
+        }
+      ],
+      "GuestBookingAcquisitionControls": [],
+      "RoomBookingClaimEvents": [],
+      "Bookings": [],
+      "BookingSummary": [],
+      "GuestBookingCompletions": [],
+      "BookingPayments": []
+    },
+    "config": {
+      "v": 1,
+      "revisionId": "revision-1",
+      "revisionDigest": "231fef06be3f24bc81f7250e3fab91f1af92d86a2e0c81c17de5e63d8c47ad94",
+      "numberPrefix": "TEST-"
+    },
+    "keys": {
+      "audience": "wbe:fixture",
+      "activeKid": "fixture",
+      "keys": [
+        {
+          "kid": "fixture",
+          "keyHex": "1212121212121212121212121212121212121212121212121212121212121212"
+        }
+      ]
+    }
+  }
+}

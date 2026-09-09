@@ -1,0 +1,1403 @@
+{
+  "status": "COMBINED_PORTABLE_PROPOSAL_NEEDS_INDEPENDENT_REVIEW",
+  "files": {
+    "booking_engine/__init__.py": {
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "canonical_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "eol": "LF"
+    },
+    "booking_engine/availability.py": {
+      "raw_sha256": "6c874597cc9db08991f94b9d11ca52cf51727061db793fc29378e94f6d02c7ca",
+      "canonical_sha256": "1b7372abfcf74e2fa55c11b23e879aaf90f7a4e7f8c99a191817f213e414d893",
+      "eol": "CRLF"
+    },
+    "booking_engine/blocks.py": {
+      "raw_sha256": "2e29cd76a9018c71a47ac215e46837b70a0c87e0d307bd84580661e6cf2bc1aa",
+      "canonical_sha256": "a6151451b7d900191644222eeb122c189599f3684c9c0f3804dc0393bb162a3d",
+      "eol": "CRLF"
+    },
+    "booking_engine/calendar.py": {
+      "raw_sha256": "59311b8931e2fb3526886fa118b8af7f2df3ccd6e5e6ea1038aaec38c7722f9f",
+      "canonical_sha256": "f7452ea8d4ee149da9baff761502dca979df26a4731b24b55fe0661671d61e02",
+      "eol": "CRLF"
+    },
+    "booking_engine/catalog.py": {
+      "raw_sha256": "cecdcb65cfe05bee122f29c17b485c6eac4b2bacf636fc28c497033356104216",
+      "canonical_sha256": "1a436662b639713229d3eaf6c1dea47a30464f7357e8935f09b15738a5a3b0c0",
+      "eol": "CRLF"
+    },
+    "booking_engine/drive_uploader.py": {
+      "raw_sha256": "dd0aa65b5021df9a84ac7a7760d6b2f4e23e90feadefdf438c8032135c29b5fc",
+      "canonical_sha256": "771624245daa95a1697b493b6ec68543e9802e2e875b75397630d8a59a2cbc1b",
+      "eol": "CRLF"
+    },
+    "booking_engine/gmail_sender.py": {
+      "raw_sha256": "2c909a0be75d24beff5928da621d79a6e46b0b8ebea120e43e9c59de0001de11",
+      "canonical_sha256": "4fcf0357e6ef3c3c717dab04f146770bfdd2c2b5f98d654f7c8dd1d9fd92c99c",
+      "eol": "CRLF"
+    },
+    "booking_engine/guest_invoice_delivery.py": {
+      "raw_sha256": "8757e322e39098cc60bcbed8471dc7350ad359ae41684671209e0fd1467bb538",
+      "canonical_sha256": "8757e322e39098cc60bcbed8471dc7350ad359ae41684671209e0fd1467bb538",
+      "eol": "LF"
+    },
+    "booking_engine/invoice.py": {
+      "raw_sha256": "416a59b93b626db939914f4e07f8252f8cb487597bc9319403d8151457c1f8c0",
+      "canonical_sha256": "b9c27451510f8fad733cd9c5a0938e84345ed0047b32f0f78b1c9aa319bb50a1",
+      "eol": "CRLF"
+    },
+    "booking_engine/invoice_email_dispatch.py": {
+      "raw_sha256": "a191a5d04f0d718b57317214a9fed7d30c01e15eb19bc7bcef1f63b1de9c431a",
+      "canonical_sha256": "f630b42e66093c8b4ed3662e535bf6e468e3a767d4a38a01cc1ade5c792eaf4d",
+      "eol": "CRLF"
+    },
+    "booking_engine/invoice_email_journal.py": {
+      "raw_sha256": "c9baadd5a7b429b7dd4bdde120ae392ccc70dd8a65abc581505024529bb93f3c",
+      "canonical_sha256": "1faf272e823062748020e88ff17a08c708a23c8edbfc85883a5dd7661c23f7eb",
+      "eol": "CRLF"
+    },
+    "booking_engine/invoice_email_recovery.py": {
+      "raw_sha256": "70c58f3da30b0edd5579ffc4e1e9ea2f97b148c989cbf83b7a173be2ed6ab3a9",
+      "canonical_sha256": "191c2149241a7b05cd2fe1d641e434af815a44f67121cf9213a3a56afbfb3f41",
+      "eol": "CRLF"
+    },
+    "booking_engine/invoice_number.py": {
+      "raw_sha256": "1d4f528091e875695f009877e909d51d25d14bd60829894481387be47679e62d",
+      "canonical_sha256": "6c24486cdc47cca19cee1f0e04a14f96feb3d42ba6c103081c5906ab6727c0a4",
+      "eol": "CRLF"
+    },
+    "booking_engine/invoice_original_groups.py": {
+      "raw_sha256": "8126906e9870b35dbb689383ff811b165864a61a74a5ea2b504c64645dc8e311",
+      "canonical_sha256": "871f552fe1bf888f3279b5b750e5bbb35cde35a4255dd2479793321cab551340",
+      "eol": "CRLF"
+    },
+    "booking_engine/invoice_owner_issuance.py": {
+      "raw_sha256": "73be1742d2e49aa788a7bfdd2c050f348bd10ce4cd7111a4eca984f1689ae34c",
+      "canonical_sha256": "a2ebc9bef9d09589259a17573e59f8c4f28aa2ded175639e713167c1040b5d0f",
+      "eol": "CRLF"
+    },
+    "booking_engine/invoice_pdf.py": {
+      "raw_sha256": "8da1219625c8817162f9052be3e8b2fbb4d11266885ffa365d1c8e4ce3592787",
+      "canonical_sha256": "d58f31b56d24a0d351b9e554986263dddc746e1bee752c961d4506092e8836f1",
+      "eol": "CRLF"
+    },
+    "booking_engine/invoice_renderer.py": {
+      "raw_sha256": "85e8ea571cdd58a1cc10ffa62fc91271dfd986c896a96d9521ce62225433685f",
+      "canonical_sha256": "96e8e0c4ad3d946918cc9648cffa81e665307d5c88172ebb4a9bb481e8076653",
+      "eol": "CRLF"
+    },
+    "booking_engine/invoice_word.py": {
+      "raw_sha256": "49219ba648c03bc43bdc02b3a7240971d5e776779d578758a05268e6ceaa61b0",
+      "canonical_sha256": "398d03c2785f4f38f37ba836f653da038fea4688833e2e83124aebf9a388cb4d",
+      "eol": "CRLF"
+    },
+    "booking_engine/messages.py": {
+      "raw_sha256": "132a70bffe70409cf0facfc5ced0a6263cca5d7e148af9717409c96fdeaf3e91",
+      "canonical_sha256": "184717514339237f44c9351ba230d1844706814a39450c3a8c3227036d8b496c",
+      "eol": "CRLF"
+    },
+    "booking_engine/payments.py": {
+      "raw_sha256": "37e73d67754e77a8307ca186e538e1cabbd50833e92f370757f53582a8bef398",
+      "canonical_sha256": "a4083f0e526406a85661d42604291a3011eae3494d46c7ba6443c5f9b0ed9d62",
+      "eol": "CRLF"
+    },
+    "booking_engine/report.py": {
+      "raw_sha256": "e2804a4541cdf83168c655d371c8fbe22bf426973334776405fd9bc2e90c96a6",
+      "canonical_sha256": "57c96935f9ca88d3c08f50e64a380c89f95a88e468ef914971cb01ecdd99d480",
+      "eol": "CRLF"
+    },
+    "booking_engine/seasonal.py": {
+      "raw_sha256": "272164440ad31f9126e0919b5de1ba3169837a6cfb880fb5d541cbf090571e8b",
+      "canonical_sha256": "86796ecd6c40eaa00ffb0dadf29a8d67efe3aed74caa0fa49e2c883ff714ff86",
+      "eol": "CRLF"
+    },
+    "booking_engine/status.py": {
+      "raw_sha256": "9283f07678a2d09717b838d201b7691c2146911866e9ffb8369c994b82fd0dfa",
+      "canonical_sha256": "55b266f5bb80f4fa7460129e33de87b29876dda1ad320cf1b7cecd135bc507f7",
+      "eol": "CRLF"
+    },
+    "docs/guest-invoice-delivery-integration.md": {
+      "raw_sha256": "1894389cc7707470e5e111f1d9f94a59943fe98bd054e0e47e8b40ccbf0f5d10",
+      "canonical_sha256": "1894389cc7707470e5e111f1d9f94a59943fe98bd054e0e47e8b40ccbf0f5d10",
+      "eol": "LF"
+    },
+    "invoice_service.py": {
+      "raw_sha256": "bf9fd2f353b28797b2dd9b397161d310c6a2fa464ceb3339514b317879a780a5",
+      "canonical_sha256": "cd5612c298cca1d20d8613fa7fcf1eee4ecab592ffe7de97a22d350324ba126b",
+      "eol": "CRLF"
+    },
+    "invoice_template.docx": {
+      "raw_sha256": "353ce740e64385227c18391d134e049940c3c3ae60a3a67c58dd1a8370a8854a",
+      "canonical_sha256": "353ce740e64385227c18391d134e049940c3c3ae60a3a67c58dd1a8370a8854a",
+      "eol": "binary"
+    },
+    "scripts/fixtures/completion-authority-compensated.json": {
+      "raw_sha256": "f6e981212ae67ff90a75d582e48ac94e25d338accda0c3a02c079c97011293da",
+      "canonical_sha256": "349ee400de6556fd56c30a2f12399fada8479220d3a72d9e0d8db57574107818",
+      "eol": "CRLF"
+    },
+    "scripts/fixtures/completion-authority-dependencies.json": {
+      "raw_sha256": "55c8df237b7a11aff89c0c984352eb60d4b70c7ba5a8792e9e8de5ed505c826d",
+      "canonical_sha256": "0d03fb556fbd2aa5d6f92483ef7ab98c64bb0d3b0a14c1e081d6696cb81c5ca2",
+      "eol": "CRLF"
+    },
+    "scripts/fixtures/completion-authority-foreign.json": {
+      "raw_sha256": "27cb9ea01897539e4adac039eaf0e26d11cf9aa9d51fb272114e1a927f4b7c1e",
+      "canonical_sha256": "9546cdcfa9ee27e8a376fb4714159c8902794c511af35e8aba7b82132bcc2506",
+      "eol": "CRLF"
+    },
+    "scripts/fixtures/completion-authority-history.json": {
+      "raw_sha256": "4574fc7788ab67fd3ddfda56885b13dd0391e98aacb1d41113e108d49e1bba8a",
+      "canonical_sha256": "ee07c3ac0067452deb334c0b2e4086c26cf3e5ab18d740cca77f0a520395bed9",
+      "eol": "CRLF"
+    },
+    "scripts/guest-delivery-static-imports.cjs": {
+      "raw_sha256": "1e0140ca17f12cc60ee04cfeadfd31eabf29d96e560b0775decb074bbd520928",
+      "canonical_sha256": "1e0140ca17f12cc60ee04cfeadfd31eabf29d96e560b0775decb074bbd520928",
+      "eol": "LF"
+    },
+    "scripts/guest_delivery_custody.py": {
+      "raw_sha256": "9a536be8a440583fdf6522f43cacfb93d175139b1ce6235ddc840f463bd53cb6",
+      "canonical_sha256": "9a536be8a440583fdf6522f43cacfb93d175139b1ce6235ddc840f463bd53cb6",
+      "eol": "LF"
+    },
+    "scripts/guest_delivery_entrypoints.py": {
+      "raw_sha256": "0570d7b2789f886a54bb2a564c4bdb711612ce775e58b8b3c7f4c1f9b73001ca",
+      "canonical_sha256": "0570d7b2789f886a54bb2a564c4bdb711612ce775e58b8b3c7f4c1f9b73001ca",
+      "eol": "LF"
+    },
+    "scripts/python-lifecycle-bridge.cjs": {
+      "raw_sha256": "0e1d6b643ef1259dac5dfb7ea46d5b02e9c7bfddf552d7329a392bf9cb4db2fa",
+      "canonical_sha256": "0e1d6b643ef1259dac5dfb7ea46d5b02e9c7bfddf552d7329a392bf9cb4db2fa",
+      "eol": "LF"
+    },
+    "scripts/python-middle-bridge.cjs": {
+      "raw_sha256": "14e47665b994cadecf12a4ae94b0184a780f85e8452f2ea1badc1a8a97506d88",
+      "canonical_sha256": "14e47665b994cadecf12a4ae94b0184a780f85e8452f2ea1badc1a8a97506d88",
+      "eol": "LF"
+    },
+    "scripts/test_guest_delivery_custody.py": {
+      "raw_sha256": "4cd1bc95fe31de77a78ab43b7ad119e361aa45d19650607fb013e53f3dda43ea",
+      "canonical_sha256": "4cd1bc95fe31de77a78ab43b7ad119e361aa45d19650607fb013e53f3dda43ea",
+      "eol": "LF"
+    },
+    "scripts/test_guest_delivery_entrypoints.py": {
+      "raw_sha256": "b4c3841561d8430a5b35afaeb7e43e4a03956e6f8aec5d9fe69c2c432bca3430",
+      "canonical_sha256": "b4c3841561d8430a5b35afaeb7e43e4a03956e6f8aec5d9fe69c2c432bca3430",
+      "eol": "LF"
+    },
+    "scripts/verify-guest-booking-invoice-delivery.js": {
+      "raw_sha256": "801afb35e13b9af1848aef650165d4a92df67a89e295853622753c42764cfeb6",
+      "canonical_sha256": "801afb35e13b9af1848aef650165d4a92df67a89e295853622753c42764cfeb6",
+      "eol": "LF"
+    },
+    "tests/guest_delivery_lifecycle_support.py": {
+      "raw_sha256": "f416c08cfb0fbe4220c303fe17243b325b7d706f628cdd1bd6f18600a9aceb29",
+      "canonical_sha256": "f416c08cfb0fbe4220c303fe17243b325b7d706f628cdd1bd6f18600a9aceb29",
+      "eol": "LF"
+    },
+    "tests/test_guest_invoice_delivery.py": {
+      "raw_sha256": "5c3914e9771aafb6d7630fd48d3bf829efa7caf598629c7f824f8af830b0e1f3",
+      "canonical_sha256": "5c3914e9771aafb6d7630fd48d3bf829efa7caf598629c7f824f8af830b0e1f3",
+      "eol": "LF"
+    },
+    "tmp_generate_invoice.py": {
+      "raw_sha256": "c930b47b572e9625fd73b5d333265182f188940c547e9167810cc7ad1c9e4c7a",
+      "canonical_sha256": "b66552c9a409d06d3482ffebf77091100560d25cc66c1c15108aa460977af759",
+      "eol": "CRLF"
+    },
+    "tmp_generate_invoice_v2.py": {
+      "raw_sha256": "a6e4a8a0fdf3234ae64a06a67057df9d9e6ec91f7ad5f65096175c69e1ce9868",
+      "canonical_sha256": "1981f54e891cdca569e99346ec88447c86128b11eee853c4f5b5dd10ca345a6b",
+      "eol": "CRLF"
+    },
+    "velo/admin-console-wireframe.html": {
+      "raw_sha256": "291875e52d4fc6f122f17843d9745fa810874896de830d0babddacc69980ec7b",
+      "canonical_sha256": "761751c8dd866083fd0c9575f773cbddd40acb51ded1e44296679a9b3f6d2b1f",
+      "eol": "CRLF"
+    },
+    "velo/ADMIN_CONSOLE.html": {
+      "raw_sha256": "fad46756e30692b87d75e3985801ca37ac708ea6eb00e7e788360b13b4d7b8e5",
+      "canonical_sha256": "84a60535f6d98aaa7aa3ede20e5311ac66f865b6b1ac4807b26c3b284651fa95",
+      "eol": "CRLF"
+    },
+    "velo/backend/adminConsole.web.js": {
+      "raw_sha256": "e93e937af544e6fafb202d9b51708d48066cfa6f4808194ca88ed1b4d16c561a",
+      "canonical_sha256": "f72c2fb8e77bc83f8275d4e002ff52361a9dc31f53cb4f6a1451784533a25b47",
+      "eol": "CRLF"
+    },
+    "velo/backend/availability.web.js": {
+      "raw_sha256": "0664c0b5bbb6fdd97ef9124380f1bbeb099bfbe089f99412c16162e62beaf3e1",
+      "canonical_sha256": "57158907827f8073bb2a5bee71b9b8a7fe2de93c8697411a45a46835774e25af",
+      "eol": "CRLF"
+    },
+    "velo/backend/bookingCurrentRevision.js": {
+      "raw_sha256": "60db00348b49e2545b6f8425182cc3240ec7a9beb7ab055e4c508568e476e196",
+      "canonical_sha256": "2940b9c7248f0032719a408f8d49492d762f4b0a8d359729c3374c794c6905a4",
+      "eol": "CRLF"
+    },
+    "velo/backend/bookingCurrentRevisionRules.js": {
+      "raw_sha256": "4455fd0808a3c80593a5382fea6334175baa6058a2fe7ac23085e7ab96dc2d84",
+      "canonical_sha256": "48ed0c24c299c81e3abebb95b190889137436d76a8fdf62e1ee7645da50f167b",
+      "eol": "CRLF"
+    },
+    "velo/backend/bookingCurrentRevisionStore.js": {
+      "raw_sha256": "e70843554553c3f9ff8bcb1d2cf56547450e7135c0d0eb0f2ee4544328f92b93",
+      "canonical_sha256": "5a64aae50d561c5095712e7bdc62b1dadc29aa4524d8e57d7709b6b3593faf75",
+      "eol": "CRLF"
+    },
+    "velo/backend/dataManagerClient.web.js": {
+      "raw_sha256": "2b6ae114be441e8721fc23dd590cf30980f83331902cde1f1f45251591829155",
+      "canonical_sha256": "d9e9f6785c644fd2bcad7d58d345ee420ad28325c5c27a033eb35de2c8a9ce4c",
+      "eol": "CRLF"
+    },
+    "velo/backend/debug.web.js": {
+      "raw_sha256": "188eec84faa98ad1b5ee54c6978f61dfdc1987337eabbef737e7e2a9d6533fc6",
+      "canonical_sha256": "e4b9bc5546ea4d463ac5bcc150e3cba548048c01ae19849eb28d474f695b3c65",
+      "eol": "CRLF"
+    },
+    "velo/backend/diagnoseSearch.web.js": {
+      "raw_sha256": "3d972228b5477b931b3bcd686185ced9db8bac614982e354cea1dffb6a50b9ae",
+      "canonical_sha256": "38437e8fb3742b838710b86c7fb3c643c75d3d99a43be3df31c907fd4fabd2a1",
+      "eol": "CRLF"
+    },
+    "velo/backend/diagnostics.web.js": {
+      "raw_sha256": "380403ffde86cb8207dce3c718c44632562526e54cb8c1d75eda0901eb5ab225",
+      "canonical_sha256": "fc35aca660c5adceb224ca553082e2137d911584bf68c85641314a51a670cd64",
+      "eol": "CRLF"
+    },
+    "velo/backend/googleAdsConversions.web.js": {
+      "raw_sha256": "d5e5f0c8a2bd677d621c48c566a239e3e77de8fd82558cf444c1336b3cd6759e",
+      "canonical_sha256": "5fb3b81c981fefcbe01b1f8d6fc5bb09fde418833bbd6442ceade3938d23c1d6",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingAcceptance.js": {
+      "raw_sha256": "be48af32aec02517ec450eec991a4ae3954f3865ca4c70c8f4f09bec8da360d9",
+      "canonical_sha256": "b15c33c3206ac851d8de9fdc04349488f2a31b3b8b5100b07f3b28f4fee38df2",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingAcceptanceDiscovery.js": {
+      "raw_sha256": "64248ee7714e561b7b2d51c6ed98106bed0f3c1d168ac9c20a35e97aa2f0b9cb",
+      "canonical_sha256": "bb29fdc98ce9b4d21d59fdb73c2856a0693d78721c58632153babf86faee649e",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingAcceptanceStore.js": {
+      "raw_sha256": "f6ba25206650064b18a0f77b21aa126aba45374628f431b248287fa17cdc31ad",
+      "canonical_sha256": "3cb3f02fbb92168364c21169e30834ba75980768de35e14ca9a2b9f8aa25a75c",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingAccessPolicy.js": {
+      "raw_sha256": "179ab28b28c7fac0112be9873107448dc0fc497ff85346e32b9f93fd05345f5a",
+      "canonical_sha256": "bbc14fb6951dbc7b677e9ca9202a2906d0da7bd5a2b322e56ca147e7e21dad35",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingAcquisitionContentionEvidence.js": {
+      "raw_sha256": "8344418d9ab32ac8736e17cd96823743e3e527ac12056b8d5c7803eb23b532d3",
+      "canonical_sha256": "cf60a8effa91031a1f7c0b2f285479522cd8dc1acd2c364e2cd3dbf8593dcfc5",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingAcquisitionControl.js": {
+      "raw_sha256": "8774fbf884b50e2847dbb9ed6969f0a4dbd6bbdb116034d0fafede1f94bdc770",
+      "canonical_sha256": "6cd0b108848964da1cfca8ca212b5758ff2057e6554a75c9980c8e5097c6dd45",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingAcquisitionControlRules.js": {
+      "raw_sha256": "f791338fa46e8ae9cd1d79a81b28259f7437219b84473ecc0482317478987e1f",
+      "canonical_sha256": "461939a94ee6790ad9442adde32b2abda51f6f1bb674462c5d7d6cc1dad5b728",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingAcquisitionControlStore.js": {
+      "raw_sha256": "0de5816184948c499699a7d14961164d6318ff72aea48e739cfb3871cb64cc5c",
+      "canonical_sha256": "3fe95f600ebece33b6e10a340ed6fbc57e6bf2403d070ab9065f2af47d14817e",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingAllocationEvidence.js": {
+      "raw_sha256": "9158145c60862659f49ca7032ae2de0b4039887df7090625223f10049e6da518",
+      "canonical_sha256": "e2c35347407326b4b7acf84d1bd77f5163030b20cef74ad098e4ba6486d948e5",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingAllocationHandoff.js": {
+      "raw_sha256": "a0705e798704a4cf69d57dd9aae211edf615dda5e4eca544fa6011b5e2756c5d",
+      "canonical_sha256": "0e8ebc09ad6676a9c4657bc8eb2194cad4008aa4b5902cc091997f8ae8b5fe37",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingAllocationManifestRules.js": {
+      "raw_sha256": "f3c24f735cd9fa09a1a677c211479ab02101465efea01508f97d8266b9d1953d",
+      "canonical_sha256": "fb5e7ed1f3c4bda3866c3a9baecbfc3adaa045432a0bce3b28c66a2f7c267b4f",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingAllocationManifestStore.js": {
+      "raw_sha256": "145a8653e396656b7c89013e3476918018744eaeeebdf0087418ef83b1a8e28b",
+      "canonical_sha256": "e26fd317eb167f867c71b30c2461c6aa890e6186d33b5e61d3fe90352bceedb1",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingAllocationRetainedRules.js": {
+      "raw_sha256": "1c4e4a476cd009fd0949ef9bfb4ef624e4ba647019d00bf60f15385963fccf32",
+      "canonical_sha256": "4c84039c5c72e3958fdcf3b30e6466c440dabe726009f25720fb5030bafd1b8c",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingAllocationSourceRules.js": {
+      "raw_sha256": "63be6fbf2dfde81128a32d02e0f528a0411929df475b6585ea2d230e7600ca65",
+      "canonical_sha256": "013655a68168c376d0ca98b452f48042b53ef21cbb403bf361a36a98aa48aa08",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingCompletionAuthority.js": {
+      "raw_sha256": "7e44af2d1dbcfa440f43e8e413637347f763f636b87b6d70de7d4c5eaef1a5a3",
+      "canonical_sha256": "5aca0d1ef923a5a6a884696ec4333feee292f49e8b6e22c5c3ad84ac1f66dd65",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingCompletionEvidence.js": {
+      "raw_sha256": "affa8ce53d9216cce596dbcf2ebbedd822669fabcadd5a93e309bf6de1d78af1",
+      "canonical_sha256": "51971a8927e840a3f9c6909ad086965ce7027bbeda513e2e171ddea18607f195",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingCompletionProjection.js": {
+      "raw_sha256": "8e6e2bff2d64559ce42b585a008ad8c3996952669eca69c9a1f2898bbffdbb6e",
+      "canonical_sha256": "c9202f6148155617d99de5250aae3a2edc6b5a527ed0f0ed8271c568dbd231b0",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingCompletionRecovery.js": {
+      "raw_sha256": "9d2753f1cf840a5841c67106cb12e0051fc5a5e993b030e204985eb1a6f3d101",
+      "canonical_sha256": "8af55d7a97e02d43e115e86c17496a21ef23891d321d56beb0f37442342795e3",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingCompletionStore.js": {
+      "raw_sha256": "27c9228cb58fcbffd10a9504786b27e6b0299d9d7264bd109d94a32d09c4f58f",
+      "canonical_sha256": "cee5b0360854ff3f706b278aa0b03b1fe8502d9076966c17ad40d156c8a77dad",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingCredentials.js": {
+      "raw_sha256": "b140dbbbc45a909ec052c344beeb40c41ce630d19c22e35fe8dcd9b6bc82fa36",
+      "canonical_sha256": "c34364e2196a67016b4def3850149478015fd41d35a42fe5a590d2c6d5750c9f",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingFinancialAuthority.js": {
+      "raw_sha256": "85c9ec03c44590afc54e55b1dd62bb2fa47ec29e2087da19db74bd736233ee83",
+      "canonical_sha256": "809eba5ea270965c8566f3815b96599300535d23e2e3fcd2cf372d28fd076973",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingFinancialCalculation.js": {
+      "raw_sha256": "6acc8218a989b976e984853f568e06ac0b09c70c236c8404a2c87a017708a6c6",
+      "canonical_sha256": "3dc9fae1c48a48e78b34608c57970e73fae546c65e7c3a31449359f01a67fe71",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingInvoiceAuthorityConfig.js": {
+      "raw_sha256": "760343c99dba369e310fe2348073bac011a119b15bf54600181807493b1eceaa",
+      "canonical_sha256": "206164914acdc21a1accba71234437f92f6debc410e250d47e8c2919b77fb305",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingInvoiceDelivery.js": {
+      "raw_sha256": "b5e27047f870a38a9aaddb13b63deca711775c69bfbcb9edee057f1e20d54ea2",
+      "canonical_sha256": "b5e27047f870a38a9aaddb13b63deca711775c69bfbcb9edee057f1e20d54ea2",
+      "eol": "LF"
+    },
+    "velo/backend/guestBookingInvoiceIssuance.js": {
+      "raw_sha256": "797933fb958b1f6ecebd51e7a6ab87048b518d8993d26bf00c56b5a46919f681",
+      "canonical_sha256": "797933fb958b1f6ecebd51e7a6ab87048b518d8993d26bf00c56b5a46919f681",
+      "eol": "LF"
+    },
+    "velo/backend/guestBookingIssuerAuthority.js": {
+      "raw_sha256": "43f9830334ba820d129d5df124e60d97ee3097fe932e1ccd06c5d7cb2c55e145",
+      "canonical_sha256": "b5578ae7bcdef12eb54ad37f3775a5ac3ccccdbe292e89b4561ed5498804919b",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingOfferIssuer.js": {
+      "raw_sha256": "001c1a0f17c4f7fede5b8d3c6524a718828f42ab8897789bffe7c66c28a5bee3",
+      "canonical_sha256": "fc01e66d6cf480d352a29729e4350e49c0fe83db184185e220fd5e3a76e634c0",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingPhysicalAcquisition.js": {
+      "raw_sha256": "f12bd1a44e46d52b93dee52caac19bf369029d4a747be72ff5962ca8c724d70c",
+      "canonical_sha256": "77d8e4f9442f75be17659493451e6b4bb26662639a43bf4ed70f47e9930e1457",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingPhysicalAcquisitionEvidence.js": {
+      "raw_sha256": "962830b7d240f771fbdb4da5ef225d59cfb64627da1d264e8dd69001c8f4cab5",
+      "canonical_sha256": "012812cdfd2ec64514444d465599d92f0eed38512a6d76ee03e02df0b95bd7f5",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingPhysicalAcquisitionStore.js": {
+      "raw_sha256": "370b71cef1fe48e5d8e890b69be9fb9955ce1ba4204b8520321976111a07d3b1",
+      "canonical_sha256": "ac1192dfd8d59496faf86497d45782d06d6ddd776fe41c1ad6e2145e6da818cd",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingPriceGroups.js": {
+      "raw_sha256": "7ca72e93c4b79746ae754a0ac8493eb49c1bcd270ce820a60ad134e86295db54",
+      "canonical_sha256": "d787fea9c954650a7003953b9620e6862f4a44bcfa0b7e41818837d8ca3cfad8",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingPurchaseInput.js": {
+      "raw_sha256": "253a0c82393790ba3b4a4f15c4ef2c5bb429c4c4e156c144ba3bd26bb2442909",
+      "canonical_sha256": "a3b3583d0971c06f36301aa948479315def667e0e73d4accb8c854daab17489a",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestBookingRecoveryProgressStore.js": {
+      "raw_sha256": "3ea3f01ab44a5561849c4fad52032bfe490296b2f1aa906e55b60e967d2585d0",
+      "canonical_sha256": "3a768b2810a7a135df99a369b4459f8c2bd48afac94147b7dce11e94ec2e3a98",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestConsent.web.js": {
+      "raw_sha256": "8c22d99eeb02f783e54b42e2fd50f2b5d13fc2148d952e393f6beff15cd445ff",
+      "canonical_sha256": "d08ed967b4b709a84ee65e1847b3c4782b8f977a7a4f4f066a68164fb9da0a72",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestConsentBookingLink.js": {
+      "raw_sha256": "16f6058227d285687a6597552d0d8d2ff05988f729d26b68630993e03a755117",
+      "canonical_sha256": "2f7fbbce5fef566430349d84be0c267849873190952c1ced0222f26303029441",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestConsentContext.js": {
+      "raw_sha256": "f311a47fec57d7f1c2d04ffa232ab5b94e53f6a5b0796e78846c7b4f40653efd",
+      "canonical_sha256": "485790d844de14cf47cb81544c4f4aa038be51da8802ec21a56dabba88296bdd",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestConsentLocationPolicy.js": {
+      "raw_sha256": "887450f84d647ff19642bc4da324d19f60f230233d643aa3ccac2772c8cb376c",
+      "canonical_sha256": "1b230f3cb9ffa8e0916c669b50db184d9f3251156609e7690373ee3de86f507b",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestConsentRequirementsReader.js": {
+      "raw_sha256": "29a1329e08ce435a5d4c42b52f79208e6d0e4a1c4e95dea96d479368e866ede8",
+      "canonical_sha256": "cfd3dddc3ee10c94bd4bcf0a76ec3badcee829fea9e286dec7917cbe8e36d4b4",
+      "eol": "CRLF"
+    },
+    "velo/backend/guestConsentWithdrawalStore.js": {
+      "raw_sha256": "b681b0b76493c8b1bea986570bf7e96da475c2c2adca731bf2ee5be7dcaf082e",
+      "canonical_sha256": "7bdfd2255dba841612f0388497294e138e630c97f630278905b2e41fbf3411d6",
+      "eol": "CRLF"
+    },
+    "velo/backend/hashUtils.web.js": {
+      "raw_sha256": "ee010fb71f1ea36cec9e6ea07b4ba4e32e09bed0e2ce37f3909900e17abf48a9",
+      "canonical_sha256": "e702a4f1378690e3a7b9a7f87b97f51cb7346a76356e289b10c819ce476e9e5b",
+      "eol": "CRLF"
+    },
+    "velo/backend/http-functions.js": {
+      "raw_sha256": "9a6e481b1b4b720293367ef62166ed1325f299ecbd1b494b74c6f2c94bd4fe46",
+      "canonical_sha256": "870be759745e8f45a940ef21b68889f795d460530c3f1723572fae3f529ba06b",
+      "eol": "CRLF"
+    },
+    "velo/backend/invoice.web.js": {
+      "raw_sha256": "37b42e5dded8de58217e735147924f82393c255ede7ca2bf0b89d1e095f6daa4",
+      "canonical_sha256": "812368ee5b4cd4361e5042502c7e95826c7e9214ba05ad646556dc3a9e37027f",
+      "eol": "CRLF"
+    },
+    "velo/backend/invoiceEmailJournal.js": {
+      "raw_sha256": "15d1fecba047ae32a044f910e3d30675be0915f3d6629fe3b06523068880ee7c",
+      "canonical_sha256": "529acb7f55241912a74059b7700c19c0dca6e7207565b67415e2a50a87e2cd1a",
+      "eol": "CRLF"
+    },
+    "velo/backend/invoices.web.js": {
+      "raw_sha256": "f1e8d3dd5d1253e7491c345571d99c3d78eeeb66393971f0ebc0a582caedfa8d",
+      "canonical_sha256": "059167c2e9de2e69d2b53607ef08502c0cfb14ed2f759ebbfeb3a38402989bf9",
+      "eol": "CRLF"
+    },
+    "velo/backend/invoiceService.web.js": {
+      "raw_sha256": "f1e8d3dd5d1253e7491c345571d99c3d78eeeb66393971f0ebc0a582caedfa8d",
+      "canonical_sha256": "059167c2e9de2e69d2b53607ef08502c0cfb14ed2f759ebbfeb3a38402989bf9",
+      "eol": "CRLF"
+    },
+    "velo/backend/issueInvoice.web.js": {
+      "raw_sha256": "fd2ead1abd21635546ce2b2805969c53856cd3b7b0d5f43b8c693cee1b1ce935",
+      "canonical_sha256": "2a31c0ef699499fd21f29166d8305c06dccc182d9448c89c26f3fe8105d71330",
+      "eol": "CRLF"
+    },
+    "velo/backend/listCollections.web.js": {
+      "raw_sha256": "3f2687c3b665a3f8f4121a963d79fbd095fa1953cb5fad5d8f1b19c5a64425f5",
+      "canonical_sha256": "b276201b4a11d69e2053002911f8990e956a94ea5af7dbf5e1689982abdbb61f",
+      "eol": "CRLF"
+    },
+    "velo/backend/lockedPricingQuoteAuthority.js": {
+      "raw_sha256": "e8652f8c466c1af1225485d492de54a866d63294060e4fd614108ba2f407a891",
+      "canonical_sha256": "d8520ba1bc16d829062760ce63ff3f5f7400363db3830b2f4d485b6a6b504d7c",
+      "eol": "CRLF"
+    },
+    "velo/backend/messages.web.js": {
+      "raw_sha256": "40bf926a5543bdfb49e49c96c305c14baf9e33c1e371fac762b75a4a49017834",
+      "canonical_sha256": "e2c840d207306a56d97acdfae36a4ee59dae6dfa9a85f439db6af0f0dd25c62a",
+      "eol": "CRLF"
+    },
+    "velo/backend/microsoftAdsConversions.web.js": {
+      "raw_sha256": "d100c6dfdaac652737b27dda034eec17c8506916ed018289bba80ed506d62c22",
+      "canonical_sha256": "b20abf4eebbec2c146a1fbd86bc73dc47f23e2ab2526fdf145c2c46c84ce41a1",
+      "eol": "CRLF"
+    },
+    "velo/backend/ownerInvoiceCurrentRevision.js": {
+      "raw_sha256": "43f270cec49603906af35679f3973cbe1c73d894bf2ae2cf16cebfbd4422146f",
+      "canonical_sha256": "a8e4ca7bda6c91414fcb83f9043b59df7646300d919242939ace27e02e492590",
+      "eol": "CRLF"
+    },
+    "velo/backend/packages.web.js": {
+      "raw_sha256": "070d26fe64b6ba7156d3ded64ceb49cdce6a581bb4d136f18c5585b90910224b",
+      "canonical_sha256": "401f8f69b694f1bc04a86c881654938d3f45a1df17bf1d86d1c8895776fd0f53",
+      "eol": "CRLF"
+    },
+    "velo/backend/payments.web.js": {
+      "raw_sha256": "2922c43988bd93b2aab1bf9fb6149c93cce228d0522d0f0f27812ce4a5008752",
+      "canonical_sha256": "eafe1cb64abc36778a3f3fdb56affa10664a1defb16f51c202fb5d949d494844",
+      "eol": "CRLF"
+    },
+    "velo/backend/pricingQuote.js": {
+      "raw_sha256": "207831651708e131732f5e997340da334495ba8a7542725744498ee1bb8dffcf",
+      "canonical_sha256": "a7a70a8444565473b70ca8507166692db033730655928f1b9d1ab9a95d07fc1c",
+      "eol": "CRLF"
+    },
+    "velo/backend/pricingQuotes.web.js": {
+      "raw_sha256": "fac99b107af42d65c7e0129c5f1517c88914f5a6564fc5c10325325d88651b5a",
+      "canonical_sha256": "119a831ffe3e003f75fb95ff2d727c559c220fedd41f741245fd87bffca9127c",
+      "eol": "CRLF"
+    },
+    "velo/backend/rateResolver.js": {
+      "raw_sha256": "ffb13d61c3a49e414f5d0617b7f6941a962be74ac477576a7d20c57e700ba7d6",
+      "canonical_sha256": "56eba305902a44afa7ce17703c29a5e357d762559c712a3509c54f0bc74c4d72",
+      "eol": "CRLF"
+    },
+    "velo/backend/reporting.web.js": {
+      "raw_sha256": "0b6e9aee85abe4b43553dcabff5cbe01f1d10a6cef29b185fd6208207d40927d",
+      "canonical_sha256": "86c2ddb8a2e3e01afc66e7a866c3c83e5542d1651498d113196cd0b932f63190",
+      "eol": "CRLF"
+    },
+    "velo/backend/roomAssignmentRules.js": {
+      "raw_sha256": "16572380e1d0594a860d685965699d630bfbf6c59d4c6f518dc391cdaf104a1c",
+      "canonical_sha256": "9d685cc29821181e482c84cf1d9ecf0fd463fc03dbf12617d3fcfb76e9dd46b2",
+      "eol": "CRLF"
+    },
+    "velo/backend/roomAvailability.js": {
+      "raw_sha256": "fb890ac96d8eeb1488153b90598efbffe0e76af5573b3010fd1f28311683270d",
+      "canonical_sha256": "e025929694d0f0982c517e43409fb921ccca3269a68fc6bd949920bc2c523807",
+      "eol": "CRLF"
+    },
+    "velo/backend/roomAvailabilityRules.js": {
+      "raw_sha256": "67cb28960e810558482d26d87e264f75fd47c406089a2be99746037ffca77163",
+      "canonical_sha256": "578b42bcc63c28720b9a08aae9dea42761a42febcfc62449efe5313a7164b6f4",
+      "eol": "CRLF"
+    },
+    "velo/backend/roomBookingCommitRules.js": {
+      "raw_sha256": "cb5d1eb2550199781e4aaf370fdfe0f4e674c960b17a3e6b972a420bb21af421",
+      "canonical_sha256": "3938448cc041e0f0e811248e97033094df66c7536222c087d2a9a02945bd5893",
+      "eol": "CRLF"
+    },
+    "velo/backend/roomInventory.js": {
+      "raw_sha256": "93ff4faec5784accd006e9371dcc78ba1c829e440131a6de0b23f89872a58fb9",
+      "canonical_sha256": "675bc376151986acf54f104890a358ef52b8f66418afd530aaa83248c4204fc2",
+      "eol": "CRLF"
+    },
+    "velo/backend/roomInventoryRules.js": {
+      "raw_sha256": "99d710d44db65e524d4a5fdef175a73f8cfa111598e248b781ee003260768d22",
+      "canonical_sha256": "6bc0520cb3940b0399f43d8f5df7b493c666f221621bb80bc3e7004c8de89899",
+      "eol": "CRLF"
+    },
+    "velo/backend/rooms.web.js": {
+      "raw_sha256": "cdf66b7e6b58cb6f28d2e21049beefccfc6447b42dc8df5c410e7f2f367b13ed",
+      "canonical_sha256": "97336f9e20210db7f0b01d8f714ed614de08cf9789d414eeefec2206905bf1f8",
+      "eol": "CRLF"
+    },
+    "velo/backend/search.web.js": {
+      "raw_sha256": "f3432325c649fca84ac85a5f0015470ce10806c4ec2a8dfa9b55b9f93832a39e",
+      "canonical_sha256": "71b5a62c279b45a9db04feb8d6a91826490a72c9e43ec944352c71ae39c34aec",
+      "eol": "CRLF"
+    },
+    "velo/backend/seasonal.web.js": {
+      "raw_sha256": "e3e47c7c9bbaf2156211647335ea6bda888148b4daf4cf8975e650ee735bcdf8",
+      "canonical_sha256": "7ca7a9d5fef907cc35415e64ffdd1192d1cbfca3731bde22a0adc3b65049c56d",
+      "eol": "CRLF"
+    },
+    "velo/backend/settings.web.js": {
+      "raw_sha256": "caab5eef79fc681dba5320627c42e07582adca7011c111e9b91a876a44f84e38",
+      "canonical_sha256": "b5a30ea9f9a0811981fc4dc9c040366efa569de6cef5c3d911bf0a3b2a30aa61",
+      "eol": "CRLF"
+    },
+    "velo/backend/storage.web.js": {
+      "raw_sha256": "1c41958f8a809171b4cf6cde1df38a88373c9302001bee500ca1b405437eb157",
+      "canonical_sha256": "c86ac550503636808902ca2b78415d14a96d071084b3ca43871fe0bb0b404e9a",
+      "eol": "CRLF"
+    },
+    "velo/backend/strictLockedPricingQuote.js": {
+      "raw_sha256": "5489d3057ea7f2e638fef0fe248b99841dca907109892602aa402a913428f102",
+      "canonical_sha256": "da1c2c1f1e0b91adc37abd29c66e7fbc017c043094487917b2bb10920eae5b61",
+      "eol": "CRLF"
+    },
+    "velo/backend/test.web.js": {
+      "raw_sha256": "5f8a9083ac4c6b70f43e508ea71e1048612a54345bf8116dd1f4d43fc3b7cfd4",
+      "canonical_sha256": "0ec1c9b0af2a6526d16a00ab4d03ff23d1317a595829ad8999cd1ca8906fabd5",
+      "eol": "CRLF"
+    },
+    "velo/backend/wbeConfig.js": {
+      "raw_sha256": "98ae3dcf11cf35b8076e0739d1fe7a86df029e8b509debf4dcb23f77e00da56d",
+      "canonical_sha256": "ab2605869199c1d586dad2643f1f838abda1f6f3d1d18cc4ac4d0743edce70f2",
+      "eol": "CRLF"
+    },
+    "velo/backend/wholeCartPlanningRules.js": {
+      "raw_sha256": "cbc4238c2e8c9b85931c203adb32891a4895201749cb96fceb44c566ba2f2de2",
+      "canonical_sha256": "a73d3daf474611cd19f25d18a332a650769bdcf585017cd61cb7fef0dc38bcc3",
+      "eol": "CRLF"
+    },
+    "velo/custom-code/event-bridge-iframe.html": {
+      "raw_sha256": "9c562f237b9eea4ee71dbf4e48f9226f2cca6a8942d2c70c5aa97195e550a183",
+      "canonical_sha256": "98617bb4d49b6336d37cdf7aebe611317313617dba69dbe2a0b850a49c3619c2",
+      "eol": "CRLF"
+    },
+    "velo/custom-code/google-tag-and-consent.html": {
+      "raw_sha256": "ce6271df42c946b532097b01755cd2752bf3dd792ae7d8ba3c67f3f7d25182e0",
+      "canonical_sha256": "a2216520fc4ade153fa3e147cf93decef3f8f772fa8b709e023986d8ef13a3bd",
+      "eol": "CRLF"
+    },
+    "velo/custom-code/microsoft-uet-and-events.html": {
+      "raw_sha256": "85a518207dfa32ee4b6d1db9f7deba9364244ddea222be29fd5506d51572455a",
+      "canonical_sha256": "75f212866bec72a3297f106de6548469b9668d6071261f8430aa0cc9c1771911",
+      "eol": "CRLF"
+    },
+    "velo/custom-code/summary-background.html": {
+      "raw_sha256": "25e8ca158eeeeb93ffc6ca56d0fff128c4e7494e597d733061e2cdff9aebc56c",
+      "canonical_sha256": "6a99c0060336e05b4df08d9bdefd5abf8788ac02549466faef0fed5bf2fa834b",
+      "eol": "CRLF"
+    },
+    "velo/masterPage.js": {
+      "raw_sha256": "fa997388a9d42b57ccd2627e0ba5ff982fc880332a7d27726d4dd3420eec7d36",
+      "canonical_sha256": "1c9d6695a340022138697f649cef101ac770729c1f3f20227a440b6b8187c2c6",
+      "eol": "CRLF"
+    },
+    "velo/page-admin-bookings.js": {
+      "raw_sha256": "b31da1932b49156a580060891980e0aaf5e1b65ca11fc1f04c90d829a8eaa7cd",
+      "canonical_sha256": "645db934f5f801ab160ec1543a5784a21fbd1eaa0d7319a63c50c51fa1b229fe",
+      "eol": "CRLF"
+    },
+    "velo/page-booking-search.js": {
+      "raw_sha256": "98c39ea901fea78f8965349fe7a9fbf83cc917814fc310fe07c0711420b1ebb6",
+      "canonical_sha256": "4b47dd273155650a2424d841d87b4adc64fffc4a5c9f7b0f4d2c34fdb061b318",
+      "eol": "CRLF"
+    },
+    "velo/page-booking-summary.js": {
+      "raw_sha256": "b2aa1a1eaed8fcc586f537ea959a2bd640d974b039d3b58a3eaab8a936c7ccb1",
+      "canonical_sha256": "6282ddbe91a9df2da38887342e8a94b6b1473e1838b188d0ae2eee399eb11022",
+      "eol": "CRLF"
+    },
+    "velo/page-collections-export.js": {
+      "raw_sha256": "1517540564e40db673341710f7c5727c2a29b629740ede5388b6aef2702b73b7",
+      "canonical_sha256": "446e3ac1569b80ec2a7c9c8a4bfe4213641408a66a2378be002fd9d9b5dee688",
+      "eol": "CRLF"
+    },
+    "velo/page-diagnose.js": {
+      "raw_sha256": "95141249f2eaea630e196c75a48d8285ad3dc86875c9b83ed778280f9ef7297f",
+      "canonical_sha256": "bd1dffaa3ea43163972c6518c04b766e04091322ce4c21862f2369b08c08774d",
+      "eol": "CRLF"
+    },
+    "velo/public/tracking.js": {
+      "raw_sha256": "c9e9fc93d3a9587461040eee6676d250b9ff8b007349a3f545959098cc49857c",
+      "canonical_sha256": "da12983adf3d60163be341bbbe7c84d0a5c1ac6903074e53627940daba54424d",
+      "eol": "CRLF"
+    }
+  },
+  "imports": [
+    "from . import gmail_sender",
+    "from .invoice import Guest",
+    "from .invoice_original_groups import invoice_from_original_groups",
+    "from .invoice_renderer import render_invoice_pdf_for_service",
+    "from datetime import date",
+    "from email import policy",
+    "from email.parser import BytesParser",
+    "from email.utils import getaddresses",
+    "from pathlib import Path",
+    "import base64",
+    "import hashlib",
+    "import json",
+    "import re",
+    "import secrets",
+    "import tempfile"
+  ],
+  "incoming_scope": [
+    "booking_engine/__init__.py",
+    "booking_engine/availability.py",
+    "booking_engine/blocks.py",
+    "booking_engine/calendar.py",
+    "booking_engine/catalog.py",
+    "booking_engine/drive_uploader.py",
+    "booking_engine/gmail_sender.py",
+    "booking_engine/invoice.py",
+    "booking_engine/invoice_email_dispatch.py",
+    "booking_engine/invoice_email_journal.py",
+    "booking_engine/invoice_email_recovery.py",
+    "booking_engine/invoice_number.py",
+    "booking_engine/invoice_original_groups.py",
+    "booking_engine/invoice_owner_issuance.py",
+    "booking_engine/invoice_pdf.py",
+    "booking_engine/invoice_renderer.py",
+    "booking_engine/invoice_word.py",
+    "booking_engine/messages.py",
+    "booking_engine/payments.py",
+    "booking_engine/report.py",
+    "booking_engine/seasonal.py",
+    "booking_engine/status.py"
+  ],
+  "application_imports": {
+    "booking_engine/__init__.py": [],
+    "booking_engine/availability.py": [
+      "from .rooms import get_room",
+      "from dataclasses import dataclass, field",
+      "from datetime import date, timedelta",
+      "from typing import Dict, List",
+      "import itertools"
+    ],
+    "booking_engine/blocks.py": [
+      "from .availability import Calendar, Booking",
+      "from .rooms import ROOM_CATALOG",
+      "from .rooms import get_room",
+      "from .status import BLOCKED",
+      "from datetime import date",
+      "from typing import List, Dict"
+    ],
+    "booking_engine/calendar.py": [
+      "import json",
+      "import os",
+      "import urllib.request"
+    ],
+    "booking_engine/catalog.py": [
+      "from dataclasses import dataclass",
+      "from typing import Dict"
+    ],
+    "booking_engine/drive_uploader.py": [
+      "from google.oauth2 import service_account",
+      "from googleapiclient.discovery import build",
+      "from googleapiclient.http import MediaFileUpload",
+      "from pathlib import Path",
+      "import base64",
+      "import json",
+      "import os",
+      "import tempfile"
+    ],
+    "booking_engine/gmail_sender.py": [
+      "from email.message import EmailMessage",
+      "from google.auth.transport.requests import Request",
+      "from google.auth.transport.requests import Request",
+      "from google.oauth2.credentials import Credentials",
+      "from google.oauth2.credentials import Credentials",
+      "from googleapiclient.discovery import build",
+      "from requests.adapters import HTTPAdapter",
+      "import base64",
+      "import json",
+      "import os",
+      "import re",
+      "import requests"
+    ],
+    "booking_engine/guest_invoice_delivery.py": [
+      "from . import gmail_sender",
+      "from .invoice import Guest",
+      "from .invoice_original_groups import invoice_from_original_groups",
+      "from .invoice_renderer import render_invoice_pdf_for_service",
+      "from datetime import date",
+      "from email import policy",
+      "from email.parser import BytesParser",
+      "from email.utils import getaddresses",
+      "from pathlib import Path",
+      "import base64",
+      "import hashlib",
+      "import json",
+      "import re",
+      "import secrets",
+      "import tempfile"
+    ],
+    "booking_engine/invoice.py": [
+      "from dataclasses import dataclass, field",
+      "from datetime import date",
+      "from decimal import Decimal",
+      "from types import MappingProxyType",
+      "from typing import List, Optional",
+      "import os",
+      "import re"
+    ],
+    "booking_engine/invoice_email_dispatch.py": [
+      "from . import gmail_sender",
+      "from .invoice_owner_issuance import invoice_from_owner_issuance",
+      "from .invoice_renderer import render_invoice_pdf_for_service",
+      "from email import policy",
+      "from email.parser import BytesParser",
+      "from email.utils import getaddresses",
+      "from pathlib import Path",
+      "import base64",
+      "import hashlib",
+      "import json",
+      "import re",
+      "import tempfile",
+      "import uuid"
+    ],
+    "booking_engine/invoice_email_journal.py": [
+      "from requests.adapters import HTTPAdapter",
+      "from urllib.parse import urlsplit",
+      "import os",
+      "import re",
+      "import requests"
+    ],
+    "booking_engine/invoice_email_recovery.py": [
+      "from .invoice_email_dispatch import dispatch_issuance",
+      "from .invoice_email_journal import validate_cursor, validate_review_page, validate_request_report",
+      "from requests.exceptions import RequestException"
+    ],
+    "booking_engine/invoice_number.py": [
+      "import json",
+      "import os",
+      "import threading"
+    ],
+    "booking_engine/invoice_original_groups.py": [
+      "from booking_engine.invoice import Guest, Invoice",
+      "from datetime import date",
+      "from decimal import Decimal"
+    ],
+    "booking_engine/invoice_owner_issuance.py": [
+      "from .invoice import Guest, Invoice",
+      "from datetime import date",
+      "from decimal import Decimal",
+      "import hashlib",
+      "import json",
+      "import re"
+    ],
+    "booking_engine/invoice_pdf.py": [
+      "from decimal import Decimal",
+      "from reportlab.lib import colors",
+      "from reportlab.lib.pagesizes import letter",
+      "from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle",
+      "from reportlab.lib.units import mm",
+      "from reportlab.lib.utils import ImageReader",
+      "from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image",
+      "import os"
+    ],
+    "booking_engine/invoice_renderer.py": [
+      "from __future__ import annotations",
+      "from booking_engine.invoice_pdf import render_invoice_pdf as render_invoice_reportlab_pdf",
+      "from booking_engine.invoice_word import render_invoice_word_pdf",
+      "from pathlib import Path",
+      "from typing import Any",
+      "import os"
+    ],
+    "booking_engine/invoice_word.py": [
+      "from __future__ import annotations",
+      "from booking_engine.invoice import Invoice",
+      "from decimal import Decimal",
+      "from docxtpl import DocxTemplate",
+      "from jinja2 import Environment, StrictUndefined",
+      "from pathlib import Path",
+      "from typing import Any",
+      "from zipfile import ZipFile",
+      "import os",
+      "import shutil",
+      "import subprocess",
+      "import tempfile"
+    ],
+    "booking_engine/messages.py": [
+      "from dataclasses import dataclass, field, asdict",
+      "from datetime import date",
+      "from datetime import datetime",
+      "from datetime import datetime",
+      "from typing import List, Optional",
+      "import itertools"
+    ],
+    "booking_engine/payments.py": [
+      "from dataclasses import dataclass, field, asdict",
+      "from datetime import date, timedelta",
+      "from typing import List, Optional"
+    ],
+    "booking_engine/report.py": [
+      "from dataclasses import dataclass, asdict",
+      "from datetime import date",
+      "from typing import Optional"
+    ],
+    "booking_engine/seasonal.py": [
+      "from dataclasses import dataclass",
+      "from datetime import date, timedelta",
+      "from typing import List, Optional, Tuple"
+    ],
+    "booking_engine/status.py": [
+      "from datetime import date"
+    ],
+    "invoice_service.py": [
+      "from booking_engine import gmail_sender",
+      "from booking_engine.calendar import create_calendar_event",
+      "from booking_engine.invoice import Guest, Invoice",
+      "from booking_engine.invoice_email_dispatch import dispatch_issuance",
+      "from booking_engine.invoice_email_journal import InvoiceEmailJournal",
+      "from booking_engine.invoice_email_journal import InvoiceEmailJournal",
+      "from booking_engine.invoice_email_recovery import recover_integrated_once",
+      "from booking_engine.invoice_number import next_invoice_number",
+      "from booking_engine.invoice_renderer import render_invoice_pdf_for_service",
+      "from booking_engine.invoice_word import DEFAULT_TEMPLATE_PATH, find_libreoffice",
+      "from booking_engine.report import build_report_record",
+      "from contextlib import asynccontextmanager",
+      "from datetime import date",
+      "from datetime import date as _date",
+      "from datetime import date as _date",
+      "from fastapi import FastAPI, Header, HTTPException, BackgroundTasks",
+      "from pydantic import BaseModel",
+      "from threading import Event, Thread",
+      "from threading import Lock",
+      "import asyncio",
+      "import logging",
+      "import os",
+      "import re",
+      "import tempfile"
+    ],
+    "tmp_generate_invoice.py": [
+      "from booking_engine.invoice import Invoice, Guest",
+      "from booking_engine.invoice_pdf import render_invoice_pdf",
+      "from datetime import date",
+      "import sys"
+    ],
+    "tmp_generate_invoice_v2.py": [
+      "from booking_engine.invoice import Invoice, Guest",
+      "from booking_engine.invoice_pdf import render_invoice_pdf",
+      "from datetime import date",
+      "import sys"
+    ],
+    "velo/ADMIN_CONSOLE.html": [],
+    "velo/admin-console-wireframe.html": [],
+    "velo/custom-code/event-bridge-iframe.html": [],
+    "velo/custom-code/google-tag-and-consent.html": [],
+    "velo/custom-code/microsoft-uet-and-events.html": [],
+    "velo/custom-code/summary-background.html": [],
+    "velo/backend/adminConsole.web.js": [
+      "backend/availability.web",
+      "backend/googleAdsConversions.web",
+      "backend/search.web",
+      "wix-data",
+      "wix-fetch",
+      "wix-secrets-backend",
+      "wix-users-backend",
+      "wix-web-module"
+    ],
+    "velo/backend/availability.web.js": [
+      "backend/googleAdsConversions.web",
+      "backend/pricingQuote",
+      "backend/rateResolver",
+      "backend/settings.web",
+      "wix-data",
+      "wix-fetch",
+      "wix-secrets-backend",
+      "wix-web-module"
+    ],
+    "velo/backend/bookingCurrentRevision.js": [
+      "./bookingCurrentRevisionRules.js"
+    ],
+    "velo/backend/bookingCurrentRevisionRules.js": [
+      "crypto"
+    ],
+    "velo/backend/bookingCurrentRevisionStore.js": [
+      "./bookingCurrentRevisionRules.js"
+    ],
+    "velo/backend/dataManagerClient.web.js": [
+      "crypto",
+      "wix-fetch",
+      "wix-secrets-backend"
+    ],
+    "velo/backend/debug.web.js": [
+      "wix-data",
+      "wix-web-module"
+    ],
+    "velo/backend/diagnoseSearch.web.js": [
+      "wix-data",
+      "wix-web-module"
+    ],
+    "velo/backend/diagnostics.web.js": [
+      "wix-data",
+      "wix-web-module"
+    ],
+    "velo/backend/googleAdsConversions.web.js": [
+      "backend/dataManagerClient.web",
+      "backend/hashUtils.web",
+      "backend/settings.web",
+      "wix-data",
+      "wix-secrets-backend",
+      "wix-web-module"
+    ],
+    "velo/backend/guestBookingAcceptance.js": [
+      "backend/guestBookingAcceptanceStore",
+      "backend/guestBookingIssuerAuthority",
+      "backend/guestBookingOfferIssuer"
+    ],
+    "velo/backend/guestBookingAcceptanceDiscovery.js": [
+      "backend/guestBookingAcceptance",
+      "backend/guestBookingAcceptanceStore"
+    ],
+    "velo/backend/guestBookingAcceptanceStore.js": [
+      "backend/guestBookingIssuerAuthority",
+      "wix-data"
+    ],
+    "velo/backend/guestBookingAccessPolicy.js": [],
+    "velo/backend/guestBookingAcquisitionContentionEvidence.js": [
+      "backend/guestBookingAcceptance",
+      "backend/guestBookingAcceptanceStore",
+      "backend/guestBookingAcquisitionControlRules",
+      "backend/guestBookingAcquisitionControlStore",
+      "backend/guestBookingAllocationManifestRules",
+      "backend/guestBookingAllocationManifestStore",
+      "backend/guestBookingAllocationRetainedRules",
+      "wix-data"
+    ],
+    "velo/backend/guestBookingAcquisitionControl.js": [
+      "backend/guestBookingAcceptance",
+      "backend/guestBookingAcceptanceStore",
+      "backend/guestBookingAcquisitionContentionEvidence",
+      "backend/guestBookingAcquisitionControlRules",
+      "backend/guestBookingAcquisitionControlStore",
+      "backend/guestBookingAllocationManifestRules",
+      "backend/guestBookingAllocationManifestStore"
+    ],
+    "velo/backend/guestBookingAcquisitionControlRules.js": [
+      "buffer"
+    ],
+    "velo/backend/guestBookingAcquisitionControlStore.js": [
+      "backend/guestBookingAcquisitionControlRules",
+      "wix-data"
+    ],
+    "velo/backend/guestBookingAllocationEvidence.js": [
+      "backend/roomInventoryRules",
+      "wix-data"
+    ],
+    "velo/backend/guestBookingAllocationHandoff.js": [
+      "backend/guestBookingAcceptance",
+      "backend/guestBookingAcceptanceStore",
+      "backend/guestBookingAllocationEvidence",
+      "backend/guestBookingAllocationManifestRules",
+      "backend/guestBookingAllocationManifestStore",
+      "backend/wholeCartPlanningRules"
+    ],
+    "velo/backend/guestBookingAllocationManifestRules.js": [
+      "backend/guestBookingAllocationRetainedRules",
+      "backend/guestBookingAllocationSourceRules",
+      "backend/roomBookingCommitRules",
+      "buffer",
+      "crypto"
+    ],
+    "velo/backend/guestBookingAllocationManifestStore.js": [
+      "buffer",
+      "wix-data"
+    ],
+    "velo/backend/guestBookingAllocationRetainedRules.js": [],
+    "velo/backend/guestBookingAllocationSourceRules.js": [
+      "backend/guestBookingAllocationRetainedRules",
+      "backend/roomInventoryRules"
+    ],
+    "velo/backend/guestBookingCompletionAuthority.js": [
+      "backend/guestBookingCompletionEvidence",
+      "backend/guestBookingCompletionStore",
+      "backend/guestBookingInvoiceAuthorityConfig",
+      "backend/guestBookingIssuerAuthority",
+      "backend/guestBookingPhysicalAcquisitionEvidence"
+    ],
+    "velo/backend/guestBookingCompletionEvidence.js": [
+      "backend/guestBookingCompletionProjection",
+      "backend/guestBookingCompletionStore",
+      "buffer",
+      "crypto"
+    ],
+    "velo/backend/guestBookingCompletionProjection.js": [
+      "backend/guestBookingFinancialCalculation",
+      "buffer",
+      "crypto"
+    ],
+    "velo/backend/guestBookingCompletionRecovery.js": [
+      "backend/guestBookingAcceptanceDiscovery",
+      "backend/guestBookingPhysicalAcquisition",
+      "backend/guestBookingRecoveryProgressStore"
+    ],
+    "velo/backend/guestBookingCompletionStore.js": [
+      "buffer",
+      "wix-data"
+    ],
+    "velo/backend/guestBookingCredentials.js": [
+      "backend/guestBookingAccessPolicy",
+      "buffer",
+      "crypto"
+    ],
+    "velo/backend/guestBookingFinancialAuthority.js": [
+      "backend/guestBookingFinancialCalculation",
+      "backend/guestBookingPurchaseInput",
+      "backend/lockedPricingQuoteAuthority",
+      "wix-data"
+    ],
+    "velo/backend/guestBookingFinancialCalculation.js": [
+      "backend/guestBookingPriceGroups"
+    ],
+    "velo/backend/guestBookingInvoiceAuthorityConfig.js": [
+      "buffer",
+      "wix-auth",
+      "wix-secrets-backend.v2"
+    ],
+    "velo/backend/guestBookingInvoiceDelivery.js": [
+      "backend/guestBookingCompletionAuthority",
+      "crypto",
+      "wix-data"
+    ],
+    "velo/backend/guestBookingInvoiceIssuance.js": [
+      "backend/guestBookingCompletionAuthority",
+      "crypto",
+      "wix-data"
+    ],
+    "velo/backend/guestBookingIssuerAuthority.js": [
+      "backend/guestBookingCredentials",
+      "buffer",
+      "crypto",
+      "wix-auth",
+      "wix-data",
+      "wix-secrets-backend.v2"
+    ],
+    "velo/backend/guestBookingOfferIssuer.js": [
+      "backend/guestBookingFinancialCalculation",
+      "backend/guestBookingIssuerAuthority",
+      "backend/guestBookingPurchaseInput",
+      "backend/lockedPricingQuoteAuthority",
+      "buffer"
+    ],
+    "velo/backend/guestBookingPhysicalAcquisition.js": [
+      "backend/guestBookingAcquisitionControlRules",
+      "backend/guestBookingCompletionEvidence",
+      "backend/guestBookingPhysicalAcquisitionEvidence",
+      "backend/guestBookingPhysicalAcquisitionStore"
+    ],
+    "velo/backend/guestBookingPhysicalAcquisitionEvidence.js": [
+      "backend/guestBookingAcceptance",
+      "backend/guestBookingAcceptanceStore",
+      "backend/guestBookingAcquisitionContentionEvidence",
+      "backend/guestBookingAcquisitionControlRules",
+      "backend/guestBookingAcquisitionControlStore",
+      "backend/guestBookingAllocationManifestRules",
+      "backend/guestBookingAllocationManifestStore",
+      "backend/guestBookingCompletionStore",
+      "backend/guestBookingPhysicalAcquisitionStore"
+    ],
+    "velo/backend/guestBookingPhysicalAcquisitionStore.js": [
+      "backend/guestBookingAllocationRetainedRules",
+      "wix-data"
+    ],
+    "velo/backend/guestBookingPriceGroups.js": [],
+    "velo/backend/guestBookingPurchaseInput.js": [
+      "backend/guestBookingPriceGroups"
+    ],
+    "velo/backend/guestBookingRecoveryProgressStore.js": [
+      "wix-data"
+    ],
+    "velo/backend/guestConsent.web.js": [
+      "backend/guestConsentContext",
+      "wix-web-module"
+    ],
+    "velo/backend/guestConsentBookingLink.js": [
+      "backend/guestBookingAcceptance",
+      "backend/guestBookingAcceptanceStore",
+      "backend/guestBookingIssuerAuthority",
+      "backend/guestConsentContext",
+      "backend/guestConsentWithdrawalStore",
+      "buffer",
+      "crypto",
+      "wix-data"
+    ],
+    "velo/backend/guestConsentContext.js": [
+      "backend/guestConsentWithdrawalStore",
+      "buffer",
+      "crypto"
+    ],
+    "velo/backend/guestConsentLocationPolicy.js": [],
+    "velo/backend/guestConsentRequirementsReader.js": [
+      "backend/guestConsentLocationPolicy",
+      "wix-data"
+    ],
+    "velo/backend/guestConsentWithdrawalStore.js": [
+      "buffer",
+      "crypto",
+      "wix-data"
+    ],
+    "velo/backend/hashUtils.web.js": [
+      "crypto"
+    ],
+    "velo/backend/http-functions.js": [
+      "backend/invoiceEmailJournal",
+      "crypto",
+      "wix-http-functions",
+      "wix-secrets-backend"
+    ],
+    "velo/backend/invoice.web.js": [
+      "backend/issueInvoice",
+      "wix-data",
+      "wix-web-module"
+    ],
+    "velo/backend/invoiceEmailJournal.js": [
+      "crypto",
+      "wix-data"
+    ],
+    "velo/backend/invoiceService.web.js": [
+      "backend/issueInvoice",
+      "wix-data",
+      "wix-web-module"
+    ],
+    "velo/backend/invoices.web.js": [
+      "backend/issueInvoice",
+      "wix-data",
+      "wix-web-module"
+    ],
+    "velo/backend/issueInvoice.web.js": [
+      "backend/invoiceEmailJournal",
+      "backend/ownerInvoiceCurrentRevision",
+      "backend/settings.web",
+      "wix-fetch",
+      "wix-secrets-backend",
+      "wix-users-backend",
+      "wix-web-module"
+    ],
+    "velo/backend/listCollections.web.js": [
+      "wix-data.v2",
+      "wix-web-module"
+    ],
+    "velo/backend/lockedPricingQuoteAuthority.js": [
+      "backend/strictLockedPricingQuote",
+      "wix-auth",
+      "wix-secrets-backend.v2"
+    ],
+    "velo/backend/messages.web.js": [
+      "wix-data",
+      "wix-web-module"
+    ],
+    "velo/backend/microsoftAdsConversions.web.js": [
+      "backend/hashUtils.web",
+      "backend/settings.web",
+      "wix-data",
+      "wix-fetch",
+      "wix-secrets-backend",
+      "wix-web-module"
+    ],
+    "velo/backend/ownerInvoiceCurrentRevision.js": [
+      "./bookingCurrentRevision.js",
+      "./bookingCurrentRevisionRules.js",
+      "./bookingCurrentRevisionStore.js",
+      "backend/invoiceEmailJournal",
+      "crypto",
+      "wix-data"
+    ],
+    "velo/backend/packages.web.js": [
+      "wix-data",
+      "wix-web-module"
+    ],
+    "velo/backend/payments.web.js": [
+      "wix-data",
+      "wix-web-module"
+    ],
+    "velo/backend/pricingQuote.js": [
+      "backend/rateResolver",
+      "crypto",
+      "wix-data",
+      "wix-secrets-backend"
+    ],
+    "velo/backend/pricingQuotes.web.js": [
+      "backend/pricingQuote",
+      "wix-web-module"
+    ],
+    "velo/backend/rateResolver.js": [
+      "backend/settings.web",
+      "wix-data"
+    ],
+    "velo/backend/reporting.web.js": [
+      "wix-data",
+      "wix-web-module"
+    ],
+    "velo/backend/roomAssignmentRules.js": [],
+    "velo/backend/roomAvailability.js": [
+      "backend/roomAvailabilityRules",
+      "backend/roomInventory"
+    ],
+    "velo/backend/roomAvailabilityRules.js": [
+      "backend/roomAssignmentRules"
+    ],
+    "velo/backend/roomBookingCommitRules.js": [
+      "backend/guestBookingAllocationSourceRules",
+      "backend/roomAvailabilityRules"
+    ],
+    "velo/backend/roomInventory.js": [
+      "backend/roomInventoryRules",
+      "wix-data"
+    ],
+    "velo/backend/roomInventoryRules.js": [
+      "backend/roomAssignmentRules"
+    ],
+    "velo/backend/rooms.web.js": [
+      "wix-data",
+      "wix-web-module"
+    ],
+    "velo/backend/search.web.js": [
+      "backend/roomAvailability",
+      "backend/wbeConfig",
+      "wix-data",
+      "wix-web-module"
+    ],
+    "velo/backend/seasonal.web.js": [
+      "backend/rateResolver",
+      "wix-web-module"
+    ],
+    "velo/backend/settings.web.js": [
+      "wix-data"
+    ],
+    "velo/backend/storage.web.js": [],
+    "velo/backend/strictLockedPricingQuote.js": [
+      "buffer",
+      "crypto"
+    ],
+    "velo/backend/test.web.js": [
+      "wix-web-module"
+    ],
+    "velo/backend/wbeConfig.js": [],
+    "velo/backend/wholeCartPlanningRules.js": [
+      "backend/roomBookingCommitRules"
+    ],
+    "velo/masterPage.js": [
+      "backend/guestConsent.web",
+      "backend/settings",
+      "public/tracking",
+      "wix-storage-frontend",
+      "wix-window-frontend"
+    ],
+    "velo/page-admin-bookings.js": [
+      "backend/adminConsole.web",
+      "wix-location"
+    ],
+    "velo/page-booking-search.js": [
+      "backend/messages",
+      "backend/packages",
+      "backend/pricingQuotes",
+      "backend/rooms",
+      "backend/search",
+      "backend/settings",
+      "public/tracking",
+      "wix-location",
+      "wix-window-frontend"
+    ],
+    "velo/page-booking-summary.js": [
+      "backend/availability",
+      "backend/googleAdsConversions.web",
+      "backend/microsoftAdsConversions.web",
+      "backend/packages",
+      "backend/pricingQuotes",
+      "backend/rooms",
+      "backend/settings",
+      "public/tracking",
+      "wix-data",
+      "wix-location"
+    ],
+    "velo/page-collections-export.js": [
+      "backend/listCollections"
+    ],
+    "velo/page-diagnose.js": [
+      "backend/diagnoseSearch"
+    ],
+    "velo/public/tracking.js": [
+      "wix-location-frontend",
+      "wix-storage-frontend"
+    ]
+  },
+  "application_roots": {
+    "velo": [
+      ".js",
+      ".web.js",
+      ".jsw",
+      ".html"
+    ],
+    "booking_engine": [
+      ".py"
+    ],
+    ".": [
+      "root *.py"
+    ]
+  }
+}
