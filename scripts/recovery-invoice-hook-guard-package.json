@@ -1,0 +1,123 @@
+{
+  "status": "HOOK_GUARD_SUCCESSOR_PROPOSAL_SEPARATE_REVIEW_REQUIRED",
+  "parent": "b78a8ef7d0e5438f47cc08ac13b6919db4feb6b3",
+  "scope": "Byte-only Git LF successor. No historical audit/full/restricted suite, producer or backend execution; inherited mismatches preserved. Historical roots remain unchanged.",
+  "roots": {
+    "scripts/guest-delivery-custody.json": {
+      "raw_sha256": "d41a6cd201479257f6bcc05ccf6bed5e0d6f4b6578a6eb442ff1bf9b5f662d27",
+      "canonical_sha256": "d41a6cd201479257f6bcc05ccf6bed5e0d6f4b6578a6eb442ff1bf9b5f662d27",
+      "eol": "LF"
+    },
+    "scripts/guest-delivery-final-package.json": {
+      "raw_sha256": "367c302debf4b627ec8be81ab7ef0479ac017050ac86085663f7edd0e4c71b0f",
+      "canonical_sha256": "367c302debf4b627ec8be81ab7ef0479ac017050ac86085663f7edd0e4c71b0f",
+      "eol": "LF"
+    }
+  },
+  "overrides": {
+    "scripts/guest_delivery_entrypoints.py": {
+      "before": {
+        "raw_sha256": "0570d7b2789f886a54bb2a564c4bdb711612ce775e58b8b3c7f4c1f9b73001ca",
+        "canonical_sha256": "0570d7b2789f886a54bb2a564c4bdb711612ce775e58b8b3c7f4c1f9b73001ca",
+        "eol": "LF"
+      },
+      "after": {
+        "raw_sha256": "0bf367f7456d1fc88804b086bde1712560e2e758bff02130c1901d3c1d88fe5e",
+        "canonical_sha256": "0bf367f7456d1fc88804b086bde1712560e2e758bff02130c1901d3c1d88fe5e",
+        "eol": "LF"
+      }
+    },
+    "scripts/test_guest_delivery_entrypoints.py": {
+      "before": {
+        "raw_sha256": "b4c3841561d8430a5b35afaeb7e43e4a03956e6f8aec5d9fe69c2c432bca3430",
+        "canonical_sha256": "b4c3841561d8430a5b35afaeb7e43e4a03956e6f8aec5d9fe69c2c432bca3430",
+        "eol": "LF"
+      },
+      "after": {
+        "raw_sha256": "87e86b7f20a0f7dacd60f685406e1a8b8af07493c9e1dacec97315ab93d3b62d",
+        "canonical_sha256": "87e86b7f20a0f7dacd60f685406e1a8b8af07493c9e1dacec97315ab93d3b62d",
+        "eol": "LF"
+      }
+    },
+    "scripts/verify-guest-booking-invoice-delivery.js": {
+      "before": {
+        "raw_sha256": "801afb35e13b9af1848aef650165d4a92df67a89e295853622753c42764cfeb6",
+        "canonical_sha256": "801afb35e13b9af1848aef650165d4a92df67a89e295853622753c42764cfeb6",
+        "eol": "LF"
+      },
+      "after": {
+        "raw_sha256": "f238324b7a4cda3243c8a3b3f14172965d0b3fe8e9de0d7f48224546370f827a",
+        "canonical_sha256": "f238324b7a4cda3243c8a3b3f14172965d0b3fe8e9de0d7f48224546370f827a",
+        "eol": "LF"
+      }
+    },
+    "velo/backend/guestBookingCompletionRecovery.js": {
+      "before": {
+        "raw_sha256": "9d2753f1cf840a5841c67106cb12e0051fc5a5e993b030e204985eb1a6f3d101",
+        "canonical_sha256": "8af55d7a97e02d43e115e86c17496a21ef23891d321d56beb0f37442342795e3",
+        "eol": "CRLF"
+      },
+      "after": {
+        "raw_sha256": "da870a2f5dc71688104a48d4c8b8e06118f8f8ec79c6682dcf96d9de697db72c",
+        "canonical_sha256": "03717d326e5ead7ac6b44674bc9b09b072a2cefb7b2038d67ef545e2b64ea098",
+        "eol": "CRLF"
+      }
+    }
+  },
+  "additions": {
+    "docs/booking-recovery-invoice-hook.md": {
+      "raw_sha256": "b80a61d75bb6d0132c59d3f690a61bf128355075385a99659510a7ce761762d3",
+      "canonical_sha256": "b80a61d75bb6d0132c59d3f690a61bf128355075385a99659510a7ce761762d3",
+      "eol": "LF"
+    },
+    "scripts/fixtures/recovery-invoice-hook-admission.json": {
+      "raw_sha256": "a84bcd9e8b5c084e3dff1bfb1aff604995b2263a7768ada5ce1f633e55b1bb7f",
+      "canonical_sha256": "a84bcd9e8b5c084e3dff1bfb1aff604995b2263a7768ada5ce1f633e55b1bb7f",
+      "eol": "LF"
+    },
+    "scripts/recovery_invoice_hook_guard_package.py": {
+      "raw_sha256": "3f02dd9ef72296a8d7c3f5b101ac681652fcf75dc44158d3a45f2c766fe84ed0",
+      "canonical_sha256": "3f02dd9ef72296a8d7c3f5b101ac681652fcf75dc44158d3a45f2c766fe84ed0",
+      "eol": "LF"
+    },
+    "scripts/test_recovery_invoice_hook_guard_package.py": {
+      "raw_sha256": "288106313a50ec1e823a58dbea87b826670d4d6685a298645d6ae607275f11f8",
+      "canonical_sha256": "288106313a50ec1e823a58dbea87b826670d4d6685a298645d6ae607275f11f8",
+      "eol": "LF"
+    },
+    "scripts/verify-guest-booking-completion-recovery.js": {
+      "raw_sha256": "5a89315319f696ff16de2920cc649612b5ebc6257c95feb48c229b02e5fbe798",
+      "canonical_sha256": "5a89315319f696ff16de2920cc649612b5ebc6257c95feb48c229b02e5fbe798",
+      "eol": "LF"
+    },
+    "scripts/verify-guest-booking-invoice-issuance.js": {
+      "raw_sha256": "e9cc18bf6fd128286b6342b382f1a1eba453ac039b68a998e14c5f6e0f0cf2f7",
+      "canonical_sha256": "e9cc18bf6fd128286b6342b382f1a1eba453ac039b68a998e14c5f6e0f0cf2f7",
+      "eol": "LF"
+    },
+    "scripts/verify-guest-booking-recovery-invoice-hook.js": {
+      "raw_sha256": "4aed5afec99698849e51a724922644f06da76095b1023ee4b285e20983ded2b5",
+      "canonical_sha256": "4aed5afec99698849e51a724922644f06da76095b1023ee4b285e20983ded2b5",
+      "eol": "LF"
+    },
+    "scripts/verify-recovery-invoice-hook-guards.cjs": {
+      "raw_sha256": "a6df16edad7e4bb73e50572392a7c5defea298e033dad7f9d1dfc53d1fead200",
+      "canonical_sha256": "a6df16edad7e4bb73e50572392a7c5defea298e033dad7f9d1dfc53d1fead200",
+      "eol": "LF"
+    }
+  },
+  "recovery_application_imports": {
+    "before": [
+      "backend/guestBookingAcceptanceDiscovery",
+      "backend/guestBookingPhysicalAcquisition",
+      "backend/guestBookingRecoveryProgressStore"
+    ],
+    "after": [
+      "backend/guestBookingAcceptanceDiscovery",
+      "backend/guestBookingInvoiceIssuance",
+      "backend/guestBookingIssuerAuthority",
+      "backend/guestBookingPhysicalAcquisition",
+      "backend/guestBookingRecoveryProgressStore"
+    ]
+  }
+}

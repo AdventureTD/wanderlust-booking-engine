@@ -66,5 +66,31 @@ class EntrypointTests(unittest.TestCase):
             scan.check_sources({'velo/public/probe.html': '<script>import("backend/guestBookingInvoiceDelivery")</script>'}, {'velo/public/probe.html': []})
 
 
+class RecoveryHookTests(unittest.TestCase):
+    def test_exact_recovery_and_extra_edges(self):
+        name = 'velo/backend/guestBookingCompletionRecovery.js'
+        source = (Path(__file__).resolve().parents[1] / name).read_text(encoding='utf-8')
+        edges = ['backend/guestBookingAcceptanceDiscovery', 'backend/guestBookingPhysicalAcquisition',
+                 'backend/guestBookingRecoveryProgressStore', 'backend/guestBookingInvoiceIssuance',
+                 'backend/guestBookingIssuerAuthority']
+        expected = {name: sorted(edges)}
+        self.assertNotIn(name, scan.OWN)
+        for text in (source, source.replace(chr(10), chr(13) + chr(10))):
+            scan.check_sources({name: text}, expected)
+            scan.check_absence(name.replace('/', chr(92)), text)
+        for extra in (' ', "import 'backend/extra';", "import 'backend/guestBookingInvoiceDelivery';",
+                      "import('backend/guestBookingInvoiceIssuance');",
+                      "export * from 'backend/guestBookingInvoiceIssuance';",
+                      "require('backend/guestBookingInvoiceIssuance');"):
+            with self.subTest(extra=extra), self.assertRaisesRegex(ValueError, 'altered recovery source'):
+                scan.check_sources({name: source + chr(10) + extra}, expected)
+        for caller in ('velo/backend/status.web.js', 'velo/backend/access.jsw',
+                       'velo/backend/other.js', 'velo/public/probe.html'):
+            with self.subTest(caller=caller), self.assertRaisesRegex(ValueError, 'incoming'):
+                scan.check_absence(caller, source)
+        with self.assertRaisesRegex(ValueError, 'import edges'):
+            scan.check_sources({name: source}, {name: sorted(edges[:-1])})
+
+
 if __name__ == '__main__':
     unittest.main()

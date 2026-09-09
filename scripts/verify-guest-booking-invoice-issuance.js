@@ -232,13 +232,23 @@ async function main() {
     const incoming=[];
     function scan(dir){for(const item of fs.readdirSync(dir,{withFileTypes:true})){
       const file=path.join(dir,item.name);if(item.isDirectory()){scan(file);continue;}
+      if(item.name.endsWith('.html')) {
+        assert.doesNotMatch(fs.readFileSync(file,'utf8'),/guestBookingInvoiceIssuance/,'HTML incoming admission consumer');
+        continue;
+      }
       if(!/\.(js|jsw)$/.test(item.name))continue;
-      const text=fs.readFileSync(file,'utf8');if(file.endsWith('guestBookingInvoiceIssuance.js'))continue;
+      const text=fs.readFileSync(file,'utf8');
+      const name=path.relative(ROOT,file).replace(/\\/g,'/');
+      if(name==='velo/backend/guestBookingInvoiceIssuance.js')continue;
       const parsed=new vm.SourceTextModule(text);
-      if(parsed.dependencySpecifiers.some(s=>/guestBookingInvoiceIssuance(?:\.js)?$/.test(s)))incoming.push(path.relative(ROOT,file));
+      if(name==='velo/backend/guestBookingCompletionRecovery.js') {
+        assert.equal(sha(text.split(String.fromCharCode(13,10)).join(String.fromCharCode(10))),'03717d326e5ead7ac6b44674bc9b09b072a2cefb7b2038d67ef545e2b64ea098','exact recovery admission source');
+        assert.deepEqual([...parsed.dependencySpecifiers],['backend/guestBookingAcceptanceDiscovery','backend/guestBookingPhysicalAcquisition','backend/guestBookingRecoveryProgressStore','backend/guestBookingInvoiceIssuance','backend/guestBookingIssuerAuthority'],'exact recovery admission edges');
+      } else assert.doesNotMatch(text,/guestBookingInvoiceIssuance/,'other incoming admission consumer');
+      if(parsed.dependencySpecifiers.some(s=>/guestBookingInvoiceIssuance(?:\.js)?$/.test(s)))incoming.push(name);
       assert.ok(!/import\s*\([^)]*guestBookingInvoiceIssuance/.test(text),'dynamic incoming consumer');
     }}
-    scan(path.join(ROOT,'velo'));assert.deepEqual(incoming,[]);
+    scan(path.join(ROOT,'velo'));assert.deepEqual(incoming,['velo/backend/guestBookingCompletionRecovery.js']);
     const f=fixture(), {result,w}=await advance(f);
     assert.deepEqual(Object.keys(result),['status','issuanceId']);
     assert.ok(w.trace.every(t=>['find','secret','insert'].includes(t.op)));

@@ -1,5 +1,6 @@
 """Finite application source scan. No application import/execution or test discovery."""
 import ast
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -28,6 +29,14 @@ def paths(root):
 def check_absence(name, source):
     # Conservative literal fence includes require/dynamic import, aliases and
     # reexports, including HTML. Computed-string dataflow is not claimed.
+    name = name.replace(chr(92), '/')
+    if name == 'velo/backend/guestBookingCompletionRecovery.js':
+        canonical = source.replace(chr(13) + chr(10), chr(10))
+        if hashlib.sha256(canonical.encode('utf-8')).hexdigest() != '03717d326e5ead7ac6b44674bc9b09b072a2cefb7b2038d67ef545e2b64ea098':
+            raise ValueError('incoming guest activation: altered recovery source')
+        # Full canonical source pin binds exact five static imports and their bindings.
+        # Do not add recovery to OWN or grant delivery/dynamic/reexport permission.
+        return
     if name not in OWN and any(token in source for token in TOKENS):
         raise ValueError('incoming guest activation: ' + name)
 

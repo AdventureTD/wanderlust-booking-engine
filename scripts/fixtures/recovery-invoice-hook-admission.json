@@ -1,0 +1,224 @@
+{
+  "base": "b78a8ef7d0e5438f47cc08ac13b6919db4feb6b3",
+  "normalization": "CRLF-to-LF only",
+  "files": {
+    "velo/backend/guestBookingPhysicalAcquisitionEvidence.js": "012812cdfd2ec64514444d465599d92f0eed38512a6d76ee03e02df0b95bd7f5",
+    "velo/backend/guestBookingCompletionStore.js": "cee5b0360854ff3f706b278aa0b03b1fe8502d9076966c17ad40d156c8a77dad",
+    "velo/backend/guestBookingAcceptanceStore.js": "3cb3f02fbb92168364c21169e30834ba75980768de35e14ca9a2b9f8aa25a75c",
+    "velo/backend/guestBookingIssuerAuthority.js": "b5578ae7bcdef12eb54ad37f3775a5ac3ccccdbe292e89b4561ed5498804919b",
+    "velo/backend/guestBookingCredentials.js": "c34364e2196a67016b4def3850149478015fd41d35a42fe5a590d2c6d5750c9f",
+    "velo/backend/guestBookingAccessPolicy.js": "bbc14fb6951dbc7b677e9ca9202a2906d0da7bd5a2b322e56ca147e7e21dad35",
+    "velo/backend/guestBookingAcceptance.js": "b15c33c3206ac851d8de9fdc04349488f2a31b3b8b5100b07f3b28f4fee38df2",
+    "velo/backend/guestBookingOfferIssuer.js": "fc01e66d6cf480d352a29729e4350e49c0fe83db184185e220fd5e3a76e634c0",
+    "velo/backend/guestBookingPurchaseInput.js": "a3b3583d0971c06f36301aa948479315def667e0e73d4accb8c854daab17489a",
+    "velo/backend/guestBookingPriceGroups.js": "d787fea9c954650a7003953b9620e6862f4a44bcfa0b7e41818837d8ca3cfad8",
+    "velo/backend/guestBookingFinancialCalculation.js": "3dc9fae1c48a48e78b34608c57970e73fae546c65e7c3a31449359f01a67fe71",
+    "velo/backend/lockedPricingQuoteAuthority.js": "d8520ba1bc16d829062760ce63ff3f5f7400363db3830b2f4d485b6a6b504d7c",
+    "velo/backend/strictLockedPricingQuote.js": "da1c2c1f1e0b91adc37abd29c66e7fbc017c043094487917b2bb10920eae5b61",
+    "velo/backend/guestBookingAllocationManifestStore.js": "e26fd317eb167f867c71b30c2461c6aa890e6186d33b5e61d3fe90352bceedb1",
+    "velo/backend/guestBookingAllocationManifestRules.js": "fb5e7ed1f3c4bda3866c3a9baecbfc3adaa045432a0bce3b28c66a2f7c267b4f",
+    "velo/backend/guestBookingAllocationSourceRules.js": "013655a68168c376d0ca98b452f48042b53ef21cbb403bf361a36a98aa48aa08",
+    "velo/backend/roomInventoryRules.js": "6bc0520cb3940b0399f43d8f5df7b493c666f221621bb80bc3e7004c8de89899",
+    "velo/backend/roomAssignmentRules.js": "9d685cc29821181e482c84cf1d9ecf0fd463fc03dbf12617d3fcfb76e9dd46b2",
+    "velo/backend/guestBookingAllocationRetainedRules.js": "4c84039c5c72e3958fdcf3b30e6466c440dabe726009f25720fb5030bafd1b8c",
+    "velo/backend/roomBookingCommitRules.js": "3938448cc041e0f0e811248e97033094df66c7536222c087d2a9a02945bd5893",
+    "velo/backend/roomAvailabilityRules.js": "578b42bcc63c28720b9a08aae9dea42761a42febcfc62449efe5313a7164b6f4",
+    "velo/backend/guestBookingAcquisitionControlStore.js": "3fe95f600ebece33b6e10a340ed6fbc57e6bf2403d070ab9065f2af47d14817e",
+    "velo/backend/guestBookingAcquisitionControlRules.js": "461939a94ee6790ad9442adde32b2abda51f6f1bb674462c5d7d6cc1dad5b728",
+    "velo/backend/guestBookingAcquisitionContentionEvidence.js": "cf60a8effa91031a1f7c0b2f285479522cd8dc1acd2c364e2cd3dbf8593dcfc5",
+    "velo/backend/guestBookingPhysicalAcquisitionStore.js": "ac1192dfd8d59496faf86497d45782d06d6ddd776fe41c1ad6e2145e6da818cd",
+    "velo/backend/guestBookingCompletionEvidence.js": "51971a8927e840a3f9c6909ad086965ce7027bbeda513e2e171ddea18607f195",
+    "velo/backend/guestBookingCompletionProjection.js": "c9202f6148155617d99de5250aae3a2edc6b5a527ed0f0ed8271c568dbd231b0",
+    "velo/backend/guestBookingAcceptanceDiscovery.js": "bb29fdc98ce9b4d21d59fdb73c2856a0693d78721c58632153babf86faee649e",
+    "velo/backend/guestBookingAllocationHandoff.js": "0e8ebc09ad6676a9c4657bc8eb2194cad4008aa4b5902cc091997f8ae8b5fe37",
+    "velo/backend/guestBookingAllocationEvidence.js": "e2c35347407326b4b7acf84d1bd77f5163030b20cef74ad098e4ba6486d948e5",
+    "velo/backend/wholeCartPlanningRules.js": "a73d3daf474611cd19f25d18a332a650769bdcf585017cd61cb7fef0dc38bcc3",
+    "velo/backend/guestBookingPhysicalAcquisition.js": "77d8e4f9442f75be17659493451e6b4bb26662639a43bf4ed70f47e9930e1457",
+    "velo/backend/guestBookingInvoiceIssuance.js": "797933fb958b1f6ecebd51e7a6ab87048b518d8993d26bf00c56b5a46919f681",
+    "velo/backend/guestBookingCompletionAuthority.js": "5aca0d1ef923a5a6a884696ec4333feee292f49e8b6e22c5c3ad84ac1f66dd65",
+    "velo/backend/guestBookingInvoiceAuthorityConfig.js": "206164914acdc21a1accba71234437f92f6debc410e250d47e8c2919b77fb305",
+    "velo/backend/guestBookingRecoveryProgressStore.js": "3a768b2810a7a135df99a369b4459f8c2bd48afac94147b7dce11e94ec2e3a98",
+    "velo/backend/guestBookingCompletionRecovery.js": "03717d326e5ead7ac6b44674bc9b09b072a2cefb7b2038d67ef545e2b64ea098"
+  },
+  "edges": {
+    "velo/backend/guestBookingPhysicalAcquisitionEvidence.js": [
+      "backend/guestBookingCompletionStore",
+      "backend/guestBookingAcceptanceStore",
+      "backend/guestBookingAcceptance",
+      "backend/guestBookingAllocationManifestStore",
+      "backend/guestBookingAllocationManifestRules",
+      "backend/guestBookingAcquisitionControlStore",
+      "backend/guestBookingAcquisitionControlRules",
+      "backend/guestBookingAcquisitionContentionEvidence",
+      "backend/guestBookingPhysicalAcquisitionStore"
+    ],
+    "velo/backend/guestBookingCompletionStore.js": [
+      "wix-data",
+      "buffer"
+    ],
+    "velo/backend/guestBookingAcceptanceStore.js": [
+      "wix-data",
+      "backend/guestBookingIssuerAuthority"
+    ],
+    "velo/backend/guestBookingIssuerAuthority.js": [
+      "crypto",
+      "buffer",
+      "wix-data",
+      "wix-secrets-backend.v2",
+      "wix-auth",
+      "backend/guestBookingCredentials"
+    ],
+    "velo/backend/guestBookingCredentials.js": [
+      "crypto",
+      "buffer",
+      "backend/guestBookingAccessPolicy"
+    ],
+    "velo/backend/guestBookingAccessPolicy.js": [],
+    "velo/backend/guestBookingAcceptance.js": [
+      "backend/guestBookingIssuerAuthority",
+      "backend/guestBookingOfferIssuer",
+      "backend/guestBookingAcceptanceStore"
+    ],
+    "velo/backend/guestBookingOfferIssuer.js": [
+      "buffer",
+      "backend/guestBookingPurchaseInput",
+      "backend/guestBookingFinancialCalculation",
+      "backend/lockedPricingQuoteAuthority",
+      "backend/guestBookingIssuerAuthority"
+    ],
+    "velo/backend/guestBookingPurchaseInput.js": [
+      "backend/guestBookingPriceGroups"
+    ],
+    "velo/backend/guestBookingPriceGroups.js": [],
+    "velo/backend/guestBookingFinancialCalculation.js": [
+      "backend/guestBookingPriceGroups"
+    ],
+    "velo/backend/lockedPricingQuoteAuthority.js": [
+      "wix-secrets-backend.v2",
+      "wix-auth",
+      "backend/strictLockedPricingQuote"
+    ],
+    "velo/backend/strictLockedPricingQuote.js": [
+      "crypto",
+      "buffer"
+    ],
+    "velo/backend/guestBookingAllocationManifestStore.js": [
+      "wix-data",
+      "buffer"
+    ],
+    "velo/backend/guestBookingAllocationManifestRules.js": [
+      "backend/guestBookingAllocationSourceRules",
+      "crypto",
+      "buffer",
+      "backend/roomBookingCommitRules",
+      "backend/guestBookingAllocationRetainedRules"
+    ],
+    "velo/backend/guestBookingAllocationSourceRules.js": [
+      "backend/roomInventoryRules",
+      "backend/guestBookingAllocationRetainedRules"
+    ],
+    "velo/backend/roomInventoryRules.js": [
+      "backend/roomAssignmentRules"
+    ],
+    "velo/backend/roomAssignmentRules.js": [],
+    "velo/backend/guestBookingAllocationRetainedRules.js": [],
+    "velo/backend/roomBookingCommitRules.js": [
+      "backend/guestBookingAllocationSourceRules",
+      "backend/roomAvailabilityRules"
+    ],
+    "velo/backend/roomAvailabilityRules.js": [
+      "backend/roomAssignmentRules"
+    ],
+    "velo/backend/guestBookingAcquisitionControlStore.js": [
+      "wix-data",
+      "backend/guestBookingAcquisitionControlRules"
+    ],
+    "velo/backend/guestBookingAcquisitionControlRules.js": [
+      "buffer"
+    ],
+    "velo/backend/guestBookingAcquisitionContentionEvidence.js": [
+      "wix-data",
+      "backend/guestBookingAcceptanceStore",
+      "backend/guestBookingAcceptance",
+      "backend/guestBookingAllocationManifestStore",
+      "backend/guestBookingAllocationManifestRules",
+      "backend/guestBookingAllocationRetainedRules",
+      "backend/guestBookingAcquisitionControlStore",
+      "backend/guestBookingAcquisitionControlRules"
+    ],
+    "velo/backend/guestBookingPhysicalAcquisitionStore.js": [
+      "wix-data",
+      "backend/guestBookingAllocationRetainedRules"
+    ],
+    "velo/backend/guestBookingCompletionEvidence.js": [
+      "backend/guestBookingCompletionProjection",
+      "backend/guestBookingCompletionStore",
+      "crypto",
+      "buffer"
+    ],
+    "velo/backend/guestBookingCompletionProjection.js": [
+      "backend/guestBookingFinancialCalculation",
+      "crypto",
+      "buffer"
+    ],
+    "velo/backend/guestBookingAcceptanceDiscovery.js": [
+      "backend/guestBookingAcceptanceStore",
+      "backend/guestBookingAcceptance"
+    ],
+    "velo/backend/guestBookingAllocationHandoff.js": [
+      "backend/guestBookingAcceptanceStore",
+      "backend/guestBookingAcceptance",
+      "backend/guestBookingAllocationManifestStore",
+      "backend/guestBookingAllocationManifestRules",
+      "backend/guestBookingAllocationEvidence",
+      "backend/wholeCartPlanningRules"
+    ],
+    "velo/backend/guestBookingAllocationEvidence.js": [
+      "wix-data",
+      "backend/roomInventoryRules"
+    ],
+    "velo/backend/wholeCartPlanningRules.js": [
+      "backend/roomBookingCommitRules"
+    ],
+    "velo/backend/guestBookingPhysicalAcquisition.js": [
+      "backend/guestBookingPhysicalAcquisitionEvidence",
+      "backend/guestBookingPhysicalAcquisitionStore",
+      "backend/guestBookingAcquisitionControlRules",
+      "backend/guestBookingCompletionEvidence"
+    ],
+    "velo/backend/guestBookingInvoiceIssuance.js": [
+      "wix-data",
+      "crypto",
+      "backend/guestBookingCompletionAuthority"
+    ],
+    "velo/backend/guestBookingCompletionAuthority.js": [
+      "backend/guestBookingIssuerAuthority",
+      "backend/guestBookingInvoiceAuthorityConfig",
+      "backend/guestBookingPhysicalAcquisitionEvidence",
+      "backend/guestBookingCompletionEvidence",
+      "backend/guestBookingCompletionStore"
+    ],
+    "velo/backend/guestBookingInvoiceAuthorityConfig.js": [
+      "wix-secrets-backend.v2",
+      "wix-auth",
+      "buffer"
+    ],
+    "velo/backend/guestBookingRecoveryProgressStore.js": [
+      "wix-data"
+    ],
+    "velo/backend/guestBookingCompletionRecovery.js": [
+      "backend/guestBookingAcceptanceDiscovery",
+      "backend/guestBookingPhysicalAcquisition",
+      "backend/guestBookingRecoveryProgressStore",
+      "backend/guestBookingInvoiceIssuance",
+      "backend/guestBookingIssuerAuthority"
+    ]
+  },
+  "selector": "--hook",
+  "noOtherVerifierOrProducerExecution": true,
+  "fixtures": {
+    "scripts/fixtures/completion-authority-history.json": "ee07c3ac0067452deb334c0b2e4086c26cf3e5ab18d740cca77f0a520395bed9",
+    "scripts/fixtures/completion-authority-foreign.json": "9546cdcfa9ee27e8a376fb4714159c8902794c511af35e8aba7b82132bcc2506",
+    "scripts/fixtures/completion-authority-dependencies.json": "0d03fb556fbd2aa5d6f92483ef7ab98c64bb0d3b0a14c1e081d6696cb81c5ca2"
+  }
+}

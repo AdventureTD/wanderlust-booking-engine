@@ -386,7 +386,13 @@ const deliveryPins={
 function sourceEdges(text) {return [...new vm.SourceTextModule(text).dependencySpecifiers];}
 const scanExtension=file=>/\.(?:js|jsw|html)$/i.test(file);
 function incoming(file,text) {
+  file=file.replace(/\\/g,'/');
   if(!scanExtension(file)||Object.hasOwn(deliveryEdges,file)) return;
+  if(file==='velo/backend/guestBookingCompletionRecovery.js') {
+    assert.equal(sha(text.split(String.fromCharCode(13,10)).join(String.fromCharCode(10))),'03717d326e5ead7ac6b44674bc9b09b072a2cefb7b2038d67ef545e2b64ea098','exact recovery admission source');
+    assert.deepEqual(sourceEdges(text),['backend/guestBookingAcceptanceDiscovery','backend/guestBookingPhysicalAcquisition','backend/guestBookingRecoveryProgressStore','backend/guestBookingInvoiceIssuance','backend/guestBookingIssuerAuthority'],'exact recovery admission edges');
+    return; // Hash-bound admission only; never a recovery -> delivery exemption.
+  }
   // Conservative lexical guard also catches dynamic imports, require, reexports and HTML references.
   assert.doesNotMatch(text,/guestBookingInvoice(?:Delivery|Issuance)/,'incoming delivery/admission consumer '+file);
 }
