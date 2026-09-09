@@ -3,7 +3,7 @@ import { validateGuestBookingAcceptanceRoot } from 'backend/guestBookingAcceptan
 import { readGuestBookingAllocationManifest, insertGuestBookingAllocationManifest } from 'backend/guestBookingAllocationManifestStore';
 import { buildGuestBookingAllocationBinding, buildGuestBookingAllocationManifest, validateGuestBookingAllocationManifest } from 'backend/guestBookingAllocationManifestRules';
 import { readGuestBookingAllocationEvidence } from 'backend/guestBookingAllocationEvidence';
-import { buildWholeCartAllocation } from 'backend/wholeCartPlanningRules';
+import { buildWholeCartAllocationFromSources } from 'backend/wholeCartPlanningRules';
 
 // Effect-free allocation handoff; no guest credential, deadline or room writer.
 function winner(read,root,binding){
@@ -20,7 +20,7 @@ export async function handoffGuestBookingAllocation(acceptanceId){
   const binding=buildGuestBookingAllocationBinding(root),existing=await readGuestBookingAllocationManifest(binding.manifestId);
   if(existing.status!=='ABSENT')return winner(existing,root,binding);
   const evidence=await readGuestBookingAllocationEvidence(binding.checkIn,binding.checkOut);if(evidence.status!=='READY')return {status:'ALLOCATION_PENDING',reason:evidence.reason};
-  let record;try{const allocation=buildWholeCartAllocation({inventorySnapshot:evidence.inventorySnapshot,claimLedger:evidence.claimLedger,groupRequests:binding.groupRequests,primaryOperationId:binding.primaryOperationId});record=buildGuestBookingAllocationManifest(root,allocation,evidence.planningEvidence);}catch(e){return {status:'ALLOCATION_PENDING',reason:e.message==='BUDGET'?'BUDGET':'UNSUPPORTED_PLAN'};}
+  let record;try{const allocation=buildWholeCartAllocationFromSources({planningEvidence:evidence.planningEvidence,groupRequests:binding.groupRequests,primaryOperationId:binding.primaryOperationId});record=buildGuestBookingAllocationManifest(root,allocation,evidence.planningEvidence);}catch(e){return {status:'ALLOCATION_PENDING',reason:e.message==='BUDGET'?'BUDGET':'UNSUPPORTED_PLAN'};}
   await insertGuestBookingAllocationManifest(record);
   return winner(await readGuestBookingAllocationManifest(binding.manifestId),root,binding);
  }catch{return {status:'UNKNOWN'};}

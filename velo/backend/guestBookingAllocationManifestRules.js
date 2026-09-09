@@ -1,3 +1,4 @@
+import { canonicalizeAllocationSources } from 'backend/guestBookingAllocationSourceRules';
 import { createHash } from 'crypto';
 import { Buffer } from 'buffer';
 import { validatePhysicalCommit } from 'backend/roomBookingCommitRules';
@@ -78,7 +79,7 @@ function detach(input) {
 // after caller traps, before delegating. Never patch globals. The retained
 // validator uses the same guard for its static core-derived grammar.
 const GLOBAL = globalThis;
-const GLOBAL_NAMES = ['Object','Array','Number','String','RegExp','Date','Math','JSON','Reflect','Error','Function','isNaN'];
+const GLOBAL_NAMES = ['Object','Array','Number','String','RegExp','Date','Math','JSON','Reflect','Error','Function','isNaN','Set'];
 function intrinsicClosure() {
   const objects=[], nodes=[], bindings=[];
   for(let i=0;i<GLOBAL_NAMES.length;i++) {
@@ -167,6 +168,7 @@ function canonicalPlans(plans,binding){
  if(rowIds.length>4||!rowIds.includes(binding.primaryRowId))fail();return {plans:result,rowIds};
 }
 function canonicalEvidence(input,binding){
+ if(Array.isArray(input)&&input[0]===2){guardCoreIntrinsics();const e=canonicalizeAllocationSources(input,binding.checkIn,binding.checkOut);bounded(JSON.stringify(e));return e;}
  if(!Array.isArray(input)||input.length!==4||input[0]!==1)fail();
  const s=ordered(input[1],SNAP_FIELDS),ledger=input[2],metadata=input[3];
  if(!Array.isArray(ledger)||!Array.isArray(metadata)||ledger.length!==metadata.length||ledger.length>10000)fail();
@@ -184,7 +186,7 @@ function canonicalEvidence(input,binding){
  validateRetainedClaimLedger(normalized);
  const evidence=[1,s,normalized,metadata];finite(evidence);bounded(JSON.stringify(evidence));return evidence;
 }
-function tuple(binding,allocation,evidence){const p=canonicalPlans(allocation.groupPlans,binding);if(JSON.stringify(allocation.expectedRowIds)!==JSON.stringify(p.rowIds)||allocation.primaryRowId!==binding.primaryRowId)fail();return ['wbe.acceptance-allocation-manifest',1,binding.manifestId,binding.acceptanceRootTuple,'whole-cart-planner-c3a5b1fa-v1',binding.classBindings,p.plans,p.rowIds,binding.primaryRowId,canonicalEvidence(evidence,binding)];}
+function tuple(binding,allocation,evidence){const p=canonicalPlans(allocation.groupPlans,binding);if(JSON.stringify(allocation.expectedRowIds)!==JSON.stringify(p.rowIds)||allocation.primaryRowId!==binding.primaryRowId)fail();return ['wbe.acceptance-allocation-manifest',1,binding.manifestId,binding.acceptanceRootTuple,evidence[0]===2?'whole-cart-held-sources-v2':'whole-cart-planner-c3a5b1fa-v1',binding.classBindings,p.plans,p.rowIds,binding.primaryRowId,canonicalEvidence(evidence,binding)];}
 export function buildGuestBookingAllocationManifest(validatedRoot,allocation,evidence){
  const b=buildGuestBookingAllocationBinding(validatedRoot),a=detach(allocation),e=detach(evidence);guardCoreIntrinsics();const manifestCanonical=bounded(JSON.stringify(tuple(b,a,e)));return {_id:b.manifestId,schemaVersion:1,manifestCanonical,manifestDigest:digest(manifestCanonical)};
 }

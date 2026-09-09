@@ -9,7 +9,19 @@ function durable(){return {rows:{GuestBookingFinancialRevisions:[{_id:'revision-
 function subject(db=durable()){
  const state={now:NOW,trace:[],db};const context=vm.createContext({});context.clock=()=>state.now;vm.runInContext('Date.now=()=>clock()',context);
  const realm=x=>vm.runInContext('('+JSON.stringify(x)+')',context);
- const wix={query(collection){let filter=null,limit=100,sort=null;const q={eq(k,v){filter=[k,v];return q;},gt(k,v){filter=[k,v,'gt'];return q;},limit(n){limit=n;return q;},ascending(k){sort=k;return q;},async find(options){state.trace.push({op:'find',collection,filter,options:{...options}});if(state.findError)throw Error('unavailable');let rows=db.rows[collection].filter(r=>!filter||(filter[2]==='gt'?r[filter[0]]>filter[1]:r[filter[0]]===filter[1]));if(sort)rows=rows.slice().sort((a,b)=>a[sort]<b[sort]?-1:a[sort]>b[sort]?1:0);return {items:realm(rows.slice(0,limit)),hasNext(){return rows.length>limit;}};}};return q;},async insert(collection,item,options){state.trace.push({op:'insert',collection,options:{...options}});const value=JSON.parse(JSON.stringify(item));if(state.beforeInsert)await state.beforeInsert();if(db.rows[collection].some(r=>r._id===value._id||r.bookingNumber===value.bookingNumber))throw Error('duplicate');db.rows[collection].push(value);if(state.loseAck)throw Error('lost acknowledgement');return realm(value);}};
+ function sdkRows(collection,rows){
+  const result=realm(rows);
+  if(collection==='GuestBookingAcceptances'&&state.sdkMetadata){
+   for(const row of result){
+    if(Object.hasOwn(state,'sdkOwner'))row._owner=state.sdkOwner;
+    row._createdDate=vm.runInContext('new Date(1800007200000)',context);
+    row._updatedDate=vm.runInContext('new Date(1800007200001)',context);
+    assert.equal(vm.runInContext('Date.prototype.getTime',context).call(row._createdDate),1800007200000);
+   }
+  }
+  return result;
+ }
+ const wix={query(collection){let filter=null,limit=100,sort=null;const q={eq(k,v){filter=[k,v];return q;},gt(k,v){filter=[k,v,'gt'];return q;},limit(n){limit=n;return q;},ascending(k){sort=k;return q;},async find(options){state.trace.push({op:'find',collection,filter,options:{...options}});if(state.findError)throw Error('unavailable');let rows=db.rows[collection].filter(r=>!filter||(filter[2]==='gt'?r[filter[0]]>filter[1]:r[filter[0]]===filter[1]));if(sort)rows=rows.slice().sort((a,b)=>a[sort]<b[sort]?-1:a[sort]>b[sort]?1:0);return {items:sdkRows(collection,rows.slice(0,limit)),hasNext(){return rows.length>limit;}};}};return q;},async insert(collection,item,options){state.trace.push({op:'insert',collection,options:{...options}});const value=JSON.parse(JSON.stringify(item));if(state.beforeInsert)await state.beforeInsert();if(db.rows[collection].some(r=>r._id===value._id||r.bookingNumber===value.bookingNumber))throw Error('duplicate');db.rows[collection].push(value);if(state.loseAck)throw Error('lost acknowledgement');return realm(value);}};
  const modules={'crypto':crypto,'buffer':{Buffer},'wix-data':wix,'wix-auth':{elevate:fn=>fn},'wix-secrets-backend.v2':{secrets:{async getSecretValue(name){state.trace.push({op:'secret',name});if(state.secretHook)await state.secretHook(name);const value=name==='WBE_PRICING_QUOTE_SECRET'?QUOTE_KEY:name==='WBE_GUEST_BOOKING_ISSUER_CONFIG'?JSON.stringify(db.config):name==='WBE_GUEST_BOOKING_KEYS'?JSON.stringify(db.keys):null;return realm({value});}}}};
  function load(name){if(Object.hasOwn(modules,name))return modules[name];const file=path.join(root,'velo',name+'.js');assert.ok(fs.existsSync(file),'private tracer module exists: '+name);const names=[];const text=fs.readFileSync(file,'utf8').replace(/^import (.+) from '([^']+)';$/gm,(_,binding,spec)=>{load(spec);return `const ${binding}=imports[${JSON.stringify(spec)}];`;}).replace(/export (async )?function (\w+)/g,(_,a,n)=>{names.push(n);return (a||'')+'function '+n;});context.imports=modules;return modules[name]=vm.runInContext('(function(){'+text+';return {'+names.join(',')+'};})()',context);}
  return {state,realm,load,context,wix};
@@ -144,4 +156,41 @@ test('SDK malformed page variants fail without exhaustion and recover on good tr
 test('malformed nested row values cannot execute serialization hooks during discovery',async()=>{
  const s=subject(),o=await prepared(s);await s.load('backend/guestBookingAcceptance').acceptGuestBookingOffer(o.token,o.capsule);s.context.fixture=s.realm(s.state.db.rows.GuestBookingAcceptances[0]);s.context.calls=0;const page=vm.runInContext("(()=>{fixture.capsule={toJSON(){calls++;return 'bad';}};return {items:[fixture],hasNext(){return false;}};})()",s.context);transportPage(s,page);const result=await s.load('backend/guestBookingAcceptanceDiscovery').discoverGuestBookingAcceptances(null);assert.equal(s.context.calls,0);assert.equal(result.contexts.length,0);assert.equal(result.invalid.length,1);
 });
-(async()=>{for(const [name,fn]of tests){await fn();console.log('PASS '+name);}console.log('acceptance: '+tests.length+' integrated suites passed; transport-emulated, live-Wix unverified');})().catch(e=>{console.error(e);process.exitCode=1;});
+test('SDK owner metadata preserves acceptance replay and expired keyless recovery',async()=>{
+ for(const owner of [undefined,'fixture-provider-owner',null]){
+  const s=subject(),o=await prepared(s),api=s.load('backend/guestBookingAcceptance');
+  s.state.sdkMetadata=true;if(owner!==undefined)s.state.sdkOwner=owner;
+  assert.equal((await api.acceptGuestBookingOffer(o.token,o.capsule)).status,'ACCEPTED_PENDING',String(owner));
+  const original=plain(s.state.db.rows.GuestBookingAcceptances[0]);
+  assert.equal((await api.acceptGuestBookingOffer(o.token,o.capsule)).status,'ACCEPTED_PENDING');
+  assert.equal((await api.readOwnGuestBookingAcceptance(o.token,o.capsule)).status,'ACCEPTED_PENDING');
+  assert.deepEqual(s.state.db.rows.GuestBookingAcceptances,[original]);
+  s.state.now=o.offerExpiresAtMs;s.state.trace=[];
+  assert.equal((await api.readOwnGuestBookingAcceptance(o.token,o.capsule)).status,'DENIED');assert.equal(bookingIO(s).length,0);
+  s.state.db.keys=null;s.state.db.config=null;s.state.db.rows.GuestBookingFinancialRevisions=[];
+  const fresh=subject(s.state.db);fresh.state.sdkMetadata=true;fresh.state.sdkOwner=owner===null?'changed-provider-owner':null;fresh.state.now=o.offerExpiresAtMs+1;
+  const page=await fresh.load('backend/guestBookingAcceptanceDiscovery').discoverGuestBookingAcceptances(null);
+  assert.equal(page.status,'PAGE');assert.deepEqual(plain(page.invalid),[]);assert.equal(page.contexts.length,1);
+  assert.equal(page.contexts[0].rootDigest,original.rootDigest);assert.equal(page.contexts[0].capsule,o.capsule);assert.deepEqual(plain(page.contexts[0].calculation),plain(o.display));
+  assert.ok(fresh.state.trace.every(t=>t.op==='find'&&t.collection==='GuestBookingAcceptances'));
+ }
+});
+test('SDK owner metadata retains exact fields digest and complete envelope bounds',async()=>{
+ const s=subject(),o=await prepared(s),api=s.load('backend/guestBookingAcceptance');
+ assert.equal((await api.acceptGuestBookingOffer(o.token,o.capsule)).status,'ACCEPTED_PENDING');
+ const original=plain(s.state.db.rows.GuestBookingAcceptances[0]);
+ for(const change of [r=>r._owner=1,r=>r._owner=false,r=>r._owner={},r=>r._owner=[],r=>r._unknown='provider',r=>r.extra='value',r=>r.rootDigest='0'.repeat(64),r=>r.capsule=r.capsule+' ',r=>r.audience='foreign']){
+  const row={...original,_owner:null};change(row);assert.equal(api.validateGuestBookingAcceptanceRoot(s.realm(row)),'DENIED');
+ }
+ const row={...original,_owner:''};const width=160000-Buffer.byteLength(JSON.stringify(row),'utf8');
+ row._owner='a'.repeat(width);assert.equal(Buffer.byteLength(JSON.stringify(row),'utf8'),160000);
+ assert.notEqual(api.validateGuestBookingAcceptanceRoot(s.realm(row)),'DENIED','exact complete envelope cap');
+ row._owner+='a';assert.equal(api.validateGuestBookingAcceptanceRoot(s.realm(row)),'DENIED','metadata must not evade complete envelope cap');
+ row._owner='a'.repeat(width-2)+'é';assert.equal(Buffer.byteLength(JSON.stringify(row),'utf8'),160000);assert.notEqual(api.validateGuestBookingAcceptanceRoot(s.realm(row)),'DENIED');
+ row._owner+='é';assert.equal(api.validateGuestBookingAcceptanceRoot(s.realm(row)),'DENIED','UTF-8 not character count');
+ row._owner='a'.repeat(width);s.context.fixture=s.realm(row);vm.runInContext('fixture._createdDate=new Date(1800007200000)',s.context);
+ assert.equal(api.validateGuestBookingAcceptanceRoot(s.context.fixture),'DENIED','provider dates count in envelope too');
+});
+const omittedOrdinary=new Set(['SDK scan transport never executes page array or row accessors','malformed nested row values cannot execute serialization hooks during discovery']);
+const selected=process.argv.includes('--metadata-only')?tests.filter(([name])=>name.startsWith('SDK owner metadata')):process.argv.includes('--ordinary')?tests.filter(([name])=>!omittedOrdinary.has(name)):tests;
+(async()=>{assert.ok(selected.length>0);for(const [name,fn]of selected){await fn();console.log('PASS '+name);}console.log('acceptance: '+selected.length+' integrated suites passed; '+(tests.length-selected.length)+' omitted; transport-emulated, live-Wix unverified');})().catch(e=>{console.error(e);process.exitCode=1;});

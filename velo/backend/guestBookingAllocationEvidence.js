@@ -7,8 +7,21 @@ const claimFields=['_id','protocolVersion','claimKey','eventType','claimType','g
 const base=['_id','protocolVersion','claimKey','generation','eventType','claimType','operationId','bookingRowId','bookingNumber','payloadDigest'];
 const manifest=['manifestVersion','manifestCheckIn','manifestCheckOut','manifestRoomCode','manifestUnits','manifestBookingRowIds','manifestResourceClaimIds'];
 const metadata=['_owner','_createdDate','_updatedDate'];
-const bookingFields=['_id','bookingNumber','status','checkIn','checkOut','assignedRoom','quantity','roomCode','autoOwnerBlock'];
+const bookingFields=['_id','bookingNumber','status','checkIn','checkOut','assignedRoom','quantity','roomCode','autoOwnerBlock','operationId','payloadDigest'];
 const summaryFields=['_id','bookingNumber','checkIn','checkOut'];
+const bookingStrings=['note','guestName','guestEmail','guestPhone'];
+const summaryStrings=['guestName','guestEmail','guestPhone','marketSource','status','gclid','gbraid','wbraid','msclkid','notes','packageTitle','packageTitlle'];
+const summaryFlags=['googleConversionUploaded','microsoftConversionUploaded','googleConversionRetracted','microsoftConversionRetracted'];
+const bookingRaw=[...bookingFields,'guests','roomFee',...bookingStrings];
+const summaryRaw=[...summaryFields,'roomCount','bookingDate',...summaryStrings,...summaryFlags];
+function rawExtra(name,v,allowed){
+ const isBooking=allowed===bookingRaw,isSummary=allowed===summaryRaw;if(!isBooking&&!isSummary)return v;
+ if((isBooking&&bookingStrings.includes(name))||(isSummary&&summaryStrings.includes(name))){if(v!==null&&typeof v!=='string')fail();}
+ if((isBooking&&['guests','roomFee'].includes(name))||(isSummary&&name==='roomCount')){if(v!==null&&typeof v!=='number')fail();}
+ if(isSummary&&summaryFlags.includes(name)&&v!==null&&typeof v!=='boolean')fail();
+ if(isSummary&&name==='bookingDate'&&v!==null){if(typeof v==='object'){nativeDate(v);return apply(toISO,v,[]);}if(typeof v==='number'&&!Number.isSafeInteger(v))fail();endpoint(v);}
+ return v;
+}
 function fail(reason='UNRESOLVED'){throw Error(reason);}
 function bytes(s){let n=0;for(const c of s){const v=c.codePointAt(0);n+=v<128?1:v<2048?2:v<65536?3:4;}return n;}
 function budget(value){if(bytes(JSON.stringify(value))>400000)fail('BUDGET');}
@@ -17,8 +30,8 @@ function nativeDate(v){if(proto(v)!==dateProto||keys(v).length)fail();const a=ap
 function snapshotRow(value,allowed){
  if(!value||typeof value!=='object'||proto(value)!==objectProto)fail();
  const k=keys(value),first=[],out={};if(k.length>allowed.length+3)fail();
- for(const name of k){if(typeof name!=='string'||(!allowed.includes(name)&&!metadata.includes(name)))fail();const d=desc(value,name);if(!d||!desc(d,'value')||!d.enumerable)fail();let v=d.value;if(name==='_createdDate'||name==='_updatedDate')v=nativeDate(v);else if(name==='_owner'){if(typeof v!=='string'||v.length>256)fail();}else if((name==='checkIn'||name==='checkOut')&&v!==null&&typeof v==='object'){nativeDate(v);v=apply(toISO,v,[]);}else if(v!==null&&typeof v!=='string'&&typeof v!=='number'&&typeof v!=='boolean')fail();if(typeof v==='number'&&(!Number.isFinite(v)||same(v,-0)))fail();if(typeof v==='string'&&v.length>60000)fail();first.push(d);out[name]=v;}
- const again=keys(value);if(again.length!==k.length)fail();for(let i=0;i<k.length;i++){const d=desc(value,k[i]),a=first[i];if(again[i]!==k[i]||!d||!desc(d,'value')||!same(d.value,a.value)||d.enumerable!==a.enumerable||d.configurable!==a.configurable||d.writable!==a.writable)fail();if(k[i]==='_createdDate'||k[i]==='_updatedDate'){if(nativeDate(d.value)!==out[k[i]])fail();}else if((k[i]==='checkIn'||k[i]==='checkOut')&&d.value!==null&&typeof d.value==='object'){if(apply(toISO,d.value,[])!==out[k[i]])fail();}}if(proto(value)!==objectProto||!id(out._id))fail();return out;
+ for(const name of k){if(typeof name!=='string'||(!allowed.includes(name)&&!metadata.includes(name)))fail();const d=desc(value,name);if(!d||!desc(d,'value')||!d.enumerable)fail();let v=rawExtra(name,d.value,allowed);if(name==='_createdDate'||name==='_updatedDate')v=nativeDate(v);else if(name==='_owner'){if(!((allowed===bookingRaw||allowed===summaryRaw)&&v===null)&&(typeof v!=='string'||v.length>256))fail();}else if((name==='checkIn'||name==='checkOut')&&v!==null&&typeof v==='object'){nativeDate(v);v=apply(toISO,v,[]);}else if(v!==null&&typeof v!=='string'&&typeof v!=='number'&&typeof v!=='boolean')fail();if(typeof v==='number'&&(!Number.isFinite(v)||same(v,-0)))fail();if(typeof v==='string'&&v.length>60000)fail();first.push(d);out[name]=v;}
+ const again=keys(value);if(again.length!==k.length)fail();for(let i=0;i<k.length;i++){const d=desc(value,k[i]),a=first[i];if(again[i]!==k[i]||!d||!desc(d,'value')||!same(d.value,a.value)||d.enumerable!==a.enumerable||d.configurable!==a.configurable||d.writable!==a.writable)fail();if(k[i]==='_createdDate'||k[i]==='_updatedDate'){if(nativeDate(d.value)!==out[k[i]])fail();}else if((k[i]==='checkIn'||k[i]==='checkOut'||(allowed===summaryRaw&&k[i]==='bookingDate'))&&d.value!==null&&typeof d.value==='object'){if(allowed===summaryRaw&&k[i]==='bookingDate')nativeDate(d.value);if(apply(toISO,d.value,[])!==out[k[i]])fail();}}if(proto(value)!==objectProto||!id(out._id))fail();return out;
 }
 function page(value,allowed){
  const d=desc(value,'items');if(!d||!desc(d,'value')||!d.enumerable)fail();const source=d.value;if(!Array.isArray(source)||proto(source)!==arrayProto)fail();
@@ -48,8 +61,9 @@ export async function readGuestBookingAllocationEvidence(checkIn,checkOut){
   // Bound before asking the inventory projector to enumerate nights.
   const nights=(new Date(checkOut).getTime()-new Date(checkIn).getTime())/86400000;if(!Number.isSafeInteger(nights)||nights<1||nights>800)fail('UNSUPPORTED_PLAN');
   const raw=await scan('RoomBookingClaimEvents',claimFields),ledger=raw.map(claim),sidecar=raw.map(r=>[r._id,r._owner??null,r._createdDate??null,r._updatedDate??null]);
-  const bookings=await scan('Bookings',bookingFields),summaries=await scan('BookingSummary',summaryFields);
+  const bookings=await scan('Bookings',bookingRaw),summaries=await scan('BookingSummary',summaryRaw);
   const full=buildInventorySnapshot(inventory(bookings,summaries),checkIn,checkOut),snapshot={occupiedUnits:full.occupiedUnits,occupiedUnitsByNight:full.occupiedUnitsByNight,migrationIssueRows:full.migrationIssueRows,duplicateUnitClaims:full.duplicateUnitClaims,unknownStatusRows:full.unknownStatusRows};
-  const planningEvidence=[1,snapshot,ledger,sidecar];budget(planningEvidence);return {status:'READY',inventorySnapshot:snapshot,claimLedger:ledger,planningEvidence};
+  const project=(r,fields)=>Object.fromEntries(fields.filter(k=>Object.hasOwn(r,k)).map(k=>[k,r[k]]));const meta=r=>[r._id,r._owner??null,r._createdDate??null,r._updatedDate??null];
+  const planningEvidence=[2,snapshot,ledger,sidecar,bookings.map(r=>project(r,bookingFields)),summaries.map(r=>project(r,summaryFields)),bookings.map(meta),summaries.map(meta)];budget(planningEvidence);return {status:'READY',inventorySnapshot:snapshot,claimLedger:ledger,planningEvidence};
  }catch(e){return {status:'UNRESOLVED',reason:['BUDGET','UNSUPPORTED_PLAN'].includes(e.message)?e.message:'EVIDENCE'};}
 }

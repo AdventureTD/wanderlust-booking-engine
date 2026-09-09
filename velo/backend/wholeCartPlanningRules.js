@@ -1,4 +1,4 @@
-import { buildPhysicalCommitPlan } from 'backend/roomBookingCommitRules';
+import { buildPhysicalCommitPlan, buildPhysicalCommitPlanFromSources } from 'backend/roomBookingCommitRules';
 
 // Disconnected candidate allocation, never acquisition or persistence proof.
 // The unchanged core owns ledger, date, topology, parity and manifest validation.
@@ -78,10 +78,10 @@ function detach(input) {
 // after caller traps, before delegating. Do not patch globals or copy core code.
 const GLOBAL = globalThis;
 const GLOBAL_NAMES = ['Object','Array','Number','String','RegExp','Date','Math','JSON','Reflect','Error','Function','isNaN'];
-function intrinsicClosure() {
+function intrinsicClosure(names=GLOBAL_NAMES) {
   const objects=[], nodes=[], bindings=[];
-  for(let i=0;i<GLOBAL_NAMES.length;i++) {
-    const d=descriptor(GLOBAL,GLOBAL_NAMES[i]); append(bindings,d);
+  for(let i=0;i<names.length;i++) {
+    const d=descriptor(GLOBAL,names[i]); append(bindings,d);
     if(d && descriptor(d,'value')) append(objects,d.value);
   }
   for(let n=0;n<objects.length;n++) {
@@ -102,6 +102,9 @@ function intrinsicClosure() {
   return {bindings,nodes};
 }
 const INTRINSICS = intrinsicClosure();
+// Only the source-aware entry reaches Set construction and iteration.
+const SOURCE_GLOBAL_NAMES = ['Set'];
+const SOURCE_INTRINSICS = intrinsicClosure(SOURCE_GLOBAL_NAMES);
 function descriptorEqual(a,b) {
   if(!a || !b) return false;
   const fields=['value','get','set','enumerable','configurable','writable'];
@@ -111,10 +114,10 @@ function descriptorEqual(a,b) {
   }
   return true;
 }
-function guardCoreIntrinsics() {
-  for(let i=0;i<GLOBAL_NAMES.length;i++) if(!descriptorEqual(INTRINSICS.bindings[i],descriptor(GLOBAL,GLOBAL_NAMES[i]))) fail();
-  for(let n=0;n<INTRINSICS.nodes.length;n++) {
-    const node=INTRINSICS.nodes[n], keys=ownKeys(node.value);
+function guardCoreIntrinsics(intrinsics=INTRINSICS,names=GLOBAL_NAMES) {
+  for(let i=0;i<names.length;i++) if(!descriptorEqual(intrinsics.bindings[i],descriptor(GLOBAL,names[i]))) fail();
+  for(let n=0;n<intrinsics.nodes.length;n++) {
+    const node=intrinsics.nodes[n], keys=ownKeys(node.value);
     if(prototype(node.value)!==node.proto || keys.length!==node.keys.length) fail();
     for(let i=0;i<keys.length;i++) if(keys[i]!==node.keys[i] || !descriptorEqual(node.ds[i],descriptor(node.value,keys[i]))) fail();
   }
@@ -169,4 +172,21 @@ export function buildWholeCartAllocation(input) {
     advance(snapshot,ledger,plan);
   }
   return {groupPlans,expectedRowIds,primaryRowId};
+}
+
+export function buildWholeCartAllocationFromSources(input) {
+ const data=detach(input);guardCoreIntrinsics();
+ guardCoreIntrinsics(SOURCE_INTRINSICS,SOURCE_GLOBAL_NAMES);
+ exact(data,['planningEvidence','groupRequests','primaryOperationId']);
+ if(!isArray(data.planningEvidence)||data.planningEvidence.length!==8||data.planningEvidence[0]!==2)fail();
+ const requests=requestsFor({inventorySnapshot:data.planningEvidence[1],claimLedger:data.planningEvidence[2],groupRequests:data.groupRequests,primaryOperationId:data.primaryOperationId});
+ let total=0;for(const r of requests)total+=r.quantity;if(total>4)fail();
+ const prior=[],groupPlans=[],expectedRowIds=[];let primaryRowId;
+ for(const request of requests){
+  const plan=buildPhysicalCommitPlanFromSources(data.planningEvidence,request,prior);
+  append(groupPlans,plan);for(const row of plan.bookingRows)append(expectedRowIds,row._id);
+  if(request.operationId===data.primaryOperationId)primaryRowId=plan.primaryRowId;
+  for(const claim of plan.acquisitions)append(prior,claim);
+ }
+ return {groupPlans,expectedRowIds,primaryRowId};
 }

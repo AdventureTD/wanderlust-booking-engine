@@ -7,14 +7,20 @@ const fields=['schemaVersion','validityPolicy','_id','operationId','audience','b
 function body(r){const b={};for(const k of fields)b[k]=r[k];return b;}
 export function validateGuestBookingAcceptanceRoot(value){
  try {
-  // Provider dates are metadata, not application admission evidence.
-  const copy=Object.create(null);
+  // Provider owner/dates are metadata, not application identity or admission evidence.
+  const copy=Object.create(null),envelope=Object.create(null);
   for(const k of Reflect.ownKeys(value)){
    const d=Object.getOwnPropertyDescriptor(value,k);if(!d||!Object.hasOwn(d,'value')||!d.enumerable)throw Error('row');
-   if(k==='_createdDate'||k==='_updatedDate'){if(!(d.value instanceof Date)||!Number.isFinite(Date.prototype.getTime.call(d.value)))throw Error('metadata');}
-   else {if(typeof d.value!=='string'&&typeof d.value!=='number')throw Error('scalar field');copy[k]=d.value;}
+   if(k==='_createdDate'||k==='_updatedDate'){
+    if(!(d.value instanceof Date)||!Number.isFinite(Date.prototype.getTime.call(d.value)))throw Error('metadata');
+    envelope[k]=Date.prototype.toISOString.call(d.value);
+   }
+   else if(k==='_owner'){if(d.value!==null&&typeof d.value!=='string')throw Error('metadata');envelope[k]=d.value;}
+   else {if(typeof d.value!=='string'&&typeof d.value!=='number')throw Error('scalar field');copy[k]=d.value;envelope[k]=d.value;}
   }
   const r=exactFields(copy,[...fields,'rootDigest']);boundedJson(JSON.stringify(r),160000);
+  // Bound the complete detached SDK envelope without serializing provider objects.
+  boundedJson(JSON.stringify(envelope),160000);
   if(r.schemaVersion!==2||r.validityPolicy!=='backend-complete-validation-v2'||typeof r.operationId!=='string'||!/^[a-f0-9]{64}$/.test(r.operationId)||r._id!==acceptanceDigest('wbe.acceptance-id.v2',r.operationId)||typeof r.audience!=='string'||!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(r.audience)||typeof r.credentialKid!=='string'||!/^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/.test(r.credentialKid))throw Error('identity');
   const checked=validateGuestBookingOfferCapsule(r.capsule);if(checked==='DENIED')throw Error('offer');const o=checked.offer;
   if(r.bookingNumber!==o.bookingNumber||r.intentDigest!==checked.binding.intentDigest||r.quoteDigest!==checked.binding.quoteDigest||r.issuedAtMs!==o.issuedAtMs||r.offerExpiresAtMs!==o.offerExpiresAtMs||!Number.isSafeInteger(r.validatedAtMs)||Object.is(r.validatedAtMs,-0)||r.validatedAtMs<r.issuedAtMs||r.validatedAtMs>=r.offerExpiresAtMs||r.rootDigest!==acceptanceDigest('wbe.acceptance-root.v2',JSON.stringify(body(r))))throw Error('qualification');

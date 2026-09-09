@@ -1,3 +1,4 @@
+import { allocationConstraintsFromSources } from 'backend/guestBookingAllocationSourceRules';
 import { evaluateAutomaticAvailability } from 'backend/roomAvailabilityRules';
 
 // Pure committed-assignment and unit-night claim planning.
@@ -714,6 +715,95 @@ export function buildPhysicalCommitPlan(snapshot, claimLedger, request) {
     throw new Error('Physical room assignment unavailable');
   }
   reconcileSnapshotClaims(snapshot, claimLedger, nights);
+  const bookingRows = [];
+  availability.units.forEach(function(unit, index) {
+    bookingRows.push({
+      _id: 'pb1-' + operationId + '-r' + (index + 1),
+      roomCode: request.roomCode,
+      assignedRoom: unit,
+      quantity: 1,
+      checkIn: request.checkIn,
+      checkOut: request.checkOut,
+      bookingNumber: bookingNumber,
+      operationId: operationId,
+      payloadDigest: request.payloadDigest
+    });
+  });
+  const resourceAcquisitions = [];
+  for (const night of nights) {
+    const capacitySlots = lowestFreeCapacitySlots(claimLedger, night, availability.units.length);
+    capacitySlots.forEach(function(capacity, index) {
+      resourceAcquisitions.push(acquireEvent(
+        request,
+        night,
+        'capacity',
+        capacity.slot,
+        capacity.generation,
+        index + 1
+      ));
+    });
+  }
+  for (const night of nights) {
+    availability.units.forEach(function(unit, index) {
+      const unitState = claimState(claimLedger, 'unit:' + night + ':' + unit);
+      if (unitState.active) {
+        throw new Error('Physical room assignment unavailable');
+      }
+      resourceAcquisitions.push(acquireEvent(
+        request,
+        night,
+        'unit',
+        unit,
+        unitState.nextGeneration,
+        index + 1
+      ));
+    });
+  }
+  const acquisitions = [operationIdentityEvent(request, bookingRows, resourceAcquisitions)]
+    .concat(resourceAcquisitions);
+  return {
+    acquisitions: acquisitions,
+    bookingRows: bookingRows,
+    primaryRowId: bookingRows[0]._id
+  };
+}
+
+// Versioned resource-first construction; the strict legacy entry above is unchanged.
+export function buildPhysicalCommitPlanFromSources(sourceEvidence, request, priorAcquisitions = []) {
+  const constraints = allocationConstraintsFromSources(sourceEvidence, request.checkIn, request.checkOut, priorAcquisitions);
+  const snapshot = constraints.effectiveSnapshot, claimLedger = constraints.claimLedger;
+  validateClaimLedger(claimLedger);
+  const bookingNumber = requiredIdentifier(request && request.bookingNumber, 'booking number');
+  if (!isCanonicalText(bookingNumber, 128)) throw new Error('Invalid booking number');
+  const operationId = requiredIdentifier(request && request.operationId, 'operation ID');
+  if (!/^[A-Za-z0-9_-]{16,64}$/.test(operationId)) {
+    throw new Error('Invalid operation ID');
+  }
+  if (!request || !/^[0-9a-f]{64}$/.test(request.payloadDigest)) {
+    throw new Error('Invalid payload digest');
+  }
+  const existingOperation = claimLedger.find(function(event) {
+    return event.claimType === 'operation' && event.operationId === operationId;
+  });
+  if (existingOperation && (
+      existingOperation.payloadDigest !== request.payloadDigest ||
+      existingOperation.bookingNumber !== bookingNumber)) {
+    throw new Error('Operation identity conflict');
+  }
+  if (existingOperation) {
+    throw new Error('Operation requires reconciliation');
+  }
+  const nights = requestedNights(request.checkIn, request.checkOut);
+  validateSnapshotNights(snapshot, nights);
+  const availability = evaluateAutomaticAvailability(
+    snapshot,
+    request.roomCode,
+    request.quantity
+  );
+  if (!availability.available) {
+    throw new Error('Physical room assignment unavailable');
+  }
+  // Independent capacity slots and effective units; no legacy parity bypass flag.
   const bookingRows = [];
   availability.units.forEach(function(unit, index) {
     bookingRows.push({
