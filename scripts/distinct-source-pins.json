@@ -64,7 +64,7 @@
     "velo/backend/guestBookingCompletionEvidence.js": "51971a8927e840a3f9c6909ad086965ce7027bbeda513e2e171ddea18607f195",
     "velo/backend/guestBookingCompletionProjection.js": "c9202f6148155617d99de5250aae3a2edc6b5a527ed0f0ed8271c568dbd231b0",
     "velo/backend/guestBookingInvoiceIssuance.js": "797933fb958b1f6ecebd51e7a6ab87048b518d8993d26bf00c56b5a46919f681",
-    "velo/backend/guestBookingInvoiceDelivery.js": "b5e27047f870a38a9aaddb13b63deca711775c69bfbcb9edee057f1e20d54ea2"
+    "velo/backend/guestBookingInvoiceDelivery.js": "8ebcdfe0cdf4daf165cff08ef661a457131982edc51eb08fe8f9708f113d5aa1"
   },
   "producerEdges": {
     "velo/backend/guestBookingOfferIssuer.js": [
@@ -362,7 +362,7 @@
   "python": {
     "booking_engine/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "booking_engine/gmail_sender.py": "4fcf0357e6ef3c3c717dab04f146770bfdd2c2b5f98d654f7c8dd1d9fd92c99c",
-    "booking_engine/guest_invoice_delivery.py": "8757e322e39098cc60bcbed8471dc7350ad359ae41684671209e0fd1467bb538",
+    "booking_engine/guest_invoice_delivery.py": "99b20d8ac0907c2f595db8bc58106dded7e69e76f06f12650493cfb851781122",
     "booking_engine/invoice.py": "b9c27451510f8fad733cd9c5a0938e84345ed0047b32f0f78b1c9aa319bb50a1",
     "booking_engine/invoice_original_groups.py": "871f552fe1bf888f3279b5b750e5bbb35cde35a4255dd2479793321cab551340",
     "booking_engine/invoice_pdf.py": "d58f31b56d24a0d351b9e554986263dddc746e1bee752c961d4506092e8836f1",

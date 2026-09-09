@@ -3,8 +3,8 @@
   "parent": "7d7c2aec61a7246d6a6a90805c9c1f2fdaed3f81",
   "scope": "Finite byte custody only; no imports/effective-pin reconciliation or producer invocation. Original portable trust root unchanged.",
   "base_manifest": {
-    "raw_sha256": "59a9e4e83367ba243ce4e09660c4bed0f84631ed4e38b8ef6d441623767c193a",
-    "canonical_sha256": "59a9e4e83367ba243ce4e09660c4bed0f84631ed4e38b8ef6d441623767c193a",
+    "raw_sha256": "d41a6cd201479257f6bcc05ccf6bed5e0d6f4b6578a6eb442ff1bf9b5f662d27",
+    "canonical_sha256": "d41a6cd201479257f6bcc05ccf6bed5e0d6f4b6578a6eb442ff1bf9b5f662d27",
     "eol": "LF"
   },
   "provenance_only_no_dispatch": [
@@ -13,6 +13,16 @@
     "scripts/fixtures/guest-booking-r2-producer-prefix.js"
   ],
   "additions": {
+    "docs/guest-invoice-mime-budget.md": {
+      "raw_sha256": "d2905c2d065817210aa7dd0aca91a81554a10249102c07d7ca5a50633812e9a9",
+      "canonical_sha256": "d2905c2d065817210aa7dd0aca91a81554a10249102c07d7ca5a50633812e9a9",
+      "eol": "LF"
+    },
+    "tests/test_guest_invoice_mime_budget.py": {
+      "raw_sha256": "4d7e2574e8a55f4c805ccf2f0005f854138755730c44b70591635f0716d0624f",
+      "canonical_sha256": "4d7e2574e8a55f4c805ccf2f0005f854138755730c44b70591635f0716d0624f",
+      "eol": "LF"
+    },
     "scripts/check-distinct-controls.cjs": {
       "raw_sha256": "2621ea319e73d7f2c5cb3973efd823f7aaee2b08e2c1fd2ac17063837252e009",
       "canonical_sha256": "2621ea319e73d7f2c5cb3973efd823f7aaee2b08e2c1fd2ac17063837252e009",
@@ -29,8 +39,8 @@
       "eol": "LF"
     },
     "scripts/distinct-source-pins.json": {
-      "raw_sha256": "98554cba7f3c9519e55d9557461f817f2062ea3c80f1e23f8cea758c8a1afa08",
-      "canonical_sha256": "d99ec405a244d335985d1261a08617d572b49f58c6c304bf0efcabc62c6990e9",
+      "raw_sha256": "b3c462ef1743ec5016fdc0cbf6785be3f9cae94c515378d2649d80e48dab43c7",
+      "canonical_sha256": "b9841cb92de3aac28f8a269aa98fd0874b126da836589449641e5be327c95e1f",
       "eol": "CRLF"
     },
     "scripts/fixtures/completion-authority-distinct-groups.json": {
@@ -69,8 +79,8 @@
       "eol": "LF"
     },
     "source-admission-hashes.json": {
-      "raw_sha256": "da21bdc448e4e20e3f9f305bd3734ecd8b4aa2781375326540002e05b23df94f",
-      "canonical_sha256": "80869fa3aee834a46475958e101e48fae04aa3ef752584be6ec06a97b42528e8",
+      "raw_sha256": "42bcf550ae30046052d311c5d96907cae55974c2e31d0c8e629c446332f4f333",
+      "canonical_sha256": "42df4c59de7f1a8586accdeaa8dcdd347be77e79511adcbc35f479d8f9eaa568",
       "eol": "CRLF"
     },
     "tests/test_guest_invoice_distinct_mapping.py": {

@@ -8,6 +8,12 @@ const COLLECTION = 'GuestBookingInvoiceIssuances';
 const WRITE = Object.freeze({ suppressAuth: true, suppressHooks: true });
 const READ = Object.freeze({ ...WRITE, consistentRead: true });
 const HOTEL = 'info@wanderlustcaribbean.com';
+// docs/guest-invoice-mime-budget.md: Wix 500kb, conservative decimal bytes.
+// Reserve 100000 platform bytes, then bound full PREPARED JSON + SDK metadata.
+const MAX_ITEM_BYTES = 400000;
+const MAX_METADATA_BYTES = 1638;
+const MAX_ENCODED = Math.floor((MAX_ITEM_BYTES - 551 - MAX_METADATA_BYTES) / 4) * 4;
+const MAX_MIME = MAX_ENCODED / 4 * 3;
 const HEX = /^[a-f0-9]{64}$/;
 const hash = text => createHash('sha256').update(text, 'utf8').digest('hex');
 const key = (domain, values) => hash(domain + '\0' + JSON.stringify(values));
@@ -66,15 +72,18 @@ function stageId(root,kind) { return key('wbe.guest-invoice-delivery.v1',[root._
 function artifactRecord(root,input) {
   const p=data(input);
   equal(p,{encoded:p.encoded,mimeDigest:p.mimeDigest,pdfDigest:p.pdfDigest,rendererVersion:p.rendererVersion});
-  if (typeof p.encoded!=='string' || !p.encoded.length || p.encoded.length>120000 ||
+  if (typeof p.encoded!=='string' || !p.encoded.length || p.encoded.length>MAX_ENCODED ||
       typeof p.mimeDigest!=='string' || !HEX.test(p.mimeDigest) ||
       typeof p.pdfDigest!=='string' || !HEX.test(p.pdfDigest) ||
       !['word','reportlab','reportlab-fallback'].includes(p.rendererVersion)) deny();
   const raw=Buffer.from(p.encoded,'base64');
-  if (raw.toString('base64')!==p.encoded || createHash('sha256').update(raw).digest('hex')!==p.mimeDigest) deny();
-  return Object.freeze({_id:stageId(root,'PREPARED'),kind:'PREPARED',issuanceId:root._id,
+  if (!raw.length || raw.length>MAX_MIME || raw.toString('base64')!==p.encoded ||
+      createHash('sha256').update(raw).digest('hex')!==p.mimeDigest) deny();
+  const record = {_id:stageId(root,'PREPARED'),kind:'PREPARED',issuanceId:root._id,
     documentDigest:root.projectionDigest,...p,
-    artifactDigest:key('wbe.guest-invoice-artifact.v1',[root._id,root.projectionDigest,p.mimeDigest,p.pdfDigest,p.rendererVersion])});
+    artifactDigest:key('wbe.guest-invoice-artifact.v1',[root._id,root.projectionDigest,p.mimeDigest,p.pdfDigest,p.rendererVersion])};
+  if (Buffer.byteLength(JSON.stringify(record),'utf8') + MAX_METADATA_BYTES > MAX_ITEM_BYTES) deny();
+  return Object.freeze(record);
 }
 function startRecord(root,artifact,payload) {
   const p=data(payload);

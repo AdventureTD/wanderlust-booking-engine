@@ -23,7 +23,10 @@ from . import gmail_sender
 
 HOTEL = 'info@wanderlustcaribbean.com'
 HEX = r'[a-f0-9]{64}'
-MAX_MIME = 90000  # finite single-record tranche; larger artifacts defer before START
+# docs/guest-invoice-mime-budget.md: complete PREPARED JSON + worst SDK metadata.
+# 400000 local bytes leaves 100000 below Wix's conservative 500000-byte limit.
+MAX_ENCODED = ((400000 - 551 - 1638) // 4) * 4
+MAX_MIME = (MAX_ENCODED // 4) * 3  # MIME bytes, NOT PDF bytes; deny before mutation
 
 
 def _require(condition):
@@ -105,7 +108,7 @@ def _state(state, issuance_id, expected_root=None):
                  'encoded','mimeDigest','pdfDigest','rendererVersion','artifactDigest'})
         _require(artifact['_id'] == stage('PREPARED') and artifact['kind'] == 'PREPARED' and
                  artifact['issuanceId'] == issuance_id and artifact['documentDigest'] == root['projectionDigest'])
-        _require(type(artifact['encoded']) is str and 0 < len(artifact['encoded']) <= 120000)
+        _require(type(artifact['encoded']) is str and 0 < len(artifact['encoded']) <= MAX_ENCODED)
         raw = base64.b64decode(artifact['encoded'], validate=True)
         _require(0 < len(raw) <= MAX_MIME and base64.b64encode(raw).decode() == artifact['encoded'])
         _require(_digest(raw) == artifact['mimeDigest'] and artifact['rendererVersion'] in ('word','reportlab','reportlab-fallback'))

@@ -37,8 +37,8 @@
       "eol": "CRLF"
     },
     "booking_engine/guest_invoice_delivery.py": {
-      "raw_sha256": "8757e322e39098cc60bcbed8471dc7350ad359ae41684671209e0fd1467bb538",
-      "canonical_sha256": "8757e322e39098cc60bcbed8471dc7350ad359ae41684671209e0fd1467bb538",
+      "raw_sha256": "99b20d8ac0907c2f595db8bc58106dded7e69e76f06f12650493cfb851781122",
+      "canonical_sha256": "99b20d8ac0907c2f595db8bc58106dded7e69e76f06f12650493cfb851781122",
       "eol": "LF"
     },
     "booking_engine/invoice.py": {
@@ -387,8 +387,8 @@
       "eol": "CRLF"
     },
     "velo/backend/guestBookingInvoiceDelivery.js": {
-      "raw_sha256": "b5e27047f870a38a9aaddb13b63deca711775c69bfbcb9edee057f1e20d54ea2",
-      "canonical_sha256": "b5e27047f870a38a9aaddb13b63deca711775c69bfbcb9edee057f1e20d54ea2",
+      "raw_sha256": "8ebcdfe0cdf4daf165cff08ef661a457131982edc51eb08fe8f9708f113d5aa1",
+      "canonical_sha256": "8ebcdfe0cdf4daf165cff08ef661a457131982edc51eb08fe8f9708f113d5aa1",
       "eol": "LF"
     },
     "velo/backend/guestBookingInvoiceIssuance.js": {
