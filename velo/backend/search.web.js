@@ -28,7 +28,7 @@ async function checkHotelClosure(checkIn, checkOut) {
         reason: c.reason || '',
       };
     }
-  } catch (e) {}
+  } catch (e) { return { closed: true, reason: 'Unable to check resort closures. Please try again.' }; }
   return { closed: false };
 }
 

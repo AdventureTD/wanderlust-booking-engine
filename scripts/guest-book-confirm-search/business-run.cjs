@@ -1,0 +1,11 @@
+'use strict';
+// Dedicated business runner. SDK01's original independently admitted receipt
+// remains separate; never relabel it as a rerun against changed runtime bytes.
+const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const selections={E2E01:[['business.cjs'],['serialized.cjs']],RETRY01:[['scenarios.cjs','RETRY01']],INVENTORY01:[['scenarios.cjs','INVENTORY01']],LEGACY01:[['scenarios.cjs','LEGACY01'],['legacy-cases.cjs']],AUTH01:[['scenarios.cjs','AUTH01'],['wire-cases.cjs']]};
+const requested=process.argv[2]||'ALL';assert.ok(requested==='ALL'||Object.hasOwn(selections,requested),'exact business selector required');const ids=requested==='ALL'?Object.keys(selections):[requested],results=[];
+const report={status:'RUNNING',qualification:'LOCAL_DISPOSABLE_AUTHOR_RUNTIME_NOT_INDEPENDENT_REVIEW',results,completedIds:[],hashes:{}};
+for(const name of ['business-admission.json','business.cjs','serialized.cjs','scenarios.cjs','wire-cases.cjs','legacy-cases.cjs','business-run.cjs'])report.hashes[name]=crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,name))).digest('hex');
+const output=path.join(__dirname,'evidence/business-final-run.json');fs.mkdirSync(path.dirname(output),{recursive:true});function save(){fs.writeFileSync(output,JSON.stringify(report,null,2));}save();
+for(const id of ids){const children=[];for(const args of selections[id]){const p=cp.spawnSync(process.execPath,[path.join(__dirname,args[0]),...args.slice(1)],{encoding:'utf8',timeout:180000,maxBuffer:4*1024*1024});const child={args,exit:p.status,signal:p.signal,stdout:p.stdout,stderr:p.stderr,error:p.error?.message};children.push(child);if(p.status!==0)break;let parsed;try{parsed=JSON.parse(p.stdout);}catch{}assert.equal(parsed?.id,id);assert.equal(parsed?.status,'PASS');}const status=children.length===selections[id].length&&children.every(x=>x.exit===0)?'PASS':'FAIL';results.push({id,status,children});if(status==='PASS')report.completedIds.push(id);save();if(status==='FAIL'){report.status='FAIL';save();process.exit(1);}}
+assert.equal(new Set(report.completedIds).size,ids.length);report.status='PASS';save();console.log(JSON.stringify({status:report.status,completedIds:report.completedIds,report:output}));

@@ -1,3 +1,4 @@
+import { handoffGuestBookingAllocation } from 'backend/guestBookingAllocationHandoff';
 import { discoverGuestBookingAcceptances } from 'backend/guestBookingAcceptanceDiscovery';
 import { resumeGuestBookingPhysicalAcquisition } from 'backend/guestBookingPhysicalAcquisition';
 import { createGuestBookingRecoveryProgressStore } from 'backend/guestBookingRecoveryProgressStore';
@@ -39,8 +40,14 @@ export async function recoverGuestBookingCompletions(){
     // Actual acceptance-ID-only coordinator reloads receipt and all authority.
     // Unknown is visited, not confirmed; never detach an in-flight call.
     try{
-     const result=await resumeGuestBookingPhysicalAcquisition(selected);
-     classification=result&&typeof result.status==='string'&&!['UNKNOWN','UNRESOLVED'].includes(result.status)?'COORDINATOR_RETURNED':'COORDINATOR_UNRESOLVED';
+     // Durable acceptance, not a guest credential or returned manifest, is authority.
+     // Both actual APIs independently reload it; only manifest readiness opens physical work.
+     classification='COORDINATOR_UNRESOLVED';
+     const allocation=await handoffGuestBookingAllocation(selected);
+     if(allocation&&allocation.status==='ALLOCATION_HANDOFF_PENDING'){
+      const result=await resumeGuestBookingPhysicalAcquisition(selected);
+      classification=result&&typeof result.status==='string'&&!['UNKNOWN','UNRESOLVED'].includes(result.status)?'COORDINATOR_RETURNED':'COORDINATOR_UNRESOLVED';
+     }
     }catch{classification='COORDINATOR_UNRESOLVED';}
    }
   }

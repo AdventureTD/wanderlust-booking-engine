@@ -19,10 +19,9 @@ import { getAllSettings } from 'backend/settings';
 import { getRoomNames } from 'backend/rooms';
 import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights, getPackagesByNights } from 'backend/packages';
 import { readPricingQuote } from 'backend/pricingQuotes';
-import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
-import { trackPurchase, getStoredClickIds, clearClickIds, initTracking, setSuspendGoogleAds } from 'public/tracking';
-import { recordBookingConversion } from 'backend/googleAdsConversions.web';
-import { recordMicrosoftBookingConversion } from 'backend/microsoftAdsConversions.web';
+import { validatePromoCode } from 'backend/availability';
+import { mountBookConfirmSearch } from 'public/bookConfirmSearch';
+import { getStoredClickIds, initTracking, setSuspendGoogleAds } from 'public/tracking';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
 const ROOM_DISPLAY_NAMES = {
@@ -202,6 +201,9 @@ let _summarySettings = {};
 let _roomRepReady = false;
 let _renderCount = 0;
 let _roomNames = {};
+let _promoRevision = 0;
+let _promoPending = false;
+let _promoCheckingCode = '';
 let _promoDiscount = 0;   // e.g. 0.15
 let _promoCodeApplied = ''; // e.g. 'SAVE15'
 let _selectedPackageId = '';
@@ -379,6 +381,11 @@ async function wirePromoCode() {
   async function applyPromoCode(source) {
     source = source || 'unknown';
     const code = (promoInput.value || '').trim();
+    if (_bookingLocked || (_promoPending && _promoCheckingCode === code)) return;
+    const revision = ++_promoRevision;
+    _promoCheckingCode = code;
+    _promoPending = !!code;
+    invalidateBookingOffer();
     console.log('[WBE-PROMO] applyPromoCode triggered by', source, 'code=', code);
     if (!code) {
       _promoDiscount = 0;
@@ -400,6 +407,8 @@ async function wirePromoCode() {
         dateToStr(_summaryCis),
         dateToStr(_summaryCos)
       );
+      if (_bookingLocked || revision !== _promoRevision || code !== (promoInput.value || '').trim()) return;
+      _promoPending = false;
       console.log('[WBE-PROMO] validatePromoCode result:', JSON.stringify(result));
       if (result && result.valid) {
         _promoDiscount = parseFloat(result.discount) || 0;
@@ -424,6 +433,7 @@ async function wirePromoCode() {
           }
         }
 
+        if (_bookingLocked || revision !== _promoRevision || code !== (promoInput.value || '').trim()) return;
         if (promoDesc) {
           safeText('promoDescription', promoDesc);
           safeExpand('promoDescription');
@@ -448,6 +458,8 @@ async function wirePromoCode() {
         }
       }
     } catch (e) {
+      if (_bookingLocked || revision !== _promoRevision) return;
+      _promoPending = false;
       console.error('[WBE-PROMO] validatePromoCode error:', e.message);
       _promoDiscount = 0;
       _promoCodeApplied = '';
@@ -458,7 +470,7 @@ async function wirePromoCode() {
   }
 
   if (promoBtn && typeof promoBtn.onClick === 'function') {
-    promoBtn.onClick(function () { applyPromoCode('click'); });
+    promoBtn.onClick(function () { return applyPromoCode('click'); });
   }
 
   // Try multiple event APIs; Wix sometimes exposes onKeyPress, onKeyDown, or keyPress
@@ -475,8 +487,8 @@ async function wirePromoCode() {
       console.log('[WBE-PROMO] bound', eventSourceName);
     }
   };
-  bindKey('onKeyPress', 'onKeyPress');
-  bindKey('onKeyDown', 'onKeyDown');
+  if (typeof promoInput.onKeyPress === 'function') bindKey('onKeyPress', 'onKeyPress');
+  else bindKey('onKeyDown', 'onKeyDown');
 
   if (typeof promoInput.onBlur === 'function') {
     promoInput.onBlur(function () {
@@ -490,12 +502,18 @@ async function wirePromoCode() {
 
   if (typeof promoInput.onInput === 'function') {
     promoInput.onInput(function () {
+      if (_bookingLocked) return;
+      _promoRevision++;
+      _promoPending = false;
+      invalidateBookingOffer();
       console.log('[WBE-PROMO] onInput value=', (promoInput.value || '').trim());
     });
   }
 }
 
 async function renderSummary() {
+  if (_bookingLocked) return;
+  invalidateBookingOffer();
   _renderCount++;
   const rooms = _summaryRooms;
   const nights = _summaryNights;
@@ -563,7 +581,7 @@ async function renderSummary() {
     r.propertyFee = roomTotal * propertyFeeRate;
 
     repData.push({
-      _id: 'sum_' + i + '_' + _renderCount,
+      _id: 'sum_' + i + '_' + _renderCount, groupIndex:i,
       roomCode: r.roomCode, roomName: displayName, qty: r.qty, guests: numGuests,
       baseRate: rate, roomTotal: roomTotal, additionalFee: additionalFee,
       occupancy: r.occupancy || 2, baseOccupancy: r.baseOccupancy || 2,
@@ -767,8 +785,10 @@ function initRoomRepeater() {
     safeItem($item, '#roomTotalText', 'text', '$' + fmtCurrency(itemData.roomTotal || 0));
     const rmBtn = safeItem($item, '#removeBtn', null, null);
     if (rmBtn && typeof rmBtn.onClick === 'function') {
+      if (_bookingLocked && typeof rmBtn.disable === 'function') rmBtn.disable();
       rmBtn.onClick(() => {
-        _summaryRooms = _summaryRooms.filter(r => r.roomCode !== itemData.roomCode);
+        if (_bookingLocked || !rep.data.some(row => row._id === itemData._id)) return;
+        _summaryRooms = _summaryRooms.filter((r,index) => index !== itemData.groupIndex);
         renderSummary();
       });
     }
@@ -783,319 +803,153 @@ function renderRoomRepeater(repData) {
   safeExpand('summaryRoomsRepeater');
 }
 
-function wireContinueButton() {
-  console.log('[WBE-FRONTEND] wireContinueButton starting');
-  let btn;
-  try { btn = $w('#btnContinue'); } catch (e) {
-    console.log('[WBE-FRONTEND] btnContinue element not found:', e.message);
-    return;
-  }
-  console.log('[WBE-FRONTEND] btnContinue found. link:', btn.link, 'onClick type:', typeof btn.onClick);
-  if (!btn || typeof btn.onClick !== 'function') {
-    console.log('[WBE-FRONTEND] btnContinue has no onClick method');
-    return;
-  }
-  // Remove any editor-configured navigation so the onClick handler can run.
-  if (typeof btn.link === 'string') btn.link = '';
-  if (typeof btn.target === 'string') btn.target = '';
-  if (typeof btn.action === 'function') {
-    try { btn.action = null; } catch (e) {}
-  }
+// One existing button owns prepare -> explicit confirm -> bounded status refresh.
+// No timer, redirect, invoice or advertising completion side effect is authorized here.
+let _bookingController = null;
+let _bookingConfirm = null;
+let _bookingRefresh = null;
+let _bookingPhase = 'STALE';
+let _bookingSnapshot = '';
+let _bookingLocked = false;
+let _bookingAcceptanceObserved = false;
+let _bookingBusy = false;
+let _bookingDisplay = null;
 
-  btn.onClick(async function () {
-    console.log('[WBE-FRONTEND] btnContinue clicked');
-    const name = safeVal('inputGuestName').trim();
-    const note = safeVal('bookingNotes');
-    const marketSource = safeVal('marketSource').trim();
-    const email = safeVal('inputGuestEmail').trim();
-    const phone = normalizePhone(safeVal('inputGuestPhone'));
-    const dialingCode = safeVal('inputDialingCode').replace(/\D/g, '') || '1';
-
-    if (!name || !email || !phone) {
-      safeText('bookingStatus', 'Please enter the required information to complete your booking');
-      return;
-    }
-    if (email.indexOf('@') < 0) { safeText('bookingStatus', 'Please enter a valid email address.'); return; }
-
-    safeText('bookingStatus', 'Processing your booking...');
-    safeDisable('btnContinue', true);
-
-    const rooms = _summaryRooms || [];
-    const ci = _summaryCis;
-    console.log('[WBE-FRONTEND] continue: rooms=', rooms.length, 'ci=', ci, 'co=', _summaryCos);
-    console.log('[WBE-FRONTEND] dateToStr(ci)=', dateToStr(ci), 'dateToStr(_summaryCos)=', dateToStr(_summaryCos));
-    const bookings = [], errors = [];
-    let sharedBookingNumber = '';
-
-    const att = getStoredClickIds() || {};
-    const clickIds = {
-      gclid: att.gclid || '',
-      gbraid: att.gbraid || '',
-      wbraid: att.wbraid || '',
-      msclkid: att.msclkid || ''
-    };
-
-    try {
-      // Phase 1: book first room to get shared booking number
-      if (rooms.length > 0) {
-        const r0 = rooms[0];
-        const payload0 = {
-          roomCode: r0.roomCode,
-          checkIn: dateToStr(ci),
-          checkOut: dateToStr(_summaryCos),
-          quantity: r0.qty || 1,
-          guests: r0.numGuests || r0.qty || 1,
-          roomFee: r0.roomFee || 0,
-          status: 'confirmed',
-          guestName: name,
-          guestEmail: email,
-          guestPhone: phone,
-          marketSource: marketSource,
-          note: note || '',
-          promoCode: _promoCodeApplied,
-          promoDiscount: _promoDiscount,
-          gclid: clickIds.gclid,
-          gbraid: clickIds.gbraid,
-          wbraid: clickIds.wbraid,
-          msclkid: clickIds.msclkid,
-          packageId: _selectedPackageId || '',
-          packageTitle: _selectedPackageTitle || '',
-          pricingQuoteToken: _pricingQuoteToken
-        };
-        console.log('[WBE-FRONTEND] calling createBooking for first room:', payload0.roomCode);
-        const b0 = await createBooking(payload0);
-        console.log('[WBE-FRONTEND] createBooking returned:', JSON.stringify({ ok: !!b0, bookingNumber: b0 && b0.bookingNumber }));
-        bookings.push(b0);
-        if (b0.bookingNumber) sharedBookingNumber = b0.bookingNumber;
-
-        // Persist notes to BookingSummary separately.
-        try {
-          if (sharedBookingNumber) {
-            const summaryRes = await wixData.query('BookingSummary').eq('bookingNumber', sharedBookingNumber).limit(1).find();
-            if (summaryRes.items.length > 0) {
-              const s = summaryRes.items[0];
-              s.notes = note || '';
-              s.gclid = clickIds.gclid || s.gclid || '';
-              s.gbraid = clickIds.gbraid || s.gbraid || '';
-              s.wbraid = clickIds.wbraid || s.wbraid || '';
-              s.msclkid = clickIds.msclkid || s.msclkid || '';
-              if (s.checkIn) s.checkIn = normalizeDate(s.checkIn);
-              if (s.checkOut) s.checkOut = normalizeDate(s.checkOut);
-              if (s.bookingDate) s.bookingDate = normalizeDate(s.bookingDate);
-              await wixData.update('BookingSummary', s);
-              console.log('[WBE-FRONTEND] updated BookingSummary.notes');
-            }
-          }
-        } catch (noteErr) {
-          console.log('[WBE-FRONTEND] update BookingSummary.notes error:', noteErr.message);
-        }
-      }
-
-      // Phase 2: book remaining rooms in parallel
-      if (rooms.length > 1 && sharedBookingNumber) {
-        const restPromises = [];
-        for (let i = 1; i < rooms.length; i++) {
-          const r = rooms[i];
-          const payload = {
-            roomCode: r.roomCode,
-            checkIn: dateToStr(ci),
-            checkOut: dateToStr(_summaryCos),
-            quantity: r.qty || 1,
-            guests: r.numGuests || r.qty || 1,
-            roomFee: r.roomFee || 0,
-            status: 'confirmed',
-            guestName: name,
-            guestEmail: email,
-            guestPhone: phone,
-            marketSource: marketSource,
-            bookingNumber: sharedBookingNumber,
-            promoCode: _promoCodeApplied,
-            promoDiscount: _promoDiscount,
-            gclid: clickIds.gclid,
-            gbraid: clickIds.gbraid,
-            wbraid: clickIds.wbraid,
-            msclkid: clickIds.msclkid,
-            packageId: _selectedPackageId || '',
-            packageTitle: _selectedPackageTitle || '',
-            pricingQuoteToken: _pricingQuoteToken
-          };
-          restPromises.push(
-            createBooking(payload)
-              .then(function (b) { return { ok: true, b: b }; })
-              .catch(function (e) { return { ok: false, err: r.roomCode + ': ' + e.message }; })
-          );
-        }
-        const restResults = await Promise.all(restPromises);
-        for (let j = 0; j < restResults.length; j++) {
-          const res = restResults[j];
-          if (res.ok) {
-            bookings.push(res.b);
-          } else {
-            errors.push(res.err);
-          }
-        }
-      }
-      if (errors.length > 0) {
-        safeText('bookingStatus', 'Some rooms could not be booked: ' + errors.join('; '));
-        safeDisable('btnContinue', false);
-        return;
-      }
-
-      if (sharedBookingNumber) {
-        safeText('bookingStatus', 'Booking confirmed! Taking you home...');
-
-        const grandTotalText = (safeTextRead('grandTotal') || safeTextRead('grandTotal1') || safeTextRead('grandTotalText'))
-          .replace(/[^0-9.]/g, '') || '0';
-        const grandTotal = parseFloat(grandTotalText) || 0;
-
-        console.log('[WBE-FRONTEND] stored click attribution:', JSON.stringify(clickIds));
-
-        trackPurchase({
-          transactionId: sharedBookingNumber,
-          value: grandTotal,
-          currency: 'USD'
-        });
-
-        const googlePayload = {
-          transactionId: sharedBookingNumber,
-          value: grandTotal,
-          currency: 'USD',
-          gclid: clickIds.gclid,
-          gbraid: clickIds.gbraid,
-          wbraid: clickIds.wbraid,
-          msclkid: clickIds.msclkid,
-          email: email,
-          phone: phone,
-          dialingCode: dialingCode,
-          firstName: name.split(' ')[0],
-          lastName: name.split(' ').slice(1).join(' '),
-          conversionTime: new Date().toISOString()
-        };
-        console.log('[WBE-FRONTEND] calling recordBookingConversion with:', JSON.stringify(googlePayload));
-
-        recordBookingConversion(googlePayload)
-        .then(function (convResult) {
-          console.log('[WBE-GOOGLE] conversion upload result:', JSON.stringify(convResult));
-          if (convResult && convResult.ok) {
-            clearClickIds();
-            try {
-              wixData.query('BookingSummary')
-                .eq('bookingNumber', sharedBookingNumber)
-                .limit(1)
-                .find()
-                .then(function (summaryRes) {
-                  if (summaryRes.items.length > 0) {
-                    const summary = summaryRes.items[0];
-                    summary.googleConversionUploaded = true;
-                    if (summary.checkIn) summary.checkIn = normalizeDate(summary.checkIn);
-                    if (summary.checkOut) summary.checkOut = normalizeDate(summary.checkOut);
-                    if (summary.bookingDate) summary.bookingDate = normalizeDate(summary.bookingDate);
-                    return wixData.update('BookingSummary', summary);
-                  }
-                  return null;
-                })
-                .then(function () { console.log('[WBE-GOOGLE] marked BookingSummary.googleConversionUploaded=true'); })
-                .catch(function (markErr) { console.error('[WBE-GOOGLE] failed to mark conversion uploaded:', markErr && markErr.message || markErr); });
-            } catch (markErr) {
-              console.error('[WBE-GOOGLE] failed to mark conversion uploaded:', markErr && markErr.message || markErr);
-            }
-          }
-        })
-        .catch(function (convErr) {
-          console.error('[WBE-GOOGLE] conversion upload error:', convErr && convErr.message || convErr);
-        });
-
-        // Microsoft Ads conversion upload (mirrors Google, uses msclkid).
-        if (clickIds.msclkid) {
-          const microsoftPayload = {
-            transactionId: sharedBookingNumber,
-            value: grandTotal,
-            currency: 'USD',
-            msclkid: clickIds.msclkid,
-            email: email,
-            phone: phone,
-            firstName: name.split(' ')[0],
-            lastName: name.split(' ').slice(1).join(' '),
-            conversionTime: new Date().toISOString()
-          };
-          console.log('[WBE-FRONTEND] calling recordMicrosoftBookingConversion with:', JSON.stringify(microsoftPayload));
-          recordMicrosoftBookingConversion(microsoftPayload)
-            .then(function (msResult) {
-              console.log('[WBE-MICROSOFT] conversion upload result:', JSON.stringify(msResult));
-              if (msResult && msResult.ok) {
-                try {
-                  wixData.query('BookingSummary')
-                    .eq('bookingNumber', sharedBookingNumber)
-                    .limit(1)
-                    .find()
-                    .then(function (summaryRes) {
-                      if (summaryRes.items.length > 0) {
-                        const summary = summaryRes.items[0];
-                        summary.microsoftConversionUploaded = true;
-                        if (summary.checkIn) summary.checkIn = normalizeDate(summary.checkIn);
-                        if (summary.checkOut) summary.checkOut = normalizeDate(summary.checkOut);
-                        if (summary.bookingDate) summary.bookingDate = normalizeDate(summary.bookingDate);
-                        return wixData.update('BookingSummary', summary);
-                      }
-                      return null;
-                    })
-                    .then(function () { console.log('[WBE-MICROSOFT] marked BookingSummary.microsoftConversionUploaded=true'); })
-                    .catch(function (markErr) { console.error('[WBE-MICROSOFT] failed to mark conversion uploaded:', markErr && markErr.message || markErr); });
-                } catch (markErr) {
-                  console.error('[WBE-MICROSOFT] failed to mark conversion uploaded:', markErr && markErr.message || markErr);
-                }
-                // The purchase signal was already sent through trackPurchase()
-                // above. The Master Page bridge relays it to both Google and the
-                // parent-page UET tag; Velo's sandbox must not access window.uetq
-                // directly.
-              }
-            })
-            .catch(function (msErr) {
-              console.error('[WBE-MICROSOFT] conversion upload error:', msErr && msErr.message || msErr);
-            });
-        }
-
-        // Start invoice creation without blocking the confirmed-booking redirect.
-        // The backend request begins immediately and continues server-side while
-        // the guest sees confirmation briefly and returns home after two seconds.
-        safeText('bookingStatus', 'Booking confirmed! Your invoice is being emailed. Taking you home...');
-        issueBookingInvoice(sharedBookingNumber, false)
-          .then(function (invResult) {
-            console.log('[WBE-FRONTEND] Invoice service response:', JSON.stringify(invResult));
-            if (!invoiceEmailWasAccepted(invResult)) {
-              console.error('[WBE-FRONTEND] Invoice service did not confirm email scheduling:', JSON.stringify(invResult));
-            }
-            if (invResult && invResult._calendar_debug && !invResult._calendar_debug.ok) {
-              console.warn('[WBE-FRONTEND] Calendar event NOT created:', invResult._calendar_debug);
-            }
-          })
-          .catch(function (invoiceError) {
-            console.error('[WBE-FRONTEND] Invoice generation failed after booking confirmation:', invoiceError && invoiceError.message || invoiceError);
-          });
-
-        setTimeout(function () {
-          console.log('[WBE-FRONTEND] confirmed booking redirecting to home');
-          wixLocation.to('https://www.wanderlustcaribbean.com');
-        }, 2000);
-      } else {
-        safeText('bookingStatus', 'Booking confirmed! Taking you home...');
-        wixLocation.to('https://www.wanderlustcaribbean.com');
-      }
-    } catch (e) {
-      console.error('[WBE-FRONTEND] createBooking/invoice flow error:', e.message, e.stack);
-      safeText('bookingStatus', 'Booking error: ' + e.message);
-      safeDisable('btnContinue', false);
-    }
-  });
+function bookingSnapshot() {
+  const att = getStoredClickIds() || {};
+  return {
+    v: 1, checkIn: dateToStr(_summaryCis), checkOut: dateToStr(_summaryCos),
+    packageId: _selectedPackageId, pricingQuoteToken: _pricingQuoteToken,
+    promoCode: _promoCodeApplied,
+    guestName: safeVal('inputGuestName').trim(), guestEmail: safeVal('inputGuestEmail').trim(),
+    guestPhone: normalizePhone(safeVal('inputGuestPhone')),
+    dialingCode: safeVal('inputDialingCode').replace(/\D/g, '') || '1',
+    note: safeVal('bookingNotes'), marketSource: safeVal('marketSource').trim(),
+    gclid: att.gclid || '', gbraid: att.gbraid || '', wbraid: att.wbraid || '', msclkid: att.msclkid || '',
+    summaryRooms: _summaryRooms.map(r => ({roomCode:r.roomCode,qty:r.qty,numGuests:r.numGuests}))
+  };
 }
 
-function invoiceEmailWasAccepted(invResult) {
-  if (!invResult || invResult.emailed === false) return false;
-  if (invResult.emailed === 'scheduled' || invResult.emailed === 'sent') return true;
-  // Backward compatibility for the live Wix backend response used before the
-  // `emailed` field was returned. Invoice number + URL are only returned after
-  // Render accepts and generates the invoice request.
-  return !!(invResult.invoice_number && invResult.invoice_url);
+function invalidateBookingOffer() {
+  if (_bookingLocked) return;
+  _bookingSnapshot = '';
+  _bookingDisplay = null;
+  if (_bookingController) _bookingController.invalidate();
+}
+
+function renderAcceptedFinancials(display) {
+  // Every authoritative money value comes from the original-group backend calculation.
+  const t = display.totals;
+  const money = cents => '$' + fmtCurrency(cents / 100);
+  ['grandTotal','grandTotal1','grandTotalText'].forEach(id => safeText(id,money(t.grandTotalCents)));
+  ['packageSubtotal','packageSubTotal','subtotalNetText'].forEach(id => safeText(id,money(t.roomTotalCents)));
+  ['propertyFeeText','propertyFee2'].forEach(id => safeText(id,money(t.propertyFeeCents)));
+  ['totalVatText','totalVat2'].forEach(id => safeText(id,money(t.totalVatCents)));
+  safeText('vatAccommodationText',money(t.accommodationVatCents));
+  safeText('vatAdventureText',money(t.packageVatCents));
+  // These existing fields label the accommodation/service taxable halves.
+  safeText('vatAcc',money(t.roomTotalCents / 2));
+  safeText('vatSer',money(t.roomTotalCents / 2));
+  safeText('totalGuests',String(t.totalGuests));
+  const hasDiscount = t.discountCents > 0;
+  safeText('promoAmount',hasDiscount ? '(' + money(t.discountCents) + ')' : '');
+  // The accepted calculation supplies rounded amounts, not a nominal promo rate.
+  // Do not reuse the preliminary catalog's percentage or free-form savings claim.
+  safeText('promoDiscountText',hasDiscount ? 'Promo Code (' + _promoCodeApplied + '): -' + fmtCurrency(t.discountCents / 100) : '');
+  safeText('promoStatus',hasDiscount ? _promoCodeApplied + ' applied to this offer.' : '');
+  safeText('promoDescription','');
+  safeCollapse('promoDescription');
+  try { $w('#promoDescription').hide(); } catch (e) {}
+  if (hasDiscount) safeExpand('promoDiscountRow');
+  else safeCollapse('promoDiscountRow');
+  ['promoAmount','promoDiscountText'].forEach(id => {
+    try { if (hasDiscount) $w('#' + id).show(); else $w('#' + id).hide(); } catch (e) {}
+  });
+  const packageCents = Math.round(_selectedPackageStayTotal * 100) * t.totalGuests;
+  ['packageTotal','packageTotal2','packageTotal3'].forEach(id => safeText(id,money(packageCents)));
+  safeText('additionalFee2',money(t.grossCents - packageCents));
+  // Preserve original groups, including duplicate room classes; never merge price groups.
+  renderRoomRepeater(display.groups.map((g,index) => ({
+    _id:'offer_' + index + '_' + _renderCount, groupIndex:index, roomCode:g.roomCode,
+    roomName:getRoomDisplayName(g.roomCode), qty:g.quantity, guests:g.guests,
+    baseRate:_summaryNights > 0 ? _selectedPackageStayTotal / _summaryNights : 0,
+    roomTotal:g.roomTotalCents / 100,
+    additionalFee:(g.grossCents - Math.round(_selectedPackageStayTotal * 100) * g.guests * g.quantity) / 100
+  })));
+}
+
+function renderBookingState(state) {
+  _bookingPhase = state.status;
+  if (state.status === 'ACCEPTED_PENDING' || state.status === 'CONFIRMED') _bookingAcceptanceObserved = true;
+  const btn = $w('#btnContinue');
+  const messages = {
+    STALE:'Booking details changed. Review a new offer before confirming.',
+    PREPARING:'Preparing your booking offer...',
+    OFFER:'Review the total above, then select Confirm booking to accept this offer.',
+    ACCEPTED_PENDING:'Your booking is accepted and still being saved. Check booking status; do not start another booking.',
+    UNKNOWN:_bookingLocked ? 'Booking status is unknown. Check this same booking again; do not start another booking.' : 'Unable to prepare an offer. Review your details and try again.',
+    DENIED:_bookingLocked ? 'This booking credential is unavailable or expired. Confirmation cannot be shown here; do not submit a new booking to retry.' : 'This offer is unavailable or expired. Review a new offer before confirming.'
+  };
+  if (state.status === 'OFFER') {
+    _bookingDisplay = state.display;
+    renderAcceptedFinancials(state.display);
+    safeText('packageName',state.packageTitle);
+    safeText('packageLarge',state.packageTitle);
+  }
+  safeText('bookingStatus',state.status === 'CONFIRMED' ? 'Booking confirmed! Booking number: ' + state.bookingNumber : (messages[state.status] || 'Booking status is unknown.'));
+  btn.label = state.status === 'OFFER' ? 'Confirm booking' : (_bookingLocked ? 'Check booking status' : 'Review booking');
+  safeDisable('btnContinue',_bookingBusy || state.status === 'PREPARING' || state.status === 'CONFIRMED' || (_bookingLocked && state.status === 'DENIED'));
+}
+
+function wireContinueButton() {
+  if (_bookingController) return;
+  const btn = $w('#btnContinue');
+  if (!btn || typeof btn.onClick !== 'function') return;
+  if (typeof btn.link === 'string') btn.link = '';
+  if (typeof btn.target === 'string') btn.target = '';
+  if (typeof btn.action === 'function') { try { btn.action = null; } catch (e) {} }
+  _bookingController = mountBookConfirmSearch({
+    onConfirm:fn => { _bookingConfirm = fn; }, onRefresh:fn => { _bookingRefresh = fn; }, render:renderBookingState
+  });
+  const inputIds = ['inputGuestName','inputGuestEmail','inputGuestPhone','inputDialingCode','bookingNotes','marketSource','promoCode'];
+  inputIds.forEach(id => {
+    try { const el = $w('#' + id); if (typeof el.onInput === 'function') el.onInput(invalidateBookingOffer); if (typeof el.onChange === 'function') el.onChange(invalidateBookingOffer); } catch (e) {}
+  });
+  btn.label = 'Review booking';
+  btn.onClick(async function () {
+    if (_bookingBusy || _bookingPhase === 'CONFIRMED' || (_bookingLocked && _bookingPhase === 'DENIED')) return;
+    if (!_bookingLocked) {
+      if (_promoPending || safeVal('promoCode').trim() !== _promoCodeApplied) {
+        invalidateBookingOffer();
+        safeText('bookingStatus','Apply or clear the promo code before reviewing your booking.'); return;
+      }
+      const snapshot = bookingSnapshot();
+      if (!snapshot.guestName || !snapshot.guestEmail || !snapshot.guestPhone) {
+        invalidateBookingOffer();
+        safeText('bookingStatus','Please enter the required information to complete your booking'); return;
+      }
+      if (snapshot.guestEmail.indexOf('@') < 0) { invalidateBookingOffer(); safeText('bookingStatus','Please enter a valid email address.'); return; }
+      if (_bookingPhase !== 'OFFER' || _bookingSnapshot !== JSON.stringify(snapshot)) {
+        _bookingBusy = true;
+        _bookingSnapshot = JSON.stringify(snapshot);
+        try { await _bookingController.prepare(snapshot); }
+        finally { _bookingBusy = false; safeDisable('btnContinue',false); }
+        return; // A replacement is never accepted by the click that prepared it.
+      }
+      _bookingLocked = true; // An uncertain acceptance must retain this exact operation.
+      inputIds.concat(['btnApplyPromo']).forEach(id => safeDisable(id,true));
+      if (_bookingDisplay) renderAcceptedFinancials(_bookingDisplay);
+    }
+    _bookingBusy = true;
+    safeDisable('btnContinue',true);
+    try {
+      if (!_bookingAcceptanceObserved) await _bookingConfirm();
+      else await _bookingRefresh();
+    } finally {
+      _bookingBusy = false;
+      safeDisable('btnContinue',_bookingPhase === 'CONFIRMED' || _bookingPhase === 'DENIED');
+    }
+  });
 }
 
 function normalizePhone(raw) {

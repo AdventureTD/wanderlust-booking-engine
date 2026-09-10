@@ -67,6 +67,16 @@ function inventoryDateKey(day) {
   return new Date(day * DAY_MS).toISOString().slice(0, 10);
 }
 
+// Read-only expansion of the explicit legacy aggregate topology. Never mutate
+// stored booking identity, quantity, guest or financial values.
+export function inventoryUnitsForRow(row) {
+  const unit = inventoryUnit(row && row.assignedRoom);
+  if (row && row.quantity === 1 && unit !== null && roomCodeForUnit(unit) === row.roomCode) return [unit];
+  if (!row || row.operationId || row.payloadDigest || String(row._id || '').startsWith('pb1-') || row.autoOwnerBlock === true) return [];
+  if (row.roomCode === 'adventure_suite' && unit === 3 && (row.quantity === 2 || row.quantity === 3)) return row.quantity === 2 ? [3, 4] : [3, 4, 5];
+  return [];
+}
+
 export function buildInventorySnapshot(rows, checkIn, checkOut) {
   const startDay = inventoryDay(checkIn);
   const endDay = inventoryDay(checkOut);
@@ -96,10 +106,7 @@ export function buildInventorySnapshot(rows, checkIn, checkOut) {
   });
   const occupiedUnits = [];
   for (const row of guestRows) {
-    const unit = inventoryUnit(row.assignedRoom);
-    if (unit !== null && occupiedUnits.indexOf(unit) === -1) {
-      occupiedUnits.push(unit);
-    }
+    for (const unit of inventoryUnitsForRow(row)) if (occupiedUnits.indexOf(unit) === -1) occupiedUnits.push(unit);
   }
   occupiedUnits.sort(function(a, b) { return a - b; });
   const migrationIssueRows = activeRows.filter(function(row) {
@@ -107,7 +114,8 @@ export function buildInventorySnapshot(rows, checkIn, checkOut) {
     const rowEndDay = inventoryDay(row.checkOut);
     const unit = inventoryUnit(row.assignedRoom);
     return rowStartDay === null || rowEndDay === null || rowEndDay <= rowStartDay ||
-      row.quantity !== 1 || unit === null || roomCodeForUnit(unit) !== row.roomCode;
+      !Number.isSafeInteger(row.quantity) || row.quantity < 1 ||
+      inventoryUnitsForRow(row).length !== row.quantity || unit === null || roomCodeForUnit(unit) !== row.roomCode;
   });
   const occupiedUnitsByNight = {};
   const duplicateUnitClaims = [];
@@ -124,9 +132,11 @@ export function buildInventorySnapshot(rows, checkIn, checkOut) {
         rowEndDay !== null &&
         rowStartDay <= day && day < rowEndDay
       ) {
-        if (nightlyUnits.indexOf(unit) === -1) nightlyUnits.push(unit);
-        if (!nightlyClaims[unit]) nightlyClaims[unit] = [];
-        nightlyClaims[unit].push(String(row._id || ''));
+        for (const occupied of inventoryUnitsForRow(row)) {
+          if (nightlyUnits.indexOf(occupied) === -1) nightlyUnits.push(occupied);
+          if (!nightlyClaims[occupied]) nightlyClaims[occupied] = [];
+          nightlyClaims[occupied].push(String(row._id || ''));
+        }
       }
     }
     nightlyUnits.sort(function(a, b) { return a - b; });

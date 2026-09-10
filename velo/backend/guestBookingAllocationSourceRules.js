@@ -1,4 +1,4 @@
-import { buildInventorySnapshot } from 'backend/roomInventoryRules';
+import { buildInventorySnapshot, inventoryUnitsForRow } from 'backend/roomInventoryRules';
 import { validateRetainedClaimLedger } from 'backend/guestBookingAllocationRetainedRules';
 
 // Source consistency, not authentication or an atomic scan certificate.
@@ -68,12 +68,17 @@ function reconcile(evidence,checkIn,checkOut,additional){
  const projected=projectAllocationSourceRows(evidence[4],evidence[5],checkIn,checkOut),raw=projected.snapshot;
  if(JSON.stringify(raw)!==JSON.stringify(evidence[1])||raw.migrationIssueRows.length||raw.duplicateUnitClaims.length||raw.unknownStatusRows.length)fail();
  const active=ledger.filter(r=>r.eventType==='acquire'&&['unit','capacity'].includes(r.claimType)&&!ledger.some(v=>v.eventType==='release'&&v.claimKey===r.claimKey&&v.generation===r.generation));
- const effective={...raw,occupiedUnits:[],occupiedUnitsByNight:{}};
+ const effective={...raw,occupiedUnits:[],occupiedUnitsByNight:{},occupiedCapacityByNight:{}};
  for(const night of Object.keys(raw.occupiedUnitsByNight)){
   const capacities=active.filter(r=>r.night===night&&r.claimType==='capacity'),units=active.filter(r=>r.night===night&&r.claimType==='unit');
   const co=capacities.map(owner),uo=units.map(owner);if(new Set(co).size!==co.length||new Set(uo).size!==uo.length||uo.some(o=>!co.includes(o)))fail();
+  let legacyCapacity=0;
   for(const row of projected.guestRows){
    if(day(row.checkIn)>night||day(row.checkOut)<=night)continue;
+   if(!row._id.startsWith('pb1-')&&!Object.hasOwn(row,'operationId')&&!Object.hasOwn(row,'payloadDigest')){
+    const legacyUnits=inventoryUnitsForRow(row);if(legacyUnits.length!==row.quantity||units.some(u=>legacyUnits.includes(u.unit)))fail();
+    legacyCapacity+=row.quantity;continue;
+   }
    const matches=units.filter(u=>u.bookingRowId===row._id&&u.bookingNumber===row.bookingNumber&&u.unit===Number(row.assignedRoom));if(matches.length!==1)fail();
    const u=matches[0],identity=ledger.find(v=>v.claimType==='operation'&&v.operationId===u.operationId);
    const ids=identity.manifestBookingRowIds.split('|'),position=ids.indexOf(row._id);
@@ -81,6 +86,8 @@ function reconcile(evidence,checkIn,checkOut,additional){
    for(const k of ['operationId','payloadDigest'])if(Object.hasOwn(row,k)&&row[k]!==u[k])fail();
    if(ledger.some(v=>v.claimType==='operation-decision'&&v.operationId===u.operationId&&v.decisionState==='compensate'))fail();
   }
+  effective.occupiedCapacityByNight[night]=capacities.length+legacyCapacity;
+  if(effective.occupiedCapacityByNight[night]>4)fail();
   effective.occupiedUnitsByNight[night]=[...new Set([...raw.occupiedUnitsByNight[night],...units.map(r=>r.unit)])].sort((a,b)=>a-b);
  }
  effective.occupiedUnits=[...new Set(Object.values(effective.occupiedUnitsByNight).flat())].sort((a,b)=>a-b);

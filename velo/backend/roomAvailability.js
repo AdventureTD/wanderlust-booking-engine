@@ -45,6 +45,7 @@ export async function loadRoomAvailabilityWindowReader(checkIn, checkOut) {
     return availabilityRows({
       occupiedUnits: occupiedUnits,
       occupiedUnitsByNight: occupiedUnitsByNight,
+      occupiedCapacityByNight: snapshot.occupiedCapacityByNight,
       migrationIssueRows: snapshot.migrationIssueRows.slice(),
       duplicateUnitClaims: snapshot.duplicateUnitClaims.slice(),
       unknownStatusRows: snapshot.unknownStatusRows.slice()

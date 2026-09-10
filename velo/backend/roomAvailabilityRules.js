@@ -112,7 +112,9 @@ export function evaluateAutomaticAvailability(snapshot, roomCode, quantity) {
     for (const unit of units) {
       if (guestUnits.indexOf(unit) === -1) guestUnits.push(unit);
     }
-    if (guestUnits.length > 4) {
+    const capacity = snapshot.occupiedCapacityByNight;
+    if (capacity && (!Number.isSafeInteger(capacity[night]) || capacity[night] < 0 || capacity[night] > 4)) throw new Error('Invalid capacity evidence');
+    if (guestUnits.length > 4 || (capacity && capacity[night] + requestedQuantity > 4)) {
       return { available: false, units: [], reason: 'owner_reserve_capacity' };
     }
   }
