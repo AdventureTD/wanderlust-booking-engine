@@ -1,0 +1,37 @@
+{
+  "allowedAfterSeparateApproval": [
+    [
+      "python",
+      "-B",
+      "scripts/private-invoice-wire/test_adapter.py"
+    ],
+    [
+      "node",
+      "--experimental-vm-modules",
+      "scripts/private-invoice-wire/test_dispatch.cjs"
+    ],
+    [
+      "node",
+      "--experimental-vm-modules",
+      "scripts/private-invoice-wire/import-init.cjs"
+    ],
+    [
+      "python",
+      "-B",
+      "tests/test_guest_invoice_wire_rich_state.py",
+      "-v"
+    ],
+    [
+      "python",
+      "-B",
+      "tests/test_guest_invoice_wire_artifact_ack.py",
+      "-v"
+    ]
+  ],
+  "classification": "NOTRUN: portable support needs independent review",
+  "excluded": "No native fixtures, historical actual-reader loaders, providers, package initializer, semantic consumer, backend calls, producers, default/restricted/network/live runs.",
+  "preservedNotSelected": {
+    "scripts/verify-guest-invoice-wire-auth.cjs": "Historical import allowlist excludes new Delivery import; do not run or repin.",
+    "tests/test_guest_invoice_wire_auth.py": "Calls historical incompatible verifier; not selected."
+  }
+}
