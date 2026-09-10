@@ -2,7 +2,8 @@
 // A/O/D must come from trusted server discovery, never caller-selected guest IDs.
 import wixData from 'wix-data';
 import { createHash } from 'crypto';
-import { readRecoveredGuestBookingCompletion } from 'backend/guestBookingCompletionAuthority';
+import { readRecoveredGuestBookingCompletion, readTransportBoundGuestBookingCompletion } from 'backend/guestBookingCompletionAuthority';
+import { transportExpectation, withTransportFence } from 'backend/guestBookingInvoiceTransportAuth';
 
 const COLLECTION = 'GuestBookingInvoiceIssuances';
 const WRITE = Object.freeze({ suppressAuth: true, suppressHooks: true });
@@ -47,8 +48,9 @@ async function exact(collection, id) {
   if (!item || !Object.hasOwn(item,'value')) deny();
   return data(item.value);
 }
-async function authority(a,o,d) {
-  const completion = await readRecoveredGuestBookingCompletion(a,o,d);
+async function authority(a,o,d,ctx) {
+  const expectation = ctx === undefined ? null : transportExpectation(ctx);
+  const completion = await (expectation ? readTransportBoundGuestBookingCompletion(ctx) : readRecoveredGuestBookingCompletion(a,o,d));
   if (completion.status !== 'VERIFIED_COMPLETION') deny();
   const r = completion.receipt;
   const expected = Object.freeze({
@@ -59,6 +61,9 @@ async function authority(a,o,d) {
     recipientBindingDigest:r.recipientBindingDigest, projectionCanonical:r.projectionCanonical,
     to:r.recipient, cc:HOTEL, from:HOTEL
   });
+  if (expectation && (r.audience !== expectation.audience || r.acceptanceId !== expectation.acceptanceId ||
+      r.operationId !== expectation.operationId || r.rootDigest !== expectation.rootDigest ||
+      r._id !== 'gbc1-' + expectation.acceptanceId || expected._id !== expectation.issuanceId)) deny();
   equal(await exact(COLLECTION,expected._id),expected);
   // Finite initial tranche: positively established empty payment history ONLY.
   // Nonempty/unknown payments defer; never convert failed reads into zero paid.
@@ -111,42 +116,74 @@ async function state(root) {
   if (ack) ack=equal(ack,ackRecord(root,start,{artifactDigest:ack.artifactDigest,invocationNonce:ack.invocationNonce,providerMessageId:ack.providerMessageId}));
   return {status:ack?'PROVIDER_ACCEPTED':start?'OWNER_REVIEW_REQUIRED':'READY',root,payments:[],artifact,start,ack};
 }
-async function append(record) {
-  try { await wixData.insert(COLLECTION,record,WRITE); } catch (_) { /* never used for START */ }
+async function append(record,preMutation) {
+  if (!preMutation) {
+    try { await wixData.insert(COLLECTION,record,WRITE); } catch (_) { /* never used for START */ }
+  } else {
+    const nativeInsert = wixData.insert.bind(wixData);
+    // Only native insertion errors reconcile; an asynchronous fence error escapes.
+    await preMutation(() => {
+      try { return Promise.resolve(nativeInsert(COLLECTION,record,WRITE)).catch(() => undefined); }
+      catch (_) { return undefined; }
+    });
+  }
   equal(await exact(COLLECTION,record._id),record);
 }
 export async function guestBookingInvoiceDeliveryOperation(a,o,d,operation,payload) {
   if (arguments.length !== 5 || [a,o,d].some(v=>typeof v!=='string'||!HEX.test(v)) ||
       a!==hash('wbe.acceptance-id.v2\0'+o) ||
       !['readIssuance','commitArtifact','tryStart','recordAck'].includes(operation)) return {status:'DENIED'};
+  return deliveryOperation(a,o,d,operation,payload);
+}
+// No context can be enrolled by a public caller. Enrollment and wire authentication
+// are not exported/activated by this prerequisite. Missing ctx never selects legacy.
+export async function guestBookingInvoiceDeliveryBoundOperation(ctx,operation,payload) {
+  if (arguments.length !== 3) return {status:'DENIED'};
+  let result;
+  try {
+    const e=transportExpectation(ctx);
+    if (!['readIssuance','commitArtifact','tryStart','recordAck'].includes(operation) ||
+        e.acceptanceId!==hash('wbe.acceptance-id.v2\0'+e.operationId)) return {status:'DENIED'};
+    result=await deliveryOperation(e.acceptanceId,e.operationId,e.rootDigest,operation,payload,ctx);
+    return await withTransportFence(ctx,'responseRelease',()=>result);
+  } catch (_) { return {status:result && (result.won===true || result.status==='OWNER_REVIEW_REQUIRED')?'OWNER_REVIEW_REQUIRED':'UNAVAILABLE'}; }
+}
+async function deliveryOperation(a,o,d,operation,payload,ctx) {
+  const preMutation=ctx===undefined?null:invoke=>withTransportFence(ctx,'preMutation',invoke);
   let attemptedStart=false;
   try {
-    const root = await authority(a,o,d);
+    const root = await authority(a,o,d,ctx);
     const current=await state(root);
     if (operation==='readIssuance') { equal(payload,{}); return current; }
     if (operation==='recordAck') {
       const record=ackRecord(root,current.start,payload);
       if (current.ack) {equal(current.ack,record);return current;}
-      equal(await authority(a,o,d),root);
-      await append(record);
+      equal(await authority(a,o,d,ctx),root);
+      await append(record,preMutation);
       return await state(root);
     }
     if (current.start || current.ack) return current;
     if (operation==='commitArtifact') {
       const record=artifactRecord(root,payload);
       if (current.artifact) {equal(current.artifact,record);return current;}
-      equal(await authority(a,o,d),root);
-      await append(record);
+      equal(await authority(a,o,d,ctx),root);
+      await append(record,preMutation);
       return await state(root);
     }
     const record=startRecord(root,current.artifact,payload);
-    equal(await authority(a,o,d),root);
+    equal(await authority(a,o,d,ctx),root);
     // Only this native insertion's positive acknowledgment AND exact readback
     // confer an ephemeral grant. Duplicate/lost ACK must NEVER reconstruct it.
-    attemptedStart=true;
-    equal(await wixData.insert(COLLECTION,record,WRITE),record);
+    if (preMutation) {
+      const nativeInsert=wixData.insert.bind(wixData);
+      equal(await preMutation(()=>{attemptedStart=true;return nativeInsert(COLLECTION,record,WRITE);}),record);
+    } else {
+      attemptedStart=true;
+      equal(await wixData.insert(COLLECTION,record,WRITE),record);
+    }
     equal(await exact(COLLECTION,record._id),record);
-    equal(await authority(a,o,d),root);
-    return {won:true,invocationNonce:record.invocationNonce,artifactDigest:record.artifactDigest};
+    equal(await authority(a,o,d,ctx),root);
+    const grant={won:true,invocationNonce:record.invocationNonce,artifactDigest:record.artifactDigest};
+    return ctx===undefined?grant:await withTransportFence(ctx,'resultGrant',()=>grant);
   } catch (_) { return {status:attemptedStart?'OWNER_REVIEW_REQUIRED':'UNAVAILABLE'}; }
 }
