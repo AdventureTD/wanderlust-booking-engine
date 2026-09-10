@@ -1,0 +1,231 @@
+{
+  "verdict": "HOLD; finite S13 prerequisite missing; no independent approval",
+  "parent": "bdb4093bb4332594001436b50eb47b9c4e693761",
+  "ledger": [
+    {
+      "id": "S01",
+      "status": "HISTORICAL_PASS_REUSED",
+      "evidence": [
+        {
+          "file": "S01-green.json",
+          "sha256": "189bfdcc1e2b3bfcdd5de5a9dafc27f683d00f38d46c656f51b68a7e6a225419",
+          "hashes": {
+            "scripts/guest-status/admission.json": "7f6c86aecd09ea4cb1e9d50ca839bf68ab5a82f3342c8acb8b303679ca2b1600",
+            "scripts/guest-status/loader.cjs": "be0c926575c4245a9abbb43ba518f141ce1bcd36fcd1e5193949d68429078ba0",
+            "scripts/guest-status/status-tests.cjs": "0aeddac1a7d4667e9a823afcc6ceb80fc6649016973defc4b7268e041beffd5c",
+            "velo/backend/guestBookingCompletionStatus.js": "f938da2c2ad8be4cec753fb908ce982c1fe314494238e243b9391a549785b7a5"
+          }
+        },
+        {
+          "file": "S01-regression-after-clock.json",
+          "sha256": "acfdb18cdb8823fcf422f8640c514faf49ba39dc10e17495fe98af595c72771a",
+          "hashes": {
+            "scripts/guest-status/admission.json": "7f6c86aecd09ea4cb1e9d50ca839bf68ab5a82f3342c8acb8b303679ca2b1600",
+            "scripts/guest-status/loader.cjs": "be0c926575c4245a9abbb43ba518f141ce1bcd36fcd1e5193949d68429078ba0",
+            "scripts/guest-status/status-tests.cjs": "e5cc1ece6a37350efea220a8e773d26b9f5fd936861e41ec359c4e61831c953b",
+            "velo/backend/guestBookingCompletionStatus.js": "cb10ac7c9f13fe830cc924379196074b91f8a7c4043b2dda0d7118398fa0b7b7"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S02",
+      "status": "HISTORICAL_PASS_REUSED",
+      "evidence": [
+        {
+          "file": "S02-green.json",
+          "sha256": "524e21ace7d9dd2b22940a4eafba0e1619df2011c9a2efcd62229164a0e01b91",
+          "hashes": {
+            "scripts/guest-status/admission.json": "7f6c86aecd09ea4cb1e9d50ca839bf68ab5a82f3342c8acb8b303679ca2b1600",
+            "scripts/guest-status/loader.cjs": "be0c926575c4245a9abbb43ba518f141ce1bcd36fcd1e5193949d68429078ba0",
+            "scripts/guest-status/status-tests.cjs": "e5cc1ece6a37350efea220a8e773d26b9f5fd936861e41ec359c4e61831c953b",
+            "velo/backend/guestBookingCompletionStatus.js": "cb10ac7c9f13fe830cc924379196074b91f8a7c4043b2dda0d7118398fa0b7b7"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S03",
+      "status": "HISTORICAL_PASS_REUSED",
+      "evidence": [
+        {
+          "file": "S03-green.json",
+          "sha256": "34face3599fc919e044760ca597f35ba1a0332823992563456decf91c12dc0f3",
+          "hashes": {
+            "scripts/guest-status/admission.json": "7f6c86aecd09ea4cb1e9d50ca839bf68ab5a82f3342c8acb8b303679ca2b1600",
+            "scripts/guest-status/loader.cjs": "be0c926575c4245a9abbb43ba518f141ce1bcd36fcd1e5193949d68429078ba0",
+            "scripts/guest-status/status-tests.cjs": "57aeaa57cdbd66371e63a773469afb19753fcff6f4d62092d34bd1396a5c12d2",
+            "velo/backend/guestBookingCompletionStatus.js": "ea762eebbab7f986d9d5551ff1c65aabbf090af8571beb71db631885ac07c92e"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S04",
+      "status": "HISTORICAL_PASS_REUSED",
+      "evidence": [
+        {
+          "file": "S04-green.json",
+          "sha256": "077f568a5eeaccb005228698d447ef02bb417f1a1c7b0fffdb309e1ff8cda46c",
+          "hashes": {
+            "scripts/guest-status/admission.json": "0d49594377207bd91cf87c55e81ec62755f752e6752e2b83660a462194754d20",
+            "scripts/guest-status/loader.cjs": "be0c926575c4245a9abbb43ba518f141ce1bcd36fcd1e5193949d68429078ba0",
+            "scripts/guest-status/status-tests.cjs": "293a113a4f1c9fc671ce17459681abece7a0c0291f385874074d19f9518ddd50",
+            "velo/backend/guestBookingCompletionStatus.js": "e710b92c21d7e64ccf75f8891a13d85d4d1fcd244a963e4513ab0afeb017e543"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S05",
+      "status": "HISTORICAL_PASS_REUSED",
+      "evidence": [
+        {
+          "file": "S05-baseline.json",
+          "sha256": "9d603dc48bced9e7bef9aa915c009f2812f7da55a3dba0d3e10a07894e97a700",
+          "hashes": {
+            "scripts/guest-status/admission.json": "0d49594377207bd91cf87c55e81ec62755f752e6752e2b83660a462194754d20",
+            "scripts/guest-status/loader.cjs": "cba6160010f610071555412d0626eee3418e7b9bf5cb6203a32be691bdd1e728",
+            "scripts/guest-status/status-tests.cjs": "7b32bfde76e65a914430ccdfc10671668b10d2b41becdae0341be0c866eae10b",
+            "velo/backend/guestBookingCompletionStatus.js": "e710b92c21d7e64ccf75f8891a13d85d4d1fcd244a963e4513ab0afeb017e543"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S06",
+      "status": "HISTORICAL_PASS_REUSED",
+      "evidence": [
+        {
+          "file": "S06-baseline.json",
+          "sha256": "045e82f6e753299f08c11a6a37e4a3f7a2e03c07432f4defa2a11119ccc8f202",
+          "hashes": {
+            "scripts/guest-status/admission.json": "0d49594377207bd91cf87c55e81ec62755f752e6752e2b83660a462194754d20",
+            "scripts/guest-status/loader.cjs": "cba6160010f610071555412d0626eee3418e7b9bf5cb6203a32be691bdd1e728",
+            "scripts/guest-status/status-tests.cjs": "7b32bfde76e65a914430ccdfc10671668b10d2b41becdae0341be0c866eae10b",
+            "velo/backend/guestBookingCompletionStatus.js": "e710b92c21d7e64ccf75f8891a13d85d4d1fcd244a963e4513ab0afeb017e543"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S07",
+      "status": "HISTORICAL_PASS_REUSED",
+      "evidence": [
+        {
+          "file": "S07-baseline.json",
+          "sha256": "1b698478a9672bdcb2c67b2145d0e50763942c9bcea5e0dfd871e886c2b5093c",
+          "hashes": {
+            "scripts/guest-status/admission.json": "0d49594377207bd91cf87c55e81ec62755f752e6752e2b83660a462194754d20",
+            "scripts/guest-status/loader.cjs": "cba6160010f610071555412d0626eee3418e7b9bf5cb6203a32be691bdd1e728",
+            "scripts/guest-status/status-tests.cjs": "7b32bfde76e65a914430ccdfc10671668b10d2b41becdae0341be0c866eae10b",
+            "velo/backend/guestBookingCompletionStatus.js": "e710b92c21d7e64ccf75f8891a13d85d4d1fcd244a963e4513ab0afeb017e543"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S08",
+      "status": "HISTORICAL_PASS_REUSED",
+      "evidence": [
+        {
+          "file": "S08-baseline.json",
+          "sha256": "bd0147753c6d6e4d79790208965b04b69c9e021947c968b1a0b104904f0d7ab9",
+          "hashes": {
+            "scripts/guest-status/admission.json": "0d49594377207bd91cf87c55e81ec62755f752e6752e2b83660a462194754d20",
+            "scripts/guest-status/loader.cjs": "cba6160010f610071555412d0626eee3418e7b9bf5cb6203a32be691bdd1e728",
+            "scripts/guest-status/status-tests.cjs": "7b32bfde76e65a914430ccdfc10671668b10d2b41becdae0341be0c866eae10b",
+            "velo/backend/guestBookingCompletionStatus.js": "e710b92c21d7e64ccf75f8891a13d85d4d1fcd244a963e4513ab0afeb017e543"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S09",
+      "status": "HISTORICAL_PASS_REUSED",
+      "evidence": [
+        {
+          "file": "S09-baseline.json",
+          "sha256": "406c29b7a4b8b52abec041a4ab2aa33cb03a0f8fa5138ec62b5df47cf02ac673",
+          "hashes": {
+            "scripts/guest-status/admission.json": "0d49594377207bd91cf87c55e81ec62755f752e6752e2b83660a462194754d20",
+            "scripts/guest-status/loader.cjs": "cba6160010f610071555412d0626eee3418e7b9bf5cb6203a32be691bdd1e728",
+            "scripts/guest-status/status-tests.cjs": "7b32bfde76e65a914430ccdfc10671668b10d2b41becdae0341be0c866eae10b",
+            "velo/backend/guestBookingCompletionStatus.js": "e710b92c21d7e64ccf75f8891a13d85d4d1fcd244a963e4513ab0afeb017e543"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S10",
+      "status": "HISTORICAL_PASS_REUSED",
+      "evidence": [
+        {
+          "file": "S10-baseline.json",
+          "sha256": "381ac3580033ff0ffdbdf43207c423200a9573a8423e634d0b47eb6b3cfe8177",
+          "hashes": {
+            "scripts/guest-status/admission.json": "0d49594377207bd91cf87c55e81ec62755f752e6752e2b83660a462194754d20",
+            "scripts/guest-status/loader.cjs": "cba6160010f610071555412d0626eee3418e7b9bf5cb6203a32be691bdd1e728",
+            "scripts/guest-status/status-tests.cjs": "7b32bfde76e65a914430ccdfc10671668b10d2b41becdae0341be0c866eae10b",
+            "velo/backend/guestBookingCompletionStatus.js": "e710b92c21d7e64ccf75f8891a13d85d4d1fcd244a963e4513ab0afeb017e543"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S11",
+      "status": "HISTORICAL_PASS_REUSED",
+      "evidence": [
+        {
+          "file": "S11-green.json",
+          "sha256": "e3ad9ff92c59e9a5bfaf672cf9b316308ced1bf48476e1cc4264c82221aa2611",
+          "hashes": {
+            "scripts/guest-status/admission.json": "0d49594377207bd91cf87c55e81ec62755f752e6752e2b83660a462194754d20",
+            "scripts/guest-status/loader.cjs": "cba6160010f610071555412d0626eee3418e7b9bf5cb6203a32be691bdd1e728",
+            "scripts/guest-status/status-tests.cjs": "d090386f0c444d368bc6a8b873d437150eb18428b1c231bdbcacd7ac035e3054",
+            "velo/backend/guestBookingCompletionStatus.js": "3f72851dfdc46026bdca810859101f6955ed4e131ef82178d5a6383514d267c9"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S12",
+      "status": "BASELINE_GREEN_NEW_EXECUTION",
+      "evidence": [
+        {
+          "file": "S12-recovery-baseline.json",
+          "sha256": "f3bcafcac398dd8def114c2e3c2aec4afc745da9ef1c463a175637ed447b8b3c",
+          "hashes": {
+            "scripts/guest-status/admission.json": "0d49594377207bd91cf87c55e81ec62755f752e6752e2b83660a462194754d20",
+            "scripts/guest-status/loader.cjs": "a01d62770d68767f3b2ace59e4a5ffcd33df9c4f04ff17e35ef7ae5519c977f1",
+            "scripts/guest-status/status-tests.cjs": "312dc2ecf9653cb5a4fbb1d3fe2d50787c6601a34b382bc2c2ef8ef23f79e747",
+            "velo/backend/guestBookingCompletionStatus.js": "3f72851dfdc46026bdca810859101f6955ed4e131ef82178d5a6383514d267c9"
+          }
+        }
+      ]
+    },
+    {
+      "id": "S13",
+      "status": "BLOCKED_NOTRUN",
+      "evidence": []
+    }
+  ],
+  "completed_unique_ids": 12,
+  "remaining": [
+    "S13"
+  ],
+  "blocker": "S13 reads scripts/guest-status/credential-vector.json; absent in worktree and no matching saved vector filename in checkpoints. No vector write appears in recovered transcript. Creating new independent fixture/vector would exceed preserve-sources / previously-admitted-only recovery scope. S13 never executed in recovery.",
+  "preservation": "All four candidate/support source hashes and all 17 pre-recovery evidence hashes unchanged.",
+  "native_git_status": {
+    "exit": 0,
+    "stdout": "?? scripts/guest-status/admission.json\n?? scripts/guest-status/loader.cjs\n?? scripts/guest-status/status-tests.cjs\n?? velo/backend/guestBookingCompletionStatus.js\n",
+    "stderr": ""
+  },
+  "review_notes": [
+    "Actual service verifies command=status before acceptance read; acceptance ID derives from signed intentId, independent root validates signed claims and exact capsule before retained-reader A/O/D call. Receipt or bookingNumber is not credential authority.",
+    "S12 verifies read-only retained-reader independence from guest expiry, not recovery coordinator/producers.",
+    "Historical S01-S10 executions predate final S11 runtime change; reused hashes remain historical, not whole-current-source regression approval.",
+    "Candidate is not hash-pinned in admission.json itself; external recovery inventory binds its exact bytes for this run.",
+    "Original runtime/test authorship requires a separate independent byte/effect review; this recovery is execution/custody work, not release approval."
+  ]
+}

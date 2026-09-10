@@ -1,0 +1,17 @@
+{
+  "label": "S01-regression-after-clock",
+  "command": [
+    "node",
+    "scripts/guest-status/status-tests.cjs",
+    "S01"
+  ],
+  "exit": 0,
+  "stdout": "{\"completed\":1,\"cases\":[\"S01\"]}\n",
+  "stderr": "",
+  "hashes": {
+    "scripts/guest-status/admission.json": "7f6c86aecd09ea4cb1e9d50ca839bf68ab5a82f3342c8acb8b303679ca2b1600",
+    "scripts/guest-status/loader.cjs": "be0c926575c4245a9abbb43ba518f141ce1bcd36fcd1e5193949d68429078ba0",
+    "scripts/guest-status/status-tests.cjs": "e5cc1ece6a37350efea220a8e773d26b9f5fd936861e41ec359c4e61831c953b",
+    "velo/backend/guestBookingCompletionStatus.js": "cb10ac7c9f13fe830cc924379196074b91f8a7c4043b2dda0d7118398fa0b7b7"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "label": "S01-red",
+  "command": [
+    "node",
+    "scripts/guest-status/status-tests.cjs",
+    "S01"
+  ],
+  "exit": 1,
+  "stdout": "",
+  "stderr": "AssertionError [ERR_ASSERTION]: private authenticated status implementation required\n    at cases.S01 (C:\\Users\\TomDe\\booking-guest-completion-status-worktree\\scripts\\guest-status\\status-tests.cjs:11:9)\n    at main (C:\\Users\\TomDe\\booking-guest-completion-status-worktree\\scripts\\guest-status\\status-tests.cjs:17:208)\n    at Object.<anonymous> (C:\\Users\\TomDe\\booking-guest-completion-status-worktree\\scripts\\guest-status\\status-tests.cjs:18:1)\n    at Module._compile (node:internal/modules/cjs/loader:1781:14)\n    at Object..js (node:internal/modules/cjs/loader:1913:10)\n    at Module.load (node:internal/modules/cjs/loader:1505:32)\n    at Function._load (node:internal/modules/cjs/loader:1309:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)\n    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)\n    at node:internal/main/run_main_module:36:49 {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: false,\n  expected: true,\n  operator: '==',\n  diff: 'simple'\n}\n",
+  "hashes": {
+    "scripts/guest-status/admission.json": "7f6c86aecd09ea4cb1e9d50ca839bf68ab5a82f3342c8acb8b303679ca2b1600",
+    "scripts/guest-status/loader.cjs": "be0c926575c4245a9abbb43ba518f141ce1bcd36fcd1e5193949d68429078ba0",
+    "scripts/guest-status/status-tests.cjs": "0aeddac1a7d4667e9a823afcc6ceb80fc6649016973defc4b7268e041beffd5c"
+  }
+}

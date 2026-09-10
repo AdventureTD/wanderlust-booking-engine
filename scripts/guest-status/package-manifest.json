@@ -1,0 +1,402 @@
+{
+  "base": "bdb4093bb4332594001436b50eb47b9c4e693761",
+  "normalization": "CRLF -> LF only; no trim or other rewriting",
+  "scope": "selected members only; manifest externally anchored; no backend execution",
+  "members": {
+    "scripts/fixtures/completion-authority-compensated.json": {
+      "rawSha256": "349ee400de6556fd56c30a2f12399fada8479220d3a72d9e0d8db57574107818",
+      "canonicalSha256": "349ee400de6556fd56c30a2f12399fada8479220d3a72d9e0d8db57574107818",
+      "role": "retained parent fixture"
+    },
+    "scripts/fixtures/completion-authority-foreign.json": {
+      "rawSha256": "9546cdcfa9ee27e8a376fb4714159c8902794c511af35e8aba7b82132bcc2506",
+      "canonicalSha256": "9546cdcfa9ee27e8a376fb4714159c8902794c511af35e8aba7b82132bcc2506",
+      "role": "retained parent fixture"
+    },
+    "scripts/fixtures/completion-authority-history.json": {
+      "rawSha256": "ee07c3ac0067452deb334c0b2e4086c26cf3e5ab18d740cca77f0a520395bed9",
+      "canonicalSha256": "ee07c3ac0067452deb334c0b2e4086c26cf3e5ab18d740cca77f0a520395bed9",
+      "role": "retained parent fixture"
+    },
+    "scripts/guest-status/admission.json": {
+      "rawSha256": "acf438877abb5e9ed6f4944c12a3834fdaf7c1872cc2fceb645cdb10c8bd4ca8",
+      "canonicalSha256": "acf438877abb5e9ed6f4944c12a3834fdaf7c1872cc2fceb645cdb10c8bd4ca8",
+      "role": "reviewed authored file"
+    },
+    "scripts/guest-status/credential-vector.json": {
+      "rawSha256": "29210ef23fe29145542e09a4224f995bdc8d2404cd35db36f8a59162506e7653",
+      "canonicalSha256": "553b893ad74b03176af8e96e04ecbdf7f38ded3770c645db51c40f1bb87f4368",
+      "role": "NEW vector"
+    },
+    "scripts/guest-status/inspect-package.py": {
+      "rawSha256": "2eb24ae520de610adecc1d3447795675d94eafdf1e495ec4fa6d7b55233c5edd",
+      "canonicalSha256": "2eb24ae520de610adecc1d3447795675d94eafdf1e495ec4fa6d7b55233c5edd",
+      "role": "NEW packaging support"
+    },
+    "scripts/guest-status/loader.cjs": {
+      "rawSha256": "09c0b4e0c7395fcfc569765f146a5df00ea931f83c9f1abc164f0ba27e4e250e",
+      "canonicalSha256": "09c0b4e0c7395fcfc569765f146a5df00ea931f83c9f1abc164f0ba27e4e250e",
+      "role": "reviewed authored file"
+    },
+    "scripts/guest-status/PACKAGE.md": {
+      "rawSha256": "5b031833cd679e92c0a93988e0ef46ec5ff0452bb9675ab4cb7041840bd51a47",
+      "canonicalSha256": "5b031833cd679e92c0a93988e0ef46ec5ff0452bb9675ab4cb7041840bd51a47",
+      "role": "NEW packaging support"
+    },
+    "scripts/guest-status/provenance/artifact-manifest.json": {
+      "rawSha256": "374e575e633e336d971e11c1ccfd5f97042e943ef3ce26acc30a61e6e52c3103",
+      "canonicalSha256": "d77c7fae7a3c99fa986435c03abc3d9e3579c1420cacc7811c81d9741bb4cf8e",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/booking-guest-status-final-review.md": {
+      "rawSha256": "7ade6feccceb906333dbd104aea879a8c3415523d9bcfdba786692e9b0c0c8b8",
+      "canonicalSha256": "7ade6feccceb906333dbd104aea879a8c3415523d9bcfdba786692e9b0c0c8b8",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/custody-before.json": {
+      "rawSha256": "c0e849dfdff374e0d456ece6de3a89b1afff8b7764e08096efd06f8a90132de7",
+      "canonicalSha256": "c0706f9c92bb869c7f181a1df146f61d4486c1ffd27ce5c410d5604f3c7aade8",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/final-verification.json": {
+      "rawSha256": "5da730a0c8defa70494dd776415dfea1a11aafb96ff146b0c014daa561cd9a78",
+      "canonicalSha256": "55f01834ec6d8000e4b73f3001eb5a67ccb38033606bd43084f22692ad6798e0",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/recovery-final-ledger.json": {
+      "rawSha256": "78df57d1433109163088602601a9457d01cb39a43aa3c2b73a383e35d65632aa",
+      "canonicalSha256": "78df57d1433109163088602601a9457d01cb39a43aa3c2b73a383e35d65632aa",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/recovery-inventory.json": {
+      "rawSha256": "9d2b6496ec6e33e98c62e63684d62b3a886356c5a193fb2393252d842dd19e82",
+      "canonicalSha256": "9d2b6496ec6e33e98c62e63684d62b3a886356c5a193fb2393252d842dd19e82",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/recovery-source-custody.json": {
+      "rawSha256": "bef206bf7dbe206f17d18bf2bbabd87eeee8a34c9adfced9e395b7b62fa66d61",
+      "canonicalSha256": "bef206bf7dbe206f17d18bf2bbabd87eeee8a34c9adfced9e395b7b62fa66d61",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S01-green.json": {
+      "rawSha256": "189bfdcc1e2b3bfcdd5de5a9dafc27f683d00f38d46c656f51b68a7e6a225419",
+      "canonicalSha256": "de103a6450103b177effa6b6efe942e7675f0e235fcf6459bd0aa393b7e78b0c",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S01-red.json": {
+      "rawSha256": "20efb385b548bfbb9b68daa08e01a31d929b44a8192b90395179c9e721aebe68",
+      "canonicalSha256": "43a1ed68acbccd57e805b7cd4721b4972e1986b28a5affe6a842b031289aa75f",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S01-regression-after-clock.json": {
+      "rawSha256": "acfdb18cdb8823fcf422f8640c514faf49ba39dc10e17495fe98af595c72771a",
+      "canonicalSha256": "59ab9fd365ac33bab92dead59494a08bba4cc879af1fe07848fc963ba66b6341",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S02-green.json": {
+      "rawSha256": "524e21ace7d9dd2b22940a4eafba0e1619df2011c9a2efcd62229164a0e01b91",
+      "canonicalSha256": "32ea409a35df27973cb9a663a103ab57dd68e67726dbe032a27f3dcc5f4826dd",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S02-red.json": {
+      "rawSha256": "a6957e74b667afa6c643a3b81c04912f8d76beb5a386e01c87d967ff9bae9626",
+      "canonicalSha256": "faa304cfd81af5a7b539a83d80e72461d183b9dafb23df06ee1715edd0b474cb",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S03-green.json": {
+      "rawSha256": "34face3599fc919e044760ca597f35ba1a0332823992563456decf91c12dc0f3",
+      "canonicalSha256": "7ced6468b579a2c7e823411e99f536de4bf079654b62c77a808a5860baabb122",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S03-red.json": {
+      "rawSha256": "5bb281c923058bdc3828621d8cfb773f3ca76f8c5e82575b7b408c9526a36cae",
+      "canonicalSha256": "e84fff336255cacb5a9fd2467cc4b4b2e53b001f00b9cdc62a69c51e99e1c4f5",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S04-green.json": {
+      "rawSha256": "077f568a5eeaccb005228698d447ef02bb417f1a1c7b0fffdb309e1ff8cda46c",
+      "canonicalSha256": "c2f34144af1775ff87b1dc2b4d06415c1d71ab58bd769350ace6122e1b4023d9",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S04-red.json": {
+      "rawSha256": "8159e84b563f4e1ce2eb03bd319ae6bdce8970917450da313b2f529c11fa71b1",
+      "canonicalSha256": "6698e727b64416369bd26cc5341af7e20e727bd56c7ca23f54eeda0254df5e0c",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S05-baseline.json": {
+      "rawSha256": "9d603dc48bced9e7bef9aa915c009f2812f7da55a3dba0d3e10a07894e97a700",
+      "canonicalSha256": "3e4b8e111f7d83ef1287651e202beb03e3955964ba44ca752bd605a1e91f8e00",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S06-baseline.json": {
+      "rawSha256": "045e82f6e753299f08c11a6a37e4a3f7a2e03c07432f4defa2a11119ccc8f202",
+      "canonicalSha256": "1dd7943ffd505be861c29ebabeada50074ef67f640c92fdc994541a13a12efd9",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S07-baseline.json": {
+      "rawSha256": "1b698478a9672bdcb2c67b2145d0e50763942c9bcea5e0dfd871e886c2b5093c",
+      "canonicalSha256": "1589a47cd6934bdb1e67469046212a1e6c8307b6f3398987f59a51f729123ec6",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S08-baseline.json": {
+      "rawSha256": "bd0147753c6d6e4d79790208965b04b69c9e021947c968b1a0b104904f0d7ab9",
+      "canonicalSha256": "40100a4a3bdde957154253e9c12dd6e9e9c97f3ecf2580a69772462e17afc16f",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S09-baseline.json": {
+      "rawSha256": "406c29b7a4b8b52abec041a4ab2aa33cb03a0f8fa5138ec62b5df47cf02ac673",
+      "canonicalSha256": "51f468c4352b105312f45fb114b0d2aace2fd4c93c711d8f6834015ea5addbc5",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S10-baseline.json": {
+      "rawSha256": "381ac3580033ff0ffdbdf43207c423200a9573a8423e634d0b47eb6b3cfe8177",
+      "canonicalSha256": "be11957824b62c3eb52019069592b5d3b6e36dc437422d00710f218942f41ade",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S11-green.json": {
+      "rawSha256": "e3ad9ff92c59e9a5bfaf672cf9b316308ced1bf48476e1cc4264c82221aa2611",
+      "canonicalSha256": "aa20a7c0f24877f00e8c163bdf972af5be7631c91cd6cecea18e7c5e0234486d",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S11-red.json": {
+      "rawSha256": "0c1545ff41e996fbb218de4b41adb47176061233c13f9cedaf0b36a709d2e8f1",
+      "canonicalSha256": "db53846c02dbf7e9be4c2de2ff83bc667dcc37328cc6577d85e4d653621b9a73",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/historical/S12-recovery-baseline.json": {
+      "rawSha256": "f3bcafcac398dd8def114c2e3c2aec4afc745da9ef1c463a175637ed447b8b3c",
+      "canonicalSha256": "f3bcafcac398dd8def114c2e3c2aec4afc745da9ef1c463a175637ed447b8b3c",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/independent-python-oracle.json": {
+      "rawSha256": "ab58ce2bd06f7a90d536f915f4a3e4d9e110f4aee5648cac9c94b9f43a0713c6",
+      "canonicalSha256": "f845067b5843332fe3be6acfc7f4e39d0eb50dbed505c18bc9684817159f6afd",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/new-vector-generation-corrected-native.json": {
+      "rawSha256": "354c48660b0e33c3dea4f398fd709a5448fc3ccedde2622141ff834a02ad3a96",
+      "canonicalSha256": "9e291a234f1c135ab7ad9dacfd09a888d76b604f9264276633e16a16be7d255a",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/new-vector-generation-native.json": {
+      "rawSha256": "4f667d67a170b891be9e1740026cd25b30fb61a6a22ad94ef7c0fe4bec206bd3",
+      "canonicalSha256": "9ec36b5f90b0790f911b89f57b80b1a98ce234da30fe32d95de809c6fb5aa180",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/new-vector-generator-initial.cjs": {
+      "rawSha256": "d635b33b3b611c92f684a009f912c6b6ff2d2104ebdc5ecd45ddd7d026b508c9",
+      "canonicalSha256": "d635b33b3b611c92f684a009f912c6b6ff2d2104ebdc5ecd45ddd7d026b508c9",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/new-vector-generator.cjs": {
+      "rawSha256": "2b5f98c4720091c65f0463c422d5db9b3fa9d78f5cec4252da0d3190240b9657",
+      "canonicalSha256": "2b5f98c4720091c65f0463c422d5db9b3fa9d78f5cec4252da0d3190240b9657",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/reviewed-originals/scripts/guest-status/admission.json": {
+      "rawSha256": "0d49594377207bd91cf87c55e81ec62755f752e6752e2b83660a462194754d20",
+      "canonicalSha256": "0d49594377207bd91cf87c55e81ec62755f752e6752e2b83660a462194754d20",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/reviewed-originals/scripts/guest-status/loader.cjs": {
+      "rawSha256": "a01d62770d68767f3b2ace59e4a5ffcd33df9c4f04ff17e35ef7ae5519c977f1",
+      "canonicalSha256": "a01d62770d68767f3b2ace59e4a5ffcd33df9c4f04ff17e35ef7ae5519c977f1",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/reviewed-originals/scripts/guest-status/status-tests.cjs": {
+      "rawSha256": "312dc2ecf9653cb5a4fbb1d3fe2d50787c6601a34b382bc2c2ef8ef23f79e747",
+      "canonicalSha256": "312dc2ecf9653cb5a4fbb1d3fe2d50787c6601a34b382bc2c2ef8ef23f79e747",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/reviewed-originals/velo/backend/guestBookingCompletionStatus.js": {
+      "rawSha256": "3f72851dfdc46026bdca810859101f6955ed4e131ef82178d5a6383514d267c9",
+      "canonicalSha256": "3f72851dfdc46026bdca810859101f6955ed4e131ef82178d5a6383514d267c9",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/S13-new-vector-native.json": {
+      "rawSha256": "dd298a5a7628ee118c9bb383ce60fc104a19641f071edbaa4fc4fe90a89933e7",
+      "canonicalSha256": "858a5e862eee96f38d0b2cc75d106608b7677de5fc576382d4846f26f68296bc",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/S13-preexecution-freeze.json": {
+      "rawSha256": "024633f3635dd754b10b78f031acfe2255bd2cf6e6f45c45b0c4bd18530d090e",
+      "canonicalSha256": "63441ef63bc16f01a33c2fcbc5cc6620ed98eb95ee5a605021a96eaeefe9e582",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/source-admission-amendment.json": {
+      "rawSha256": "860a35f509e5dede8c126b0c7ad91c6304ae6bfa4efd125ce551a738985d94aa",
+      "canonicalSha256": "6736c69956410b906e514a865f47fabf3fdfaeaebbdf782f2410ae03e63dbcab",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/source-admission.md": {
+      "rawSha256": "93c4c3482348e4d642e9a5219150c1a4f13497113f94b00711b26f6845a7e14a",
+      "canonicalSha256": "93c4c3482348e4d642e9a5219150c1a4f13497113f94b00711b26f6845a7e14a",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/provenance/vector-crosscheck.json": {
+      "rawSha256": "a0b04655cae7311fe12235dd59ba6991290e4b413843ea68c0c3ee79d4e00f9d",
+      "canonicalSha256": "0e954d345eadc1d406e2de2a510cfb927a28d70e749d6231951afa57e8b7d311",
+      "role": "archived evidence"
+    },
+    "scripts/guest-status/review-vector.py": {
+      "rawSha256": "01913b9ca0594fba8672862fd60dc58984d8971fe1ee1c46b71b615c2ea6057c",
+      "canonicalSha256": "01913b9ca0594fba8672862fd60dc58984d8971fe1ee1c46b71b615c2ea6057c",
+      "role": "NEW packaging support"
+    },
+    "scripts/guest-status/status-tests.cjs": {
+      "rawSha256": "312dc2ecf9653cb5a4fbb1d3fe2d50787c6601a34b382bc2c2ef8ef23f79e747",
+      "canonicalSha256": "312dc2ecf9653cb5a4fbb1d3fe2d50787c6601a34b382bc2c2ef8ef23f79e747",
+      "role": "reviewed authored file"
+    },
+    "velo/backend/guestBookingAcceptance.js": {
+      "rawSha256": "b15c33c3206ac851d8de9fdc04349488f2a31b3b8b5100b07f3b28f4fee38df2",
+      "canonicalSha256": "b15c33c3206ac851d8de9fdc04349488f2a31b3b8b5100b07f3b28f4fee38df2",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingAcceptanceStore.js": {
+      "rawSha256": "3cb3f02fbb92168364c21169e30834ba75980768de35e14ca9a2b9f8aa25a75c",
+      "canonicalSha256": "3cb3f02fbb92168364c21169e30834ba75980768de35e14ca9a2b9f8aa25a75c",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingAccessPolicy.js": {
+      "rawSha256": "bbc14fb6951dbc7b677e9ca9202a2906d0da7bd5a2b322e56ca147e7e21dad35",
+      "canonicalSha256": "bbc14fb6951dbc7b677e9ca9202a2906d0da7bd5a2b322e56ca147e7e21dad35",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingAcquisitionContentionEvidence.js": {
+      "rawSha256": "cf60a8effa91031a1f7c0b2f285479522cd8dc1acd2c364e2cd3dbf8593dcfc5",
+      "canonicalSha256": "cf60a8effa91031a1f7c0b2f285479522cd8dc1acd2c364e2cd3dbf8593dcfc5",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingAcquisitionControlRules.js": {
+      "rawSha256": "461939a94ee6790ad9442adde32b2abda51f6f1bb674462c5d7d6cc1dad5b728",
+      "canonicalSha256": "461939a94ee6790ad9442adde32b2abda51f6f1bb674462c5d7d6cc1dad5b728",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingAcquisitionControlStore.js": {
+      "rawSha256": "3fe95f600ebece33b6e10a340ed6fbc57e6bf2403d070ab9065f2af47d14817e",
+      "canonicalSha256": "3fe95f600ebece33b6e10a340ed6fbc57e6bf2403d070ab9065f2af47d14817e",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingAllocationManifestRules.js": {
+      "rawSha256": "fb5e7ed1f3c4bda3866c3a9baecbfc3adaa045432a0bce3b28c66a2f7c267b4f",
+      "canonicalSha256": "fb5e7ed1f3c4bda3866c3a9baecbfc3adaa045432a0bce3b28c66a2f7c267b4f",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingAllocationManifestStore.js": {
+      "rawSha256": "e26fd317eb167f867c71b30c2461c6aa890e6186d33b5e61d3fe90352bceedb1",
+      "canonicalSha256": "e26fd317eb167f867c71b30c2461c6aa890e6186d33b5e61d3fe90352bceedb1",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingAllocationRetainedRules.js": {
+      "rawSha256": "4c84039c5c72e3958fdcf3b30e6466c440dabe726009f25720fb5030bafd1b8c",
+      "canonicalSha256": "4c84039c5c72e3958fdcf3b30e6466c440dabe726009f25720fb5030bafd1b8c",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingAllocationSourceRules.js": {
+      "rawSha256": "013655a68168c376d0ca98b452f48042b53ef21cbb403bf361a36a98aa48aa08",
+      "canonicalSha256": "013655a68168c376d0ca98b452f48042b53ef21cbb403bf361a36a98aa48aa08",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingCompletionAuthority.js": {
+      "rawSha256": "5aca0d1ef923a5a6a884696ec4333feee292f49e8b6e22c5c3ad84ac1f66dd65",
+      "canonicalSha256": "5aca0d1ef923a5a6a884696ec4333feee292f49e8b6e22c5c3ad84ac1f66dd65",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingCompletionEvidence.js": {
+      "rawSha256": "51971a8927e840a3f9c6909ad086965ce7027bbeda513e2e171ddea18607f195",
+      "canonicalSha256": "51971a8927e840a3f9c6909ad086965ce7027bbeda513e2e171ddea18607f195",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingCompletionProjection.js": {
+      "rawSha256": "c9202f6148155617d99de5250aae3a2edc6b5a527ed0f0ed8271c568dbd231b0",
+      "canonicalSha256": "c9202f6148155617d99de5250aae3a2edc6b5a527ed0f0ed8271c568dbd231b0",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingCompletionStatus.js": {
+      "rawSha256": "3f72851dfdc46026bdca810859101f6955ed4e131ef82178d5a6383514d267c9",
+      "canonicalSha256": "3f72851dfdc46026bdca810859101f6955ed4e131ef82178d5a6383514d267c9",
+      "role": "reviewed authored file"
+    },
+    "velo/backend/guestBookingCompletionStore.js": {
+      "rawSha256": "cee5b0360854ff3f706b278aa0b03b1fe8502d9076966c17ad40d156c8a77dad",
+      "canonicalSha256": "cee5b0360854ff3f706b278aa0b03b1fe8502d9076966c17ad40d156c8a77dad",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingCredentials.js": {
+      "rawSha256": "c34364e2196a67016b4def3850149478015fd41d35a42fe5a590d2c6d5750c9f",
+      "canonicalSha256": "c34364e2196a67016b4def3850149478015fd41d35a42fe5a590d2c6d5750c9f",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingFinancialCalculation.js": {
+      "rawSha256": "3dc9fae1c48a48e78b34608c57970e73fae546c65e7c3a31449359f01a67fe71",
+      "canonicalSha256": "3dc9fae1c48a48e78b34608c57970e73fae546c65e7c3a31449359f01a67fe71",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingInvoiceAuthorityConfig.js": {
+      "rawSha256": "206164914acdc21a1accba71234437f92f6debc410e250d47e8c2919b77fb305",
+      "canonicalSha256": "206164914acdc21a1accba71234437f92f6debc410e250d47e8c2919b77fb305",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingIssuerAuthority.js": {
+      "rawSha256": "b5578ae7bcdef12eb54ad37f3775a5ac3ccccdbe292e89b4561ed5498804919b",
+      "canonicalSha256": "b5578ae7bcdef12eb54ad37f3775a5ac3ccccdbe292e89b4561ed5498804919b",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingOfferIssuer.js": {
+      "rawSha256": "fc01e66d6cf480d352a29729e4350e49c0fe83db184185e220fd5e3a76e634c0",
+      "canonicalSha256": "fc01e66d6cf480d352a29729e4350e49c0fe83db184185e220fd5e3a76e634c0",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingPhysicalAcquisitionEvidence.js": {
+      "rawSha256": "012812cdfd2ec64514444d465599d92f0eed38512a6d76ee03e02df0b95bd7f5",
+      "canonicalSha256": "012812cdfd2ec64514444d465599d92f0eed38512a6d76ee03e02df0b95bd7f5",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingPhysicalAcquisitionStore.js": {
+      "rawSha256": "ac1192dfd8d59496faf86497d45782d06d6ddd776fe41c1ad6e2145e6da818cd",
+      "canonicalSha256": "ac1192dfd8d59496faf86497d45782d06d6ddd776fe41c1ad6e2145e6da818cd",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingPriceGroups.js": {
+      "rawSha256": "d787fea9c954650a7003953b9620e6862f4a44bcfa0b7e41818837d8ca3cfad8",
+      "canonicalSha256": "d787fea9c954650a7003953b9620e6862f4a44bcfa0b7e41818837d8ca3cfad8",
+      "role": "parent dependency"
+    },
+    "velo/backend/guestBookingPurchaseInput.js": {
+      "rawSha256": "a3b3583d0971c06f36301aa948479315def667e0e73d4accb8c854daab17489a",
+      "canonicalSha256": "a3b3583d0971c06f36301aa948479315def667e0e73d4accb8c854daab17489a",
+      "role": "parent dependency"
+    },
+    "velo/backend/lockedPricingQuoteAuthority.js": {
+      "rawSha256": "d8520ba1bc16d829062760ce63ff3f5f7400363db3830b2f4d485b6a6b504d7c",
+      "canonicalSha256": "d8520ba1bc16d829062760ce63ff3f5f7400363db3830b2f4d485b6a6b504d7c",
+      "role": "parent dependency"
+    },
+    "velo/backend/roomAssignmentRules.js": {
+      "rawSha256": "9d685cc29821181e482c84cf1d9ecf0fd463fc03dbf12617d3fcfb76e9dd46b2",
+      "canonicalSha256": "9d685cc29821181e482c84cf1d9ecf0fd463fc03dbf12617d3fcfb76e9dd46b2",
+      "role": "parent dependency"
+    },
+    "velo/backend/roomAvailabilityRules.js": {
+      "rawSha256": "578b42bcc63c28720b9a08aae9dea42761a42febcfc62449efe5313a7164b6f4",
+      "canonicalSha256": "578b42bcc63c28720b9a08aae9dea42761a42febcfc62449efe5313a7164b6f4",
+      "role": "parent dependency"
+    },
+    "velo/backend/roomBookingCommitRules.js": {
+      "rawSha256": "3938448cc041e0f0e811248e97033094df66c7536222c087d2a9a02945bd5893",
+      "canonicalSha256": "3938448cc041e0f0e811248e97033094df66c7536222c087d2a9a02945bd5893",
+      "role": "parent dependency"
+    },
+    "velo/backend/roomInventoryRules.js": {
+      "rawSha256": "6bc0520cb3940b0399f43d8f5df7b493c666f221621bb80bc3e7004c8de89899",
+      "canonicalSha256": "6bc0520cb3940b0399f43d8f5df7b493c666f221621bb80bc3e7004c8de89899",
+      "role": "parent dependency"
+    },
+    "velo/backend/strictLockedPricingQuote.js": {
+      "rawSha256": "da1c2c1f1e0b91adc37abd29c66e7fbc017c043094487917b2bb10920eae5b61",
+      "canonicalSha256": "da1c2c1f1e0b91adc37abd29c66e7fbc017c043094487917b2bb10920eae5b61",
+      "role": "parent dependency"
+    }
+  }
+}

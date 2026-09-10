@@ -1,0 +1,10 @@
+{
+  "command": [
+    "node",
+    "C:\\Users\\TomDe\\checkpoints\\booking-guest-status-final-review-evidence\\new-vector-generator.cjs"
+  ],
+  "cwd": "C:\\Users\\TomDe",
+  "exit": 1,
+  "stdout": "",
+  "stderr": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n... Skipped lines\n\n+ [Object: null prototype] {\n- {\n    currency: 'USD',\n    groups: [\n+     [Object: null prototype] {\n-     {\n        accommodationVatCents: 1000,\n        discountCents: 0,\n        grandTotalCents: 23501,\n        grossCents: 20001,\n        guests: 2,\n...\n      },\n+     [Object: null prototype] {\n-     {\n        accommodationVatCents: 1000,\n        discountCents: 0,\n        grandTotalCents: 23501,\n        grossCents: 20001,\n        guests: 2,\n...\n    rounding: 'original-group-backend-v1',\n+   totals: [Object: null prototype] {\n-   totals: {\n      accommodationVatCents: 2000,\n      discountCents: 0,\n      grandTotalCents: 47002,\n      grossCents: 40002,\n      packageVatCents: 3000,\n\n    at C:\\Users\\TomDe\\checkpoints\\booking-guest-status-final-review-evidence\\new-vector-generator.cjs:31:166 {\n  generatedMessage: true,\n  code: 'ERR_ASSERTION',\n  actual: [Object: null prototype],\n  expected: [Object],\n  operator: 'deepStrictEqual',\n  diff: 'simple'\n}\n"
+}

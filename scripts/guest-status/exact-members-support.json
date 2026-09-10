@@ -1,0 +1,9 @@
+{
+  "schema": "guest-status-exact-support-v1",
+  "originalManifestSha256": "f7125b5024324b49ec6be227b7e8145d765325fdfa336ff2d2dda48d1b9864c1",
+  "recordPath": "scripts/guest-status/exact-members-support.json",
+  "members": {
+    "scripts/guest-status/review-exact-members.py": "faf486aa50863c4f399cad7706b9c89da51396ff7f2efb5b0eb471dcd2fda1e9",
+    "scripts/guest-status/EXACT-MEMBERS.md": "f272ac422812139588d37fd1ca37cda8013315c5e2ce387b7876b13aa8d78fc8"
+  }
+}

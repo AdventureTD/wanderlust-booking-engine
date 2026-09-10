@@ -1,0 +1,11 @@
+{
+  "command": [
+    "node",
+    "scripts/guest-status/status-tests.cjs",
+    "S13"
+  ],
+  "cwd": "C:\\Users\\TomDe\\checkpoints\\booking-guest-status-final-review-evidence\\ownroot",
+  "exit": 0,
+  "stdout": "{\"completed\":1,\"cases\":[\"S13\"]}\n",
+  "stderr": ""
+}

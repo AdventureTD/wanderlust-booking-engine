@@ -1,0 +1,5 @@
+{
+  "kind": "SOURCE_ADMISSION_AMENDMENT_BEFORE_RETRY",
+  "generatorSha256": "2b5f98c4720091c65f0463c422d5db9b3fa9d78f5cec4252da0d3190240b9657",
+  "scope": "Only NEW fixture expected-display allocation corrected: recursively null-prototype expected records, ordinary arrays. Actual returned display/source/storage untouched, strict deep equality retained. Initial capsule byte equality passed; original failure was expected prototype mismatch, not production RED. Same nine-module execution scope, no S13 until independent oracle match."
+}

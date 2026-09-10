@@ -1,0 +1,18 @@
+{
+  "label": "S12-recovery-baseline",
+  "command": [
+    "node",
+    "scripts/guest-status/status-tests.cjs",
+    "S12"
+  ],
+  "exit": 0,
+  "stdout": "{\"completed\":1,\"cases\":[\"S12\"]}\n",
+  "stderr": "",
+  "hashes": {
+    "scripts/guest-status/admission.json": "0d49594377207bd91cf87c55e81ec62755f752e6752e2b83660a462194754d20",
+    "scripts/guest-status/loader.cjs": "a01d62770d68767f3b2ace59e4a5ffcd33df9c4f04ff17e35ef7ae5519c977f1",
+    "scripts/guest-status/status-tests.cjs": "312dc2ecf9653cb5a4fbb1d3fe2d50787c6601a34b382bc2c2ef8ef23f79e747",
+    "velo/backend/guestBookingCompletionStatus.js": "3f72851dfdc46026bdca810859101f6955ed4e131ef82178d5a6383514d267c9"
+  },
+  "scope": "Preserved pre-timeout S12 only; inert SDK, guest expiry during paused retained read; separate read-only retained reader after expiry. No producer or recovery coordinator."
+}

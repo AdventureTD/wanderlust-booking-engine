@@ -1,0 +1,248 @@
+{
+  "graph": [
+    {
+      "id": "velo/backend/guestBookingCompletionAuthority.js",
+      "exit": 0,
+      "raw": "7e44af2d1dbcfa440f43e8e413637347f763f636b87b6d70de7d4c5eaef1a5a3",
+      "canonical": "5aca0d1ef923a5a6a884696ec4333feee292f49e8b6e22c5c3ad84ac1f66dd65",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingIssuerAuthority.js",
+      "exit": 0,
+      "raw": "43f9830334ba820d129d5df124e60d97ee3097fe932e1ccd06c5d7cb2c55e145",
+      "canonical": "b5578ae7bcdef12eb54ad37f3775a5ac3ccccdbe292e89b4561ed5498804919b",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingCredentials.js",
+      "exit": 0,
+      "raw": "b140dbbbc45a909ec052c344beeb40c41ce630d19c22e35fe8dcd9b6bc82fa36",
+      "canonical": "c34364e2196a67016b4def3850149478015fd41d35a42fe5a590d2c6d5750c9f",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingAccessPolicy.js",
+      "exit": 0,
+      "raw": "179ab28b28c7fac0112be9873107448dc0fc497ff85346e32b9f93fd05345f5a",
+      "canonical": "bbc14fb6951dbc7b677e9ca9202a2906d0da7bd5a2b322e56ca147e7e21dad35",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingInvoiceAuthorityConfig.js",
+      "exit": 0,
+      "raw": "760343c99dba369e310fe2348073bac011a119b15bf54600181807493b1eceaa",
+      "canonical": "206164914acdc21a1accba71234437f92f6debc410e250d47e8c2919b77fb305",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingPhysicalAcquisitionEvidence.js",
+      "exit": 0,
+      "raw": "962830b7d240f771fbdb4da5ef225d59cfb64627da1d264e8dd69001c8f4cab5",
+      "canonical": "012812cdfd2ec64514444d465599d92f0eed38512a6d76ee03e02df0b95bd7f5",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingCompletionStore.js",
+      "exit": 0,
+      "raw": "27c9228cb58fcbffd10a9504786b27e6b0299d9d7264bd109d94a32d09c4f58f",
+      "canonical": "cee5b0360854ff3f706b278aa0b03b1fe8502d9076966c17ad40d156c8a77dad",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingAcceptanceStore.js",
+      "exit": 0,
+      "raw": "f6ba25206650064b18a0f77b21aa126aba45374628f431b248287fa17cdc31ad",
+      "canonical": "3cb3f02fbb92168364c21169e30834ba75980768de35e14ca9a2b9f8aa25a75c",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingAcceptance.js",
+      "exit": 0,
+      "raw": "be48af32aec02517ec450eec991a4ae3954f3865ca4c70c8f4f09bec8da360d9",
+      "canonical": "b15c33c3206ac851d8de9fdc04349488f2a31b3b8b5100b07f3b28f4fee38df2",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingOfferIssuer.js",
+      "exit": 0,
+      "raw": "001c1a0f17c4f7fede5b8d3c6524a718828f42ab8897789bffe7c66c28a5bee3",
+      "canonical": "fc01e66d6cf480d352a29729e4350e49c0fe83db184185e220fd5e3a76e634c0",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingPurchaseInput.js",
+      "exit": 0,
+      "raw": "253a0c82393790ba3b4a4f15c4ef2c5bb429c4c4e156c144ba3bd26bb2442909",
+      "canonical": "a3b3583d0971c06f36301aa948479315def667e0e73d4accb8c854daab17489a",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingPriceGroups.js",
+      "exit": 0,
+      "raw": "7ca72e93c4b79746ae754a0ac8493eb49c1bcd270ce820a60ad134e86295db54",
+      "canonical": "d787fea9c954650a7003953b9620e6862f4a44bcfa0b7e41818837d8ca3cfad8",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingFinancialCalculation.js",
+      "exit": 0,
+      "raw": "6acc8218a989b976e984853f568e06ac0b09c70c236c8404a2c87a017708a6c6",
+      "canonical": "3dc9fae1c48a48e78b34608c57970e73fae546c65e7c3a31449359f01a67fe71",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/lockedPricingQuoteAuthority.js",
+      "exit": 0,
+      "raw": "e8652f8c466c1af1225485d492de54a866d63294060e4fd614108ba2f407a891",
+      "canonical": "d8520ba1bc16d829062760ce63ff3f5f7400363db3830b2f4d485b6a6b504d7c",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/strictLockedPricingQuote.js",
+      "exit": 0,
+      "raw": "5489d3057ea7f2e638fef0fe248b99841dca907109892602aa402a913428f102",
+      "canonical": "da1c2c1f1e0b91adc37abd29c66e7fbc017c043094487917b2bb10920eae5b61",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingAllocationManifestStore.js",
+      "exit": 0,
+      "raw": "145a8653e396656b7c89013e3476918018744eaeeebdf0087418ef83b1a8e28b",
+      "canonical": "e26fd317eb167f867c71b30c2461c6aa890e6186d33b5e61d3fe90352bceedb1",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingAllocationManifestRules.js",
+      "exit": 0,
+      "raw": "f3c24f735cd9fa09a1a677c211479ab02101465efea01508f97d8266b9d1953d",
+      "canonical": "fb5e7ed1f3c4bda3866c3a9baecbfc3adaa045432a0bce3b28c66a2f7c267b4f",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingAllocationSourceRules.js",
+      "exit": 0,
+      "raw": "63be6fbf2dfde81128a32d02e0f528a0411929df475b6585ea2d230e7600ca65",
+      "canonical": "013655a68168c376d0ca98b452f48042b53ef21cbb403bf361a36a98aa48aa08",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/roomInventoryRules.js",
+      "exit": 0,
+      "raw": "99d710d44db65e524d4a5fdef175a73f8cfa111598e248b781ee003260768d22",
+      "canonical": "6bc0520cb3940b0399f43d8f5df7b493c666f221621bb80bc3e7004c8de89899",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/roomAssignmentRules.js",
+      "exit": 0,
+      "raw": "16572380e1d0594a860d685965699d630bfbf6c59d4c6f518dc391cdaf104a1c",
+      "canonical": "9d685cc29821181e482c84cf1d9ecf0fd463fc03dbf12617d3fcfb76e9dd46b2",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingAllocationRetainedRules.js",
+      "exit": 0,
+      "raw": "1c4e4a476cd009fd0949ef9bfb4ef624e4ba647019d00bf60f15385963fccf32",
+      "canonical": "4c84039c5c72e3958fdcf3b30e6466c440dabe726009f25720fb5030bafd1b8c",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/roomBookingCommitRules.js",
+      "exit": 0,
+      "raw": "cb5d1eb2550199781e4aaf370fdfe0f4e674c960b17a3e6b972a420bb21af421",
+      "canonical": "3938448cc041e0f0e811248e97033094df66c7536222c087d2a9a02945bd5893",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/roomAvailabilityRules.js",
+      "exit": 0,
+      "raw": "67cb28960e810558482d26d87e264f75fd47c406089a2be99746037ffca77163",
+      "canonical": "578b42bcc63c28720b9a08aae9dea42761a42febcfc62449efe5313a7164b6f4",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingAcquisitionControlStore.js",
+      "exit": 0,
+      "raw": "0de5816184948c499699a7d14961164d6318ff72aea48e739cfb3871cb64cc5c",
+      "canonical": "3fe95f600ebece33b6e10a340ed6fbc57e6bf2403d070ab9065f2af47d14817e",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingAcquisitionControlRules.js",
+      "exit": 0,
+      "raw": "f791338fa46e8ae9cd1d79a81b28259f7437219b84473ecc0482317478987e1f",
+      "canonical": "461939a94ee6790ad9442adde32b2abda51f6f1bb674462c5d7d6cc1dad5b728",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingAcquisitionContentionEvidence.js",
+      "exit": 0,
+      "raw": "8344418d9ab32ac8736e17cd96823743e3e527ac12056b8d5c7803eb23b532d3",
+      "canonical": "cf60a8effa91031a1f7c0b2f285479522cd8dc1acd2c364e2cd3dbf8593dcfc5",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingPhysicalAcquisitionStore.js",
+      "exit": 0,
+      "raw": "370b71cef1fe48e5d8e890b69be9fb9955ce1ba4204b8520321976111a07d3b1",
+      "canonical": "ac1192dfd8d59496faf86497d45782d06d6ddd776fe41c1ad6e2145e6da818cd",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingCompletionEvidence.js",
+      "exit": 0,
+      "raw": "affa8ce53d9216cce596dbcf2ebbedd822669fabcadd5a93e309bf6de1d78af1",
+      "canonical": "51971a8927e840a3f9c6909ad086965ce7027bbeda513e2e171ddea18607f195",
+      "parent_match": true,
+      "pin_match": true
+    },
+    {
+      "id": "velo/backend/guestBookingCompletionProjection.js",
+      "exit": 0,
+      "raw": "8e6e2bff2d64559ce42b585a008ad8c3996952669eca69c9a1f2898bbffdbb6e",
+      "canonical": "c9202f6148155617d99de5250aae3a2edc6b5a527ed0f0ed8271c568dbd231b0",
+      "parent_match": true,
+      "pin_match": true
+    }
+  ],
+  "fixtures": {
+    "completion-authority-history.json": "4574fc7788ab67fd3ddfda56885b13dd0391e98aacb1d41113e108d49e1bba8a",
+    "completion-authority-foreign.json": "27cb9ea01897539e4adac039eaf0e26d11cf9aa9d51fb272114e1a927f4b7c1e",
+    "completion-authority-compensated.json": "f6e981212ae67ff90a75d582e48ac94e25d338accda0c3a02c079c97011293da"
+  },
+  "candidate": {
+    "scripts\\guest-status\\admission.json": "0d49594377207bd91cf87c55e81ec62755f752e6752e2b83660a462194754d20",
+    "scripts\\guest-status\\loader.cjs": "a01d62770d68767f3b2ace59e4a5ffcd33df9c4f04ff17e35ef7ae5519c977f1",
+    "scripts\\guest-status\\status-tests.cjs": "312dc2ecf9653cb5a4fbb1d3fe2d50787c6601a34b382bc2c2ef8ef23f79e747",
+    "velo\\backend\\guestBookingCompletionStatus.js": "3f72851dfdc46026bdca810859101f6955ed4e131ef82178d5a6383514d267c9"
+  },
+  "scope": "Only preserved finite S12; S13 missing vector prerequisite checked separately."
+}
