@@ -12,7 +12,7 @@ const summaryFields=['_id','bookingNumber','checkIn','checkOut'];
 const bookingStrings=['note','guestName','guestEmail','guestPhone'];
 const summaryStrings=['guestName','guestEmail','guestPhone','marketSource','status','gclid','gbraid','wbraid','msclkid','notes','packageTitle','packageTitlle'];
 const summaryFlags=['googleConversionUploaded','microsoftConversionUploaded','googleConversionRetracted','microsoftConversionRetracted'];
-const bookingRaw=[...bookingFields,'guests','roomFee',...bookingStrings];
+const bookingRaw=[...bookingFields,'guests','roomFee',...bookingStrings,'inventoryKind','ownerBlockKey'];
 const summaryRaw=[...summaryFields,'roomCount','bookingDate',...summaryStrings,...summaryFlags];
 function rawExtra(name,v,allowed){
  const isBooking=allowed===bookingRaw,isSummary=allowed===summaryRaw;if(!isBooking&&!isSummary)return v;
@@ -53,6 +53,12 @@ function endpoint(v){
 function inventory(bookings,summaries){
  for(const s of summaries){for(const k of ['checkIn','checkOut'])if(Object.hasOwn(s,k))endpoint(s[k]);}
  return bookings.map(r=>{const out={};for(const k of bookingFields)if(Object.hasOwn(r,k))out[k]=r[k];for(const k of ['checkIn','checkOut'])if(Object.hasOwn(out,k))endpoint(out[k]);
+  // Admit only coherent legacy owner-auto metadata; never infer owner authority
+  // from labels or silently discard an unknown inventory classification.
+  if(Object.hasOwn(r,'inventoryKind')||Object.hasOwn(r,'ownerBlockKey')){
+   if(r.inventoryKind!=='owner_auto'||r.autoOwnerBlock!==true||r.quantity!==1||!Number.isSafeInteger(r.assignedRoom)||r.assignedRoom<1||r.assignedRoom>5||r._id.startsWith('pb1-')||Object.hasOwn(r,'operationId')||Object.hasOwn(r,'payloadDigest'))fail();
+   if(!Object.hasOwn(out,'checkIn')||!Object.hasOwn(out,'checkOut')||r.ownerBlockKey!==`owner:auto:${r.assignedRoom}:${new Date(out.checkIn).toISOString().slice(0,10)}:${new Date(out.checkOut).toISOString().slice(0,10)}`)fail();
+  }
   if(!Object.hasOwn(out,'checkIn')||!Object.hasOwn(out,'checkOut')){const matches=summaries.filter(s=>s.bookingNumber===out.bookingNumber);if(matches.length!==1||!Object.hasOwn(matches[0],'checkIn')||!Object.hasOwn(matches[0],'checkOut'))fail();for(const k of ['checkIn','checkOut']){if(Object.hasOwn(out,k)&&new Date(out[k]).getTime()!==new Date(matches[0][k]).getTime())fail();out[k]=matches[0][k];}}
   if(new Date(out.checkIn).getTime()>=new Date(out.checkOut).getTime())fail();return out;});
 }
