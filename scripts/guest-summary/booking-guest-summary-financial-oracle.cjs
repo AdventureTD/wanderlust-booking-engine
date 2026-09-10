@@ -1,0 +1,26 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto');
+const {fixture}=require('./booking-guest-offer-fixture.cjs');
+const {load,root,preflight}=require('./booking-guest-offer-loader.cjs');
+const vector=JSON.parse(fs.readFileSync(path.join(__dirname,'booking-guest-offer-public-vector.json'),'utf8'));
+const data=JSON.parse(fs.readFileSync(path.join(__dirname,'booking-guest-summary-financial-oracle-vectors.json'),'utf8'));
+const args=process.argv.slice(2);assert.equal(args.length,1);const test=data.cases.find(c=>c.id===args[0]);assert.ok(test);
+const file=path.join(root,'velo/backend/guestBookingSummaryConnector.js');let source=fs.readFileSync(file,'utf8');
+assert.equal(crypto.createHash('sha256').update(source).digest('hex'),'fc28e600e85c538b4aa11c3443545a76895c857daa94bbc12dca624f6793ef81');assert.equal(preflight().size,11);
+source=source.replace("import { issueGuestBookingOffer } from 'backend/guestBookingOfferIssuer';",'const issueGuestBookingOffer=api.issue;').replace("import { acceptGuestBookingOffer } from 'backend/guestBookingAcceptance';",'const acceptGuestBookingOffer=api.accept;').replace('export function createGuestBookingSummaryConnector','function createGuestBookingSummaryConnector');
+const plain=x=>JSON.parse(JSON.stringify(x));
+(async()=>{
+const f=fixture();f.rows.GuestBookingFinancialRevisions.push({_id:vector.revisionRow._id,revisionBytes:data.revisionBytes});Object.assign(f.secretValues,vector.secrets);
+const config=JSON.parse(f.secretValues.WBE_GUEST_BOOKING_ISSUER_CONFIG);config.revisionDigest=data.revisionDigest;f.secretValues.WBE_GUEST_BOOKING_ISSUER_CONFIG=JSON.stringify(config);
+const clock={now:vector.now},api=load(f,clock);let issued;
+const c=vm.compileFunction(source+'\nreturn createGuestBookingSummaryConnector();',['api'],{filename:file})({issue:async p=>issued=await api.issue(p),accept:api.accept});
+const p=structuredClone(vector.purchase);delete p.priceGroups;p.summaryRooms=test.groups.map(g=>({roomCode:g.roomCode,qty:g.quantity,numGuests:g.guests}));
+const offer=await c.prepare(p);assert.equal(offer.status,'OFFER');assert.equal(f.rows.GuestBookingAcceptances.length,0);assert.equal(f.trace.filter(x=>x.op==='insert').length,0);
+assert.deepEqual(plain(offer.display),test.expected);assert.deepEqual(offer.display,issued.display);assert.deepEqual(plain(offer.display.groups).map(({roomCode,quantity,guests})=>({roomCode,quantity,guests})),test.groups);
+const capsule=JSON.parse(issued.capsule);assert.deepEqual(capsule.calculation,test.expected);assert.deepEqual(capsule.factors.priceGroups,test.groups);assert.equal(JSON.parse(capsule.inputCanonical)[5],vector.purchase.pricingQuoteToken);assert.equal(offer.offerExpiresAtMs,JSON.parse(vector.quoteOriginalBytesUtf8).expiresAt);
+const result=await c.confirm(offer);assert.equal(result.status,'ACCEPTED_PENDING');assert.deepEqual(Object.keys(result).sort(),['bookingNumber','status']);assert.equal(f.rows.GuestBookingAcceptances.length,1);assert.equal(f.rows.GuestBookingAcceptances[0].capsule,issued.capsule);assert.deepEqual(JSON.parse(f.rows.GuestBookingAcceptances[0].capsule).calculation,test.expected);
+const retained=JSON.stringify(f.rows.GuestBookingAcceptances);assert.equal((await c.confirm(offer)).status,'ACCEPTED_PENDING');assert.equal(JSON.stringify(f.rows.GuestBookingAcceptances),retained);
+clock.now=offer.offerExpiresAtMs;const inserts=f.trace.filter(x=>x.op==='insert').length;assert.deepEqual(await c.confirm(offer),{status:'DENIED'});assert.equal(f.trace.filter(x=>x.op==='insert').length,inserts);assert.equal(JSON.stringify(f.rows.GuestBookingAcceptances),retained);assert.deepEqual(plain(offer.display),test.expected);
+assert.ok(f.trace.filter(x=>x.op==='insert').every(x=>x.collection==='GuestBookingAcceptances'));assert.equal(f.loaded.size,11);
+console.log('PASS '+test.id+' baseline-GREEN actual issuer/display/acceptance Decimal; expiry DENIED retained unchanged; COMPLETE 1');console.log(JSON.stringify({case:test.id,display:plain(offer.display),acceptance:result.status,expiry:'DENIED',loaded:f.loaded.size}));
+})().catch(e=>{console.error(e);process.exitCode=1;});

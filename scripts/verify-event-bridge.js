@@ -109,17 +109,19 @@ function masterFixture(h, env='browser') {
 }
 function handlerCoverage() {
  const search='velo/page-booking-search.js', summary='velo/page-booking-summary.js';
+ const stayHelper=sourceSlice(search,'function pricingStay() {','function clearSelections');
  const selection=sourceSlice(search,'function roomSelectionRequiredMessage(selections) {','function syncSummaryButtonWithResults');
  const registration=sourceSlice(search,"  if (tryFind('btnSummary')) {","  const rep = tryFind('searchResultsRepeater');\n  if (rep && typeof rep.onItemReady === 'function') {");
  const rooms=[{roomCode:'fixture_suite',qty:2,numGuests:3,roomFee:7,availableCheckIn:'2027-01-02T12:00:00',availableCheckOut:'2027-01-09T12:00:00'}];
- const pkg={_id:'fixture-package',pricingQuoteToken:'public-inert-quote'};
+ const pkg={_id:'fixture-package',pricingQuoteToken:'public-inert-quote',quoteCheckIn:'2027-01-02',quoteCheckOut:'2027-01-09'};
  const expected='/booking-summary?rc=fixture_suite%3A2%3A3%3A7&ci=2027-01-02&co=2027-01-09&pkg=fixture-package&quote=public-inert-quote';
  function searchFixture(h, selections=rooms, selected=pkg, mode='success') {
   let click;const navigation=[],texts=[],storage=[],sentinel=Error('inert navigation throw');
   const location={to(...args){assert.equal(this,location,'original navigation receiver');navigation.push(args);if(mode==='throw')throw sentinel;return mode==='cancel'?false:'navigation-result';}};
   const original=location.to,button={link:'/editor-link',onClick(f){click=f;}};
-  vm.runInNewContext(selection+registration,{_selections:selections,_selectedPackage:selected,summaryUrl:'/booking-summary',
-   tryFind:()=>button,$w:()=>button,safeText:t=>texts.push(t),console:h.producer.console,wixLocation:location,
+  const results={data:rooms.map(r=>({...r,status:'full',maxQty:2}))};
+  vm.runInNewContext(stayHelper+selection+registration,{_selections:selections,_selectedPackage:selected,_summaryNights:7,summaryUrl:'/booking-summary',
+   tryFind:id=>id==='searchResultsRepeater'?results:button,$w:()=>button,safeText:t=>texts.push(t),console:h.producer.console,wixLocation:location,
    localStorage:{setItem(k,v){storage.push([k,v]);}}});
   assert.equal(button.link,'');assert.equal(location.to,original,'no navigation wrapper');
   return {click,navigation,texts,storage,sentinel};

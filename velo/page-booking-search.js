@@ -17,13 +17,41 @@ let _availablePackages = [];
 let _selectedPackage = null;
 let _searchCheckIn = null;
 let _searchCheckOut = null;
+let _pricingGeneration = 0;
+let _packageRepeaterBound = false;
+const _packageRowBindings = new Map();
+
+// A Search result interval is a UTC-normalized civil stay, not a picker instant.
+function pricingStay() {
+  const first = _selections[0];
+  const checkIn = first ? String(first.availableCheckIn).slice(0, 10) : pickerCalendarDate(_searchCheckIn);
+  const checkOut = first ? String(first.availableCheckOut).slice(0, 10) : pickerCalendarDate(_searchCheckOut);
+  return { checkIn, checkOut, nights: (Date.parse(checkOut + 'T00:00:00Z') - Date.parse(checkIn + 'T00:00:00Z')) / 86400000 };
+}
 
 function clearSelections(silent) {
+  ++_pricingGeneration;
+  _selectedPackage = null;
+  _availablePackages = [];
+  _hasCachedStayPricing = false;
   _selections = [];
   if (!silent) updateSelectionPanel();
 }
 
 function setRoomSelection(roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut, roomFee) {
+  const rows = (tryFind('searchResultsRepeater') || {}).data || [];
+  const result = rows.find(r => r.roomCode === roomCode && r.availableCheckIn === availableCheckIn && r.availableCheckOut === availableCheckOut);
+  const others = _selections.filter(s => s.roomCode !== roomCode);
+  if (!Number.isInteger(qty) || qty < 0 || !result || result.status === 'unavailable' ||
+      !Number.isInteger(result.maxQty) || qty > result.maxQty ||
+      others.reduce((n, s) => n + s.qty, qty) > 4) {
+    safeText('Please select an available quantity, with no more than four rooms in total.');
+    return false;
+  }
+  if (qty > 0 && others.some(s => s.availableCheckIn !== availableCheckIn || s.availableCheckOut !== availableCheckOut)) {
+    safeText('Please select rooms for the same available dates. Remove the other rooms to choose this stay.');
+    return false;
+  }
   let next = [], found = false;
   for (let i = 0; i < _selections.length; i++) {
     if (_selections[i].roomCode === roomCode) {
@@ -33,6 +61,13 @@ function setRoomSelection(roomCode, roomName, qty, numGuests, availableCheckIn, 
   }
   if (!found && qty > 0) next.push({ roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut, roomFee: roomFee || 0 });
   _selections = next;
+  const stay = pricingStay();
+  _summaryNights = stay.nights;
+  if (!_selectedPackage || _selectedPackage.quoteCheckIn !== stay.checkIn || _selectedPackage.quoteCheckOut !== stay.checkOut) {
+    _selectedPackage = null;
+    _hasCachedStayPricing = false;
+    loadPackageOptions(stay.nights);
+  }
   updateSelectionPanel();
 }
 
@@ -42,6 +77,13 @@ function removeRoomSelection(roomCode) {
     if (_selections[i].roomCode !== roomCode) next.push(_selections[i]);
   }
   _selections = next;
+  const stay = pricingStay();
+  _summaryNights = stay.nights;
+  if (!_selectedPackage || _selectedPackage.quoteCheckIn !== stay.checkIn || _selectedPackage.quoteCheckOut !== stay.checkOut) {
+    _selectedPackage = null;
+    _hasCachedStayPricing = false;
+    loadPackageOptions(stay.nights);
+  }
   updateSelectionPanel();
 }
 
@@ -401,6 +443,17 @@ $w.onReady(async function () {
         safeText('Unable to lock this package price. Please search again.');
         return;
       }
+      const stay = pricingStay();
+      const rows = (tryFind('searchResultsRepeater') || {}).data || [];
+      if (_selectedPackage.quoteCheckIn !== stay.checkIn || _selectedPackage.quoteCheckOut !== stay.checkOut ||
+          _summaryNights !== stay.nights || _selections.reduce((n, s) => n + s.qty, 0) > 4 ||
+          _selections.some(s => !Number.isInteger(s.qty) || s.qty <= 0 ||
+            String(s.availableCheckIn).slice(0, 10) !== stay.checkIn || String(s.availableCheckOut).slice(0, 10) !== stay.checkOut ||
+            !rows.some(r => r.roomCode === s.roomCode && r.status !== 'unavailable' && Number.isInteger(r.maxQty) && r.maxQty >= s.qty &&
+              r.availableCheckIn === s.availableCheckIn && r.availableCheckOut === s.availableCheckOut))) {
+        safeText('Please select available rooms and wait for matching package pricing before continuing.');
+        return;
+      }
       const parts = [], first = _selections[0];
       for (let i = 0; i < _selections.length; i++) {
         const s = _selections[i];
@@ -533,12 +586,16 @@ $w.onReady(async function () {
           dd.enable && dd.enable();
         }
         dd.onChange((event) => {
-          const qty = parseInt(event.target.value || '1', 10);
+          const qty = Number(event.target.value);
           const numGuests = typeof selectedGuests === 'number' ? selectedGuests : baseOcc;
+          if (setRoomSelection(itemData.roomCode, itemData.roomName || itemData.roomCode, qty, numGuests, itemData.availableCheckIn, itemData.availableCheckOut, itemData.roomFee || 0) === false) {
+            const retained = _selections.find(s => s.roomCode === itemData.roomCode);
+            dd.value = String(retained ? retained.qty : 0);
+            return;
+          }
           const rowVector = safeItem($item, '#vectorImage2', null, null);
           const badgeEl = safeItem($item, '#selectedBadge', null, null);
           if (qty > 0) {
-            setRoomSelection(itemData.roomCode, itemData.roomName || itemData.roomCode, qty, numGuests, itemData.availableCheckIn, itemData.availableCheckOut, itemData.roomFee || 0);
             if (rowVector) {
               try { rowVector.show(); } catch (e) {}
               try { rowVector.expand(); } catch (e) {}
@@ -651,7 +708,7 @@ async function searchHandler() {
   safeText('Searching...');
 
   try {
-    const res = await searchAvailability(ciDate, coDate);
+    const res = await searchAvailability(pickerCalendarDate(ciDate), pickerCalendarDate(coDate));
     console.log('>>> [WBE-SEARCH] raw results:', JSON.stringify(res));
     if (!res.ok) { hideSearchHeader(); safeText(res.error); return; }
 
@@ -759,19 +816,33 @@ function loadPackageOptions(nights) {
   const pkgContainer = tryFind('packageContainer');
   if (!pkgContainer) return;
 
-  getPackagesByNights(nights).then(async function (packages) {
-    _availablePackages = packages || [];
-    if (!_availablePackages.length) return;
+  const stay = pricingStay();
+  const generation = ++_pricingGeneration;
+  _selectedPackage = null;
+  _hasCachedStayPricing = false;
+  getPackagesByNights(stay.nights).then(async function (packages) {
+    if (generation !== _pricingGeneration) return;
+    const candidates = packages || [];
+    if (!candidates.length) {
+      safeText('No package is available for the selected stay.');
+      return;
+    }
 
-    // The backend resolves seasonal and demand pricing per night, then signs a
-    // one-hour quote that remains authoritative through booking and invoicing.
-    await Promise.all(_availablePackages.map(async function (pkg) {
+    // Resolve a new, not-yet-accepted offer for this exact selected interval.
+    await Promise.all(candidates.map(async function (pkg) {
       try {
         const quoteResult = await createPricingQuote(
           pkg._id,
-          _searchCheckIn,
-          _searchCheckOut
+          stay.checkIn,
+          stay.checkOut
         );
+        const claims = quoteResult && quoteResult.quote;
+        if (!claims || claims.packageId !== pkg._id || claims.checkIn !== stay.checkIn ||
+            claims.checkOut !== stay.checkOut || claims.nights !== stay.nights) {
+          throw new Error('Package quote does not match the selected stay.');
+        }
+        pkg.quoteCheckIn = stay.checkIn;
+        pkg.quoteCheckOut = stay.checkOut;
         const priced = quoteResult && quoteResult.pricing;
         pkg.stayTotalPerPerson = Number(priced && priced.totalPerPerson) || 0;
         pkg.averageNightlyRate = Number(priced && priced.averageNightlyRate) || 0;
@@ -784,7 +855,8 @@ function loadPackageOptions(nights) {
       }
     }));
 
-    _availablePackages = _availablePackages.filter(function (pkg) {
+    if (generation !== _pricingGeneration) return;
+    _availablePackages = candidates.filter(function (pkg) {
       return pkg.pricingResolved && pkg.pricingQuoteToken;
     });
     if (!_availablePackages.length) {
@@ -814,10 +886,17 @@ function loadPackageOptions(nights) {
     // Repeater with multiple package options
     const repeater = tryFind('packageRepeater');
     if (repeater) {
-      if (typeof repeater.onItemReady === 'function') {
-        repeater.onItemReady(($item, itemData) => {
+      function refreshPackageRow($item, itemData, isNew) {
+          if (itemData.pricingGeneration !== _pricingGeneration) return;
+          let binding = _packageRowBindings.get(itemData._id);
+          if (isNew) {
+            binding = { row: itemData };
+            _packageRowBindings.set(itemData._id, binding);
+          }
+          if (!binding) return;
+          binding.row = itemData;
           safeItem($item, '#packageName2', 'text', itemData.title || '');
-          safeItem($item, '#nightsText', 'text', String(nights) + ' night' + (nights === 1 ? '' : 's'));
+          safeItem($item, '#nightsText', 'text', String(itemData.quoteNights) + ' night' + (itemData.quoteNights === 1 ? '' : 's'));
           safeItem($item, '#specialtyTours', 'text', itemData.specialtyTours || '');
           const packagePriceEl = safeItem($item, '#packagePrice', null, null);
           if (packagePriceEl) {
@@ -828,11 +907,19 @@ function loadPackageOptions(nights) {
           // Ensure indicator starts hidden; shown only when row is selected.
           hidePackageIndicator($item);
 
+          if (!isNew) return; // Retained items already own their handlers.
+
           // Bind click to the row container and each text element inside the item.
           function selectThisPackage(evt) {
-            console.log('>>> package row clicked:', itemData.title, 'id:', itemData._id);
-            // Use the original package object from _availablePackages so _id is preserved.
-            const originalPkg = _availablePackages.find(function (p) { return p._id === itemData._id; }) || itemData;
+            const row = binding.row;
+            const currentStay = pricingStay();
+            const currentRows = repeater.data || [];
+            if (_packageRowBindings.get(row._id) !== binding || row.pricingGeneration !== _pricingGeneration ||
+                !currentRows.some(p => p._id === row._id && p.pricingGeneration === _pricingGeneration)) return;
+            const originalPkg = _availablePackages.find(function (p) { return p._id === row._id; });
+            if (!originalPkg || !originalPkg.pricingResolved || !originalPkg.pricingQuoteToken ||
+                originalPkg.pricingQuoteToken !== row.pricingQuoteToken ||
+                originalPkg.quoteCheckIn !== currentStay.checkIn || originalPkg.quoteCheckOut !== currentStay.checkOut) return;
             _selectedPackage = originalPkg;
             _cachedPerPersonStayTotal = originalPkg.stayTotalPerPerson || 0;
             _hasCachedStayPricing = !!originalPkg.pricingResolved;
@@ -853,12 +940,17 @@ function loadPackageOptions(nights) {
               try { el.onClick(selectThisPackage); } catch (e) {}
             }
           });
-        });
+      }
+      if (!_packageRepeaterBound && typeof repeater.onItemReady === 'function') {
+        repeater.onItemReady(($item, itemData) => refreshPackageRow($item, itemData, true));
+        _packageRepeaterBound = true;
       }
 
       // Mark first as selected by default
       try {
-        repeater.data = _availablePackages.map((p, idx) => ({ ...p, _id: p._id || String(idx) }));
+        repeater.data = _availablePackages.map((p, idx) => ({ ...p, _id: p._id || String(idx), pricingGeneration: generation, quoteNights: stay.nights }));
+        // Wix does not rerun onItemReady for retained IDs. Refresh without rebinding.
+        repeater.forEachItem(($item, itemData) => refreshPackageRow($item, itemData, false));
       } catch (e) {
         console.log('>>> packageRepeater data error:', e.message);
       }
@@ -906,6 +998,7 @@ function loadPackageOptions(nights) {
         if (typeof packagePriceEl.expand === 'function') { try { packagePriceEl.expand(); } catch (e) {} }
       }
     }
+    updateSelectionPanel();
   }).catch(function (err) {
     console.log('>>> loadPackageOptions error:', err && err.message || err);
   });
@@ -1006,6 +1099,14 @@ function showSearchHeader(ciDate, coDate, nights) {
   }
 }
 
+// Picker Dates describe browser-local calendar days, not UTC instants.
+// Serialize that intent before the web-method proxy converts Dates to JSON.
+function pickerCalendarDate(date) {
+  return String(date.getFullYear()).padStart(4, '0') + '-' +
+    String(date.getMonth() + 1).padStart(2, '0') + '-' +
+    String(date.getDate()).padStart(2, '0');
+}
+
 function parseDate(v) {
   if (!v) return null;
   if (v instanceof Date) return v;
@@ -1033,7 +1134,7 @@ function safeText(txt, opts) {
 
 async function showAlternateDates(ciDate, coDate) {
   try {
-    const res = await suggestAlternateDates(ciDate, coDate);
+    const res = await suggestAlternateDates(pickerCalendarDate(ciDate), pickerCalendarDate(coDate));
     const sug = (res && res.suggestions) || [];
 
     if (sug.length === 0) {
@@ -1055,8 +1156,9 @@ async function showAlternateDates(ciDate, coDate) {
 function buildAltUrl(checkInIso, checkOutIso) {
   const ci = new Date(checkInIso);
   const co = new Date(checkOutIso);
+  // These are Search's UTC-normalized response dates, not picker Dates.
   const fmt = function (d) {
-    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+    return d.getUTCFullYear() + '-' + ('0' + (d.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + d.getUTCDate()).slice(-2);
   };
   return '/wanderlust-booking?ci=' + fmt(ci) + '&co=' + fmt(co) + '&auto=1';
 }

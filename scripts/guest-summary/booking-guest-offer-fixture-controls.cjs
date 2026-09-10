@@ -1,0 +1,30 @@
+'use strict';
+// Standalone fixture-only selector. Never loads backend modules.
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+assert.deepEqual(process.argv.slice(2),['F01']);
+const target=path.join(__dirname,'booking-guest-offer-fixture.cjs');
+assert.ok(fs.existsSync(target),'F01 dedicated inert fixture must exist');
+const {fixture}=require(target);
+(async()=>{
+ const f=fixture();
+ assert.equal(f.loaded.size,0);
+ const original={_id:'a',n:-0,date:new Date(123),nested:{v:1}};
+ await f.wix.insert('GuestBookingAcceptances',original,{});
+ original.nested.v=2;
+ const q=()=>f.wix.query('GuestBookingAcceptances').eq('_id','a').gt('_id','0').limit(2).find({});
+ const first=await q();assert.equal(first.items[0].nested.v,1);assert.ok(Object.is(first.items[0].n,-0));assert.ok(first.items[0].date instanceof Date);
+ first.items[0].nested.v=8;assert.equal((await q()).items[0].nested.v,1);
+ await assert.rejects(f.wix.insert('GuestBookingAcceptances',{_id:'a',nested:{v:9}},{}),/duplicate/);
+ assert.equal((await q()).items[0].nested.v,1);
+ assert.equal((await f.wix.query('GuestBookingAcceptances').eq('_id','a').gt('_id','z').limit(2).find({})).items.length,0);
+ f.hooks.afterInsert=()=>{throw Error('lost ACK');};
+ await assert.rejects(f.wix.insert('GuestBookingAcceptances',{_id:'b'},{}),/lost ACK/);
+ assert.equal(f.rows.GuestBookingAcceptances.length,2);
+ assert.throws(()=>f.wix.query('Bookings'),/collection/);
+ await assert.rejects(f.wix.insert('GuestBookingFinancialRevisions',{_id:'c'},{}),/write collection/);
+ await assert.rejects(f.secrets.getSecretValue('UNKNOWN'),/secret/);
+ assert.throws(()=>f.resolve('../outside','velo/backend/guestBookingOfferIssuer.js'),/escape|module/);
+ assert.equal(f.resolve('./guestBookingCredentials.js','velo/backend/guestBookingIssuerAuthority.js'),'velo/backend/guestBookingCredentials.js');
+ assert.equal(f.resolve('backend/guestBookingCredentials','velo/backend/guestBookingIssuerAuthority.js'),'velo/backend/guestBookingCredentials.js');
+ assert.equal(f.loaded.size,0);console.log('PASS F01 fixture-only; backend loads=0; COMPLETE 1');
+})().catch(e=>{console.error(e);process.exitCode=1;});

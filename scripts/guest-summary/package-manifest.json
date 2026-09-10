@@ -1,0 +1,234 @@
+{
+  "status": "FROZEN PROPOSAL; independent financial and relocation byte review outstanding",
+  "core": "b78a8ef7d0e5438f47cc08ac13b6919db4feb6b3",
+  "search": "749a99630a365361628665ffd844383bd3285e26",
+  "files": [
+    {
+      "path": "velo/backend/guestBookingAcceptance.js",
+      "allowedRawSha256": [
+        "be48af32aec02517ec450eec991a4ae3954f3865ca4c70c8f4f09bec8da360d9",
+        "b15c33c3206ac851d8de9fdc04349488f2a31b3b8b5100b07f3b28f4fee38df2"
+      ],
+      "canonicalSha256": "b15c33c3206ac851d8de9fdc04349488f2a31b3b8b5100b07f3b28f4fee38df2",
+      "origin": "b78a8ef7d0e5438f47cc08ac13b6919db4feb6b3"
+    },
+    {
+      "path": "velo/backend/guestBookingAcceptanceStore.js",
+      "allowedRawSha256": [
+        "f6ba25206650064b18a0f77b21aa126aba45374628f431b248287fa17cdc31ad",
+        "3cb3f02fbb92168364c21169e30834ba75980768de35e14ca9a2b9f8aa25a75c"
+      ],
+      "canonicalSha256": "3cb3f02fbb92168364c21169e30834ba75980768de35e14ca9a2b9f8aa25a75c",
+      "origin": "b78a8ef7d0e5438f47cc08ac13b6919db4feb6b3"
+    },
+    {
+      "path": "velo/backend/guestBookingAccessPolicy.js",
+      "allowedRawSha256": [
+        "179ab28b28c7fac0112be9873107448dc0fc497ff85346e32b9f93fd05345f5a",
+        "bbc14fb6951dbc7b677e9ca9202a2906d0da7bd5a2b322e56ca147e7e21dad35"
+      ],
+      "canonicalSha256": "bbc14fb6951dbc7b677e9ca9202a2906d0da7bd5a2b322e56ca147e7e21dad35",
+      "origin": "b78a8ef7d0e5438f47cc08ac13b6919db4feb6b3"
+    },
+    {
+      "path": "velo/backend/guestBookingCredentials.js",
+      "allowedRawSha256": [
+        "b140dbbbc45a909ec052c344beeb40c41ce630d19c22e35fe8dcd9b6bc82fa36",
+        "c34364e2196a67016b4def3850149478015fd41d35a42fe5a590d2c6d5750c9f"
+      ],
+      "canonicalSha256": "c34364e2196a67016b4def3850149478015fd41d35a42fe5a590d2c6d5750c9f",
+      "origin": "b78a8ef7d0e5438f47cc08ac13b6919db4feb6b3"
+    },
+    {
+      "path": "velo/backend/guestBookingFinancialCalculation.js",
+      "allowedRawSha256": [
+        "6acc8218a989b976e984853f568e06ac0b09c70c236c8404a2c87a017708a6c6",
+        "3dc9fae1c48a48e78b34608c57970e73fae546c65e7c3a31449359f01a67fe71"
+      ],
+      "canonicalSha256": "3dc9fae1c48a48e78b34608c57970e73fae546c65e7c3a31449359f01a67fe71",
+      "origin": "b78a8ef7d0e5438f47cc08ac13b6919db4feb6b3"
+    },
+    {
+      "path": "velo/backend/guestBookingIssuerAuthority.js",
+      "allowedRawSha256": [
+        "43f9830334ba820d129d5df124e60d97ee3097fe932e1ccd06c5d7cb2c55e145",
+        "b5578ae7bcdef12eb54ad37f3775a5ac3ccccdbe292e89b4561ed5498804919b"
+      ],
+      "canonicalSha256": "b5578ae7bcdef12eb54ad37f3775a5ac3ccccdbe292e89b4561ed5498804919b",
+      "origin": "b78a8ef7d0e5438f47cc08ac13b6919db4feb6b3"
+    },
+    {
+      "path": "velo/backend/guestBookingOfferIssuer.js",
+      "allowedRawSha256": [
+        "001c1a0f17c4f7fede5b8d3c6524a718828f42ab8897789bffe7c66c28a5bee3",
+        "fc01e66d6cf480d352a29729e4350e49c0fe83db184185e220fd5e3a76e634c0"
+      ],
+      "canonicalSha256": "fc01e66d6cf480d352a29729e4350e49c0fe83db184185e220fd5e3a76e634c0",
+      "origin": "b78a8ef7d0e5438f47cc08ac13b6919db4feb6b3"
+    },
+    {
+      "path": "velo/backend/guestBookingPriceGroups.js",
+      "allowedRawSha256": [
+        "7ca72e93c4b79746ae754a0ac8493eb49c1bcd270ce820a60ad134e86295db54",
+        "d787fea9c954650a7003953b9620e6862f4a44bcfa0b7e41818837d8ca3cfad8"
+      ],
+      "canonicalSha256": "d787fea9c954650a7003953b9620e6862f4a44bcfa0b7e41818837d8ca3cfad8",
+      "origin": "b78a8ef7d0e5438f47cc08ac13b6919db4feb6b3"
+    },
+    {
+      "path": "velo/backend/guestBookingPurchaseInput.js",
+      "allowedRawSha256": [
+        "253a0c82393790ba3b4a4f15c4ef2c5bb429c4c4e156c144ba3bd26bb2442909",
+        "a3b3583d0971c06f36301aa948479315def667e0e73d4accb8c854daab17489a"
+      ],
+      "canonicalSha256": "a3b3583d0971c06f36301aa948479315def667e0e73d4accb8c854daab17489a",
+      "origin": "b78a8ef7d0e5438f47cc08ac13b6919db4feb6b3"
+    },
+    {
+      "path": "velo/backend/lockedPricingQuoteAuthority.js",
+      "allowedRawSha256": [
+        "e8652f8c466c1af1225485d492de54a866d63294060e4fd614108ba2f407a891",
+        "d8520ba1bc16d829062760ce63ff3f5f7400363db3830b2f4d485b6a6b504d7c"
+      ],
+      "canonicalSha256": "d8520ba1bc16d829062760ce63ff3f5f7400363db3830b2f4d485b6a6b504d7c",
+      "origin": "b78a8ef7d0e5438f47cc08ac13b6919db4feb6b3"
+    },
+    {
+      "path": "velo/backend/strictLockedPricingQuote.js",
+      "allowedRawSha256": [
+        "5489d3057ea7f2e638fef0fe248b99841dca907109892602aa402a913428f102",
+        "da1c2c1f1e0b91adc37abd29c66e7fbc017c043094487917b2bb10920eae5b61"
+      ],
+      "canonicalSha256": "da1c2c1f1e0b91adc37abd29c66e7fbc017c043094487917b2bb10920eae5b61",
+      "origin": "b78a8ef7d0e5438f47cc08ac13b6919db4feb6b3"
+    },
+    {
+      "path": "velo/backend/guestBookingSummaryConnector.js",
+      "allowedRawSha256": [
+        "fc28e600e85c538b4aa11c3443545a76895c857daa94bbc12dca624f6793ef81"
+      ],
+      "canonicalSha256": "fc28e600e85c538b4aa11c3443545a76895c857daa94bbc12dca624f6793ef81",
+      "origin": "independent finite candidate approval; unchanged"
+    },
+    {
+      "path": "scripts/guest-summary/.gitattributes",
+      "allowedRawSha256": [
+        "0b7036298404498c93efe4748e5d7dd061a0bf4d3657d16ddf89abb72223c035"
+      ],
+      "canonicalSha256": "0b7036298404498c93efe4748e5d7dd061a0bf4d3657d16ddf89abb72223c035",
+      "origin": "portable support proposal"
+    },
+    {
+      "path": "scripts/guest-summary/booking-guest-accepted-flow-source.json",
+      "allowedRawSha256": [
+        "2333ad5c681e876cd3fb02aa41adf011afc0b0bcdd58c0b27ec88839b295ec8a"
+      ],
+      "canonicalSha256": "cf0c1c32d15f402452af1cbce8101b1b1ff3ef08e73a484bf991854c759e4138",
+      "origin": "portable support proposal"
+    },
+    {
+      "path": "scripts/guest-summary/booking-guest-offer-acceptance-custody.json",
+      "allowedRawSha256": [
+        "df51b6420db8a7b694db607bcbe79ccb94b60ac682159f1dcb569bbdabf97056"
+      ],
+      "canonicalSha256": "8e07afeb9166c3c7c4e4e8c61e7f05abff70d44eb41aae5b8da34c8b948ba61a",
+      "origin": "portable support proposal"
+    },
+    {
+      "path": "scripts/guest-summary/booking-guest-offer-admission.json",
+      "allowedRawSha256": [
+        "ee7c3172852a54bc9f6cbb10d5a788b3a4453a4ca25f1f25638e393379f1b657"
+      ],
+      "canonicalSha256": "b0968d11afc7a5842e71e67adc16e8415f9ab6746992d2d0c7f2e3d7e4614056",
+      "origin": "portable support proposal"
+    },
+    {
+      "path": "scripts/guest-summary/booking-guest-offer-connector-tests.cjs",
+      "allowedRawSha256": [
+        "d9e7c519ceb82ae3bc28aa2323de57bb5532bc49edea96a058a1a2aa578ed3f1"
+      ],
+      "canonicalSha256": "d9e7c519ceb82ae3bc28aa2323de57bb5532bc49edea96a058a1a2aa578ed3f1",
+      "origin": "portable support proposal"
+    },
+    {
+      "path": "scripts/guest-summary/booking-guest-offer-fixture-controls.cjs",
+      "allowedRawSha256": [
+        "89b126603f9cc3c602bb49dda2817d67b002acdbc41285a82e2affc33647d36d"
+      ],
+      "canonicalSha256": "89b126603f9cc3c602bb49dda2817d67b002acdbc41285a82e2affc33647d36d",
+      "origin": "portable support proposal"
+    },
+    {
+      "path": "scripts/guest-summary/booking-guest-offer-fixture.cjs",
+      "allowedRawSha256": [
+        "448a2a5487d4850e3a77d7fa87827b16251109f399cc10e7b691a5ed929dbb23"
+      ],
+      "canonicalSha256": "448a2a5487d4850e3a77d7fa87827b16251109f399cc10e7b691a5ed929dbb23",
+      "origin": "portable support proposal"
+    },
+    {
+      "path": "scripts/guest-summary/booking-guest-offer-loader.cjs",
+      "allowedRawSha256": [
+        "be247d1b5ad9b3d2199ea8c529b6ebaadf26b7aadb259a819bf45098b6367e6c"
+      ],
+      "canonicalSha256": "be247d1b5ad9b3d2199ea8c529b6ebaadf26b7aadb259a819bf45098b6367e6c",
+      "origin": "portable support proposal"
+    },
+    {
+      "path": "scripts/guest-summary/booking-guest-offer-public-vector.json",
+      "allowedRawSha256": [
+        "21b02e990a0f599e67926b342e46d0c3657ae4116a8d6c3aa0ef90b2167c350a"
+      ],
+      "canonicalSha256": "dd054056ea2889819e723c889fe790e7004c1fbce940064d73d899e1861a2fd9",
+      "origin": "portable support proposal"
+    },
+    {
+      "path": "scripts/guest-summary/booking-guest-summary-connector-boundaries.cjs",
+      "allowedRawSha256": [
+        "9ed378dd9794744456f5cba872972d0cdc8f1f54c78377b6bd4ee2a42bf10c62"
+      ],
+      "canonicalSha256": "9ed378dd9794744456f5cba872972d0cdc8f1f54c78377b6bd4ee2a42bf10c62",
+      "origin": "portable support proposal"
+    },
+    {
+      "path": "scripts/guest-summary/booking-guest-summary-financial-oracle-vectors.json",
+      "allowedRawSha256": [
+        "b69107ca780a4a0f9e973b9a22d99e1dcbd73605efc666b067fd7c5df5b9f418"
+      ],
+      "canonicalSha256": "4a7720469363e0439ca07deafd7036a0ca1e435e38f5c030903ca199522ae0c3",
+      "origin": "portable support proposal"
+    },
+    {
+      "path": "scripts/guest-summary/booking-guest-summary-financial-oracle.cjs",
+      "allowedRawSha256": [
+        "677f7801bb70025d1ff399e65f9e4ffb14bca3f5e954b98f1d0ff9b062d47a10"
+      ],
+      "canonicalSha256": "677f7801bb70025d1ff399e65f9e4ffb14bca3f5e954b98f1d0ff9b062d47a10",
+      "origin": "portable support proposal"
+    },
+    {
+      "path": "scripts/guest-summary/booking-guest-summary-financial-oracle.py",
+      "allowedRawSha256": [
+        "6354e328a107e8684c614755878c4955c44b0e634f4b51bc0a00110e21f4bf45"
+      ],
+      "canonicalSha256": "6354e328a107e8684c614755878c4955c44b0e634f4b51bc0a00110e21f4bf45",
+      "origin": "portable support proposal"
+    },
+    {
+      "path": "scripts/guest-summary/README.md",
+      "allowedRawSha256": [
+        "2c3271a32f173032e1b90d41615db10968ea7aed1f1a8c012b6a3b7b5613922f"
+      ],
+      "canonicalSha256": "2c3271a32f173032e1b90d41615db10968ea7aed1f1a8c012b6a3b7b5613922f",
+      "origin": "portable support proposal"
+    },
+    {
+      "path": "scripts/guest-summary/verify-package.py",
+      "allowedRawSha256": [
+        "58b2e875d456dbbd03daab4b6bbb8e21706c1a594024c4dd44b298e9c6f6c315"
+      ],
+      "canonicalSha256": "58b2e875d456dbbd03daab4b6bbb8e21706c1a594024c4dd44b298e9c6f6c315",
+      "origin": "portable support proposal"
+    }
+  ]
+}

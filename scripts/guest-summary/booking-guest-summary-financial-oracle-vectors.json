@@ -1,0 +1,222 @@
+{
+  "revisionBytes": "{\"v\":1,\"package\":{\"id\":\"package\",\"nights\":4,\"baseRate\":100,\"priceModifier\":1},\"penthouseRoomFee\":10.005,\"propertyFeeRate\":0.05003,\"taxRateAccommodation\":0.1,\"taxRateStandard\":0.15,\"promos\":[]}",
+  "revisionDigest": "33a260e81896f8a080aa6d634f6d4416ac9d2dc57ebff74ce8c81be9eaf4e404",
+  "cases": [
+    {
+      "id": "F01",
+      "groups": [
+        {
+          "roomCode": "adventure_suite",
+          "quantity": 1,
+          "guests": 2
+        },
+        {
+          "roomCode": "penthouse_apartment",
+          "quantity": 1,
+          "guests": 2
+        },
+        {
+          "roomCode": "adventure_suite",
+          "quantity": 1,
+          "guests": 2
+        }
+      ],
+      "expected": {
+        "v": 1,
+        "currency": "USD",
+        "rounding": "original-group-backend-v1",
+        "groups": [
+          {
+            "index": 0,
+            "roomCode": "adventure_suite",
+            "quantity": 1,
+            "guests": 2,
+            "grossCents": 20000,
+            "discountCents": 0,
+            "roomTotalCents": 20000,
+            "propertyFeeCents": 1001,
+            "accommodationVatCents": 1000,
+            "packageVatCents": 1500,
+            "grandTotalCents": 23501
+          },
+          {
+            "index": 1,
+            "roomCode": "penthouse_apartment",
+            "quantity": 1,
+            "guests": 2,
+            "grossCents": 24002,
+            "discountCents": 0,
+            "roomTotalCents": 24002,
+            "propertyFeeCents": 1201,
+            "accommodationVatCents": 1200,
+            "packageVatCents": 1800,
+            "grandTotalCents": 28203
+          },
+          {
+            "index": 2,
+            "roomCode": "adventure_suite",
+            "quantity": 1,
+            "guests": 2,
+            "grossCents": 20000,
+            "discountCents": 0,
+            "roomTotalCents": 20000,
+            "propertyFeeCents": 1001,
+            "accommodationVatCents": 1000,
+            "packageVatCents": 1500,
+            "grandTotalCents": 23501
+          }
+        ],
+        "totals": {
+          "grossCents": 64002,
+          "discountCents": 0,
+          "roomTotalCents": 64002,
+          "propertyFeeCents": 3203,
+          "accommodationVatCents": 3200,
+          "packageVatCents": 4800,
+          "grandTotalCents": 75205,
+          "totalVatCents": 8000,
+          "totalRooms": 3,
+          "totalGuests": 6
+        }
+      }
+    },
+    {
+      "id": "F02",
+      "groups": [
+        {
+          "roomCode": "adventure_suite",
+          "quantity": 2,
+          "guests": 2
+        },
+        {
+          "roomCode": "penthouse_apartment",
+          "quantity": 1,
+          "guests": 2
+        }
+      ],
+      "expected": {
+        "v": 1,
+        "currency": "USD",
+        "rounding": "original-group-backend-v1",
+        "groups": [
+          {
+            "index": 0,
+            "roomCode": "adventure_suite",
+            "quantity": 2,
+            "guests": 2,
+            "grossCents": 40000,
+            "discountCents": 0,
+            "roomTotalCents": 40000,
+            "propertyFeeCents": 2001,
+            "accommodationVatCents": 2000,
+            "packageVatCents": 3000,
+            "grandTotalCents": 47001
+          },
+          {
+            "index": 1,
+            "roomCode": "penthouse_apartment",
+            "quantity": 1,
+            "guests": 2,
+            "grossCents": 24002,
+            "discountCents": 0,
+            "roomTotalCents": 24002,
+            "propertyFeeCents": 1201,
+            "accommodationVatCents": 1200,
+            "packageVatCents": 1800,
+            "grandTotalCents": 28203
+          }
+        ],
+        "totals": {
+          "grossCents": 64002,
+          "discountCents": 0,
+          "roomTotalCents": 64002,
+          "propertyFeeCents": 3202,
+          "accommodationVatCents": 3200,
+          "packageVatCents": 4800,
+          "grandTotalCents": 75204,
+          "totalVatCents": 8000,
+          "totalRooms": 3,
+          "totalGuests": 6
+        }
+      }
+    },
+    {
+      "id": "F03",
+      "groups": [
+        {
+          "roomCode": "penthouse_apartment",
+          "quantity": 1,
+          "guests": 2
+        },
+        {
+          "roomCode": "adventure_suite",
+          "quantity": 1,
+          "guests": 2
+        },
+        {
+          "roomCode": "adventure_suite",
+          "quantity": 1,
+          "guests": 2
+        }
+      ],
+      "expected": {
+        "v": 1,
+        "currency": "USD",
+        "rounding": "original-group-backend-v1",
+        "groups": [
+          {
+            "index": 0,
+            "roomCode": "penthouse_apartment",
+            "quantity": 1,
+            "guests": 2,
+            "grossCents": 24002,
+            "discountCents": 0,
+            "roomTotalCents": 24002,
+            "propertyFeeCents": 1201,
+            "accommodationVatCents": 1200,
+            "packageVatCents": 1800,
+            "grandTotalCents": 28203
+          },
+          {
+            "index": 1,
+            "roomCode": "adventure_suite",
+            "quantity": 1,
+            "guests": 2,
+            "grossCents": 20000,
+            "discountCents": 0,
+            "roomTotalCents": 20000,
+            "propertyFeeCents": 1001,
+            "accommodationVatCents": 1000,
+            "packageVatCents": 1500,
+            "grandTotalCents": 23501
+          },
+          {
+            "index": 2,
+            "roomCode": "adventure_suite",
+            "quantity": 1,
+            "guests": 2,
+            "grossCents": 20000,
+            "discountCents": 0,
+            "roomTotalCents": 20000,
+            "propertyFeeCents": 1001,
+            "accommodationVatCents": 1000,
+            "packageVatCents": 1500,
+            "grandTotalCents": 23501
+          }
+        ],
+        "totals": {
+          "grossCents": 64002,
+          "discountCents": 0,
+          "roomTotalCents": 64002,
+          "propertyFeeCents": 3203,
+          "accommodationVatCents": 3200,
+          "packageVatCents": 4800,
+          "grandTotalCents": 75205,
+          "totalVatCents": 8000,
+          "totalRooms": 3,
+          "totalGuests": 6
+        }
+      }
+    }
+  ]
+}

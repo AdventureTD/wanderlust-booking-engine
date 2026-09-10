@@ -1,0 +1,59 @@
+{
+  "status": "PROPOSED independent Python public vector; not approved retained producer output; backend NOTRUN",
+  "now": 1800000000000,
+  "quoteOriginalBytesUtf8": "{\"v\":1,\"nonce\":\"000102030405060708090a0b\",\"issuedAt\":1800000000000,\"expiresAt\":1800003600000,\"checkIn\":\"2027-01-01\",\"checkOut\":\"2027-01-05\",\"nights\":4,\"packageId\":\"package\",\"packageTitle\":\"Public connector fixture\",\"baseRate\":100,\"priceModifier\":1,\"totalPerPerson\":100}",
+  "quoteEncoded": "eyJ2IjoxLCJub25jZSI6IjAwMDEwMjAzMDQwNTA2MDcwODA5MGEwYiIsImlzc3VlZEF0IjoxODAwMDAwMDAwMDAwLCJleHBpcmVzQXQiOjE4MDAwMDM2MDAwMDAsImNoZWNrSW4iOiIyMDI3LTAxLTAxIiwiY2hlY2tPdXQiOiIyMDI3LTAxLTA1IiwibmlnaHRzIjo0LCJwYWNrYWdlSWQiOiJwYWNrYWdlIiwicGFja2FnZVRpdGxlIjoiUHVibGljIGNvbm5lY3RvciBmaXh0dXJlIiwiYmFzZVJhdGUiOjEwMCwicHJpY2VNb2RpZmllciI6MSwidG90YWxQZXJQZXJzb24iOjEwMH0",
+  "quoteMacHex": "4293382016c445349ff39a12dd22b9f2d1785118bff7f46e0132db2bb57b6781",
+  "quoteToken": "eyJ2IjoxLCJub25jZSI6IjAwMDEwMjAzMDQwNTA2MDcwODA5MGEwYiIsImlzc3VlZEF0IjoxODAwMDAwMDAwMDAwLCJleHBpcmVzQXQiOjE4MDAwMDM2MDAwMDAsImNoZWNrSW4iOiIyMDI3LTAxLTAxIiwiY2hlY2tPdXQiOiIyMDI3LTAxLTA1IiwibmlnaHRzIjo0LCJwYWNrYWdlSWQiOiJwYWNrYWdlIiwicGFja2FnZVRpdGxlIjoiUHVibGljIGNvbm5lY3RvciBmaXh0dXJlIiwiYmFzZVJhdGUiOjEwMCwicHJpY2VNb2RpZmllciI6MSwidG90YWxQZXJQZXJzb24iOjEwMH0.QpM4IBbERTSf85oS3SK58tF4URi_9_RuATLbK7V7Z4E",
+  "purchase": {
+    "v": 1,
+    "checkIn": "2027-01-01",
+    "checkOut": "2027-01-05",
+    "packageId": "package",
+    "pricingQuoteToken": "eyJ2IjoxLCJub25jZSI6IjAwMDEwMjAzMDQwNTA2MDcwODA5MGEwYiIsImlzc3VlZEF0IjoxODAwMDAwMDAwMDAwLCJleHBpcmVzQXQiOjE4MDAwMDM2MDAwMDAsImNoZWNrSW4iOiIyMDI3LTAxLTAxIiwiY2hlY2tPdXQiOiIyMDI3LTAxLTA1IiwibmlnaHRzIjo0LCJwYWNrYWdlSWQiOiJwYWNrYWdlIiwicGFja2FnZVRpdGxlIjoiUHVibGljIGNvbm5lY3RvciBmaXh0dXJlIiwiYmFzZVJhdGUiOjEwMCwicHJpY2VNb2RpZmllciI6MSwidG90YWxQZXJQZXJzb24iOjEwMH0.QpM4IBbERTSf85oS3SK58tF4URi_9_RuATLbK7V7Z4E",
+    "promoCode": "",
+    "guestName": "Fixture Guest",
+    "guestEmail": "fixture@example.test",
+    "guestPhone": "1234567",
+    "dialingCode": "1",
+    "note": "",
+    "marketSource": "",
+    "gclid": "",
+    "gbraid": "",
+    "wbraid": "",
+    "msclkid": "",
+    "priceGroups": [
+      {
+        "roomCode": "adventure_suite",
+        "quantity": 1,
+        "guests": 2
+      },
+      {
+        "roomCode": "adventure_suite",
+        "quantity": 1,
+        "guests": 2
+      }
+    ]
+  },
+  "summaryRooms": [
+    {
+      "roomCode": "adventure_suite",
+      "qty": 1,
+      "numGuests": 2
+    },
+    {
+      "roomCode": "adventure_suite",
+      "qty": 1,
+      "numGuests": 2
+    }
+  ],
+  "revisionRow": {
+    "_id": "revision-1",
+    "revisionBytes": "{\"v\":1,\"package\":{\"id\":\"package\",\"nights\":4,\"baseRate\":100,\"priceModifier\":1},\"penthouseRoomFee\":10.005,\"propertyFeeRate\":0.05,\"taxRateAccommodation\":0.1,\"taxRateStandard\":0.15,\"promos\":[]}"
+  },
+  "secrets": {
+    "WBE_PRICING_QUOTE_SECRET": "PUBLIC-CONNECTOR-QUOTE-FIXTURE-ONLY",
+    "WBE_GUEST_BOOKING_KEYS": "{\"audience\":\"wbe:fixture\",\"activeKid\":\"fixture\",\"keys\":[{\"kid\":\"fixture\",\"keyHex\":\"1212121212121212121212121212121212121212121212121212121212121212\"}]}",
+    "WBE_GUEST_BOOKING_ISSUER_CONFIG": "{\"v\":1,\"revisionId\":\"revision-1\",\"revisionDigest\":\"30449fcc65c287dcb8aa9ed28b7311e3913b8f1e7f17016a49a7eb2c75028c40\",\"numberPrefix\":\"TEST-\"}"
+  }
+}

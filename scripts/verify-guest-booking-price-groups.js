@@ -219,8 +219,8 @@ const crypto = require('node:crypto');
 for (const [file, hash] of [
   ['velo/backend/guestBookingAccessPolicy.js', 'bbc14fb6951dbc7b677e9ca9202a2906d0da7bd5a2b322e56ca147e7e21dad35'],
   ['velo/backend/guestBookingCredentials.js', 'c34364e2196a67016b4def3850149478015fd41d35a42fe5a590d2c6d5750c9f'],
-  ['velo/backend/search.web.js', '71b5a62c279b45a9db04feb8d6a91826490a72c9e43ec944352c71ae39c34aec'],
-  ['velo/page-booking-search.js', '4b47dd273155650a2424d841d87b4adc64fffc4a5c9f7b0f4d2c34fdb061b318']
+  ['velo/backend/search.web.js', '9ee7cec295395cdc77b57015fa34978bb8deb072da7e5516641fbcf97b2b5017'],
+  ['velo/page-booking-search.js', '220392d3bd25315f2a1f73bb2bedd5e9346688835932f224138d84707b73dd69']
 ]) {
   const content = fs.readFileSync(path.join(__dirname, '..', file), 'utf8').replace(/\r\n/g, '\n');
   eq(crypto.createHash('sha256').update(content).digest('hex'), hash, 'baseline preservation (LF normalized) ' + file);
@@ -783,6 +783,14 @@ function runAllocationIsolationMetatests(gate) {
 // Exact private acceptance graph reviewed in acceptance-private-slice-review-v3.
 // Local isolation pins only: no public activation or implementation self-approval.
 const acceptancePrivatePins = {
+  "velo/backend/guestBookingSummaryConnector.js": {
+    "sha256": "fc28e600e85c538b4aa11c3443545a76895c857daa94bbc12dca624f6793ef81",
+    "imports": [
+      "import { issueGuestBookingOffer } from 'backend/guestBookingOfferIssuer';",
+      "import { acceptGuestBookingOffer } from 'backend/guestBookingAcceptance';"
+    ],
+    "exports": ["export function createGuestBookingSummaryConnector() {"]
+  },
   "velo/backend/guestConsentBookingLink.js": {
     "sha256": "2f7fbbce5fef566430349d84be0c267849873190952c1ced0222f26303029441",
     "imports": [
@@ -848,7 +856,7 @@ const acceptancePrivatePins = {
     ]
   },
   "velo/backend/guestBookingAcceptance.js": {
-    "sha256": "a24b038118bbc3d94794e7d30f33262443a57a5f63e92c13aab9b91b8a4fdb31",
+    "sha256": "b15c33c3206ac851d8de9fdc04349488f2a31b3b8b5100b07f3b28f4fee38df2",
     "imports": [
       "import { readGuestBookingCredentialAuthority, acceptanceDigest, acceptanceTime, boundedJson, exactFields, buildGuestBookingAcceptanceRoot } from 'backend/guestBookingIssuerAuthority';",
       "import { validateGuestBookingOfferCapsule } from 'backend/guestBookingOfferIssuer';",
@@ -871,7 +879,7 @@ const acceptancePrivatePins = {
     ]
   }
 };
-const acceptancePrivateReferences = /guestConsentBookingLink|linkGuestConsentBrowserToAcceptedBooking|readGuestConsentBookingNegative|acceptGuestBookingOffer|acceptanceDigest|acceptanceTime|boundedJson|buildGuestBookingAcceptanceRoot|discoverGuestBookingAcceptances|exactFields|guestBookingAcceptance|guestBookingAcceptanceDiscovery|guestBookingAcceptanceStore|guestBookingIssuerAuthority|guestBookingOfferIssuer|insertGuestBookingAcceptance|issueGuestBookingOffer|readGuestBookingAcceptance|readGuestBookingCredentialAuthority|readGuestBookingIssuerAuthority|readOwnGuestBookingAcceptance|scanGuestBookingAcceptances|snapshotAcceptancePage|validateGuestBookingAcceptanceRoot|validateGuestBookingOfferCapsule/i;
+const acceptancePrivateReferences = /guestBookingSummaryConnector|createGuestBookingSummaryConnector|guestConsentBookingLink|linkGuestConsentBrowserToAcceptedBooking|readGuestConsentBookingNegative|acceptGuestBookingOffer|acceptanceDigest|acceptanceTime|boundedJson|buildGuestBookingAcceptanceRoot|discoverGuestBookingAcceptances|exactFields|guestBookingAcceptance|guestBookingAcceptanceDiscovery|guestBookingAcceptanceStore|guestBookingIssuerAuthority|guestBookingOfferIssuer|insertGuestBookingAcceptance|issueGuestBookingOffer|readGuestBookingAcceptance|readGuestBookingCredentialAuthority|readGuestBookingIssuerAuthority|readOwnGuestBookingAcceptance|scanGuestBookingAcceptances|snapshotAcceptancePage|validateGuestBookingAcceptanceRoot|validateGuestBookingOfferCapsule/i;
 
 function acceptanceReferenceText(text) {
   return text.replace(/\\(?:\r\n|[\n\r\u2028\u2029])/g, '')

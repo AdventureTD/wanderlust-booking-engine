@@ -29,15 +29,17 @@ check(imports.some(function(line) {
 }), 'coordinator imports only the pure maximum-availability operation');
 check(!/roomAssignments|wixDataPaging|ownerBlocks|calendar|adminConsole|search\.web/.test(coordinator),
   'coordinator does not restore rejected assignment, paging, owner, calendar, admin, or Search dependencies');
-check(exportStatements.length === 1 && /loadRoomAvailability$/.test(exportStatements[0]),
-  'coordinator exports only loadRoomAvailability');
+check(JSON.stringify(exportStatements) === JSON.stringify([
+  'export async function loadRoomAvailability',
+  'export async function loadRoomAvailabilityWindowReader'
+]), 'coordinator exports exactly the retained one-shot reader and request window reader');
 
 const searchPath = path.join(root, 'velo', 'backend', 'search.web.js');
 const search = fs.readFileSync(searchPath, 'utf8');
 const searchImports = search.match(/^import[^\n;]+from ['"]backend\/roomAvailability['"];?\s*$/gm) || [];
 check(searchImports.length === 1 &&
-  /import \{ loadRoomAvailability \}/.test(searchImports[0]),
-  'Search is the sole approved consumer and imports only loadRoomAvailability');
+  /^import \{ loadRoomAvailabilityWindowReader \} from ['"]backend\/roomAvailability['"];?\s*$/.test(searchImports[0]),
+  'Search is the sole approved consumer and imports only loadRoomAvailabilityWindowReader');
 
 const protectedFiles = [
   path.join(root, 'velo', 'page-booking-search.js'),

@@ -41,17 +41,19 @@ function resolveInventoryDates(bookingRows, summaryRows) {
   const summaryByBookingNumber = Object.create(null);
   for (const summary of (summaryRows || [])) {
     const key = bookingNumberKey(summary && summary.bookingNumber);
-    if (
-      key &&
-      !Object.prototype.hasOwnProperty.call(summaryByBookingNumber, key) &&
-      hasStoredDates(summary)
-    ) {
-      summaryByBookingNumber[key] = summary;
+    if (!key) continue;
+    // Count every matching row, even incomplete or identical duplicates.
+    if (Object.prototype.hasOwnProperty.call(summaryByBookingNumber, key)) {
+      summaryByBookingNumber[key] = null;
+    } else {
+      summaryByBookingNumber[key] = hasStoredDates(summary) ? summary : null;
     }
   }
   return (bookingRows || []).map(function(row) {
     const resolved = Object.assign({}, row, { dateSource: 'Bookings' });
-    if (hasStoredDates(row)) return resolved;
+    // Never overwrite either half of a partially known direct interval.
+    if (row && (row.checkIn !== null && row.checkIn !== undefined && row.checkIn !== '' ||
+      row.checkOut !== null && row.checkOut !== undefined && row.checkOut !== '')) return resolved;
     const summary = summaryByBookingNumber[bookingNumberKey(row && row.bookingNumber)];
     if (!summary) return resolved;
     resolved.checkIn = summary.checkIn;
