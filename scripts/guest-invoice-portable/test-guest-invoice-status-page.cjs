@@ -1,0 +1,40 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const {setup,vector,retained,credentialFor,setNow}=require('./test-guest-invoice-status-ui.cjs');
+const {ROOT:root,verify}=require('./custody.cjs');verify();const copy=x=>JSON.parse(JSON.stringify(x));
+function element(id){const handlers={};return {id,handlers,text:'',value:'',label:'Continue',link:'',target:'',hidden:false,collapsed:false,enabled:true,show(){this.hidden=false;},hide(){this.hidden=true;},expand(){this.collapsed=false;},collapse(){this.collapsed=true;},enable(){this.enabled=true;},disable(){this.enabled=false;},onClick(f){(handlers.click??=[]).push(f);},onInput(f){(handlers.input??=[]).push(f);},onChange(f){(handlers.change??=[]).push(f);},onBlur(f){(handlers.blur??=[]).push(f);},onKeyPress(f){(handlers.keypress??=[]).push(f);},onKeyDown(f){(handlers.keydown??=[]).push(f);},onItemReady(f){(handlers.item??=[]).push(f);},async fire(e='click',data={}){await Promise.all((handlers[e]||[]).map(f=>f(data)));}};}
+async function harness(options={}){
+ const history=retained(options.history||'happy-final');if(options.prefix)history.rows=history.rows.filter(r=>r.kind==='INITIAL_ISSUANCE');if(options.unavailable)history.rows=[];const s=setup(history),api=await s.load('guestBookingSummaryService.web');const c=credentialFor(history.db.GuestBookingAcceptances[0],'guest-bootstrap'); const issuer=await s.load('guestBookingOfferIssuer'); const offer=issuer.validateGuestBookingOfferCapsule(c.capsule).offer; const calls={prepare:0,confirm:0,refresh:0,legacy:0,external:0},elements=new Map(),rows=[];
+ const el=id=>{if(!elements.has(id))elements.set(id,element(id));return elements.get(id);};
+ const $w=id=>el(id);let ready;$w.onReady=f=>ready=f;
+ const rep=el('#summaryRoomsRepeater');Object.defineProperty(rep,'data',{get(){return this._data||[];},set(data){this._data=data;for(const item of data){const map=new Map(),itemEl=id=>{if(!map.has(id))map.set(id,element(id));return map.get(id);};rows.push({item,itemEl});for(const f of rep.handlers.item||[])f(itemEl,item);}}});
+ const wire={};for(const [name,kind] of [['prepareGuestBookingSummary','prepare'],['confirmGuestBookingSummary','confirm'],['readGuestBookingSummaryStatus','refresh']])wire[name]=async x=>{calls[kind]++;if(options.before)await options.before(kind,x,s);const r=copy(kind==='prepare'?{status:'OFFER',credential:c,display:offer.calculation,packageTitle:offer.quote.packageTitle,offerExpiresAtMs:offer.offerExpiresAtMs}:await api[name](copy(x)));if(options.after)await options.after(kind,r,s);return r;};
+ const controllerPath=fs.existsSync(path.join(root,'velo/public/bookConfirmSearch.js'))?'velo/public/bookConfirmSearch.js':'velo/page-book-confirm-search.js';
+ const ctrl=vm.compileFunction(fs.readFileSync(path.join(root,controllerPath),'utf8').replace(/^import .*;$/gm,'').replace('export function ','function ')+'\nreturn {mountBookConfirmSearch};',Object.keys(wire))(...Object.values(wire));
+ const forbidden=()=>{calls.external++;throw Error('external effect forbidden');};const legacy=()=>{calls.legacy++;throw Error('legacy booking forbidden');};
+ const imports={'wix-location':{default:{query:{rc:vector.summaryRooms.map(r=>`${r.roomCode}:${r.qty}:${r.numGuests}:0`).join(','),ci:vector.purchase.checkIn,co:vector.purchase.checkOut,pkg:vector.purchase.packageId,quote:vector.purchase.pricingQuoteToken},to:forbidden}},'wix-data':{default:{query(name){assert.ok(['Rooms','PromoCodes','Packages'].includes(name),'frontend authority query forbidden '+name);return {hasSome(){return this;},eq(){return this;},limit(){return this;},async find(){return {items:[]};}};},update:forbidden}},'backend/settings':{getAllSettings:async()=>({})},'backend/rooms':{getRoomNames:async()=>({})},'backend/packages':{getPackagesByNights:async()=>[{_id:'package',baseRate:100,title:'Public connector fixture'}],getPackageBaseRate:async()=>100,getPackageAmenities:async()=>({}),getPackageDetailsByNights:async()=>({})},'backend/pricingQuotes':{readPricingQuote:async()=>JSON.parse(vector.quoteOriginalBytesUtf8)},'backend/availability':{createBooking:legacy,issueBookingInvoice:forbidden,validatePromoCode:async (...args)=>options.promo ? options.promo(...args) : ({valid:false,reason:'Promo code not found.'})},'public/tracking':{initTracking(){},setSuspendGoogleAds(){},getStoredClickIds:()=>({}),trackPurchase:forbidden,clearClickIds:forbidden},'backend/googleAdsConversions.web':{recordBookingConversion:forbidden},'backend/microsoftAdsConversions.web':{recordMicrosoftBookingConversion:forbidden},'public/bookConfirmSearch':ctrl};
+ const source=fs.readFileSync(path.join(root,'velo/page-booking-summary.js'),'utf8');
+ const transformed=source.replace(/^import\s+(.+?)\s+from\s+'([^']+)';\r?$/gm,(_,binding,spec)=>{assert.ok(imports[spec],'undeclared page import '+spec);return `const ${binding}=__import(${JSON.stringify(spec)})${binding.startsWith('{')?'':'.default'};`;});
+ vm.compileFunction(transformed,['__import','$w','localStorage','console','setTimeout'],{filename:'ACTUAL-page-booking-summary.js'})(spec=>imports[spec],$w,{getItem:()=>null},{log(){},warn(){},error(){}},forbidden);
+ el('#inputGuestName').value=vector.purchase.guestName;el('#inputGuestEmail').value=vector.purchase.guestEmail;el('#inputGuestPhone').value=vector.purchase.guestPhone;el('#inputDialingCode').value='1';
+ ready();for(let i=0;i<100&&!el('#btnContinue').handlers.click?.length;i++)await new Promise(r=>setImmediate(r));assert.equal(el('#btnContinue').handlers.click?.length,1,'one actual Continue handler');
+ return {s,calls,el,rows,source,click:()=>el('#btnContinue').fire(),status:()=>el('#bookingStatus').text};
+}
+
+async function main(){
+ const results=[];
+ const cases=[['happy-final',/Invoice sent.*email provider.*not.*inbox/i,{}],['start-loss-final',/invoice.*team.*review/i,{}],['provider-loss-final',/invoice.*team.*review/i,{}],['pending',/Invoice pending/i,{history:'happy-final',prefix:true}],['unavailable',/Invoice status is unavailable.*booking remains confirmed/i,{history:'happy-final',unavailable:true}]];
+ for(const [history,phrase,options] of cases){
+  const h=await harness({history,...options});await h.click();assert.equal(h.el('#grandTotal').text,'$470.00');await h.click();const traceStart=h.s.invoiceTrace.length,bookingTraceStart=h.s.f.trace.length,postsStart=h.s.posts.length,dbBefore=JSON.stringify(h.s.f.snapshot()),rowsBefore=JSON.stringify(h.s.rows);await h.click();
+  assert.match(h.status(),/Booking confirmed!/);assert.match(h.status(),phrase);
+  assert.equal(h.el('#btnContinue').enabled,true,'confirmed booking must allow explicit readonly invoice refresh');
+  const before=copy(h.calls);await h.click();assert.equal(h.calls.refresh,before.refresh+1);assert.equal(h.calls.confirm,before.confirm);assert.equal(h.calls.external,0);
+  assert.equal(h.el('#grandTotal').text,'$470.00');assert.equal(h.el('#summaryRoomsRepeater').data.length,2);
+  assert.equal(h.s.posts.length,postsStart);assert.ok(h.s.invoiceTrace.slice(traceStart).every(t=>t.op==='find'));assert.ok(h.s.f.trace.slice(bookingTraceStart).every(t=>t.op!=='FORBIDDEN-WRITE'));assert.equal(JSON.stringify(h.s.f.snapshot()),dbBefore);assert.equal(JSON.stringify(h.s.rows),rowsBefore);
+  results.push({id:'PAGE-'+history,text:h.status(),calls:h.calls});
+ }
+ const expired=await harness();await expired.click();await expired.click();await expired.click();assert.match(expired.status(),/Invoice sent/);const expiryTrace=expired.s.invoiceTrace.length;
+ setNow(retained().db.GuestBookingAcceptances[0].offerExpiresAtMs);await expired.click();assert.match(expired.status(),/unavailable or expired/);assert.doesNotMatch(expired.status(),/Invoice sent|Booking number/);assert.equal(expired.el('#btnContinue').enabled,false);assert.equal(expired.s.invoiceTrace.length,expiryTrace);setNow(vector.now);results.push({id:'PAGE-EXPIRED',text:expired.status()});
+ assert.equal(new Set(results.map(r=>r.id)).size,6);console.log(JSON.stringify({status:'PASS',count:results.length,results}));
+}
+main().catch(e=>{console.error(e.stack);process.exitCode=1;});

@@ -1,4 +1,5 @@
 import { acceptanceDigest } from 'backend/guestBookingIssuerAuthority';
+import { transportExpectation, withTransportFence } from 'backend/guestBookingInvoiceTransportAuth';
 import { readGuestBookingInvoiceSiteAudience } from 'backend/guestBookingInvoiceAuthorityConfig';
 import { createGuestBookingPhysicalAcquisitionSession } from 'backend/guestBookingPhysicalAcquisitionEvidence';
 import { readGuestBookingCompletionEvidence } from 'backend/guestBookingCompletionEvidence';
@@ -69,6 +70,15 @@ async function readBoundRetainedCompletion(expected){
   const retained=JSON.parse(finalText);bound(retained,expected,true);
   return {status:'VERIFIED_COMPLETION',receipt:retained,projection:JSON.parse(retained.projectionCanonical)};
  }catch(e){return answer(e.message==='INTEGRITY'?'INTEGRITY':'UNKNOWN');}
+}
+// The same retained algorithm receives the original immutable subject, never a
+// newly configured audience. This wrapper does not alter durable recovery expiry.
+export async function readTransportBoundGuestBookingCompletion(ctx){
+ try {
+  if(arguments.length!==1)return answer('DENIED');
+  const expected=transportExpectation(ctx);
+  return await withTransportFence(ctx,'subjectRead',()=>readBoundRetainedCompletion(expected));
+ }catch{return answer('UNKNOWN');}
 }
 export async function readRecoveredGuestBookingCompletion(acceptanceId,operationId,rootDigest){
  if(arguments.length!==3||![acceptanceId,operationId,rootDigest].every(v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v)))return answer('DENIED');

@@ -896,9 +896,15 @@ function renderBookingState(state) {
     safeText('packageName',state.packageTitle);
     safeText('packageLarge',state.packageTitle);
   }
-  safeText('bookingStatus',state.status === 'CONFIRMED' ? 'Booking confirmed! Booking number: ' + state.bookingNumber : (messages[state.status] || 'Booking status is unknown.'));
+  const invoiceMessages = {
+    PENDING:'Invoice pending. You can check its status again; your booking is confirmed.',
+    PROVIDER_ACCEPTED:'Invoice sent: accepted by the email provider. This does not confirm receipt in your inbox.',
+    OWNER_REVIEW_REQUIRED:'Invoice delivery is uncertain and needs our team to review. Your booking remains confirmed; do not make another booking or resend the invoice.',
+    UNAVAILABLE:'Invoice status is unavailable. Your booking remains confirmed. Please contact our team if you need help.'
+  };
+  safeText('bookingStatus',state.status === 'CONFIRMED' ? 'Booking confirmed! Booking number: ' + state.bookingNumber + '\n' + (invoiceMessages[state.invoiceStatus] || invoiceMessages.UNAVAILABLE) : (messages[state.status] || 'Booking status is unknown.'));
   btn.label = state.status === 'OFFER' ? 'Confirm booking' : (_bookingLocked ? 'Check booking status' : 'Review booking');
-  safeDisable('btnContinue',_bookingBusy || state.status === 'PREPARING' || state.status === 'CONFIRMED' || (_bookingLocked && state.status === 'DENIED'));
+  safeDisable('btnContinue',_bookingBusy || state.status === 'PREPARING' || (_bookingLocked && state.status === 'DENIED'));
 }
 
 function wireContinueButton() {
@@ -917,7 +923,7 @@ function wireContinueButton() {
   });
   btn.label = 'Review booking';
   btn.onClick(async function () {
-    if (_bookingBusy || _bookingPhase === 'CONFIRMED' || (_bookingLocked && _bookingPhase === 'DENIED')) return;
+    if (_bookingBusy || (_bookingLocked && _bookingPhase === 'DENIED')) return;
     if (!_bookingLocked) {
       if (_promoPending || safeVal('promoCode').trim() !== _promoCodeApplied) {
         invalidateBookingOffer();
@@ -947,7 +953,7 @@ function wireContinueButton() {
       else await _bookingRefresh();
     } finally {
       _bookingBusy = false;
-      safeDisable('btnContinue',_bookingPhase === 'CONFIRMED' || _bookingPhase === 'DENIED');
+      safeDisable('btnContinue',_bookingPhase === 'DENIED');
     }
   });
 }

@@ -6,7 +6,10 @@ export function mountBookConfirmSearch(ui) {
   function render(result) {
     const state={status:result.status};
     if(result.status==='OFFER')Object.assign(state,{display:result.display,packageTitle:result.packageTitle,offerExpiresAtMs:result.offerExpiresAtMs});
-    if(result.status==='CONFIRMED')state.bookingNumber=result.bookingNumber;
+    if(result.status==='CONFIRMED'){
+      state.bookingNumber=result.bookingNumber;
+      state.invoiceStatus=['PENDING','PROVIDER_ACCEPTED','OWNER_REVIEW_REQUIRED'].includes(result.invoiceStatus)?result.invoiceStatus:'UNAVAILABLE';
+    }
     ui.render(state);
   }
   ui.onConfirm(async () => {

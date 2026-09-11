@@ -150,7 +150,56 @@ async def _owner_invoice_lifespan(app):
         await owner.close()
 
 
-app = FastAPI(title="Wanderlust Invoice Service", lifespan=_owner_invoice_lifespan)
+from booking_engine.guest_booking_continuation_driver import guest_continuation_lifespan
+
+
+@asynccontextmanager
+async def _invoice_lifespan(app):
+    # Additive guest ownership; legacy owner recovery/body and endpoints unchanged.
+    async with _owner_invoice_lifespan(app):
+        async with guest_continuation_lifespan():
+            yield
+
+
+app = FastAPI(title="Wanderlust Invoice Service", lifespan=_invoice_lifespan)
+
+
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
+from booking_engine import guest_invoice_wire_auth as _guest_invoice_auth
+from booking_engine.guest_invoice_invocation import dispatch_authenticated_guest_invoice
+
+
+@app.post('/private/guest-invoice/v1/dispatch')
+async def dispatch_guest_invoice_http(request: Request):
+    # Capture ingress scalars/pairs before awaits; never flatten duplicate auth
+    # headers or parse/reserialize authenticated JSON.
+    method = request.scope['method']
+    path = bytes(request.scope.get('raw_path', b''))
+    query = bytes(request.scope.get('query_string', b''))
+    headers = tuple((bytes(k), bytes(v)) for k, v in request.scope['headers'])
+    unavailable = lambda: JSONResponse({'status': 'UNAVAILABLE'}, status_code=503,
+                                       headers={'Cache-Control': 'no-store'})
+    if (not _guest_invoice_auth._enabled() or method != 'POST'
+            or path != b'/private/guest-invoice/v1/dispatch' or query):
+        return unavailable()
+    try:
+        parts, size = [], 0
+        async for chunk in request.stream():
+            size += len(chunk)
+            if size > 8192:
+                return unavailable()
+            parts.append(chunk)
+        raw = b''.join(parts)
+        # Await off-loop Word/journal/provider IO. No detached BackgroundTask,
+        # retry, cancellation-based send grant, or legacy Calendar/date change.
+        result = await run_in_threadpool(dispatch_authenticated_guest_invoice,
+                                         raw, headers, method, path.decode('ascii'))
+    except Exception:
+        return unavailable()
+    return JSONResponse(result, status_code=503 if result.get('status') == 'UNAVAILABLE' else 200,
+                        headers={'Cache-Control': 'no-store'})
 
 
 def _bg_send_email(to_email, guest_name, invoice_number, pdf_path, total_str,

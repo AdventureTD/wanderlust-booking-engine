@@ -2,6 +2,8 @@ import { handoffGuestBookingAllocation } from 'backend/guestBookingAllocationHan
 import { discoverGuestBookingAcceptances } from 'backend/guestBookingAcceptanceDiscovery';
 import { resumeGuestBookingPhysicalAcquisition } from 'backend/guestBookingPhysicalAcquisition';
 import { createGuestBookingRecoveryProgressStore } from 'backend/guestBookingRecoveryProgressStore';
+import { advanceInitialGuestInvoiceForRecoveredAcceptance } from 'backend/guestBookingInvoiceIssuance';
+import { sendGuestInvoiceForRecoveredAcceptance } from 'backend/guestBookingInvoiceTransportAuth';
 
 // Off-production private quantum; deliberately absent from jobs.config.
 // Checkpoints are visits, never confirmation, credential or provider authority.
@@ -24,6 +26,15 @@ function validPage(p,cursor){
 }
 export async function recoverGuestBookingCompletions(){
  if(arguments.length!==0)return {status:'INTEGRITY'};
+ return recover(false);
+}
+// Trusted backend actor only; not a web method, scheduler or send entry.
+// No client subject, boolean or callback can opt the booking-only API into invoicing.
+export async function recoverGuestBookingCompletionsAndAdmitInvoices(){
+ if(arguments.length!==0)return {status:'INTEGRITY'};
+ return recover(true);
+}
+async function recover(admitInvoice){
  try{
   const store=createGuestBookingRecoveryProgressStore();
   const state=await store.head();if(state.status!=='READY')return {status:'UNRESOLVED'};
@@ -33,7 +44,7 @@ export async function recoverGuestBookingCompletions(){
   if(!page||page.status!=='PAGE')return {status:page&&page.status==='INTEGRITY'?'INTEGRITY':'UNRESOLVED'};
   if(!validPage(page,state.head.afterSourceId))return {status:'INTEGRITY'};
   const selected=page.sourceIds.length?page.sourceIds[0]:null;
-  let classification='EMPTY_SWEEP';
+  let classification='EMPTY_SWEEP', idle=selected===null;
   if(selected!==null){
    classification='INVALID_ROOT';
    if(!page.invalid.includes(selected)){
@@ -43,14 +54,30 @@ export async function recoverGuestBookingCompletions(){
      // Durable acceptance, not a guest credential or returned manifest, is authority.
      // Both actual APIs independently reload it; only manifest readiness opens physical work.
      classification='COORDINATOR_UNRESOLVED';
+     // Capture discovery's independent A/O/D before either producer await.
+     // The admission reader must revalidate retained completion and audience.
+     const context=page.contexts.find(value=>value.acceptanceId===selected);
+     const subject=context?Object.freeze([context.acceptanceId,context.operationId,context.rootDigest]):null;
      const allocation=await handoffGuestBookingAllocation(selected);
      if(allocation&&allocation.status==='ALLOCATION_HANDOFF_PENDING'){
       const result=await resumeGuestBookingPhysicalAcquisition(selected);
       classification=result&&typeof result.status==='string'&&!['UNKNOWN','UNRESOLVED'].includes(result.status)?'COORDINATOR_RETURNED':'COORDINATOR_UNRESOLVED';
+      if(admitInvoice&&subject&&result&&result.status==='CONFIRMED'){
+       // Confirmed is only a hint; admission independently reloads authority.
+       // Uncertain admission cannot downgrade the completed booking or grant a send.
+       try{
+        const admission=await advanceInitialGuestInvoiceForRecoveredAcceptance(...subject);
+        idle=admission&&admission.status==='INITIAL_ISSUANCE_ADMITTED';
+        if(idle)await sendGuestInvoiceForRecoveredAcceptance(...subject,admission.issuanceId);
+       }catch{/* next private visit reconciles admission; never downgrade confirmation */}
+      }
      }
     }catch{classification='COORDINATOR_UNRESOLVED';}
    }
   }
-  return await store.append(selected,classification,page.exhausted&&page.sourceCount<=1);
+  const settled=await store.append(selected,classification,page.exhausted&&page.sourceCount<=1);
+  // Private scheduling hint only; cursor/booking/invoice authority stays retained.
+  // A completed selected subject may back off, never starve the next durable ID.
+  return admitInvoice?{...settled,idle:idle===true}:settled;
  }catch{return {status:'UNRESOLVED'};}
 }

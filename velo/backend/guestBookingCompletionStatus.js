@@ -3,6 +3,7 @@ import { validateGuestBookingOfferCapsule } from 'backend/guestBookingOfferIssue
 import { validateGuestBookingAcceptanceRoot } from 'backend/guestBookingAcceptance';
 import { readGuestBookingAcceptance } from 'backend/guestBookingAcceptanceStore';
 import { readRecoveredGuestBookingCompletion } from 'backend/guestBookingCompletionAuthority';
+import { guestBookingInvoiceDeliveryOperation } from 'backend/guestBookingInvoiceDelivery';
 import { createGuestBookingPhysicalAcquisitionSession } from 'backend/guestBookingPhysicalAcquisitionEvidence';
 
 // Private, disconnected guest deputy. A booking number or recovery tuple is not
@@ -63,12 +64,25 @@ export async function readOwnGuestBookingCompletionStatus(token,capsule){
    if(!eligible())return answer('DENIED');
    if(last.status!=='ABSENT')return answer(last.status==='INTEGRITY'?'INTEGRITY':'UNKNOWN');
   }
+  // The existing status-purpose credential permits only this own-booking scalar
+  // projection, not journal access or a send capability. The retained reader
+  // independently verifies completion, issuance and artifact/START/provider ACK.
+  let invoiceStatus='UNAVAILABLE';
+  if(confirmed){
+   try{
+    const invoice=await guestBookingInvoiceDeliveryOperation(root._id,root.operationId,root.rootDigest,'readIssuance',{});
+    if(invoice.status==='READY')invoiceStatus='PENDING';
+    else if(invoice.status==='PROVIDER_ACCEPTED')invoiceStatus='PROVIDER_ACCEPTED';
+    else if(invoice.status==='OWNER_REVIEW_REQUIRED')invoiceStatus='OWNER_REVIEW_REQUIRED';
+   }catch{/* Invoice uncertainty cannot undo independently verified booking. */}
+   if(!eligible())return answer('DENIED');
+  }
   const finalOwn=bind(await readGuestBookingAcceptance(id),claims,capsule,id);
   if(!eligible())return answer('DENIED');
   if(finalOwn.status!=='BOUND')return answer(finalOwn.status);
   if(finalOwn.root.rootDigest!==root.rootDigest)return answer('INTEGRITY');
   const finalKeys=await readGuestBookingCredentialAuthority();
   if(!eligible()||finalKeys==='DENIED'||finalKeys.service.verifyCredential({token,command:'status',nowMs:sampledAtMs})==='DENIED')return answer('DENIED');
-  return confirmed?{status:'CONFIRMED',bookingNumber:root.bookingNumber}:answer('ACCEPTED_PENDING');
+  return confirmed?{status:'CONFIRMED',bookingNumber:root.bookingNumber,invoiceStatus}:answer('ACCEPTED_PENDING');
  }catch{return answer(guestEligible&&!guestEligible()?'DENIED':'UNKNOWN');}
 }

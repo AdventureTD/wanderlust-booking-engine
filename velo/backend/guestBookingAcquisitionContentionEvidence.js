@@ -198,10 +198,13 @@ export function createGuestBookingAcquisitionReadScope(){
    },admitted);
   }catch(e){scope.poison();throw e;}finally{pass.loading=false;}
  };
- scope.hasTerminalPass=token=>!!current(token).data;
- scope.passLookup=function(token,collection,id){const p=current(token);if(!p.reading||!p.data)deny();const entries=collection==='GuestBookingAcquisitionControls'?p.data.controls:collection==='RoomBookingClaimEvents'?p.data.resources:null;if(!entries)deny();const entry=entries.find(e=>e.id===id);if(!entry)deny();return detach(entry.outcome);};
- scope.passLedger=function(token){const p=current(token);if(!p.reading||!p.data)deny();return detach(p.data.rawLedger).map(claim);};
- scope.finishPhysicalPass=function(token,complete){const p=current(token);if(!p.reading)deny();p.reading=false;p.complete=complete===true&&!!p.data;if(!p.complete)p.data=null;};
+ scope.hasTerminalPass=token=>current(token).data?.terminalEligible===true;
+ // Same-pass immutable positives only. Missing observations are not authority:
+ // the physical selector must query absences and cart direction again natively.
+ scope.passFound=function(token,collection,id){const p=current(token);if(!p.reading)deny();if(!p.data)return null;const entries=collection==='GuestBookingAcquisitionControls'?p.data.controls:collection==='RoomBookingClaimEvents'?p.data.resources:null;if(!entries)deny();const entry=entries.find(e=>e.id===id);return entry?.outcome.status==='FOUND'?detach(entry.outcome):null;};
+ scope.passLookup=function(token,collection,id){const p=current(token);if(!p.reading||p.data?.terminalEligible!==true)deny();const entries=collection==='GuestBookingAcquisitionControls'?p.data.controls:collection==='RoomBookingClaimEvents'?p.data.resources:null;if(!entries)deny();const entry=entries.find(e=>e.id===id);if(!entry)deny();return detach(entry.outcome);};
+ scope.passLedger=function(token){const p=current(token);if(!p.reading||p.data?.terminalEligible!==true)deny();return detach(p.data.rawLedger).map(claim);};
+ scope.finishPhysicalPass=function(token,complete){const p=current(token);if(!p.reading)deny();p.reading=false;p.complete=complete===true&&p.data?.terminalEligible===true;if(!p.complete)p.data=null;};
  scope.passModel=function(token,A){const p=current(token);if(p.reading||!p.complete||p.A!==A||!p.data)deny();return detach({accepted:p.data.accepted,record:p.data.record});};
  const names=['physical','model-root','model-manifest','early-receipt','early-binding','target-exact','booking-identity','class-identity','summary-identity','final-receipt','selected-readback'];
  for(const name of names)categories[name]={spentFinds:0,spentBytes:0,pages:0};
@@ -407,7 +410,10 @@ async function readScopedEvidence(A,scope,publish,admitted){
    outcome('rc1-op-'+g.O+'-d').record.decisionState==='commit-rows'&&
    g.R.every(r=>outcome(r._id.slice(0,-1)+'r')?.status==='ABSENT'));
   guardCoreIntrinsics();
-  if(publish&&terminalEligible)publish({accepted:root,record:M,anchor,controls,resources,rawPages:scanResult.pages,rawLedger:scanResult.rows,reconciledLedger:ledger});
+  if(publish)publish(terminalEligible?
+   {terminalEligible:true,accepted:root,record:M,anchor,controls,resources,rawPages:scanResult.pages,rawLedger:scanResult.rows,reconciledLedger:ledger}:
+   // Do not retain nonterminal absences or scans for selector reuse.
+   {terminalEligible:false,accepted:root,record:M,anchor,controls:controls.filter(e=>e.outcome.status==='FOUND'),resources:resources.filter(e=>e.outcome.status==='FOUND')});
   return answer('EVIDENCED',{direction,causes,commitReady:commitReady&&!causes.length,reads:scope.used()});
  }catch(e){scope.poison();return answer(e.message==='INTEGRITY'?'INTEGRITY':'UNKNOWN',{reason:['BUDGET','UNSUPPORTED_EVIDENCE'].includes(e.message)?'UNSUPPORTED_EVIDENCE':'EVIDENCE'});}
 }

@@ -53,6 +53,19 @@ export async function acceptGuestBookingOffer(token,capsule){
   return reconcile(await readGuestBookingAcceptance(a.id),a,capsule);
  }catch{return {status:'UNKNOWN'};}
 }
+// Private explicit-confirm deputy. Never returned by a public web method.
+// Bootstrap permission authorizes work; a status-only credential cannot do so.
+export async function readOwnGuestBookingAcceptedSubject(token,capsule){
+ if(arguments.length!==2)return {status:'DENIED'};
+ try {
+  const a=await authenticate(token,capsule,'bootstrap');if(a==='DENIED')return {status:'DENIED'};
+  const retained=await readGuestBookingAcceptance(a.id);
+  const own=reconcile(retained,a,capsule);if(own.status!=='ACCEPTED_PENDING')return {status:own.status};
+  const r=validateGuestBookingAcceptanceRoot(retained.root).root;
+  // Detached scalar custody before any producer or issuance await.
+  return Object.freeze({status:'BOUND',acceptanceId:r._id,operationId:r.operationId,rootDigest:r.rootDigest});
+ }catch{return {status:'UNKNOWN'};}
+}
 export async function readOwnGuestBookingAcceptance(token,capsule){
  try {const a=await authenticate(token,capsule,'status');if(a==='DENIED')return {status:'DENIED'};return reconcile(await readGuestBookingAcceptance(a.id),a,capsule);}
  catch{return {status:'DENIED'};}

@@ -3,6 +3,17 @@ import { response } from 'wix-http-functions';
 import { getSecret } from 'wix-secrets-backend';
 import { createHash, timingSafeEqual } from 'crypto';
 import { invoiceJournalOperation } from 'backend/invoiceEmailJournal';
+import { handleGuestBookingContinuation } from 'backend/guestBookingContinuationHttp';
+import { handleGuestInvoiceJournalHttp } from 'backend/guestBookingInvoiceTransportAuth';
+
+export async function post_guestInvoiceJournal(request) {
+  return response(await handleGuestInvoiceJournalHttp(request));
+}
+
+// Dedicated default-OFF trusted host edge, separate from owner invoice auth.
+export async function post_guestBookingContinuation(request) {
+  return response(await handleGuestBookingContinuation(request));
+}
 
 const OWNER_INVOICE_JOURNAL_ENABLED = false;
 export async function post_invoiceEmailJournal(request) {
