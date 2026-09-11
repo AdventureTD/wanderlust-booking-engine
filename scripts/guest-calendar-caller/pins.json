@@ -343,7 +343,7 @@
       ]
     },
     "velo/backend/guestBookingCompletionStore.js": {
-      "canonical_lf_sha256": "cee5b0360854ff3f706b278aa0b03b1fe8502d9076966c17ad40d156c8a77dad",
+      "canonical_lf_sha256": "b4afefde9e8c51199ab14071dab0b7fb218b1830d2502df7672db702422c9c7c",
       "imports": [
         {
           "specifier": "wix-data",
@@ -721,7 +721,7 @@
       ]
     },
     "velo/backend/guestBookingAllocationEvidence.js": {
-      "canonical_lf_sha256": "cd496b9e25eddc5f71f10f3b4ac5760c38fee9bc0994c223b361ba8903f94c58",
+      "canonical_lf_sha256": "7235d9db13ad7753091192d85e1ce067bf9adf8ad1f906209059bf303ce755dc",
       "imports": [
         {
           "specifier": "wix-data",
@@ -868,6 +868,57 @@
           "target": "velo/backend/guestBookingAcceptance.js"
         }
       ]
+    },
+    "velo/backend/search.web.js": {
+      "canonical_lf_sha256": "407641d4b66280ad3a9b44a0f0051e51b83dbea97ad1996259a59ab28c69dbc8",
+      "imports": [
+        {
+          "specifier": "wix-data",
+          "target": null
+        },
+        {
+          "specifier": "wix-web-module",
+          "target": null
+        },
+        {
+          "specifier": "backend/wbeConfig",
+          "target": "velo/backend/wbeConfig.js"
+        },
+        {
+          "specifier": "backend/roomAvailability",
+          "target": "velo/backend/roomAvailability.js"
+        }
+      ]
+    },
+    "velo/backend/roomAvailability.js": {
+      "canonical_lf_sha256": "ee1b549a0e0ec314c045ed705f683f4bb58c1b4b058162cd18508980c2f76d93",
+      "imports": [
+        {
+          "specifier": "backend/roomInventory",
+          "target": "velo/backend/roomInventory.js"
+        },
+        {
+          "specifier": "backend/roomAvailabilityRules",
+          "target": "velo/backend/roomAvailabilityRules.js"
+        }
+      ]
+    },
+    "velo/backend/roomInventory.js": {
+      "canonical_lf_sha256": "735a5dc464104df264d7cccb298f65b4b1f7b8d8a374230fe42416bac0e296f8",
+      "imports": [
+        {
+          "specifier": "backend/guestBookingAllocationEvidence",
+          "target": "velo/backend/guestBookingAllocationEvidence.js"
+        },
+        {
+          "specifier": "backend/guestBookingAllocationSourceRules",
+          "target": "velo/backend/guestBookingAllocationSourceRules.js"
+        }
+      ]
+    },
+    "velo/backend/wbeConfig.js": {
+      "canonical_lf_sha256": "ab2605869199c1d586dad2643f1f838abda1f6f3d1d18cc4ac4d0743edce70f2",
+      "imports": []
     }
   },
   "support": {
@@ -903,7 +954,8 @@
     "booking_engine/report.py": "57c96935f9ca88d3c08f50e64a380c89f95a88e468ef914971cb01ecdd99d480",
     "booking_engine/seasonal.py": "86796ecd6c40eaa00ffb0dadf29a8d67efe3aed74caa0fa49e2c883ff714ff86",
     "booking_engine/status.py": "55b266f5bb80f4fa7460129e33de87b29876dda1ad320cf1b7cecd135bc507f7",
-    "booking_engine/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    "booking_engine/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "scripts/guest-calendar-caller/bridge.cjs": "1e4c6b3a56bfcc329b392787dd86e4bbecdf43b43d671ee4a562ebbd14fab0e2"
   },
   "support_raw_provenance": {
     "scripts/guest-book-confirm-search/sdk.cjs": {

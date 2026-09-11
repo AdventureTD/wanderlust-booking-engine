@@ -31,7 +31,16 @@ function snapshotRow(value,allowed){
  if(!value||typeof value!=='object'||proto(value)!==objectProto)fail();
  const k=keys(value),first=[],out={};if(k.length>allowed.length+3)fail();
  for(const name of k){if(typeof name!=='string'||(!allowed.includes(name)&&!metadata.includes(name)))fail();const d=desc(value,name);if(!d||!desc(d,'value')||!d.enumerable)fail();let v=rawExtra(name,d.value,allowed);if(name==='_createdDate'||name==='_updatedDate')v=nativeDate(v);else if(name==='_owner'){if(!((allowed===bookingRaw||allowed===summaryRaw)&&v===null)&&(typeof v!=='string'||v.length>256))fail();}else if((name==='checkIn'||name==='checkOut')&&v!==null&&typeof v==='object'){nativeDate(v);v=apply(toISO,v,[]);}else if(v!==null&&typeof v!=='string'&&typeof v!=='number'&&typeof v!=='boolean')fail();if(typeof v==='number'&&(!Number.isFinite(v)||same(v,-0)))fail();if(typeof v==='string'&&v.length>60000)fail();first.push(d);out[name]=v;}
- const again=keys(value);if(again.length!==k.length)fail();for(let i=0;i<k.length;i++){const d=desc(value,k[i]),a=first[i];if(again[i]!==k[i]||!d||!desc(d,'value')||!same(d.value,a.value)||d.enumerable!==a.enumerable||d.configurable!==a.configurable||d.writable!==a.writable)fail();if(k[i]==='_createdDate'||k[i]==='_updatedDate'){if(nativeDate(d.value)!==out[k[i]])fail();}else if((k[i]==='checkIn'||k[i]==='checkOut'||(allowed===summaryRaw&&k[i]==='bookingDate'))&&d.value!==null&&typeof d.value==='object'){if(allowed===summaryRaw&&k[i]==='bookingDate')nativeDate(d.value);if(apply(toISO,d.value,[])!==out[k[i]])fail();}}if(proto(value)!==objectProto||!id(out._id))fail();return out;
+ const again=keys(value);if(again.length!==k.length)fail();for(let i=0;i<k.length;i++){const d=desc(value,k[i]),a=first[i];if(again[i]!==k[i]||!d||!desc(d,'value')||!same(d.value,a.value)||d.enumerable!==a.enumerable||d.configurable!==a.configurable||d.writable!==a.writable)fail();if(k[i]==='_createdDate'||k[i]==='_updatedDate'){if(nativeDate(d.value)!==out[k[i]])fail();}else if((k[i]==='checkIn'||k[i]==='checkOut'||(allowed===summaryRaw&&k[i]==='bookingDate'))&&d.value!==null&&typeof d.value==='object'){if(allowed===summaryRaw&&k[i]==='bookingDate')nativeDate(d.value);if(apply(toISO,d.value,[])!==out[k[i]])fail();}}if(proto(value)!==objectProto||!id(out._id))fail();
+ // Only native protocol stays cross back into the civil manifest domain.
+ // Keep the full ISO value through all raw descriptor/instant rechecks above;
+ // reservedRows still verifies the exact retained identity and complete ledger.
+ if(allowed===bookingRaw&&/^pb1-cg2_[A-Za-z0-9_-]{43}_[pta]-r[1-4]$/.test(out._id)){
+  for(const name of ['checkIn','checkOut']){const d=first[k.indexOf(name)];if(d&&d.value!==null&&typeof d.value==='object'){
+   if(!/^\d{4}-\d{2}-\d{2}T12:00:00\.000Z$/.test(out[name]))fail();out[name]=out[name].slice(0,10);
+  }}
+ }
+ return out;
 }
 function page(value,allowed){
  const d=desc(value,'items');if(!d||!desc(d,'value')||!d.enumerable)fail();const source=d.value;if(!Array.isArray(source)||proto(source)!==arrayProto)fail();

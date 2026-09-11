@@ -12,13 +12,13 @@ const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 function graph(){return {graph:manifest.graph};}
 function setup(){
  const config={WBE_GUEST_INVOICE_ENABLED:'true',WBE_GUEST_INVOICE_SITE_ORIGIN:'https://www.wanderlustcaribbean.com',WBE_INVOICE_SERVICE_URL:'https://wanderlust-invoice-service.onrender.com',WBE_GUEST_INVOICE_CHANNEL_KEYS:JSON.stringify({activeKid:'local',keys:[{kid:'local',keyHex:'11'.repeat(32)}]}),WBE_GUEST_INVOICE_SCOPE_KEYS:JSON.stringify({activeKid:'local',keys:[{kid:'local',keyHex:'22'.repeat(32)}]})};
- const f=fixture({initial:{GuestBookingFinancialRevisions:[vector.revisionRow],Rooms:[{_id:'suite',roomCode:'adventure_suite'},{_id:'suite2',roomCode:'adventure_suite'}]},secretValues:{...vector.secrets,WBE_GUEST_INVOICE_ENABLED:'true',WBE_GUEST_INVOICE_SITE_ORIGIN:'https://www.wanderlustcaribbean.com',WBE_INVOICE_SERVICE_URL:'https://wanderlust-invoice-service.onrender.com',WBE_GUEST_INVOICE_CHANNEL_KEYS:JSON.stringify({activeKid:'local',keys:[{kid:'local',keyHex:'11'.repeat(32)}]}),WBE_GUEST_INVOICE_SCOPE_KEYS:JSON.stringify({activeKid:'local',keys:[{kid:'local',keyHex:'22'.repeat(32)}]})}});
+ const f=fixture({initial:{GuestBookingFinancialRevisions:[vector.revisionRow],Rooms:[{_id:'suite',roomCode:'adventure_suite'}]},secretValues:{...vector.secrets,WBE_GUEST_INVOICE_ENABLED:'true',WBE_GUEST_INVOICE_SITE_ORIGIN:'https://www.wanderlustcaribbean.com',WBE_INVOICE_SERVICE_URL:'https://wanderlust-invoice-service.onrender.com',WBE_GUEST_INVOICE_CHANNEL_KEYS:JSON.stringify({activeKid:'local',keys:[{kid:'local',keyHex:'11'.repeat(32)}]}),WBE_GUEST_INVOICE_SCOPE_KEYS:JSON.stringify({activeKid:'local',keys:[{kid:'local',keyHex:'22'.repeat(32)}]})}});
  const calendarConfig={enabled:MODE!=='off',mode:'APPS_SCRIPT_EVENTS_V1',purpose:PURPOSE,audience:'wbe:fixture',calendarId:'guest-calendar-fixture@example.invalid',executor:'executor@example.invalid',endpoint:'https://script.google.com/macros/s/INERT_FIXTURE/exec',newBookingsOnly:true,legacyExcluded:true};
  const wire=transportFixture(calendarConfig),calendarRows=[],nonces=[];
  const trigger={enabled:true,url:'https://www.wanderlustcaribbean.com/_functions/guestBookingContinuation',key:'33'.repeat(32)};
  config.WBE_GUEST_CALENDAR_LOCAL_BOUNDARY=JSON.stringify({...calendarConfig,enabled:false});config.WBE_GUEST_CALENDAR_EVENTS_KEY='a'.repeat(64);
  const posts=[];const rows=[],invoiceTrace=[];const original=f.wix;
- f.wix={...original,query(c){if(!['GuestBookingInvoiceIssuances','BookingPayments','GuestBookingCalendarJournal'].includes(c))return original.query(c);
+ f.wix={...original,query(c){if(!['GuestBookingInvoiceIssuances','BookingPayments','GuestBookingCalendarJournal'].includes(c)){const q=original.query(c),find=q.find;q.find=async function(...args){const result=await find.apply(q,args);if(active&&active.readFault)active.readFault(c,result);return result;};return q;}
  let field,value,n;return {eq(k,v){field=k;value=v;return this;},limit(v){n=v;return this;},async find(options){assert.deepEqual(options,{suppressAuth:true,suppressHooks:true,consistentRead:true});assert.equal(n,c==='BookingPayments'?1:2);assert.equal(field,c==='BookingPayments'?'bookingNumber':'_id');invoiceTrace.push({op:'find',collection:c,field,value});if(c==='GuestBookingCalendarJournal'&&active&&active.failCalendarId&&value.includes(active.failCalendarId))throw Error('lowest Calendar journal unavailable');if(c==='GuestBookingInvoiceIssuances'&&active&&active.failInvoice)throw Error('invoice journal unavailable');const found=c==='BookingPayments'?[]:(c==='GuestBookingCalendarJournal'?calendarRows:rows).filter(r=>r[field]===value);return {items:detach(found),hasNext(){return false;}};}};
  },async get(c,id,options){assert.equal(c,'GuestBookingTriggerNonces');return detach(nonces.find(r=>r._id===id));},async insert(c,row,options){if(c==='GuestBookingTriggerNonces'){if(nonces.some(r=>r._id===row._id))throw Error('duplicate nonce');nonces.push(detach(row));return detach(row);}if(c==='GuestBookingCalendarJournal'){invoiceTrace.push({op:'insert',collection:c,kind:row.kind,id:row._id});if(calendarRows.some(r=>r._id===row._id))throw Error('duplicate calendar');calendarRows.push(detach(row));return detach(row);}if(c!=='GuestBookingInvoiceIssuances')return original.insert(c,row,options);assert.ok(['INITIAL_ISSUANCE','PREPARED','START','ACK'].includes(row.kind));assert.deepEqual(options,{suppressAuth:true,suppressHooks:true});invoiceTrace.push({op:'insert',collection:c,kind:row.kind,id:row._id});if(rows.some(r=>r._id===row._id))throw Error('duplicate');rows.push(detach(row));if(MODE==='start-loss'&&row.kind==='START')throw Error('inert native START applied then lost ACK');return detach(row);}};
  const clock={now:vector.now},admission=graph(),vm=require('node:vm'),cache=new Map();
@@ -97,6 +97,8 @@ rl.on('line',async line=>{try{
 (async()=>{
  active=setup();let api=await active.load('guestBookingSummaryService.web');const {priceGroups,...input}=vector.purchase;
  const offers=[];
+ const searches=[];async function search(){const m=await active.load('search.web');const result=await m.searchAvailability(input.checkIn,input.checkOut);assert.equal(result.ok,true);const quantity=result.results.find(r=>r.roomCode==='adventure_suite')?.maxQty??0;searches.push(quantity);return quantity;}
+ assert.equal(await search(),3);
  const visits=[];let serial=0;
  async function tick(){
   active.restart();const http=await active.load('http-functions');
@@ -108,6 +110,8 @@ rl.on('line',async line=>{try{
   const offer=await api.prepareGuestBookingSummary({...input,guestName:'Fixture Guest '+subject,summaryRooms:[{roomCode:'adventure_suite',qty:1,numGuests:2}]});assert.equal(offer.status,'OFFER');
   assert.equal((await api.confirmGuestBookingSummary(JSON.parse(JSON.stringify(offer.credential)))).status,'ACCEPTED_PENDING');offers.push(offer);
   for(let i=0;i<96&&active.rows.filter(r=>r.kind==='ACK').length<subject+1;i++)await tick();
+  assert.equal(await search(),1-subject,'Search follows unchanged fixed suite eligibility: occupied 3 then 4');
+  for(const row of active.f.snapshot().Bookings){assert.ok(row.checkIn instanceof NativeDate);assert.ok(row.checkOut instanceof NativeDate);}
  }
  fs.writeFileSync(OUT+'/producer-diagnostic.json',JSON.stringify({db:active.f.snapshot(),visits},null,2));
  assert.equal(active.f.snapshot().GuestBookingCompletions.length,2,'actual fresh completion writers');
@@ -151,6 +155,20 @@ rl.on('line',async line=>{try{
  api=await active.load('guestBookingSummaryService.web');const before=JSON.stringify(active.f.snapshot()),n=active.f.trace.length,ni=active.invoiceTrace.filter(r=>r.op==='insert').length,nc=active.wire.requests.length;
  for(const offer of offers)assert.equal((await api.readGuestBookingSummaryStatus(offer.credential)).status,'CONFIRMED');
  assert.equal(JSON.stringify(active.f.snapshot()),before);assert.equal(active.f.trace.slice(n).filter(r=>r.op==='insert-attempt').length,0);assert.equal(active.invoiceTrace.filter(r=>r.op==='insert').length,ni);assert.equal(active.wire.requests.length,nc);assert.equal(nativeNetworkCount,0);
+ const controls=[];
+ // Detached read-response negatives only: never mutate retained authority.
+ for(const mode of ['nonnoon','invalid-native','timestamp-string','mismatched-receipt']){
+  let hits=0;active.readFault=(c,r)=>{for(const row of r.items){
+   if(mode==='mismatched-receipt'&&c==='GuestBookingCompletions'){row.bookingRowsDigest='f'.repeat(64);hits++;}
+   else if(mode!=='mismatched-receipt'&&c==='Bookings'){
+    row.checkIn=mode==='nonnoon'?new NativeDate(row.checkIn.getTime()-1):mode==='invalid-native'?new NativeDate(NaN):row.checkIn.toISOString();hits++;
+   }
+  }};
+  try{active.restart();const status=await (await active.load('guestBookingSummaryService.web')).readGuestBookingSummaryStatus(offers[0].credential);assert.notEqual(status.status,'CONFIRMED');assert.ok(hits>0);controls.push({mode,status:status.status,hits});}
+  finally{active.readFault=null;}
+ }
+ assert.equal(JSON.stringify(active.f.snapshot()),before);assert.equal(active.f.trace.slice(n).filter(r=>r.op==='insert-attempt').length,0);assert.equal(active.invoiceTrace.filter(r=>r.op==='insert').length,ni);assert.equal(active.wire.requests.length,nc);assert.equal(active.posts.length,2);
+ fs.writeFileSync(OUT+'/extended-controls.json',JSON.stringify({searches,controls,nativeDates:true,retainedRowsUnchanged:true,pollWrites:0},null,2));
  fs.writeFileSync(OUT+'/fresh-native.json',JSON.stringify({db:active.f.snapshot(),rows:active.rows,calendarRows:active.calendarRows,provider:active.wire.provider,invoiceTrace:active.invoiceTrace,trace:active.f.trace,visits},null,2));
  emit({kind:'done',stages:active.rows.map(x=>x.kind),posts:active.posts.length,calendarACK:active.calendarRows.filter(r=>r.kind==='ACK').length});
 })().catch(e=>{emit({kind:'error',error:e.stack});process.exitCode=1;rl.close();});

@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "classification": "synthetic inert actual-producer retained rows; boundary input ONLY",
+  "sourceArtifact": "red/producer-diagnostic.json",
+  "sourceArtifactSHA256": "ceb9339a8045fa99adfb5116341a9c892d22b1d3b9413bcfac98c46305160e28",
+  "originalBoundarySHA256": "2e5c9a7f95cd788eaa6fcf934a3acc98e645af2e3b87b403c94cc80e2f3e0e0f",
+  "producerBridgeSHA256": "fbe3edd2002c0af7b87a941cc7876dfdfc88c6968b70ab6da99df2320d1c668a",
+  "producerRunSHA256": "abe14cde6f27b72d2e880e6eeabaf3ecf554173650099401c5982e0e7bf4b410",
+  "producerNativeExit": 1,
+  "producerNativeExitMeaning": "first subject completed; later native-Date allocation regression caused original RED; not a successful two-subject receipt",
+  "projection": [
+    "db.Bookings (one exact original row)",
+    "db.RoomBookingClaimEvents (eleven exact original rows)"
+  ],
+  "transformation": "Drop all other top-level and db keys; JSON indent=2 with LF. Preserve all selected array order, keys and values; native stays reconstructed only inside the boundary VM. No producer rerun.",
+  "excluded": [
+    "guest acceptances and guest contact data",
+    "booking summaries",
+    "completion receipts",
+    "invoice/Calendar journals and provider grants",
+    "PDF and MIME",
+    "credentials and keys",
+    "visits and progress histories"
+  ],
+  "fixtureRawSHA256": "3ad94f62726562575c78012e54109070c182eb6bedcf6e5b1f848bb750f16412",
+  "auditAssertionsProvenance": {
+    "source": "native-date-final-review-package.py lines 10-38",
+    "rawSHA256": "b960ea56f2386e10ef788d5f83048897e44a6f4c729319f7dce44ece434a950e",
+    "adaptation": "one supplied run, exact existing payload assertions, added create-only output and finite input custody; author support, NOT inherited independent verdict"
+  }
+}

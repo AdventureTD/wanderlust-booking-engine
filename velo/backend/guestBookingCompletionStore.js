@@ -11,16 +11,34 @@ const metadata=['_owner','_createdDate','_updatedDate'];
 function fail(){throw Error('INTEGRITY');}
 function answer(status,record){return Object.assign(Object.create(null),{status},record?{record}:{});}
 function key(c,id){return typeof id==='string'&&(c==='Bookings'?/^pb1-cg2_[A-Za-z0-9_-]{43}_[pta]-r[1-4]$/:c==='BookingSummary'?/^gbs1-[a-f0-9]{64}$/:/^gbc1-[a-f0-9]{64}$/).test(id);}
-export function canonicalGuestBookingCompletionRecord(collection,value){
+// Canonical signed targets and native persistence are deliberately separate.
+function dateField(c,k){return (c==='Bookings'||c==='BookingSummary')&&(k==='checkIn'||k==='checkOut')?'day':c==='BookingSummary'&&k==='bookingDate'?'instant':null;}
+function nativeInstant(v){
+ if(!v||Object.getPrototypeOf(v)!==Date.prototype||Reflect.ownKeys(v).length)fail();
+ const t=Date.prototype.getTime.call(v);if(!Number.isSafeInteger(t))fail();return t;
+}
+function dateText(kind,v){
+ if(typeof v!=='string'||!(kind==='day'?/^\d{4}-\d{2}-\d{2}$/:/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/).test(v))fail();
+ const iso=kind==='day'?v+'T12:00:00.000Z':v,d=new Date(iso);
+ if(!Number.isSafeInteger(Date.prototype.getTime.call(d))||Date.prototype.toISOString.call(d)!==iso)fail();return v;
+}
+function inspectRecord(collection,value,native=false){
  const fields=schemas[collection];if(!fields||!value||Object.getPrototypeOf(value)!==Object.prototype)fail();
- const ds=Object.getOwnPropertyDescriptors(value),keys=Reflect.ownKeys(value),out={},envelope={};
+ const ds=Object.getOwnPropertyDescriptors(value),keys=Reflect.ownKeys(value),out={},envelope={},dates=[];
  if(keys.length<fields.length||keys.length>fields.length+3)fail();
  for(const k of keys){const d=ds[k];if(typeof k!=='string'||(!fields.includes(k)&&!metadata.includes(k))||!d||!Object.hasOwn(d,'value')||!d.enumerable)fail();let v=d.value;
-  if(metadata.includes(k)){if(k==='_owner'){if(v!==null&&(typeof v!=='string'||v.length>256))fail();}else{if(!v||Object.getPrototypeOf(v)!==Date.prototype||Reflect.ownKeys(v).length)fail();const t=Date.prototype.getTime.call(v);if(!Number.isSafeInteger(t))fail();v=Date.prototype.toISOString.call(v);}}
+  const kind=dateField(collection,k);
+  if(metadata.includes(k)){if(k==='_owner'){if(v!==null&&(typeof v!=='string'||v.length>256))fail();}else{const t=nativeInstant(v);dates.push([v,t]);v=Date.prototype.toISOString.call(v);}}
+  else if(kind){
+   if(native){const t=nativeInstant(v);dates.push([v,t]);v=Date.prototype.toISOString.call(v);if(kind==='day'&&!/^\d{4}-\d{2}-\d{2}T12:00:00\.000Z$/.test(v))fail();envelope[k]=v;v=dateText(kind,kind==='day'?v.slice(0,10):v);}
+   else v=dateText(kind,v);
+  }
   else if(typeof v!=='string'&&!(typeof v==='number'&&Number.isSafeInteger(v)&&!Object.is(v,-0)))fail();
-  envelope[k]=v;
+  if(!Object.hasOwn(envelope,k))envelope[k]=v;
+  if(fields.includes(k))out[k]=v;
  }
- for(const k of fields){if(!Object.hasOwn(ds,k))fail();out[k]=ds[k].value;}
+ // Preserve declared order independently of the SDK's property order.
+ const ordered={};for(const k of fields){if(!Object.hasOwn(ds,k))fail();ordered[k]=out[k];}
  if(!key(collection,out._id))fail();
  const numeric=collection==='Bookings'?['assignedRoom','quantity','guests']:collection==='BookingSummary'?['roomCount']:['schemaVersion'];
  for(const k of fields)if(numeric.includes(k)?typeof out[k]!=='number':typeof out[k]!=='string')fail();
@@ -29,9 +47,11 @@ export function canonicalGuestBookingCompletionRecord(collection,value){
  if(collection==='GuestBookingCompletions'&&(out.schemaVersion!==1||out.kind!=='booking-completion'||out.outcome!=='CONFIRMED'))fail();
  const now=Object.getOwnPropertyDescriptors(value);if(Object.getPrototypeOf(value)!==Object.prototype||Reflect.ownKeys(now).length!==keys.length)fail();
  for(const k of keys){const a=ds[k],b=now[k];if(!b||!Object.is(a.value,b.value)||a.get!==b.get||a.set!==b.set||a.enumerable!==b.enumerable||a.writable!==b.writable||a.configurable!==b.configurable)fail();}
+ for(const [v,t] of dates)if(nativeInstant(v)!==t)fail();
  if(Buffer.byteLength(JSON.stringify(envelope),'utf8')>400000)throw Error('UNKNOWN');
- const canonical=JSON.stringify(out);if(Buffer.byteLength(canonical,'utf8')>400000)throw Error('UNKNOWN');return canonical;
+ const canonical=JSON.stringify(ordered);if(Buffer.byteLength(canonical,'utf8')>400000)throw Error('UNKNOWN');return {canonical,envelope};
 }
+export function canonicalGuestBookingCompletionRecord(collection,value){return inspectRecord(collection,value).canonical;}
 export function createGuestBookingCompletionStore(scope){
  if(!scope||typeof scope.reserveExact!=='function'||typeof scope.chargeBytes!=='function'||typeof scope.measure!=='function'||typeof scope.reserveMutationReadback!=='function')fail();
  let selection=null;
@@ -39,9 +59,7 @@ export function createGuestBookingCompletionStore(scope){
  function admitPage(c,items,token){
   let size=2;const rows=[];
   for(let i=0;i<items.length;i++){
-   const item=items[i],text=canonicalGuestBookingCompletionRecord(c,item),envelope=Object.create(null);
-   // Native admission above precedes detached scalar envelope construction.
-   for(const k of Reflect.ownKeys(item)){const d=Object.getOwnPropertyDescriptor(item,k);if(!d||!Object.hasOwn(d,'value')||!d.enumerable)fail();envelope[k]=k==='_createdDate'||k==='_updatedDate'?Date.prototype.toISOString.call(d.value):d.value;}
+   const {canonical:text,envelope}=inspectRecord(c,items[i],true);
    size+=Buffer.byteLength(JSON.stringify(envelope),'utf8')+(i?1:0);rows.push(JSON.parse(text));
   }
   if(token)scope.settleReadback(token,size);else scope.chargeBytes(size);
@@ -62,6 +80,8 @@ export function createGuestBookingCompletionStore(scope){
  async function insert(c,candidate){try{const text=canonicalGuestBookingCompletionRecord(c,candidate),row=JSON.parse(text);
    if(selection&&(selection.collection!==c||selection.text!==text))fail();
    const token=selection?selection.token:scope.reserveMutationReadback(c,row._id,Buffer.byteLength(text,'utf8')+4096+2);
+   // Only these existing DateTime columns cross as native Dates; receipts stay strings.
+   for(const k of schemas[c]){const kind=dateField(c,k);if(kind)row[k]=new Date(kind==='day'?row[k]+'T12:00:00.000Z':row[k]);}
    scope.startMutation(token,c,row._id);
    try{await wixData.insert(c,row,{suppressAuth:true,suppressHooks:true});}catch{}
    const found=await exact(c,row._id,token);if(found.status!=='FOUND'){scope.poison();return answer(found.status==='INTEGRITY'?'INTEGRITY':'UNKNOWN');}
