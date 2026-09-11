@@ -41,6 +41,13 @@ export async function recoverGuestBookingCompletionsAndCalendar(){
  if(arguments.length!==0)return {status:'INTEGRITY'};
  return recover(false,true);
 }
+// Trusted host visits BOTH phases for the same captured subject before moving
+// the durable cursor. Per-subject invoice START/ACK and Calendar ATTEMPT/ACK
+// journals are phase state; restart never infers a phase from sweep parity.
+export async function recoverGuestBookingCompletionsAndSideEffects(){
+ if(arguments.length!==0)return {status:'INTEGRITY'};
+ return recover(true,true);
+}
 async function recover(admitInvoice,admitCalendar=false){
  try{
   const store=createGuestBookingRecoveryProgressStore();

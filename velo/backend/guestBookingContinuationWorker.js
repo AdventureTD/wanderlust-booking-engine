@@ -1,4 +1,4 @@
-import { recoverGuestBookingCompletionsAndAdmitInvoices } from 'backend/guestBookingCompletionRecovery';
+import { recoverGuestBookingCompletionsAndSideEffects } from 'backend/guestBookingCompletionRecovery';
 
 // Private trusted-host entrypoint, deliberately not a .web.js or HTTP handler.
 // Configure a recurring host separately; this file does not activate a schedule.
@@ -12,5 +12,5 @@ import { recoverGuestBookingCompletionsAndAdmitInvoices } from 'backend/guestBoo
 // activation check, not something a between-visit timer can guarantee.
 export async function runGuestBookingContinuation(){
  if(arguments.length!==0)return {status:'INTEGRITY'};
- return await recoverGuestBookingCompletionsAndAdmitInvoices();
+ return await recoverGuestBookingCompletionsAndSideEffects();
 }
