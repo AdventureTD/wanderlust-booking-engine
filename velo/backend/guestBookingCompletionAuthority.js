@@ -1,3 +1,4 @@
+import { calendarCompletionExpectation, calendarScopeCurrent } from 'backend/guestBookingCalendarAuthority';
 import { acceptanceDigest } from 'backend/guestBookingIssuerAuthority';
 import { transportExpectation, withTransportFence } from 'backend/guestBookingInvoiceTransportAuth';
 import { readGuestBookingInvoiceSiteAudience } from 'backend/guestBookingInvoiceAuthorityConfig';
@@ -5,10 +6,10 @@ import { createGuestBookingPhysicalAcquisitionSession } from 'backend/guestBooki
 import { readGuestBookingCompletionEvidence } from 'backend/guestBookingCompletionEvidence';
 import { canonicalGuestBookingCompletionRecord } from 'backend/guestBookingCompletionStore';
 
-// Recovery-only private handoff. Future sole production caller: InvoiceIssuance.
+// Recovery-only private retained reader with separate invoice/Calendar wrappers.
 // Module graph/private accepted-store custody supplies actor authority. These IDs
 // must be captured from discovery BEFORE awaited coordination, never a receipt.
-// No public capability, guest expiry, recovery hook or effect is implemented here.
+// No public capability or guest-expiry override is implemented here.
 const terminal='CART_COMMIT_MATERIALIZED_PENDING_PROJECTION';
 const answer=status=>({status});
 function need(value){if(!value)throw Error('INTEGRITY');}
@@ -78,6 +79,15 @@ export async function readTransportBoundGuestBookingCompletion(ctx){
   if(arguments.length!==1)return answer('DENIED');
   const expected=transportExpectation(ctx);
   return await withTransportFence(ctx,'subjectRead',()=>readBoundRetainedCompletion(expected));
+ }catch{return answer('UNKNOWN');}
+}
+// Separate private Calendar-only reader; no invoice configuration or scope use.
+export async function readCalendarBoundGuestBookingCompletion(handle){
+ try{
+  if(arguments.length!==1||!await calendarScopeCurrent(handle))return answer('DENIED');
+  const expected=calendarCompletionExpectation(handle);
+  const result=await readBoundRetainedCompletion(expected);
+  return await calendarScopeCurrent(handle)?result:answer('DENIED');
  }catch{return answer('UNKNOWN');}
 }
 export async function readRecoveredGuestBookingCompletion(acceptanceId,operationId,rootDigest){

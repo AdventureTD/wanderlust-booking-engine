@@ -1,3 +1,4 @@
+import { advanceRecoveredGuestBookingCalendar } from 'backend/guestBookingCalendarBoundary';
 import { handoffGuestBookingAllocation } from 'backend/guestBookingAllocationHandoff';
 import { discoverGuestBookingAcceptances } from 'backend/guestBookingAcceptanceDiscovery';
 import { resumeGuestBookingPhysicalAcquisition } from 'backend/guestBookingPhysicalAcquisition';
@@ -34,7 +35,13 @@ export async function recoverGuestBookingCompletionsAndAdmitInvoices(){
  if(arguments.length!==0)return {status:'INTEGRITY'};
  return recover(true);
 }
-async function recover(admitInvoice){
+// Separate local-only route. Existing invoice worker never calls this entry.
+// Activation/cutover must establish legacy exclusion; no public/job incoming edge.
+export async function recoverGuestBookingCompletionsAndCalendar(){
+ if(arguments.length!==0)return {status:'INTEGRITY'};
+ return recover(false,true);
+}
+async function recover(admitInvoice,admitCalendar=false){
  try{
   const store=createGuestBookingRecoveryProgressStore();
   const state=await store.head();if(state.status!=='READY')return {status:'UNRESOLVED'};
@@ -62,6 +69,9 @@ async function recover(admitInvoice){
      if(allocation&&allocation.status==='ALLOCATION_HANDOFF_PENDING'){
       const result=await resumeGuestBookingPhysicalAcquisition(selected);
       classification=result&&typeof result.status==='string'&&!['UNKNOWN','UNRESOLVED'].includes(result.status)?'COORDINATOR_RETURNED':'COORDINATOR_UNRESOLVED';
+      if(admitCalendar&&subject&&result&&result.status==='CONFIRMED'){
+       try{await advanceRecoveredGuestBookingCalendar(...subject);}catch{/* never downgrade booking or enter invoice/legacy */}
+      }
       if(admitInvoice&&subject&&result&&result.status==='CONFIRMED'){
        // Confirmed is only a hint; admission independently reloads authority.
        // Uncertain admission cannot downgrade the completed booking or grant a send.
