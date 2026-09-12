@@ -48,7 +48,7 @@ function invalidateSearch() {
 }
 function datesChanged() {
   invalidateSearch();
-  safeText('Dates changed. Please search again to update rooms and package pricing.');
+  safeText('');
 }
 
 // Picker Dates are civil days in the guest's locale; result ISO strings carry
@@ -334,6 +334,7 @@ function formatVacationDate(d) {
 
 
 $w.onReady(async function () {
+  safeText('');
   try {
     let settings = {};
     try { settings = await getAllSettings(); } catch (e) {}
