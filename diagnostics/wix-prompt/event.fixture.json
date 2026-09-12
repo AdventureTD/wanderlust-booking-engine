@@ -1,0 +1,19 @@
+{
+  "fixtureKind": "INERT DOCUMENTED MINIMUM ONLY; NOT A HOSTED CAPTURE",
+  "event": {
+    "metadata": {
+      "id": "fixture-event-id"
+    },
+    "entity": {
+      "_id": "wixprompt-6da182ac-792f-42c8-bb7e-4ca4bb0dd690-s1"
+    }
+  },
+  "expectedSanitizedEvent": {
+    "metadata": {
+      "id": "[string:redacted]"
+    },
+    "entity": {
+      "_id": "wixprompt-6da182ac-792f-42c8-bb7e-4ca4bb0dd690-s1"
+    }
+  }
+}
