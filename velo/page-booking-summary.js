@@ -212,13 +212,37 @@ let _hasSelectedPackageStayTotal = false;
 let _selectedPackageTitle = '';
 let _pricingQuoteToken = '';
 
+// Reveal only the existing status element; shared containers are not ours to show.
+// A hidden/collapsed ancestor requires Editor layout verification for visibility.
+function showInitializationStatus(message) {
+  safeText('bookingStatus', message);
+}
+
 $w.onReady(function () {
   hideInitialSummaryValues();
+  safeDisable('btnContinue', true);
+  try { $w('#btnContinue').link = ''; } catch (e) {}
+  showInitializationStatus('Loading your booking summary...');
+  const load = { stopped: false };
+  const timer = setTimeout(function () {
+    load.stopped = true;
+    showInitializationStatus('Loading is taking too long. Please return to the booking search and search again.');
+  }, 20000);
   initTracking($w);
-  initSummary().catch(function (e) { console.log('>>> init error:', e.message); });
+  initSummary(load).then(function () {
+    clearTimeout(timer);
+    if (load.stopped) return;
+    safeText('bookingStatus', '');
+    safeDisable('btnContinue', false);
+  }).catch(function (e) {
+    clearTimeout(timer);
+    if (load.stopped) return;
+    load.stopped = true;
+    showInitializationStatus((e && e.message || 'Unable to load your booking summary.') + ' Please return to the booking search and search again.');
+  });
 });
 
-async function initSummary() {
+async function initSummary(load) {
   let rcParam = getParam('rc');
   let cis = getParam('ci');
   let cos = getParam('co');
@@ -288,9 +312,12 @@ async function initSummary() {
   let settings = {};
   let roomNames = {};
   try { settings = await getAllSettings(); } catch (e) {}
+  if (load.stopped) return;
   try { roomNames = await getRoomNames(); } catch (e) {}
+  if (load.stopped) return;
 
   const feeMap = await fetchRoomFees(rooms.map(r => r.roomCode));
+  if (load.stopped) return;
   for (let i = 0; i < rooms.length; i++) {
     const rc = rooms[i].roomCode;
     // roomFee is authoritative from Rooms and applies only to the Penthouse.
@@ -313,6 +340,7 @@ async function initSummary() {
   if (nights > 0) {
     try {
       const packages = await getPackagesByNights(nights);
+      if (load.stopped) return;
       if (!packages || !packages.length) {
         throw new Error('No package is available for this stay length. Please return to the booking search.');
       }
@@ -338,6 +366,7 @@ async function initSummary() {
           _summaryCis,
           _summaryCos
         );
+        if (load.stopped) return;
         _selectedPackageTitle = quote.packageTitle || _selectedPackageTitle;
         _selectedPackageBaseRate = Number(quote.baseRate) || 0;
         _selectedPackagePriceModifier = Number(quote.priceModifier) > 0 ? Number(quote.priceModifier) : 1;
@@ -346,7 +375,7 @@ async function initSummary() {
       }
     } catch (e) {
       console.log('[WBE-SUMMARY] package resolution error:', e && e.message || e);
-      safeText('bookingStatus', e && e.message ? e.message : 'Unable to load the selected package.');
+      if (load.stopped) return;
       throw e;
     }
   }
@@ -362,7 +391,8 @@ async function initSummary() {
   safeCollapse('promoAmount');
   safeCollapse('promoDiscountRow');
   safeCollapse('promoDescription');
-  await renderSummary();
+  await renderSummary(load);
+  if (load.stopped) return;
   wireContinueButton();
   wirePromoCode();
 }
@@ -493,7 +523,8 @@ async function wirePromoCode() {
   }
 }
 
-async function renderSummary() {
+async function renderSummary(load) {
+  if (load && load.stopped) return;
   _renderCount++;
   const rooms = _summaryRooms;
   const nights = _summaryNights;
@@ -526,6 +557,7 @@ async function renderSummary() {
   let totalGuests = 0;
 
   const packageBaseRate = _selectedPackageBaseRate || await getPackageBaseRate(nights);
+  if (load && load.stopped) return;
   const fallbackModifier = Number(_selectedPackagePriceModifier) > 0 ? Number(_selectedPackagePriceModifier) : 1;
   const packageCost = _hasSelectedPackageStayTotal
     ? _selectedPackageStayTotal
@@ -682,12 +714,15 @@ async function renderSummary() {
       if (nts > 0) {
         try {
           const beResult = await getPackageAmenities(nts);
+          if (load && load.stopped) return;
           if (beResult && beResult.title) pkgTitle = beResult.title;
         } catch (beErr) {}
+        if (load && load.stopped) return;
 
         if (!pkgTitle) {
           try {
             const res = await wixData.query('Packages').limit(100).find();
+            if (load && load.stopped) return;
             for (let i = 0; i < res.items.length; i++) {
               const item = res.items[i];
               const itemNights = item.numberOfNights || item.NumberOfNights || item.numberofnights || 0;
@@ -697,10 +732,12 @@ async function renderSummary() {
               }
             }
           } catch (qErr) {}
+          if (load && load.stopped) return;
         }
       }
     }
 
+    if (load && load.stopped) return;
     // Single debug log to diagnose the exact state
     console.log('[WBE] _selectedPackageTitle=' + _selectedPackageTitle + ' pkgTitle=' + pkgTitle + ' summaryNights=' + _summaryNights);
 
@@ -715,10 +752,12 @@ async function renderSummary() {
       console.log('[WBE] COLLAPSED packageName/packageLarge, no title found');
     }
   } catch (e) {
+    if (load && load.stopped) return;
     safeCollapse('packageName');
     console.log('[WBE] ERROR:', e.message);
   }
 
+  if (load && load.stopped) return;
   renderRoomRepeater(repData);
 }
 
