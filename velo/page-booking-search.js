@@ -60,6 +60,11 @@ function resultDay(value) {
   const d = new Date(match[1] + 'T00:00:00.000Z');
   return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === match[1] ? match[1] : '';
 }
+function isFullStayResult(item, search) {
+  return !!item && !!search && (item.maxQty || 0) > 0 && item.status === 'full' &&
+    resultDay(item.availableCheckIn) === search.checkIn &&
+    resultDay(item.availableCheckOut) === search.checkOut;
+}
 function pickerDay(value) {
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return resultDay(value);
   const d = parseDate(value);
@@ -502,12 +507,13 @@ $w.onReady(async function () {
   if (rep && typeof rep.onItemReady === 'function') {
     rep.onItemReady(($item, itemData) => {
       const rowSearch = _activeSearch;
-      const currentRow = () => isCurrentSearch(rowSearch) && itemData.searchGeneration === rowSearch.generation;
+      const currentRow = () => isCurrentSearch(rowSearch) && itemData.searchGeneration === rowSearch.generation && isFullStayResult(itemData, rowSearch);
       // Repeater item debug log disabled to reduce console noise
-      if ((itemData.maxQty || 0) <= 0 || itemData.status === 'unavailable') {
+      if (!isFullStayResult(itemData, rowSearch)) {
         safeItem($item, '#roomName', 'text', (itemData.roomName || itemData.roomCode || '') + ' — Not available for these dates');
         safeItem($item, '#roomPrice', 'text', '');
-        safeItem($item, '#roomAvailability', 'text', '');
+        safeItem($item, '#roomAvailability', 'text', itemData.status === 'partial'
+          ? 'Partial availability only. Choose those dates and search again.' : '');
         safeItem($item, '#numRooms', 'text', '');
         safeItem($item, '#occupancy', 'text', '');
         safeItem($item, '#defaultOccupancy', 'text', '');
@@ -756,12 +762,12 @@ async function searchHandler() {
       item._id = 'room_' + i;
       item.searchGeneration = search.generation;
       repData.push(item);
-      if ((item.maxQty || 0) > 0 && item.status !== 'unavailable') availableData.push(item);
+      if (isFullStayResult(item, search)) availableData.push(item);
       trackRoomView({ roomCode: item.roomCode, nights: res.requestedNights });
     }
     if (availableData.length === 0) {
       rep.data = repData;
-      syncSummaryButtonWithResults(repData.length);
+      syncSummaryButtonWithResults(0);
       clearSelections(true);
       updateSelectionPanel();
       hideSearchHeader();
@@ -780,7 +786,7 @@ async function searchHandler() {
     showSearchHeader(ciDate, coDate, computedNights, search);
     if (rep) { try { rep.show(); } catch (e) {} try { rep.expand(); } catch (e) {} }
     rep.data = repData;
-    syncSummaryButtonWithResults(repData.length);
+    syncSummaryButtonWithResults(availableData.length);
     loadPackageInfo(res.requestedNights, search);
 
     // Show package column labels above the repeater.
@@ -792,7 +798,7 @@ async function searchHandler() {
       }
     });
 
-    safeText('Found ' + res.results.length + ' result' + (res.results.length === 1 ? '' : 's') + ' for ' + res.requestedNights + ' nights.');
+    safeText('Found ' + availableData.length + ' result' + (availableData.length === 1 ? '' : 's') + ' for ' + res.requestedNights + ' nights.');
   } catch (e) { if (isCurrentSearch(search)) safeText('Error: ' + e.message); }
 }
 
