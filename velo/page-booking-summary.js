@@ -405,6 +405,12 @@ async function wirePromoCode() {
   if (!promoInput) return;
 
   async function applyPromoCode(source) {
+    if (_bookingInProgress || _promoPending || _rendersPending > 0) return;
+    _promoPending = true;
+    _promoNeedsReapply = false;
+    safeDisable('promoCode', true);
+    safeDisable('btnApplyPromo', true);
+    try {
     source = source || 'unknown';
     const code = (promoInput.value || '').trim();
     console.log('[WBE-PROMO] applyPromoCode triggered by', source, 'code=', code);
@@ -428,6 +434,14 @@ async function wirePromoCode() {
         dateToStr(_summaryCis),
         dateToStr(_summaryCos)
       );
+      if ((promoInput.value || '').trim() !== code) {
+        _promoNeedsReapply = true;
+        _promoDiscount = 0;
+        _promoCodeApplied = '';
+        safeText('promoStatus', 'Promo code changed. Apply the current code before continuing.');
+        await renderSummary();
+        return;
+      }
       console.log('[WBE-PROMO] validatePromoCode result:', JSON.stringify(result));
       if (result && result.valid) {
         _promoDiscount = parseFloat(result.discount) || 0;
@@ -483,6 +497,11 @@ async function wirePromoCode() {
     }
     console.log('[WBE-PROMO] calling renderSummary with discount:', _promoDiscount);
     await renderSummary();
+    } finally {
+      _promoPending = false;
+      safeDisable('promoCode', _bookingInProgress || _rendersPending > 0);
+      safeDisable('btnApplyPromo', _bookingInProgress || _rendersPending > 0);
+    }
   }
 
   if (promoBtn && typeof promoBtn.onClick === 'function') {
@@ -523,7 +542,19 @@ async function wirePromoCode() {
   }
 }
 
+let _financialSnapshot = null;
+let _bookingInProgress = false;
+let _promoPending = false;
+let _promoNeedsReapply = false;
+let _rendersPending = 0;
+
 async function renderSummary(load) {
+  if (_bookingInProgress) return;
+  _rendersPending++;
+  safeDisable('promoCode', true);
+  safeDisable('btnApplyPromo', true);
+  try {
+  _financialSnapshot = null;
   if (load && load.stopped) return;
   _renderCount++;
   const rooms = _summaryRooms;
@@ -644,6 +675,12 @@ async function renderSummary(load) {
   const discountedPropertyFee = Math.round(discountedSubtotal * propertyFeeRate * 100) / 100;
   const discountedGrandTotal = Math.round((packageSubtotalValue + discountedPropertyFee + discountedTotalVat) * 100) / 100;
 
+  // Preserve a real zero; missing/nonfinite calculations are not free bookings.
+  if (Number.isFinite(packageCost) && packageCost >= 0 &&
+      Number.isFinite(discountedGrandTotal) && discountedGrandTotal >= 0) {
+    _financialSnapshot = Object.freeze({ value: discountedGrandTotal, currency: 'USD' });
+  }
+
   safeText('accommodationNamesText', names.join(', '));
   safeText('packageSubtotal', '$' + fmtCurrency(packageSubtotalValue));
   safeText('packageSubTotal', '$' + fmtCurrency(packageSubtotalValue));
@@ -759,6 +796,13 @@ async function renderSummary(load) {
 
   if (load && load.stopped) return;
   renderRoomRepeater(repData);
+  } finally {
+    _rendersPending--;
+    if (!load || !load.stopped) {
+      safeDisable('promoCode', _bookingInProgress || _promoPending || _rendersPending > 0);
+      safeDisable('btnApplyPromo', _bookingInProgress || _promoPending || _rendersPending > 0);
+    }
+  }
 }
 
 function initRoomRepeater() {
@@ -805,6 +849,7 @@ function initRoomRepeater() {
     const rmBtn = safeItem($item, '#removeBtn', null, null);
     if (rmBtn && typeof rmBtn.onClick === 'function') {
       rmBtn.onClick(() => {
+        if (_bookingInProgress || _promoPending || _rendersPending > 0) return;
         _summaryRooms = _summaryRooms.filter(r => r.roomCode !== itemData.roomCode);
         renderSummary();
       });
@@ -840,6 +885,11 @@ function wireContinueButton() {
   }
 
   btn.onClick(async function () {
+    if (_bookingInProgress || _promoPending || _rendersPending > 0) return;
+    if (_promoNeedsReapply) {
+      safeText('bookingStatus', 'Apply the current promo code before continuing.');
+      return;
+    }
     console.log('[WBE-FRONTEND] btnContinue clicked');
     const name = safeVal('inputGuestName').trim();
     const note = safeVal('bookingNotes');
@@ -854,15 +904,28 @@ function wireContinueButton() {
     }
     if (email.indexOf('@') < 0) { safeText('bookingStatus', 'Please enter a valid email address.'); return; }
 
+    if (!_summaryRooms || !_summaryRooms.length) return;
+    _bookingInProgress = true;
+    safeDisable('btnApplyPromo', true);
+    safeDisable('promoCode', true);
     safeText('bookingStatus', 'Processing your booking...');
     safeDisable('btnContinue', true);
 
-    const rooms = _summaryRooms || [];
-    const ci = _summaryCis;
+    let dispatched = false;
+    let sharedBookingNumber = '';
+    try {
+    const financialSnapshot = _financialSnapshot;
+    const rooms = Object.freeze(_summaryRooms.map(r => Object.freeze({ ...r })));
+    const ci = dateToStr(_summaryCis);
+    const co = dateToStr(_summaryCos);
+    const promoCode = _promoCodeApplied;
+    const promoDiscount = _promoDiscount;
+    const packageId = _selectedPackageId || '';
+    const packageTitle = _selectedPackageTitle || '';
+    const pricingQuoteToken = _pricingQuoteToken;
     console.log('[WBE-FRONTEND] continue: rooms=', rooms.length, 'ci=', ci, 'co=', _summaryCos);
     console.log('[WBE-FRONTEND] dateToStr(ci)=', dateToStr(ci), 'dateToStr(_summaryCos)=', dateToStr(_summaryCos));
     const bookings = [], errors = [];
-    let sharedBookingNumber = '';
 
     const att = getStoredClickIds() || {};
     const clickIds = {
@@ -872,14 +935,13 @@ function wireContinueButton() {
       msclkid: att.msclkid || ''
     };
 
-    try {
       // Phase 1: book first room to get shared booking number
       if (rooms.length > 0) {
         const r0 = rooms[0];
         const payload0 = {
           roomCode: r0.roomCode,
           checkIn: dateToStr(ci),
-          checkOut: dateToStr(_summaryCos),
+          checkOut: co,
           quantity: r0.qty || 1,
           guests: r0.numGuests || r0.qty || 1,
           roomFee: r0.roomFee || 0,
@@ -889,18 +951,27 @@ function wireContinueButton() {
           guestPhone: phone,
           marketSource: marketSource,
           note: note || '',
-          promoCode: _promoCodeApplied,
-          promoDiscount: _promoDiscount,
+          promoCode: promoCode,
+          promoDiscount: promoDiscount,
           gclid: clickIds.gclid,
           gbraid: clickIds.gbraid,
           wbraid: clickIds.wbraid,
           msclkid: clickIds.msclkid,
-          packageId: _selectedPackageId || '',
-          packageTitle: _selectedPackageTitle || '',
-          pricingQuoteToken: _pricingQuoteToken
+          packageId: packageId,
+          packageTitle: packageTitle,
+          pricingQuoteToken: pricingQuoteToken
         };
         console.log('[WBE-FRONTEND] calling createBooking for first room:', payload0.roomCode);
+        dispatched = true;
         const b0 = await createBooking(payload0);
+        if (b0 && b0.outcome === 'NO_RESERVATION' && ['UNAVAILABLE', 'INVALID_DATES', 'UNKNOWN_ROOM', 'INVALID_STAY', 'MIN_OCCUPANCY', 'MAX_OCCUPANCY'].includes(b0.reasonCode) && !b0.bookingNumber) {
+          dispatched = false; // Explicit backend pre-write result, never error-text inference.
+          throw new Error(b0.message || 'Please correct room availability and try again.');
+        }
+        if (b0 && typeof b0.bookingNumber === 'string') sharedBookingNumber = b0.bookingNumber;
+        if (!b0 || b0.outcome || typeof b0.bookingNumber !== 'string' || !b0.bookingNumber) {
+          throw new Error('Booking result could not be verified.');
+        }
         console.log('[WBE-FRONTEND] createBooking returned:', JSON.stringify({ ok: !!b0, bookingNumber: b0 && b0.bookingNumber }));
         bookings.push(b0);
         if (b0.bookingNumber) sharedBookingNumber = b0.bookingNumber;
@@ -928,15 +999,16 @@ function wireContinueButton() {
         }
       }
 
-      // Phase 2: book remaining rooms in parallel
+      // Serialize this cart: each backend call awaits its additive draft update.
+      // This is not protection against other tabs/requests or backend retries.
       if (rooms.length > 1 && sharedBookingNumber) {
-        const restPromises = [];
+        const restResults = [];
         for (let i = 1; i < rooms.length; i++) {
           const r = rooms[i];
           const payload = {
             roomCode: r.roomCode,
             checkIn: dateToStr(ci),
-            checkOut: dateToStr(_summaryCos),
+            checkOut: co,
             quantity: r.qty || 1,
             guests: r.numGuests || r.qty || 1,
             roomFee: r.roomFee || 0,
@@ -946,23 +1018,28 @@ function wireContinueButton() {
             guestPhone: phone,
             marketSource: marketSource,
             bookingNumber: sharedBookingNumber,
-            promoCode: _promoCodeApplied,
-            promoDiscount: _promoDiscount,
+            promoCode: promoCode,
+            promoDiscount: promoDiscount,
             gclid: clickIds.gclid,
             gbraid: clickIds.gbraid,
             wbraid: clickIds.wbraid,
             msclkid: clickIds.msclkid,
-            packageId: _selectedPackageId || '',
-            packageTitle: _selectedPackageTitle || '',
-            pricingQuoteToken: _pricingQuoteToken
+            packageId: packageId,
+            packageTitle: packageTitle,
+            pricingQuoteToken: pricingQuoteToken
           };
-          restPromises.push(
-            createBooking(payload)
-              .then(function (b) { return { ok: true, b: b }; })
+          restResults.push(
+            await createBooking(payload)
+              .then(function (b) {
+                if (!b || b.outcome || b.bookingNumber !== sharedBookingNumber) {
+                  return { ok: false, err: r.roomCode + ': booking could not be confirmed' };
+                }
+                return { ok: true, b: b };
+              })
               .catch(function (e) { return { ok: false, err: r.roomCode + ': ' + e.message }; })
           );
         }
-        const restResults = await Promise.all(restPromises);
+
         for (let j = 0; j < restResults.length; j++) {
           const res = restResults[j];
           if (res.ok) {
@@ -973,17 +1050,19 @@ function wireContinueButton() {
         }
       }
       if (errors.length > 0) {
-        safeText('bookingStatus', 'Some rooms could not be booked: ' + errors.join('; '));
-        safeDisable('btnContinue', false);
+        safeText('bookingStatus', 'Some rooms could not be booked: ' + errors.join('; ') + bookingRecoveryMessage(sharedBookingNumber));
+        // Do not replay a possibly partially saved cart.
+        safeDisable('btnContinue', true);
         return;
       }
 
       if (sharedBookingNumber) {
         safeText('bookingStatus', 'Booking confirmed! Taking you home...');
 
-        const grandTotalText = (safeTextRead('grandTotal') || safeTextRead('grandTotal1') || safeTextRead('grandTotalText'))
-          .replace(/[^0-9.]/g, '') || '0';
-        const grandTotal = parseFloat(grandTotalText) || 0;
+        // Analytics must never change confirmed booking/invoice outcomes.
+        try {
+        if (financialSnapshot) {
+        const grandTotal = financialSnapshot.value;
 
         console.log('[WBE-FRONTEND] stored click attribution:', JSON.stringify(clickIds));
 
@@ -1092,6 +1171,13 @@ function wireContinueButton() {
             });
         }
 
+        } else {
+          console.warn('[WBE-FRONTEND] Analytics skipped: no valid numeric financial snapshot.');
+        }
+        } catch (analyticsError) {
+          console.error('[WBE-FRONTEND] Analytics failed after confirmation:', analyticsError.message);
+        }
+
         // Start invoice creation without blocking the confirmed-booking redirect.
         // The backend request begins immediately and continues server-side while
         // the guest sees confirmation briefly and returns home after two seconds.
@@ -1120,10 +1206,23 @@ function wireContinueButton() {
       }
     } catch (e) {
       console.error('[WBE-FRONTEND] createBooking/invoice flow error:', e.message, e.stack);
-      safeText('bookingStatus', 'Booking error: ' + e.message);
-      safeDisable('btnContinue', false);
+      if (!dispatched) {
+        _bookingInProgress = false;
+        safeDisable('btnContinue', _promoPending || _rendersPending > 0);
+        safeDisable('btnApplyPromo', _promoPending || _rendersPending > 0);
+        safeDisable('promoCode', _promoPending || _rendersPending > 0);
+        safeText('bookingStatus', 'Booking not submitted: ' + e.message + ' Please correct your selection or try again.');
+      } else {
+        safeText('bookingStatus', 'Booking could not be confirmed.' + bookingRecoveryMessage(sharedBookingNumber));
+        safeDisable('btnContinue', true);
+      }
     }
   });
+}
+
+function bookingRecoveryMessage(bookingNumber) {
+  return (bookingNumber ? ' Booking reference: ' + bookingNumber + '.' : '') +
+    ' Please contact Wanderlust Caribbean through Contact Us to check your reservation before trying again. Do not reload or submit another booking; some rooms may already be saved.';
 }
 
 function invoiceEmailWasAccepted(invResult) {

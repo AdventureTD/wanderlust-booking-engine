@@ -1,17 +1,12 @@
-// Regression guard: confirmed purchases must read the actual Wix total element.
-// Run: node scripts/verify-purchase-value-source.js
-
+// Static contract only; behavioral evidence: node tests/attribution-hotfix.cjs
 const fs = require('fs');
 const path = require('path');
-
-const file = path.join(__dirname, '..', 'velo', 'page-booking-summary.js');
-const source = fs.readFileSync(file, 'utf8');
-
-const expected = "const grandTotalText = (safeTextRead('grandTotal') || safeTextRead('grandTotal1') || safeTextRead('grandTotalText'))";
-
-if (!source.includes(expected)) {
-  console.error('FAIL | confirmed purchase does not read #grandTotal before fallback IDs');
-  process.exit(1);
-}
-
-console.log('PASS | confirmed purchase reads #grandTotal before fallback IDs');
+const assert = require('node:assert/strict');
+const source = fs.readFileSync(path.join(__dirname, '..', 'velo', 'page-booking-summary.js'), 'utf8');
+assert.ok(source.includes('const financialSnapshot = _financialSnapshot;'));
+assert.ok(source.includes('Object.freeze({ value: discountedGrandTotal, currency: \'USD\' })'));
+assert.ok(source.includes('Number.isFinite(discountedGrandTotal)'));
+assert.ok(source.includes('const grandTotal = financialSnapshot.value;'));
+const confirm = source.slice(source.indexOf('function wireContinueButton()'));
+assert.ok(!confirm.includes("safeTextRead('grandTotal"), 'display must not supply purchase money');
+console.log('PASS | confirmed purchase uses captured numeric financial snapshot, not display text');

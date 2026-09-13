@@ -694,7 +694,7 @@ async function createBookingImpl(booking) {
   const roomCode = booking.roomCode;
   const checkIn = toDate(booking.checkIn);
   const checkOut = toDate(booking.checkOut);
-  if (!checkIn || !checkOut) throw new Error('checkIn and checkOut must be valid dates');
+  if (!checkIn || !checkOut) return { outcome: 'NO_RESERVATION', reasonCode: 'INVALID_DATES', message: 'checkIn and checkOut must be valid dates' };
   const guests = booking.guests || 1;
   const guestName = booking.guestName;
   const guestEmail = booking.guestEmail;
@@ -706,18 +706,20 @@ async function createBookingImpl(booking) {
 
   console.log('>>> SERVER roomCode:', roomCode, 'checkIn:', checkIn, 'checkOut:', checkOut, 'guests:', guests);
   const roomDisplay = getRoomDisplayName(roomCode);
-  if (!(roomCode in ROOM_UNITS)) throw new Error('Unknown room type \'' + roomDisplay + '\'');
-  if (nightsBetween(checkIn, checkOut) <= 0) throw new Error('checkOut must be after checkIn');
+  if (!(roomCode in ROOM_UNITS)) return { outcome: 'NO_RESERVATION', reasonCode: 'UNKNOWN_ROOM', message: 'Unknown room type \'' + roomDisplay + '\'' };
+  if (nightsBetween(checkIn, checkOut) <= 0) return { outcome: 'NO_RESERVATION', reasonCode: 'INVALID_STAY', message: 'checkOut must be after checkIn' };
   if (guests < ROOM_MIN_OCCUPANCY[roomCode]) {
-    throw new Error(roomDisplay + ' requires at least ' + ROOM_MIN_OCCUPANCY[roomCode] + ' guests (no single-guest bookings); requested ' + guests);
+    return { outcome: 'NO_RESERVATION', reasonCode: 'MIN_OCCUPANCY', message: roomDisplay + ' requires at least ' + ROOM_MIN_OCCUPANCY[roomCode] + ' guests (no single-guest bookings); requested ' + guests };
   }
   if (guests > ROOM_MAX_OCCUPANCY[roomCode]) {
-    throw new Error(roomDisplay + ' sleeps ' + ROOM_MAX_OCCUPANCY[roomCode] + '; requested ' + guests);
+    return { outcome: 'NO_RESERVATION', reasonCode: 'MAX_OCCUPANCY', message: roomDisplay + ' sleeps ' + ROOM_MAX_OCCUPANCY[roomCode] + '; requested ' + guests };
   }
 
   const currentlyBooked = await overlappingCount(roomCode, checkIn, checkOut);
   if (currentlyBooked + quantity > ROOM_UNITS[roomCode]) {
-    throw new Error('Only ' + (ROOM_UNITS[roomCode] - currentlyBooked) + ' ' + roomDisplay + '(s) available for ' + checkIn + ' to ' + checkOut);
+    // Definitive rejection before number allocation or any reservation write.
+    // Transport/read exceptions and post-insert conflicts must never use this outcome.
+    return { outcome: 'NO_RESERVATION', reasonCode: 'UNAVAILABLE', message: 'Only ' + (ROOM_UNITS[roomCode] - currentlyBooked) + ' ' + roomDisplay + '(s) available for ' + checkIn + ' to ' + checkOut };
   }
 
   let bookingNumber = providedBookingNumber || '';
@@ -800,6 +802,9 @@ async function createBookingImpl(booking) {
     note: saveNote || ''
   };
   console.log('>>> SERVER toInsert keys:', Object.keys(toInsert).join(', '), '| bookingNumber:', toInsert.bookingNumber);
+  // From dispatch onward even a rejected insert may have applied. Retain the
+  // known reference for owner reconciliation; never grant a cart replay.
+  try {
   const inserted = await wixData.insert(BOOKINGS, toInsert);
   inserted.bookingNumber = bookingNumber || inserted.bookingNumber || '';
 
@@ -847,6 +852,10 @@ async function createBookingImpl(booking) {
 
   console.log('>>> SERVER createBooking complete. bookingNumber:', inserted.bookingNumber);
   return inserted;
+  } catch (e) {
+    console.error('>>> SERVER booking outcome uncertain:', e.message);
+    return { outcome: 'UNKNOWN', bookingNumber: bookingNumber };
+  }
 }
 
 export const createBooking = webMethod(

@@ -191,6 +191,9 @@
   // through the iframe is the reliable cross-context channel).
   // Plain-object dataLayer pushes are inert to raw gtag — translate them into
   // real gtag('event', ...) calls so GA4 actually receives the hits.
+  // One consumer per parent-page realm, even if Wix executes this entry again.
+  if (!window.__wbeGoogleEventListenerInstalled) {
+  window.__wbeGoogleEventListenerInstalled = true;
   window.addEventListener('message', function (event) {
     var d = event && event.data;
     if (d && d.source === 'wbe-event-bridge' && d.payload) {
@@ -206,6 +209,7 @@
       }
     }
   });
+  }
 </script>
 
 <!-- Microsoft UET is intentionally installed as a separate Wix Custom Code

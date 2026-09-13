@@ -1,6 +1,10 @@
 # Future noncritical bug-fix upgrades
 
 Items here are deferred, not authorization to implement or publish.
+Financial correctness defects are tracked separately in [Known financial correctness issues](known-financial-correctness-issues.md).
+
+
+
 
 ## Room-level stay dates for inventory
 
