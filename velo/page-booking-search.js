@@ -880,6 +880,15 @@ function loadPackageOptions(nights, search) {
       return;
     }
 
+    // Keep each group's order, with Scuba titles below all other packages.
+    const nonScubaPackages = [];
+    const scubaPackages = [];
+    _availablePackages.forEach(function (pkg) {
+      const group = String(pkg.title || '').toLowerCase().includes('scuba') ? scubaPackages : nonScubaPackages;
+      group.push(pkg);
+    });
+    _availablePackages = nonScubaPackages.concat(scubaPackages);
+
     search.pending = false;
     // Default to first package if none selected
     _selectedPackage = _availablePackages[0];
