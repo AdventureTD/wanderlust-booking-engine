@@ -756,18 +756,17 @@ async function searchHandler() {
 
     updateSelectionPanel();
 
-    const repData = [];
     const availableData = [];
     for (let i = 0; i < res.results.length; i++) {
       const item = res.results[i];
+      if (!isFullStayResult(item, search)) continue;
       item._id = 'room_' + i;
       item.searchGeneration = search.generation;
-      repData.push(item);
-      if (isFullStayResult(item, search)) availableData.push(item);
+      availableData.push(item);
       trackRoomView({ roomCode: item.roomCode, nights: res.requestedNights });
     }
     if (availableData.length === 0) {
-      rep.data = repData;
+      rep.data = [];
       syncSummaryButtonWithResults(0);
       clearSelections(true);
       updateSelectionPanel();
@@ -786,7 +785,7 @@ async function searchHandler() {
     }
     showSearchHeader(ciDate, coDate, computedNights, search);
     if (rep) { try { rep.show(); } catch (e) {} try { rep.expand(); } catch (e) {} }
-    rep.data = repData;
+    rep.data = availableData;
     syncSummaryButtonWithResults(availableData.length);
     loadPackageInfo(res.requestedNights, search);
 

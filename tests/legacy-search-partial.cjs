@@ -20,7 +20,8 @@ function denySelection(s,item) {
   const s=await search({searchAvailability:async()=>response,getPackagesByNights:async()=>{packages++;return [pkg];},getPackageAmenities:async()=>{amenities++;return pkg;},suggestAlternateDates:async()=>{alternatives++;return {suggestions:[{checkIn:'2026-12-10T12:00:00',checkOut:'2026-12-18T12:00:00',label:'Dec 10–18'}]};}});
   s.w('#datePickerCheckIn').value=new Date(2026,11,1,12);s.w('#datePickerCheckOut').value=new Date(2026,11,9,12);
   await s.run();
-  const item=mount(s,s.w('#searchResultsRepeater').data[0]);denySelection(s,item);
+  assert.equal(s.w('#searchResultsRepeater').data.length,0);
+  const item=mount(s,response.results[0]);denySelection(s,item); // Direct defensive callback, not a displayed row.
   assert.equal(item.w('#numRooms').text,'');assert.match(item.w('#roomAvailability').text,/partial.*search again/i);
   assert.equal(packages,0);assert.equal(amenities,0);assert.equal(s.calls.length,0);
   assert.equal(s.w('#btnSummary').hidden,true);assert.equal(s.w('#packageRepeater').data.length,0);
@@ -31,15 +32,16 @@ function denySelection(s,item) {
  });
  for (const [name,r] of [['different checkout',row(11,18)],['different checkin',row(12,17)],['missing dates',{...row(),availableCheckIn:null}],['partial with exact dates',{...row(),status:'partial'}]]) await test(name+' is not requested-stay inventory',async()=>{
   const s=await search({searchAvailability:async()=>({ok:true,requestedNights:6,results:[r]})});await s.run();
-  denySelection(s,mount(s,s.w('#searchResultsRepeater').data[0]));
+  assert.equal(s.w('#searchResultsRepeater').data.length,0);
+  denySelection(s,mount(s,r)); // Deliberately replay a rejected row defensively.
   assert.equal(s.calls.length,0);assert.equal(s.w('#btnSummary').hidden,true);
   await s.w('#btnSummary').click();assert.equal(s.nav.length,0);assert.equal(s.stored.size,0);
  });
  await test('mixed full and partial counts and prices only full selections',async()=>{
   const s=await search({searchAvailability:async()=>({ok:true,requestedNights:6,results:[{...row(12,17),roomCode:'partial_suite',status:'partial'},row()]})});await s.run();
   const rows=s.w('#searchResultsRepeater').data;
-  denySelection(s,mount(s,rows[0]));assert.match(s.w('#statusText').html,/Found 1 result for 6 nights/);
-  const item=s.select(rows[1]);assert.equal(item.w('#roomQtyDropdown').enabled,true);
+  assert.equal(rows.length,1);assert.equal(rows[0].roomCode,'adventure_suite');assert.match(s.w('#statusText').html,/Found 1 result for 6 nights/);
+  const item=s.select(rows[0]);assert.equal(item.w('#roomQtyDropdown').enabled,true);
   assert.equal(s.w('#finalTotal').text,'$9,240.00');
   await s.w('#btnSummary').click();assert.equal(s.nav.length,1);
   const q=new URL(s.nav[0],'https://inert.invalid').searchParams;
@@ -48,7 +50,7 @@ function denySelection(s,item) {
  await test('partial replacement invalidates old room and package callbacks',async()=>{
   let n=0;const s=await search({searchAvailability:async()=>({ok:true,requestedNights:6,results:[++n===1?row():{...row(12,17),status:'partial'}]})});
   await s.run();const oldRoom=s.select(),oldPackage=elements(),rep=s.w('#packageRepeater');rep.itemReady(oldPackage.w,rep.data[0]);
-  await s.run();oldRoom.w('#roomQtyDropdown').change({target:{value:'2'}});oldRoom.w('#numberOfGuests').change({target:{value:'2'}});oldPackage.w('#packageContainer').click();
+  await s.run();assert.equal(s.w('#searchResultsRepeater').data.length,0);oldRoom.w('#roomQtyDropdown').change({target:{value:'2'}});oldRoom.w('#numberOfGuests').change({target:{value:'2'}});oldPackage.w('#packageContainer').click();
   assert.equal(vm.runInContext('_selections.length',s.c),0);assert.equal(vm.runInContext('_selectedPackage',s.c),null);
   assert.equal(s.w('#packageRepeater').data.length,0);assert.equal(s.w('#btnSummary').hidden,true);
   await s.w('#btnSummary').click();assert.equal(s.nav.length,0);assert.equal(s.stored.size,0);
