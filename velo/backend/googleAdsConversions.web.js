@@ -72,7 +72,7 @@ async function buildIngestPayload(booking) {
   const customerId = await getSecret('GOOGLE_ADS_CUSTOMER_ID');
   const conversionActionId = await getSecret('GOOGLE_ADS_CONVERSION_ACTION_ID');
 
-  const userIds = buildUserIdentifiers({
+  const userIds = await buildUserIdentifiers({
     email: booking.email,
     phone: booking.phone,
     firstName: booking.firstName,
@@ -122,7 +122,7 @@ async function buildAdjustmentPayload(booking, adjustmentType) {
   const customerId = await getSecret('GOOGLE_ADS_CUSTOMER_ID');
   const conversionActionId = await getSecret('GOOGLE_ADS_CONVERSION_ACTION_ID');
 
-  const userIds = buildUserIdentifiers({
+  const userIds = await buildUserIdentifiers({
     email: booking.email,
     phone: booking.phone
   });
