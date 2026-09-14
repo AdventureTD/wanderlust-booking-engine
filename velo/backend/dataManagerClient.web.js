@@ -55,25 +55,49 @@ export async function getAccessToken() {
   return cachedToken.token;
 }
 
+function ingestFailure(code, outcome, httpStatus) {
+  // Never include provider bodies, payloads, identifiers or credential errors.
+  const error = new Error('Data Manager: ' + code);
+  error.code = code;
+  error.outcome = outcome;
+  if (Number.isInteger(httpStatus)) error.httpStatus = httpStatus;
+  return error;
+}
+
 export async function ingestEvent(payload) {
-  const token = await getAccessToken();
+  let token, body;
+  try {
+    body = JSON.stringify(payload);
+    token = await getAccessToken();
+    if (typeof token !== 'string' || !token) throw new Error('Missing token');
+  } catch (_) {
+    throw ingestFailure('PRE_SEND_FAILURE', 'not_attempted');
+  }
 
-  console.log('[WBE-DM] sending payload:', JSON.stringify(payload));
-  console.log('[WBE-DM] destinations count:', (payload.destinations || []).length);
-  console.log('[WBE-DM] events count:', (payload.events || []).length);
-
-  const res = await fetch(ENDPOINT, {
-    method: 'post',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + token
-    },
-    body: JSON.stringify(payload)
-  });
-
-  const text = await res.text();
-  console.log('[WBE-DM] response status:', res.status);
-  console.log('[WBE-DM] response body:', text);
-  if (!res.ok) { throw new Error('Data Manager API call failed (' + res.status + '): ' + text); }
-  return text ? JSON.parse(text) : { ok: true };
+  // One fetch only. Once entered, uncertainty must not authorize a retry.
+  let res, text;
+  try {
+    res = await fetch(ENDPOINT, {
+      method: 'post',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body
+    });
+    text = await res.text();
+  } catch (_) {
+    throw ingestFailure('TRANSPORT_ERROR', 'unknown');
+  }
+  if (!res.ok) throw ingestFailure('HTTP_ERROR', 'unknown', res.status);
+  let response;
+  try { response = text ? JSON.parse(text) : null; }
+  catch (_) { throw ingestFailure('INVALID_RESPONSE', 'unknown', res.status); }
+  if (response && (response.ok === false || response.error ||
+      (Array.isArray(response.errors) && response.errors.length > 0))) {
+    throw ingestFailure('REJECTED_RESPONSE', 'processingfailure', res.status);
+  }
+  if (!response || typeof response.requestId !== 'string' || !response.requestId.trim()) {
+    throw ingestFailure('MISSING_REQUEST_ID', 'unknown', res.status);
+  }
+  // requestId acknowledges ingestion only, NOT processing success/attribution.
+  // fieldWarnings alone do not reject the request. Caller owns persistence.
+  return response;
 }
