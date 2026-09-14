@@ -3,7 +3,8 @@ import crypto from 'crypto';
 import wixData from 'wix-data';
 import { getAllSettings } from 'backend/settings.web';
 import { getSecret } from 'wix-secrets-backend';
-import { ingestEvent, sanitizeHttpErrorDiagnostics } from 'backend/dataManagerClient.web';
+import { ingestEvent } from 'backend/dataManagerClient.web';
+import { sanitizeHttpErrorDiagnostics } from 'backend/googleAdsHttpDiagnostics';
 
 const COLLECTION = 'GoogleAdsAttemptJournal';
 const OPTIONS = { suppressAuth: true, suppressHooks: true };
@@ -54,12 +55,81 @@ export async function mintGoogleAdsCapability(room, summary) {
   } catch (_) { return ''; } // Attribution setup must not turn a saved booking into a failure.
 }
 
+// Independent consumer allowlists mirror the private projector vocabulary.
+// Do not trust successful helper serialization or regex-only identifier strings.
+const DIAGNOSTIC_REASONS = new Set([
+  'INVALID_ARGUMENT', 'PERMISSION_DENIED', 'UNAUTHENTICATED', 'NOT_FOUND',
+  'RESOURCE_EXHAUSTED', 'DEADLINE_EXCEEDED', 'INTERNAL', 'INTERNAL_ERROR',
+  'UNAVAILABLE', 'FAILED_PRECONDITION', 'SERVICE_DISABLED', 'API_DISABLED',
+  'ACCESS_TOKEN_SCOPE_INSUFFICIENT', 'IAM_PERMISSION_DENIED',
+  'REQUIRED_FIELD_MISSING', 'INVALID_FORMAT', 'INVALID_HEX_ENCODING',
+  'INVALID_BASE64_ENCODING', 'INVALID_SHA256_FORMAT', 'INVALID_POSTAL_CODE',
+  'INVALID_COUNTRY_CODE', 'INVALID_ENUM_VALUE', 'TOO_MANY_USER_IDENTIFIERS',
+  'TOO_MANY_DESTINATIONS', 'INVALID_DESTINATION', 'TERMS_AND_CONDITIONS_NOT_SIGNED',
+  'INVALID_NUMBER_FORMAT', 'INVALID_CONVERSION_ACTION_ID', 'INVALID_CONVERSION_ACTION_TYPE',
+  'INVALID_CURRENCY_CODE', 'INVALID_EVENT', 'TOO_MANY_EVENTS',
+  'DESTINATION_ACCOUNT_NOT_ENABLED_ENHANCED_CONVERSIONS_FOR_LEADS',
+  'DESTINATION_ACCOUNT_DATA_POLICY_PROHIBITS_ENHANCED_CONVERSIONS',
+  'DESTINATION_ACCOUNT_ENHANCED_CONVERSIONS_TERMS_NOT_SIGNED',
+  'NO_IDENTIFIERS_PROVIDED', 'EVENT_TIME_INVALID', 'INVALID_EVENT_NAME',
+  'NOT_ALLOWLISTED', 'FIELD_VALUE_TOO_LONG', 'FIELD_VALUE_TOO_SHORT',
+  'TOO_MANY_ELEMENTS', 'TOO_FEW_ELEMENTS', 'EVENT_SOURCE_AND_DESTINATION_MISMATCH',
+  'DESTINATION_ACCOUNT_TYPE_MISMATCH', 'CONVERSION_ACTION_TOO_RECENTLY_CREATED'
+]);
+const DIAGNOSTIC_FIELDS = new Set([
+  'destinations', 'operatingAccount', 'loginAccount', 'linkedAccount', 'accountType',
+  'accountId', 'productDestinationId', 'reference', 'events', 'transactionId',
+  'eventTimestamp', 'eventName', 'conversionValue', 'currency', 'eventSource',
+  'adIdentifiers', 'gclid', 'gbraid', 'wbraid', 'userData', 'userIdentifiers',
+  'emailAddress', 'phoneNumber', 'address', 'givenName', 'familyName', 'postalCode',
+  'regionCode', 'consent', 'adUserData', 'adPersonalization', 'encoding', 'validateOnly'
+]);
+function diagnosticSuffix(value) {
+  if (!value || typeof value !== 'object' || value.then) return '';
+  const keys = Reflect.ownKeys(value);
+  if (keys.length !== 2 || !keys.includes('reasons') || !keys.includes('fields')) return '';
+  const projection = { reasons: [], fields: [] };
+  for (const key of ['reasons', 'fields']) {
+    // Descriptors avoid invoking output getters, iterators, slice or toJSON.
+    const array = Object.getOwnPropertyDescriptor(value, key)?.value;
+    if (!Array.isArray(array)) return '';
+    const length = Object.getOwnPropertyDescriptor(array, 'length')?.value;
+    if (!Number.isInteger(length) || length < 0 || length > 3 ||
+        Reflect.ownKeys(array).length !== length + 1) return '';
+    for (let i = 0; i < length; i++) {
+      const item = Object.getOwnPropertyDescriptor(array, String(i))?.value;
+      if (typeof item !== 'string') return '';
+      if (key === 'reasons') {
+        if (!DIAGNOSTIC_REASONS.has(item)) return '';
+      } else {
+        if (!item || item.length > 128) return '';
+        const parts = item.split('.');
+        if (parts.length > 8 || parts.some(part => {
+          const match = /^([A-Za-z_]+)(\[\])?$/.exec(part);
+          return !match || !DIAGNOSTIC_FIELDS.has(match[1]);
+        })) return '';
+      }
+      if (projection[key].includes(item)) return '';
+      projection[key].push(item);
+    }
+  }
+  if (!projection.reasons.length && !projection.fields.length) return '';
+  // Serialize only fresh arrays of approved primitives, never the helper value.
+  const suffix = '|' + JSON.stringify(projection);
+  return Buffer.byteLength(suffix, 'utf8') <= 768 ? suffix : '';
+}
+
 function transportResult(response, error) {
   if (error) {
     const outcomes = { not_attempted: 'NOT_ATTEMPTED', processingfailure: 'EXPLICIT_REJECTION', unknown: 'UNKNOWN' };
     const codes = ['PRE_SEND_FAILURE','TRANSPORT_ERROR','HTTP_ERROR','INVALID_RESPONSE','REJECTED_RESPONSE','MISSING_REQUEST_ID'];
-    const diagnostics = error.code === 'HTTP_ERROR' ? sanitizeHttpErrorDiagnostics(error.httpDiagnostics) : null;
-    const suffix = diagnostics && (diagnostics.reasons.length || diagnostics.fields.length) ? '|' + JSON.stringify(diagnostics) : '';
+    let suffix = '';
+    // Optional enrichment must not suppress the baseline RESULT or await an
+    // unexpected asynchronous diagnostic dependency after dispatch.
+    try {
+      const diagnostics = error.code === 'HTTP_ERROR' ? sanitizeHttpErrorDiagnostics(error.httpDiagnostics) : null;
+      suffix = diagnosticSuffix(diagnostics);
+    } catch (_) { /* Keep HTTP_ERROR/UNKNOWN; never retain diagnostic exceptions. */ }
     return { outcome: outcomes[error.outcome] || 'UNKNOWN',
       reasonCode: (codes.includes(error.code) ? error.code : 'TRANSPORT_UNKNOWN') + suffix,
       statusCode: Number.isInteger(error.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599 ? error.httpStatus : 0,
