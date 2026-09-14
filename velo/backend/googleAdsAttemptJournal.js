@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import wixData from 'wix-data';
 import { getAllSettings } from 'backend/settings.web';
 import { getSecret } from 'wix-secrets-backend';
-import { ingestEvent } from 'backend/dataManagerClient.web';
+import { ingestEvent, sanitizeHttpErrorDiagnostics } from 'backend/dataManagerClient.web';
 
 const COLLECTION = 'GoogleAdsAttemptJournal';
 const OPTIONS = { suppressAuth: true, suppressHooks: true };
@@ -58,8 +58,10 @@ function transportResult(response, error) {
   if (error) {
     const outcomes = { not_attempted: 'NOT_ATTEMPTED', processingfailure: 'EXPLICIT_REJECTION', unknown: 'UNKNOWN' };
     const codes = ['PRE_SEND_FAILURE','TRANSPORT_ERROR','HTTP_ERROR','INVALID_RESPONSE','REJECTED_RESPONSE','MISSING_REQUEST_ID'];
+    const diagnostics = error.code === 'HTTP_ERROR' ? sanitizeHttpErrorDiagnostics(error.httpDiagnostics) : null;
+    const suffix = diagnostics && (diagnostics.reasons.length || diagnostics.fields.length) ? '|' + JSON.stringify(diagnostics) : '';
     return { outcome: outcomes[error.outcome] || 'UNKNOWN',
-      reasonCode: codes.includes(error.code) ? error.code : 'TRANSPORT_UNKNOWN',
+      reasonCode: (codes.includes(error.code) ? error.code : 'TRANSPORT_UNKNOWN') + suffix,
       statusCode: Number.isInteger(error.httpStatus) && error.httpStatus >= 100 && error.httpStatus <= 599 ? error.httpStatus : 0,
       requestId: '', warningPresent: false };
   }
@@ -125,5 +127,5 @@ export async function recordPrivateGoogleAdsAttempt(booking, buildPayload) {
     } catch (_) { /* Durable RESULT survives; never resend to repair this flag. */ }
   }
   return { ok: result.outcome === 'INGESTION_ACKNOWLEDGED', outcome: result.outcome,
-    reasonCode: result.reasonCode, legacyFlagUpdated };
+    reasonCode: result.reasonCode.split('|')[0], legacyFlagUpdated };
 }
