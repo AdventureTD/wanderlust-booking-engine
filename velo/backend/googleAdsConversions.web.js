@@ -3,7 +3,7 @@ import { getSecret } from 'wix-secrets-backend';
 import { ingestEvent } from 'backend/dataManagerClient.web';
 import { buildUserIdentifiers } from 'backend/hashUtils.web';
 import { getAllSettings } from 'backend/settings.web';
-import wixData from 'wix-data';
+import { recordPrivateGoogleAdsAttempt } from 'backend/googleAdsAttemptJournal';
 // v2026-07-20-hashutils-import
 
 export async function isGoogleAdsSuspended() {
@@ -24,93 +24,18 @@ function stripEmpty(obj) {
 }
 
 
+// No public sender or admin retry may bypass the private one-attempt gate.
 export const recordBookingConversion = webMethod(
   Permissions.Anyone,
-  async (booking) => {
-    try {
-      if (await isGoogleAdsSuspended()) {
-        console.log('[WBE-GOOGLE] recordBookingConversion skipped — suspendGoogleAds is enabled');
-        return { ok: false, suspended: true };
-      }
-      validateBooking(booking);
-      const payload = await buildIngestPayload(booking);
-      console.log('[WBE-GOOGLE] built payload for transaction:', booking.transactionId);
-      const response = await ingestEvent(payload);
-      console.log('[WBE-GOOGLE] ingestEvent raw response:', JSON.stringify(response));
-      if (!response || response.ok === false || (response.errors && response.errors.length > 0)) {
-        throw new Error('Data Manager returned error: ' + JSON.stringify(response));
-      }
-      return { ok: true, transactionId: booking.transactionId, response };
-    } catch (err) {
-      console.error('[WBE-GOOGLE] recordBookingConversion error:', err);
-      let debugPayload = null;
-      try { debugPayload = await buildIngestPayload(booking); } catch (buildErr) {}
-      return { ok: false, error: String(err && err.message || err), debugPayload };
-    }
-  }
+  async (booking) => recordPrivateGoogleAdsAttempt(booking, async (input) => {
+    validateBooking(input);
+    return buildIngestPayload(input);
+  })
 );
 
 export const retryBookingConversion = webMethod(
   Permissions.Admin,
-  async (bookingNumber) => {
-    try {
-      if (await isGoogleAdsSuspended()) {
-        console.log('[WBE-GOOGLE] retryBookingConversion skipped — suspendGoogleAds is enabled');
-        return { ok: false, suspended: true };
-      }
-      const summaryRes = await wixData.query('BookingSummary')
-        .eq('bookingNumber', bookingNumber)
-        .limit(1)
-        .find();
-      if (!summaryRes.items.length) { throw new Error('BookingSummary not found for ' + bookingNumber); }
-      const summary = summaryRes.items[0];
-      const booking = {
-        transactionId: bookingNumber,
-        value: summary.grandTotal,
-        currency: 'USD',
-        gclid: summary.gclid,
-        gbraid: summary.gbraid,
-        wbraid: summary.wbraid,
-        email: summary.guestEmail,
-        phone: summary.guestPhone,
-        firstName: summary.guestName,
-        lastName: '',
-        conversionTime: summary.bookingDate || new Date().toISOString()
-      };
-      validateBooking(booking);
-      const payload = await buildIngestPayload(booking);
-      console.log('[WBE-GOOGLE] retry payload for', bookingNumber, JSON.stringify(payload));
-      const response = await ingestEvent(payload);
-      if (!response || response.ok === false || (response.errors && response.errors.length > 0)) {
-        throw new Error('Data Manager returned error: ' + JSON.stringify(response));
-      }
-      summary.googleConversionUploaded = true;
-      const normalizeDate = function(v) {
-        if (!v) return null;
-        let str = String(v).trim();
-        const tIndex = str.indexOf('T');
-        if (tIndex !== -1) str = str.substring(0, tIndex);
-        const spaceIndex = str.indexOf(' ');
-        if (spaceIndex !== -1) str = str.substring(0, spaceIndex);
-        const parts = str.split('-');
-        if (parts.length !== 3) return null;
-        const y = parseInt(parts[0], 10);
-        const m = parseInt(parts[1], 10) - 1;
-        const d = parseInt(parts[2], 10);
-        if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
-        const out = new Date(Date.UTC(y, m, d, 12, 0, 0));
-        return isNaN(out.getTime()) ? null : out;
-      };
-      if (summary.checkIn) summary.checkIn = normalizeDate(summary.checkIn);
-      if (summary.checkOut) summary.checkOut = normalizeDate(summary.checkOut);
-      if (summary.bookingDate) summary.bookingDate = normalizeDate(summary.bookingDate);
-      await wixData.update('BookingSummary', summary);
-      return { ok: true, transactionId: bookingNumber, response };
-    } catch (err) {
-      console.error('[WBE-GOOGLE] retryBookingConversion error:', err);
-      return { ok: false, error: String(err && err.message || err) };
-    }
-  }
+  async () => ({ ok: false, outcome: 'NOT_ATTEMPTED', reasonCode: 'RETRY_DISABLED_UNKNOWN_HISTORY' })
 );
 
 export const adjustBookingConversion = webMethod(

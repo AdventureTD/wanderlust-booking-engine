@@ -913,6 +913,7 @@ function wireContinueButton() {
 
     let dispatched = false;
     let sharedBookingNumber = '';
+    let conversionCapability = ''; // Function-local only; never store or log.
     try {
     const financialSnapshot = _financialSnapshot;
     const rooms = Object.freeze(_summaryRooms.map(r => Object.freeze({ ...r })));
@@ -973,6 +974,7 @@ function wireContinueButton() {
           throw new Error('Booking result could not be verified.');
         }
         console.log('[WBE-FRONTEND] createBooking returned:', JSON.stringify({ ok: !!b0, bookingNumber: b0 && b0.bookingNumber }));
+        conversionCapability = typeof b0.conversionCapability === 'string' ? b0.conversionCapability : '';
         bookings.push(b0);
         if (b0.bookingNumber) sharedBookingNumber = b0.bookingNumber;
 
@@ -1073,6 +1075,7 @@ function wireContinueButton() {
         });
 
         const googlePayload = {
+          conversionCapability,
           transactionId: sharedBookingNumber,
           value: grandTotal,
           currency: 'USD',
@@ -1087,39 +1090,13 @@ function wireContinueButton() {
           lastName: name.split(' ').slice(1).join(' '),
           conversionTime: new Date().toISOString()
         };
-        console.log('[WBE-FRONTEND] calling recordBookingConversion with:', JSON.stringify(googlePayload));
-
+        // Backend owns attempt/result persistence and the legacy uploaded flag.
+        // Existing redirect timing is unchanged; browser closure can still leave UNKNOWN.
         recordBookingConversion(googlePayload)
-        .then(function (convResult) {
-          console.log('[WBE-GOOGLE] conversion upload result:', JSON.stringify(convResult));
-          if (convResult && convResult.ok) {
-            clearClickIds();
-            try {
-              wixData.query('BookingSummary')
-                .eq('bookingNumber', sharedBookingNumber)
-                .limit(1)
-                .find()
-                .then(function (summaryRes) {
-                  if (summaryRes.items.length > 0) {
-                    const summary = summaryRes.items[0];
-                    summary.googleConversionUploaded = true;
-                    if (summary.checkIn) summary.checkIn = normalizeDate(summary.checkIn);
-                    if (summary.checkOut) summary.checkOut = normalizeDate(summary.checkOut);
-                    if (summary.bookingDate) summary.bookingDate = normalizeDate(summary.bookingDate);
-                    return wixData.update('BookingSummary', summary);
-                  }
-                  return null;
-                })
-                .then(function () { console.log('[WBE-GOOGLE] marked BookingSummary.googleConversionUploaded=true'); })
-                .catch(function (markErr) { console.error('[WBE-GOOGLE] failed to mark conversion uploaded:', markErr && markErr.message || markErr); });
-            } catch (markErr) {
-              console.error('[WBE-GOOGLE] failed to mark conversion uploaded:', markErr && markErr.message || markErr);
-            }
-          }
-        })
-        .catch(function (convErr) {
-          console.error('[WBE-GOOGLE] conversion upload error:', convErr && convErr.message || convErr);
-        });
+          .then(function (convResult) {
+            if (convResult && convResult.ok) clearClickIds();
+          })
+          .catch(function () { /* Conversion failure never changes booking confirmation. */ });
 
         // Microsoft Ads conversion upload (mirrors Google, uses msclkid).
         if (clickIds.msclkid) {

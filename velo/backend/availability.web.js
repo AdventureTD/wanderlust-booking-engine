@@ -7,6 +7,7 @@ import { getAllSettings, incrementSetting } from 'backend/settings.web';
 import { adjustBookingConversion, isGoogleAdsSuspended } from 'backend/googleAdsConversions.web';
 import { normalizePriceModifier, roundMoney } from 'backend/rateResolver';
 import { verifyLockedPricingQuote } from 'backend/pricingQuote';
+import { mintGoogleAdsCapability } from 'backend/googleAdsAttemptJournal';
 
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
@@ -508,12 +509,14 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       if (existingAtt.microsoftConversionUploaded) summary.microsoftConversionUploaded = existingAtt.microsoftConversionUploaded;
       if (existingAtt.microsoftConversionRetracted) summary.microsoftConversionRetracted = existingAtt.microsoftConversionRetracted;
       console.log('>>> updateBookingSummary UPDATING row', existing.items[0]._id);
-      await wixData.update(BOOKING_SUMMARIES, summary, { suppressAuth: true });
+      const saved = await wixData.update(BOOKING_SUMMARIES, summary, { suppressAuth: true });
       console.log('>>> updateBookingSummary UPDATE complete');
+      return { item: saved, created: false };
     } else {
       console.log('>>> updateBookingSummary INSERTING new row with bookingDate:', summary.bookingDate);
-      await wixData.insert(BOOKING_SUMMARIES, summary, { suppressAuth: true });
+      const saved = await wixData.insert(BOOKING_SUMMARIES, summary, { suppressAuth: true });
       console.log('>>> updateBookingSummary INSERT complete');
+      return { item: saved, created: true };
     }
   } catch (e) {
     console.log('>>> updateBookingSummary ERROR:', e.message);
@@ -690,7 +693,7 @@ async function getActiveInvoice(bookingNumber) {
 }
 
 async function createBookingImpl(booking) {
-  console.log('>>> SERVER createBooking called:', JSON.stringify(booking).substring(0, 200));
+  console.log('>>> SERVER createBooking called');
   const roomCode = booking.roomCode;
   const checkIn = toDate(booking.checkIn);
   const checkOut = toDate(booking.checkOut);
@@ -722,10 +725,12 @@ async function createBookingImpl(booking) {
     return { outcome: 'NO_RESERVATION', reasonCode: 'UNAVAILABLE', message: 'Only ' + (ROOM_UNITS[roomCode] - currentlyBooked) + ' ' + roomDisplay + '(s) available for ' + checkIn + ' to ' + checkOut };
   }
 
+  let newlyAllocatedNumber = false;
   let bookingNumber = providedBookingNumber || '';
   if (!bookingNumber) {
     try {
       bookingNumber = await getNextBookingNumber();
+      newlyAllocatedNumber = !!bookingNumber;
       console.log('>>> SERVER generated bookingNumber:', bookingNumber);
     } catch (e) {
       console.log('>>> SERVER getNextBookingNumber ERROR:', e.message);
@@ -820,8 +825,9 @@ async function createBookingImpl(booking) {
     promoDiscountAmount: roundMoney(grossRoomTotal - computedRoomTotal)
   };
 
+  let savedDraft = null;
   try {
-    await createDraftInvoice(inserted.bookingNumber, financials, checkIn, checkOut, packageTitle);
+    savedDraft = await createDraftInvoice(inserted.bookingNumber, financials, checkIn, checkOut, packageTitle);
     console.log('>>> SERVER draft invoice created for', inserted.bookingNumber);
   } catch (e) {
     console.log('>>> SERVER createDraftInvoice ERROR:', e.message);
@@ -834,8 +840,9 @@ async function createBookingImpl(booking) {
   }
 
   console.log('>>> SERVER calling updateBookingSummary for', inserted.bookingNumber);
+  let savedSummary = null;
   try {
-    await updateBookingSummary(inserted.bookingNumber, toDate(checkIn), toDate(checkOut), {
+    savedSummary = await updateBookingSummary(inserted.bookingNumber, toDate(checkIn), toDate(checkOut), {
       guestName: guestName || '',
       guestEmail: guestEmail || '',
       guestPhone: guestPhone || '',
@@ -850,6 +857,15 @@ async function createBookingImpl(booking) {
     console.log('>>> SERVER updateBookingSummary ERROR:', e.message);
   }
 
+  // Attribution alone fails closed; never mint for supplied/historical/fallback
+  // numbers, existing Summary rows, partial saves, or an additional-room call.
+  if (!providedBookingNumber && newlyAllocatedNumber && bookingRoomRows.items.length === 0 &&
+      savedDraft && savedDraft._id && savedSummary && savedSummary.created === true) {
+    try {
+      const capability = await mintGoogleAdsCapability(inserted, savedSummary.item);
+      if (capability) inserted.conversionCapability = capability;
+    } catch (_) { /* Booking confirmation is independent of conversion setup. */ }
+  }
   console.log('>>> SERVER createBooking complete. bookingNumber:', inserted.bookingNumber);
   return inserted;
   } catch (e) {
