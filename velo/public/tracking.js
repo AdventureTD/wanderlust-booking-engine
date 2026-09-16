@@ -120,6 +120,23 @@ let _suspendGoogleAds = false;
 
 export function initTracking(w) { _$w = w; }
 
+// Dedicated contact-free channel. Never put identifiers in generic event params.
+let _adsFormSequence = 0;
+export function prepareAdsFormSubmission() {
+  try {
+    if (_suspendGoogleAds || !_$w) return 0;
+    const sequence = ++_adsFormSequence;
+    _$w('#wbeEventBridge').postMessage({ type: 'wbe-ads-form', phase: 'prepare', sequence });
+    return sequence;
+  } catch (e) { return 0; }
+}
+export function completeAdsFormSubmission(sequence) {
+  try {
+    if (_suspendGoogleAds || !_$w || !Number.isSafeInteger(sequence) || sequence < 1) return;
+    _$w('#wbeEventBridge').postMessage({ type: 'wbe-ads-form', phase: 'complete', sequence });
+  } catch (e) { /* Optional collection never changes reservation outcomes. */ }
+}
+
 export function setSuspendGoogleAds(value) {
   _suspendGoogleAds = !!value;
   console.log('[WBE-TRACKING] Google Ads / Analytics suspended:', _suspendGoogleAds);

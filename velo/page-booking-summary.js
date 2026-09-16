@@ -20,7 +20,7 @@ import { getRoomNames } from 'backend/rooms';
 import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights, getPackagesByNights } from 'backend/packages';
 import { readPricingQuote } from 'backend/pricingQuotes';
 import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
-import { trackPurchase, getStoredClickIds, clearClickIds, initTracking, setSuspendGoogleAds } from 'public/tracking';
+import { trackPurchase, getStoredClickIds, clearClickIds, initTracking, setSuspendGoogleAds, prepareAdsFormSubmission, completeAdsFormSubmission } from 'public/tracking';
 import { recordBookingConversion } from 'backend/googleAdsConversions.web';
 import { recordMicrosoftBookingConversion } from 'backend/microsoftAdsConversions.web';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
@@ -911,6 +911,8 @@ function wireContinueButton() {
     safeText('bookingStatus', 'Processing your booking...');
     safeDisable('btnContinue', true);
 
+    let adsFormSequence = 0;
+    try { adsFormSequence = prepareAdsFormSubmission(); } catch (e) { /* Optional. */ }
     let dispatched = false;
     let sharedBookingNumber = '';
     let conversionCapability = ''; // Function-local only; never store or log.
@@ -1060,6 +1062,10 @@ function wireContinueButton() {
 
       if (sharedBookingNumber) {
         safeText('bookingStatus', 'Booking confirmed! Taking you home...');
+        // Only a fully successful cart emits this contact-free notification.
+        try {
+          if (safeVal('inputGuestEmail').trim() === email) completeAdsFormSubmission(adsFormSequence);
+        } catch (e) { /* Optional collection never changes booking outcomes. */ }
 
         // Analytics must never change confirmed booking/invoice outcomes.
         try {

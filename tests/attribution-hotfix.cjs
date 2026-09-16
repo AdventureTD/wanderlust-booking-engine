@@ -47,7 +47,7 @@ async function main(){
   const p=await page({setup:"_promoDiscount=1;_promoCodeApplied='FREE';"});await p.click();assert.equal(p.purchases[0].value,0);assert.equal(p.ads[0].value,0);
  });
  await test('repeated head configuration remains outside listener guard',()=>{
-  const listeners=[];const c=realm({document:{addEventListener(){}},localStorage:{getItem:()=>null,setItem(){}},location:{href:'https://offline.invalid/'},addEventListener:(t,f)=>listeners.push(f)});c.window=c;const body=read('velo/custom-code/google-tag-and-consent.html').match(/<script>([\s\S]*?)<\/script>/)[1];run(c,body);run(c,body);assert.equal(listeners.length,1);assert.equal(run(c,"dataLayer.filter(x=>x[0]==='config').length"),4);assert.equal(run(c,"dataLayer.filter(x=>x[0]==='consent'&&x[1]==='default').length"),2);
+  const listeners=[];const c=realm({document:{addEventListener(){}},localStorage:{getItem:()=>null,setItem(){}},location:{href:'https://offline.invalid/'},addEventListener:(t,f)=>listeners.push({t,f})});c.window=c;const body=read('velo/custom-code/google-tag-and-consent.html').match(/<script>([\s\S]*?)<\/script>/)[1];run(c,body);run(c,body);assert.equal(listeners.filter(x=>x.t==='message').length,2);assert.equal(listeners.filter(x=>x.t==='storage').length,1);assert.equal(run(c,"dataLayer.filter(x=>x[0]==='config').length"),4);assert.equal(run(c,"dataLayer.filter(x=>x[0]==='consent'&&x[1]==='default').length"),2);
  });
  await test('promo controls stay disabled through awaited price rendering',async()=>{
   const p=await page();let release;const gate=new Promise(r=>release=r);p.c.getPackageBaseRate=()=>gate;run(p.c,'_selectedPackageBaseRate=0;');p.w('#promoCode').value='HALF';p.w('#btnApplyPromo').click();for(let i=0;i<10;i++)await Promise.resolve();assert.equal(p.w('#promoCode').disabled,true);assert.equal(p.w('#btnApplyPromo').disabled,true);await p.click();assert.equal(p.payloads.length,0);release(100);for(let i=0;i<30;i++)await Promise.resolve();assert.equal(p.w('#promoCode').disabled,false);await p.click();assert.equal(p.payloads.length,2);
@@ -107,11 +107,11 @@ async function main(){
   const b=bookingBackend({readError:true});await assert.rejects(b.c.createBookingImpl({roomCode:'A',checkIn:'2027-01-01',checkOut:'2027-01-02'}));assert.deepEqual(b.writes,[]);
  });
  await test('head duplicate installation consumes one message once',()=>{
-  const listeners=[];const c=realm({document:{addEventListener(){}},localStorage:{getItem:()=>null,setItem(){}},location:{href:'https://offline.invalid/'},addEventListener:(t,f)=>listeners.push(f)});c.window=c;
+  const listeners=[];const c=realm({document:{addEventListener(){}},localStorage:{getItem:()=>null,setItem(){}},location:{href:'https://offline.invalid/'},addEventListener:(t,f)=>listeners.push({t,f})});c.window=c;
   const html=read('velo/custom-code/google-tag-and-consent.html');const body=html.match(/<script>([\s\S]*?)<\/script>/)[1];
   run(c,body);run(c,body);
-  for(const f of listeners)f({data:{source:'wbe-event-bridge',payload:{event:'purchase',transaction_id:'OFFLINE',value:0,currency:'USD'}}});
-  assert.equal(listeners.length,1);assert.equal(run(c,"dataLayer.filter(x=>x[0]==='event'&&x[1]==='purchase').length"),1);
+  for(const {t,f} of listeners)if(t==='message')f({data:{source:'wbe-event-bridge',payload:{event:'purchase',transaction_id:'OFFLINE',value:0,currency:'USD'}}});
+  assert.equal(listeners.filter(x=>x.t==='message').length,2);assert.equal(listeners.filter(x=>x.t==='storage').length,1);assert.equal(run(c,"dataLayer.filter(x=>x[0]==='event'&&x[1]==='purchase').length"),1);
  });
  await test('rendered numeric value survives display corruption during save',async()=>{
   let release;const gate=new Promise(r=>release=r);const p=await page({book:async(_,n)=>{if(n===1)await gate;}});

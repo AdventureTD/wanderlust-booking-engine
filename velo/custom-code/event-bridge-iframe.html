@@ -14,6 +14,15 @@
   window.onmessage = function (event) {
     try {
       var d = event && event.data;
+      // Dedicated fixed schema: never forward arbitrary fields or contacts.
+      if (event.source === window.parent && d && d.type === 'wbe-ads-form' &&
+          Object.keys(d).length === 3 && ['prepare', 'complete'].indexOf(d.phase) !== -1 &&
+          Number.isSafeInteger(d.sequence) && d.sequence > 0) {
+        var parentOrigin = new URL(document.referrer).origin;
+        if (parentOrigin !== 'https://www.wanderlustcaribbean.com' || event.origin !== parentOrigin) return;
+        window.parent.postMessage({ source: 'wbe-ads-form', phase: d.phase, sequence: d.sequence }, parentOrigin);
+        return;
+      }
       if (d && d.type === 'wbe-datalayer-event' && d.payload) {
         window.parent.postMessage({
           source: 'wbe-event-bridge',

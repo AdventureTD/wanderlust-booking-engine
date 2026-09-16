@@ -77,6 +77,89 @@
   // Path 1: custom event (kept for any future non-sandboxed dispatcher).
   document.addEventListener('wbeConsentGranted', function () { grantConsent(); });
 
+  // This separate gate is NEVER opened by grantConsent(), Wix policy or auto-grant.
+  // Default-OFF until the owner activates the existing banner and binds the iframe title.
+  if (!window.__wbeAdsFormGate) {
+    window.__wbeAdsFormGate = (function () {
+      var allowed = false, revision = 0, acceptedAt = 0, lastChecked = 0;
+      var states = new WeakMap();
+      var selector = '#comp-mqo6cvon input[type="email"][name="email"]';
+      function choice(value, at) {
+        allowed = value === true;
+        acceptedAt = at;
+        lastChecked = at;
+        revision++;
+        currentChoice();
+      }
+      function currentChoice() {
+        var now = Date.now();
+        if (allowed && (!Number.isSafeInteger(acceptedAt) || acceptedAt < 0 ||
+            !Number.isSafeInteger(now) || now < lastChecked || now < acceptedAt ||
+            now - acceptedAt >= 15552000000)) {
+          allowed = false;
+          revision++;
+        }
+        lastChecked = now;
+        return allowed;
+      }
+      // Observe revocations only; a Google grant can never establish provenance.
+      var priorPush = window.dataLayer.push;
+      window.dataLayer.push = function () {
+        for (var i = 0; i < arguments.length; i++) {
+          var entry = arguments[i];
+          if (entry && entry[0] === 'consent' && entry[1] === 'update' &&
+              entry[2] && entry[2].ad_user_data === 'denied') {
+            choice(false);
+            _granted.advertising = false;
+            if (entry[2].analytics_storage === 'denied') _granted.analytics = false;
+            // No gtag call here: avoid recursive observation. Initial defaults are not choices.
+            // Remove stale authority first, including when a quota error prevents the denial write.
+            try { localStorage.removeItem('wbe_consent_choice_v2'); } catch (e) {}
+            try { localStorage.setItem('wbe_consent_choice_v2', JSON.stringify({
+              source: 'banner-click-v2', choice: 'denied', at: Date.now()
+            })); } catch (e) {}
+          }
+        }
+        return priorPush.apply(this, arguments);
+      };
+      window.addEventListener('storage', function (e) {
+        if (!e.key || e.key === 'wbe_consent_choice_v2') choice(false);
+      });
+      window.addEventListener('message', function (event) {
+        try {
+          var d = event.data;
+          if (!d || d.source !== 'wbe-ads-form' || Object.keys(d).length !== 3 ||
+              ['prepare', 'complete'].indexOf(d.phase) === -1 ||
+              !Number.isSafeInteger(d.sequence) || d.sequence < 1) return;
+          var frames = document.querySelectorAll('iframe[title="WBE event bridge"]');
+          if (frames.length !== 1 || frames[0].contentWindow !== event.source ||
+              new URL(frames[0].src).origin !== event.origin || event.origin === 'null') return;
+          currentChoice(); // Recheck retention and clock rollback at every use.
+          var old = states.get(event.source);
+          if (d.phase === 'prepare') {
+            if (old && d.sequence <= old.sequence) return;
+            var fields = allowed ? document.querySelectorAll(selector) : [];
+            var email = fields.length === 1 ? fields[0].value.trim() : '';
+            states.set(event.source, { sequence: d.sequence, revision: revision,
+              eligible: allowed && email.indexOf('@') > 0, email: email, at: Date.now() });
+            return;
+          }
+          if (!old || old.sequence !== d.sequence) return;
+          // Consume before calling external tag code; no uncertain-send retries.
+          states.set(event.source, { sequence: d.sequence });
+          if (!allowed || !old.eligible || revision !== old.revision ||
+              Date.now() < old.at || Date.now() - old.at > 600000) return;
+          var current = document.querySelectorAll(selector);
+          if (current.length !== 1 || current[0].value.trim() !== old.email) return;
+          // Existing Ads manual selector supplies data, if supported by the collector.
+          // This is a deterministic signal, NOT proof that email was transmitted.
+          gtag('event', 'form_submit', { send_to: 'AW-788746633' });
+        } catch (e) { /* Optional, fail closed, no contact/error logging. */ }
+      });
+      return { choice: choice };
+    })();
+  }
+
   // Path 2 (primary): our own consent banner below. Choice persists in the
   // PAGE's localStorage (wbe_consent_choice: 'granted' | 'denied'), which is
   // readable here — unlike Velo's partitioned storage. On load, a stored
@@ -91,7 +174,7 @@
     //                                     NOT recommended if you get EU/UK traffic)
     var BANNER_ENABLED = false;
     var GRANT_ALL_WITHOUT_BANNER = true;
-    var CHOICE_KEY = 'wbe_consent_choice';
+    var CHOICE_KEY = 'wbe_consent_choice_v2'; // Old/automatic choices are not provenance.
     var PRIVACY_URL = 'https://www.wanderlustcaribbean.com/policies';
 
     if (!BANNER_ENABLED) {
@@ -100,10 +183,16 @@
     }
 
     function getChoice() {
-      try { return localStorage.getItem(CHOICE_KEY); } catch (e) { return null; }
+      try {
+        var v = JSON.parse(localStorage.getItem(CHOICE_KEY));
+        if (!v || Object.keys(v).length !== 3 || v.source !== 'banner-click-v2' ||
+            ['granted', 'denied'].indexOf(v.choice) === -1 || !Number.isSafeInteger(v.at) || v.at < 0 ||
+            Date.now() < v.at || Date.now() - v.at >= 15552000000) return null;
+        return v;
+      } catch (e) { return null; }
     }
-    function setChoice(v) {
-      try { localStorage.setItem(CHOICE_KEY, v); } catch (e) {}
+    function setChoice(v, at) {
+      try { localStorage.setItem(CHOICE_KEY, JSON.stringify({ source: 'banner-click-v2', choice: v, at: at === undefined ? Date.now() : at })); } catch (e) {}
     }
 
     function hideBanner() {
@@ -111,14 +200,20 @@
       if (el && el.parentNode) { el.parentNode.removeChild(el); }
     }
 
-    function acceptAll() {
-      setChoice('granted');
+    function acceptAll(event) {
+      if (!event || event.isTrusted !== true) return;
+      var at = Date.now();
+      window.__wbeAdsFormGate.choice(true, at);
+      setChoice('granted', at);
       grantConsent();
       hideBanner();
       console.log('[WBE-CONSENT] visitor accepted all');
     }
 
     function denyAll() {
+      window.__wbeAdsFormGate.choice(false);
+      _granted = { analytics: false, advertising: false };
+      gtag('consent', 'update', { analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' });
       setChoice('denied');
       hideBanner();
       console.log('[WBE-CONSENT] visitor denied; defaults remain');
@@ -140,7 +235,8 @@
       text.style.cssText = 'flex:1 1 320px;min-width:260px;line-height:1.45;';
       text.innerHTML =
         'We use cookies to improve your experience and to show you relevant ' +
-        'ads about Wanderlust Caribbean. ' +
+        'ads about Wanderlust Caribbean. Accept All also allows use of your booking email ' +
+        'to measure advertising through Google. ' +
         '<a href="' + PRIVACY_URL + '" style="color:#d9b95c;text-decoration:underline;">Privacy Policy</a>';
       bar.appendChild(text);
 
@@ -170,12 +266,22 @@
     }
 
     function initBanner() {
+      if (!document.getElementById('wbe-consent-settings')) {
+        var settings = document.createElement('button');
+        settings.id = 'wbe-consent-settings';
+        settings.type = 'button';
+        settings.textContent = 'Cookie settings';
+        settings.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2147482999;padding:9px 18px;background:#12312a;color:#f3ede0;border:1px solid #d9b95c;border-radius:4px;cursor:pointer;';
+        settings.addEventListener('click', showBanner);
+        document.body.appendChild(settings);
+      }
       var choice = getChoice();
-      if (choice === 'granted') {
+      if (choice && choice.choice === 'granted') {
+        window.__wbeAdsFormGate.choice(true, choice.at);
         grantConsent();
         return;
       }
-      if (choice === 'denied') { return; }
+      if (choice && choice.choice === 'denied') { return; }
       showBanner();
     }
 
