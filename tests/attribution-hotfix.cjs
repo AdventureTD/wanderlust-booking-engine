@@ -35,7 +35,10 @@ async function main(){
   const b=bookingBackend();let reads=0;Object.assign(b.c,{overlappingCount:async()=>++reads===1?0:(conflict?2:1),getNextBookingNumber:async()=> 'OFFLINE-KNOWN',BOOKINGS:'Bookings',wouldExceedBookingRoomLimit:()=>false,getPackagePricingForBooking:async()=>({_id:'P'}),verifyLockedPricingQuote:async()=>({packageId:'P',baseRate:100,totalPerPerson:100}),normalizePriceModifier:()=>1,getAuthoritativeRoomFee:async()=>0,roundMoney:x=>x,getAllSettings:async()=>({}),createDraftInvoice:async()=>{b.writes.push('draft');},updateBookingSummary:async()=>{b.writes.push('summary');},wixData:{query:()=>({eq(){return this;},limit(){return this;},find:async()=>({items:[]})}),insert:async(_,row)=>{b.writes.push('insert');return {...row,_id:'OFFLINE-ROW'};},remove:async()=>{b.writes.push('remove');}}});
   const result=await b.c.createBookingImpl({roomCode:'A',checkIn:'2027-01-01',checkOut:'2027-01-02'});assert.equal(result.bookingNumber,'OFFLINE-KNOWN');assert.equal(result.outcome,conflict?'UNKNOWN':undefined);assert.deepEqual(b.writes,conflict?['insert','draft','remove']:['insert','draft','summary']);
  });
- await test('pinned checkout sources match reviewed canonical bytes',()=>{
+ await test('pinned checkout sources match reviewed canonical bytes',async()=>{
+  // Preserve the reviewed head hash on its unchanged readable source. Runtime
+  // tests below still execute the installed .html; require exact build parity.
+  assert.equal(await require('../scripts/build-google-tag.cjs').build(), read('velo/custom-code/google-tag-and-consent.html'));
   const pins=JSON.parse(read('tests/attribution-hotfix-sources.json'));assert.equal(Object.keys(pins).length,3);
   for(const [file,hash] of Object.entries(pins))assert.equal(require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(root,file)).toString('utf8').replace(/\r\n/g,'\n')).digest('hex'),hash,file);
  });

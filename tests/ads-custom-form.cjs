@@ -28,7 +28,13 @@ async function fixture(opts = {}) {
   const head = vm.createContext({ window, document, localStorage: { getItem:k=>{if(opts.storageReadFails)throw Error('inert storage read failure');return store.get(k)||null;}, removeItem:k=>store.delete(k), setItem:(k,v)=>{if(opts.storageWriteFails)throw Error('inert storage failure');store.set(k,v);} }, console:{ log:(...x)=>logs.push(x), error:(...x)=>logs.push(x) }, URL, fetch:deny, XMLHttpRequest:deny, Image:deny, WebSocket:deny });
   Object.defineProperty(head, 'dataLayer', { get:()=>window.dataLayer });
   let headSource = inline('velo/custom-code/google-tag-and-consent.html');
-  if (!opts.automatic) headSource = headSource.replace('var BANNER_ENABLED = false;', 'var BANNER_ENABLED = true;').replace('var GRANT_ALL_WITHOUT_BANNER = true;', 'var GRANT_ALL_WITHOUT_BANNER = false;');
+  // Packaging removes whitespace only; retain explicit synthetic banner-ON coverage
+  // against the deployable artifact and fail if either fixture seam disappears.
+  if (!opts.automatic) {
+    assert.match(headSource, /var BANNER_ENABLED\s*=\s*false;/);
+    assert.match(headSource, /var GRANT_ALL_WITHOUT_BANNER\s*=\s*true;/);
+    headSource = headSource.replace(/var BANNER_ENABLED\s*=\s*false;/, 'var BANNER_ENABLED=true;').replace(/var GRANT_ALL_WITHOUT_BANNER\s*=\s*true;/, 'var GRANT_ALL_WITHOUT_BANNER=false;');
+  }
   if (opts.now !== undefined) vm.runInContext('Date.now=()=>'+opts.now,head);
   vm.runInContext(headSource, head);
   const dispatch = (data, overrides={}) => { for (const f of listeners.message || []) f({data, source:frame, origin:'https://fixture.invalid',...overrides}); };

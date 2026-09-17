@@ -12,6 +12,43 @@ No contacts, hashes, caller geography or consent claims are sent to the policy e
 
 **The explicit form event is not proof that Google attached email.** The retained manual selector plus AW-routed event still needs separately authorized provider-payload observation. Do not fix a failed provider check by adding a global setter or contacts to purchase.
 
+## Wix 15,000-character packaging fix
+
+For the Head Custom Code entry, copy the **entire raw contents** of
+`velo/custom-code/google-tag-and-consent.html` from the approved GitHub revision,
+including both script tags. Replace the existing entry; do not add a second tag.
+This generated installation file is **10,895 UTF-16 code units / 10,895 Unicode
+characters / 10,901 UTF-8 bytes**, including all HTML and comments, leaving
+**4,105 characters** below Wix's 15,000-character limit. Do not paste the readable
+`google-tag-and-consent.source.html` file: it intentionally exceeds that limit.
+
+This packaging delta changes **only the installed Head HTML**. All other runtime
+files in the coordinated installation table below remain unchanged. If the
+preceding location-policy release has not yet been installed, its coordinated
+dependencies are still required; this size fix does not replace them. No Wix,
+provider, policy, GeoIP, selector, consent or settings change is part of packaging.
+
+Maintainers: edit `velo/custom-code/google-tag-and-consent.source.html`, never the
+generated file, then run from the repository root:
+
+```text
+npm ci --ignore-scripts
+npm run build:google-tag
+npm run check:google-tag
+npm run test:google-tag
+```
+
+Node 22 was used for verification. The lockfile pins build-only Terser and Acorn;
+none is installed into Wix. Terser strips JavaScript comments/whitespace and
+prints equivalent literals with **compression OFF, all mangling OFF, no source
+map**. No branches, globals, listeners or safety checks are removed. All HTML
+outside the inline script (including the async external loader and its order)
+is preserved. LF attributes keep the build deterministic across checkouts.
+Tests check identical JavaScript ASTs, deterministic output, full-file size and
+readable/deploy parity through the actual inert Summary/tracking/policy/iframe/
+head and consent lifecycle suites. The 18 existing CJS suites use the deployable
+artifact by default. Offline success is not published-Wix/provider verification.
+
 ## Exact coordinated installation — after review and authorization only
 
 Copy from the eventual approved revision, replacing existing files/entries rather than creating duplicate tags:

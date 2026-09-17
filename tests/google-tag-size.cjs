@@ -1,0 +1,8 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const html = fs.readFileSync(path.join(root, 'velo/custom-code/google-tag-and-consent.html'), 'utf8');
+assert.ok(html.length <= 14000, `Whole pasted HTML must leave >=1000 UTF-16 units below Wix's 15000 limit; got ${html.length}`);
+console.log('PASS whole pasted HTML size', JSON.stringify({utf16: html.length, unicode: [...html].length, bytes: Buffer.byteLength(html)}));

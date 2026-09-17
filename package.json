@@ -1,0 +1,13 @@
+{
+  "name": "wanderlust-custom-code-build",
+  "private": true,
+  "scripts": {
+    "build:google-tag": "node scripts/build-google-tag.cjs",
+    "check:google-tag": "node scripts/build-google-tag.cjs --check",
+    "test:google-tag": "node tests/google-tag-size.cjs && node tests/google-tag-build-parity.cjs"
+  },
+  "devDependencies": {
+    "acorn": "8.18.0",
+    "terser": "5.51.2"
+  }
+}
