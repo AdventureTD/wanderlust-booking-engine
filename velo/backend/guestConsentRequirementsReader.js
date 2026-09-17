@@ -94,8 +94,10 @@ function rowSnapshot(value, observations) {
 }
 function itemsSnapshot(result, observations) {
   if (result === null || typeof result !== 'object') throw 0;
-  observe(result,['items'],observations);
-  const items=data(result,'items');
+  // Trusted native Wix result: items is a documented property, including an
+  // inherited nonenumerable SDK getter. Read once; the caller catches throws.
+  // Validate and recheck the returned array/rows, not the SDK wrapper layout.
+  const items=result.items;
   if (!isArray(items) || prototype(items) !== arrayPrototype) throw 0;
   const length=descriptor(items,'length').value;
   if (!safeInteger(length) || length < 0 || length > 100) throw 0;

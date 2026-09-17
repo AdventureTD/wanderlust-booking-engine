@@ -1,8 +1,21 @@
-# Private Ads requirement diagnostic — not a fix
+# Private Ads requirement diagnostic and SDK compatibility retest
 
-This adds only a disconnected, read-only backend diagnostic. It does not change application behavior, consent policy, booking flow, provider sending, or the existing policy reader. Hosted Wix execution is **NOTRUN**; local inert-SDK tests do not establish the production incident's cause.
+The diagnostic remains disconnected and read-only. The SDK compatibility candidate changes only `guestConsentRequirementsReader.js` at runtime; policy, booking flow, provider sending and the diagnostic itself are unchanged. Owner-supplied hosted evidence now confirms an inherited nonenumerable `items` getter on a separate SDK result, a representation the old reader rejected. This does not establish that query's row count, a shared snapshot, or the only cause of the earlier `INVALID_DATA`.
 
-## Owner-only draft check
+## Reader correction — after independent review and Git delivery
+
+Copy only `velo/backend/guestConsentRequirementsReader.js` into the existing **Backend → guestConsentRequirementsReader.js** private file. Keep the already installed diagnostic, policy resolver and public endpoint unchanged. No frontend, Custom Code, collection, permission, settings or provider changes are needed. This candidate has not been committed, pushed, installed or published yet.
+
+Then use the function-specific Functional Testing panel, clear retained output, and run these separately with **no arguments** (Set Parameters `{}` with no named parameter entries):
+
+1. `diagnoseAdsRequirementRead()` in the existing private diagnostic. If the collection read is actually empty and exhausted, expect exactly `{v:1,stage:'READER',reason:'OBSERVED',pages:1,rows:0}`.
+2. `getAdsFormRequirement()` in the existing endpoint. If this separate read is also actually empty, expect `requirement:'NOT_REQUIRED'` with the existing `v`, `policyKey`, and `observedAt` fields. Do not share the policy hash.
+
+Retain only the sanitized diagnostic DTO and endpoint requirement. Any other result remains evidence to investigate, not permission to force NOT_REQUIRED. Null `itemCount` in the shape diagnostic never means zero rows. These are separate reads, not an atomic snapshot. Preserve the same draft/environment context; do not change or synchronize collections. Owner retesting and published verification remain outstanding; do not publish merely to test.
+
+The adapter reads the trusted SDK's documented `items` property exactly once under the existing exception boundary, then retains strict array/row checks. Throwing getters, malformed rows, incomplete scans, overflow and timeouts stay fail-closed. `hasNext` retains its bounded inherited data-method lookup and original receiver. No location lookup or rule changes were added.
+
+## Original owner-only draft diagnostic installation
 
 The only new file to copy from GitHub is `velo/backend/adsRequirementDiagnostics.js`, into **Backend → adsRequirementDiagnostics.js** as an ordinary private `.js` file. Do not use `.private.js`, `.web.js`, `.jsw`, an HTTP handler, or a frontend/public wrapper. Its existing dependencies are `backend/guestConsentRequirementsReader` and that reader's `backend/guestConsentLocationPolicy`; do not replace those unchanged files for this diagnostic. No new collection, secret, provider configuration, or publication is needed.
 
