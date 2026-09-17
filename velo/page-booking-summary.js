@@ -911,6 +911,7 @@ function wireContinueButton() {
     safeText('bookingStatus', 'Processing your booking...');
     safeDisable('btnContinue', true);
 
+    // Optional policy reads run inside tracking, never on the booking await path.
     let adsFormSequence = 0;
     try { adsFormSequence = prepareAdsFormSubmission(); } catch (e) { /* Optional. */ }
     let dispatched = false;

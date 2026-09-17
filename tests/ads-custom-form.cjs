@@ -23,9 +23,9 @@ async function fixture(opts = {}) {
   const click = label => { const entry=[...handlers].find(([el])=>attached(el)&&el.textContent===label); assert.ok(entry,'attached button: '+label); entry[1]({isTrusted:true}); };
   const document = { readyState: 'complete', body, addEventListener() {}, getElementById(id) { return visit(body,id)||null; }, createElement: element,
     querySelectorAll(s) { return s === 'iframe[title="WBE event bridge"]' ? [frameElement] : opts.missingField ? [] : [field]; } };
-  const window = { location: { href: 'https://www.wanderlustcaribbean.com/booking-summary' }, addEventListener(t, f) { (listeners[t] ||= []).push(f); } };
+  const window = { dataLayer: opts.priorDataLayer || [], location: { href: 'https://www.wanderlustcaribbean.com/booking-summary' }, addEventListener(t, f) { (listeners[t] ||= []).push(f); } };
   const deny = () => { throw Error('OFFLINE_NETWORK_DENIED'); };
-  const head = vm.createContext({ window, document, localStorage: { getItem:k=>store.get(k)||null, removeItem:k=>store.delete(k), setItem:(k,v)=>{if(opts.storageWriteFails)throw Error('inert storage failure');store.set(k,v);} }, console:{ log:(...x)=>logs.push(x), error:(...x)=>logs.push(x) }, URL, fetch:deny, XMLHttpRequest:deny, Image:deny, WebSocket:deny });
+  const head = vm.createContext({ window, document, localStorage: { getItem:k=>{if(opts.storageReadFails)throw Error('inert storage read failure');return store.get(k)||null;}, removeItem:k=>store.delete(k), setItem:(k,v)=>{if(opts.storageWriteFails)throw Error('inert storage failure');store.set(k,v);} }, console:{ log:(...x)=>logs.push(x), error:(...x)=>logs.push(x) }, URL, fetch:deny, XMLHttpRequest:deny, Image:deny, WebSocket:deny });
   Object.defineProperty(head, 'dataLayer', { get:()=>window.dataLayer });
   let headSource = inline('velo/custom-code/google-tag-and-consent.html');
   if (!opts.automatic) headSource = headSource.replace('var BANNER_ENABLED = false;', 'var BANNER_ENABLED = true;').replace('var GRANT_ALL_WITHOUT_BANNER = true;', 'var GRANT_ALL_WITHOUT_BANNER = false;');
@@ -35,8 +35,38 @@ async function fixture(opts = {}) {
   parent.postMessage = data => { messages.push(JSON.parse(JSON.stringify(data))); if (!opts.pause) dispatch(data); };
   const iframe = vm.createContext({ window:{parent}, document:{referrer:'https://www.wanderlustcaribbean.com/'}, URL });
   vm.runInContext(inline('velo/custom-code/event-bridge-iframe.html'), iframe);
-  const tracking = new vm.SourceTextModule(read('velo/public/tracking.js'), { context:vm.createContext({console:{log:(...x)=>logs.push(x),warn(){},error(){}}}) });
-  await tracking.link(async spec => { assert.ok(['wix-storage-frontend','wix-location-frontend'].includes(spec)); const m = new vm.SyntheticModule(spec === 'wix-storage-frontend' ? ['local'] : ['default'], function(){this.setExport(spec === 'wix-storage-frontend' ? 'local' : 'default', spec === 'wix-storage-frontend' ? {getItem(){return null;},removeItem(){}} : {url:'',query:{}});}, {context:tracking.context}); return m; });
+  const context = vm.createContext({setTimeout,clearTimeout,console:{log:(...x)=>logs.push(x),warn(){},error(){}}});
+    const policyCalls=[];
+    context.sdkFind = async () => {
+      policyCalls.push([]);
+      if(opts.policyRead) await opts.policyRead(policyCalls.length);
+      if(opts.policyRows === 'error') throw Error('inert policy failure');
+      return JSON.stringify(opts.policyRows || []);
+    };
+    vm.runInContext(`const sdk={query(){return {ascending(){return this},limit(){return this},async find(){const items=JSON.parse(await sdkFind());return {items,hasNext(){return false}}}}}}`,context);
+    const cache=new Map();
+    async function load(spec) {
+      if(cache.has(spec))return cache.get(spec);
+      let m;
+      if(spec.startsWith('backend/')) {
+        m=new vm.SourceTextModule(read('velo/'+spec+'.js'),{context});cache.set(spec,m);await m.link(load);return m;
+      }
+      let values;
+      if(spec==='wix-data') values={default:vm.runInContext('sdk',context)};
+      else if(spec==='wix-web-module') values={Permissions:{Anyone:'Anyone'},webMethod:(_,fn)=>async(...args)=>{
+        assert.equal(args.length,0,'no contact or caller policy authority');
+        const result=await fn(...args);
+      if(opts.policyResult)return opts.policyResult(JSON.parse(JSON.stringify(result)),policyCalls.length);
+        return opts.policyRows === undefined ? {v:1,requirement:'REQUIRED',policyKey:'a'.repeat(64),observedAt:Date.now()} : JSON.parse(JSON.stringify(result));
+      }};
+      else if(spec==='crypto') values={createHash:require('node:crypto').createHash};
+      else if(spec==='wix-storage-frontend') values={local:{getItem(){return null;},removeItem(){}}};
+      else if(spec==='wix-location-frontend') values={default:{url:'',query:{}}};
+      else throw Error('unapproved import '+spec);
+      m=new vm.SyntheticModule(Object.keys(values),function(){for(const [k,v] of Object.entries(values))this.setExport(k,v);},{context});cache.set(spec,m);return m;
+    }
+    const tracking = new vm.SourceTextModule(read('velo/public/tracking.js'), {context});
+    await tracking.link(load);
   await tracking.evaluate();
   const names = read('velo/page-booking-summary.js').match(/import \{([^}]+)\} from 'public\/tracking';/)[1].split(',').map(x=>x.trim());
   for (const name of names) assert.equal(typeof tracking.namespace[name],'function','real tracking import: '+name);
@@ -49,7 +79,8 @@ async function fixture(opts = {}) {
   if(opts.consent === 'yes') buttons['Accept All']?.({isTrusted:true});
   if(opts.consent === 'synthetic') buttons['Accept All']?.({isTrusted:false});
   if(opts.consent === 'no') buttons.Deny?.({isTrusted:true});
-  return {store,listeners,iframe,frameElement,document,click,p,head,window,buttons,messages,logs,field,dispatch,events:()=>window.dataLayer.filter(x=>x[0]==='event'), submit:async()=>{await p.click();await p.click();}};
+  const settle=async()=>{for(let i=0;i<80;i++)await Promise.resolve();};
+  return {policyCalls,tracking,settle,store,listeners,iframe,frameElement,document,click,p,head,window,buttons,messages,logs,field,dispatch,events:()=>window.dataLayer.filter(x=>x[0]==='event'), submit:async()=>{await p.click();await p.click();await settle();}};
 }
 (async()=>{
   const f = await fixture({consent:'yes'}); await f.submit();
@@ -68,13 +99,14 @@ async function fixture(opts = {}) {
     const watchdog=setTimeout(()=>{throw Error('paused test timed out');},5000);
     try {
       const pending=x.p.click(); await ready;
+      await x.settle(); // Policy prepare is now asynchronous; change the selector after its actual snapshot.
       await x.p.click(); // actual duplicate while booking awaits
       if(mode==='withdraw'||mode==='regrant') { x.buttons['Cookie settings']({isTrusted:true}); x.buttons.Deny({isTrusted:true}); }
       if(mode==='regrant') { x.buttons['Cookie settings']({isTrusted:true}); x.buttons['Accept All']({isTrusted:true}); }
       if(mode==='field') x.field.value='changed@example.invalid';
       if(mode==='pageEmail') x.p.w('#inputGuestEmail').value='changed@example.invalid';
       if(mode==='googleDenied') vm.runInContext("gtag('consent','update',{ad_user_data:'denied'})",x.head);
-      release(); await pending;
+      release(); await pending; await x.settle();
       assert.equal(x.events().filter(e=>e[1]==='form_submit').length,0,mode);
       assert.equal(x.p.payloads.length,2,'tracking cannot block booking');
     } finally {release();clearTimeout(watchdog);}
@@ -97,12 +129,12 @@ async function fixture(opts = {}) {
   console.log('PASS persisted affirmative provenance versus old/default/expired records');
   for(const mode of ['wrong-source','wrong-origin','extra-field','complete-first','expired']) {
     const x=await fixture({consent:'yes',pause:true});await x.submit();
-    const pair=x.messages.filter(d=>d.source==='wbe-ads-form');assert.equal(pair.length,2);
+    const pair=x.messages.filter(d=>d.source==='wbe-ads-form');assert.equal(pair.length,3);
     if(mode==='wrong-source') for(const d of pair)x.dispatch(d,{source:{}});
     if(mode==='wrong-origin') for(const d of pair)x.dispatch(d,{origin:'https://untrusted.invalid'});
     if(mode==='extra-field') for(const d of pair)x.dispatch({...d,email:'never-forward@example.invalid'});
-    if(mode==='complete-first') x.dispatch(pair[1]);
-    if(mode==='expired') {x.dispatch(pair[0]);vm.runInContext('Date.now = () => '+(Date.now()+700000),x.head);x.dispatch(pair[1]);}
+    if(mode==='complete-first') x.dispatch(pair[2]);
+    if(mode==='expired') {x.dispatch(pair[0]);x.dispatch(pair[1]);vm.runInContext('Date.now = () => '+(Date.now()+700000),x.head);x.dispatch(pair[2]);}
     assert.equal(x.events().filter(e=>e[1]==='form_submit').length,0,mode);
   }
   assert.match(read('velo/page-booking-summary.js'),/setTimeout\(function \(\) \{[\s\S]*?2000\)/);

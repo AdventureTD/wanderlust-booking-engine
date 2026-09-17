@@ -1,47 +1,69 @@
-# Legacy Summary: explicit Ads form notification (candidate)
+# Legacy Summary: location-policy Ads form notification — review candidate
 
-**Independent review required; not installed or live-verified. Replacement engine remains HOLD.**
+**Implemented and tested offline; NOT installed, published, independently approved, or provider-verified. No commit/push before independent review. Replacement engine remains HOLD.**
 
-## What this does—and does not prove
+## What changes
 
-After existing contact validation, Summary sends a contact-free `prepare` notification. Only after every room returns a successful result with the shared booking number does it send `complete`. The head sends exactly `gtag('event', 'form_submit', {send_to:'AW-788746633'})` if its separate affirmative-consent gate and current field checks pass. Failed/partial/uncertain bookings never send `complete`. Booking, invoice, existing GA4 purchase, backend Ads/journal/no-replay and the 2000ms home redirect are unchanged. Optional collection exceptions are contained.
+The existing Summary validation and whole-cart-success handoff now consumes the real zero-argument `getAdsFormRequirement()` backend read through `public/tracking.js`. A synchronous contact-free `begin` fences the current choice before asynchronous work. Tracking reads policy before `prepare`, reads it again before `complete`, and requires the same requirement and content fingerprint. Summary never awaits either optional policy request. Each frontend read is capped at 750ms; a late result is ignored. The existing 2000ms home redirect is unchanged, not extended to wait for Ads.
 
-There is **no `gtag('set','user_data',...)`**, no email/hash in the Velo/iframe notification, and no contact-bearing GA4/logged event parameters. The head reads the existing manual email field only after consent, retains an ephemeral in-memory value for equality checking, and never logs, persists or forwards that value itself. One pending state per frame is retained until replaced/consumed or page teardown; a pending notification is eligible for at most ten minutes. This is not a new customer-data store.
+The head emits only `gtag('event', 'form_submit', {send_to:'AW-788746633'})`, after full successful cart creation, current negative-state/choice checks, fresh policy evidence and unchanged selector value. Partial/failed/uncertain carts never complete the handoff. The existing backend Ads import/journal, GA4 purchase, pricing, reservation writes and invoicing remain separate and unchanged. This is not site-wide consent enforcement for those existing senders, native tags, GTM or Microsoft.
 
-Google documents manual CSS selectors and separately documents custom-code `user_data` followed by AW-routed `form_submit`. This candidate deliberately uses the existing manual selector rather than global `user_data`, because global parameter scope is not isolated by `send_to`. **The documentation does not prove the selector will attach email to this event.** Offline tests prove the explicit event seam, not Google's remote collector. Collection effectiveness is a mandatory later verification gate; if it fails, stop rather than introduce a global setter or send identifiers through purchase.
+No contacts, hashes, caller geography or consent claims are sent to the policy endpoint. No IP or third-party GeoIP service is used. There is no global `user_data` setter, no contact-bearing generic event or GA4 parameter, and no contact logging. The head reads the manual selector only at eligible prepare, retains its value only in an ephemeral frame state for equality checking, and never forwards or persists that value. Pending eligibility lasts at most ten minutes; consumed state contains only a sequence. Invalidated pending states cannot dispatch; a replaced frame/page releases its old in-memory state.
 
-References checked:
-- https://support.google.com/google-ads/answer/11021502?hl=en
-- https://support.google.com/tagmanager/answer/12131703?hl=en
-- https://developers.google.com/tag-platform/gtagjs/routing
-- https://developers.google.com/tag-platform/gtagjs/reference
+**The explicit form event is not proof that Google attached email.** The retained manual selector plus AW-routed event still needs separately authorized provider-payload observation. Do not fix a failed provider check by adding a global setter or contacts to purchase.
 
-## Exact coordinated runtime files
+## Exact coordinated installation — after review and authorization only
 
-Copy only these reviewed files from the eventual approved Git revision:
+Copy from the eventual approved revision, replacing existing files/entries rather than creating duplicate tags:
 
-1. `velo/page-booking-summary.js` → existing **legacy Booking Summary page code**.
-2. `velo/public/tracking.js` → **Public / tracking.js** (both new exports are required).
-3. `velo/custom-code/event-bridge-iframe.html` → existing **Master Page HTML component `#wbeEventBridge`**, replacing its HTML, not adding another component.
-4. `velo/custom-code/google-tag-and-consent.html` → existing **Google tag + consent Head Custom Code entry**, replacing it, not adding a second entry.
+| Repository source | Wix target |
+|---|---|
+| `velo/backend/guestConsentLocationPolicy.js` | Backend / `guestConsentLocationPolicy.js` (private helper) |
+| `velo/backend/guestConsentRequirementsReader.js` | Backend / `guestConsentRequirementsReader.js` (private helper) |
+| `velo/backend/adsFormRequirement.web.js` | Backend / `adsFormRequirement.web.js` (new web module) |
+| `velo/public/tracking.js` | Public / `tracking.js` |
+| `velo/page-booking-summary.js` | Existing **legacy Booking Summary** page; business flow unchanged, explanatory comment only in this delta |
+| `velo/custom-code/event-bridge-iframe.html` | Existing Master Page HTML component `#wbeEventBridge`, replace HTML |
+| `velo/custom-code/google-tag-and-consent.html` | Existing Google tag + consent Head Custom Code entry, replace contents |
 
-No backend file, collection, secret, invoice template, pricing logic, Microsoft tag or replacement page is part of this installation.
+Dependencies: existing `wix-data`, `wix-web-module`, Wix frontend storage/location modules, and Wix-supported Node `crypto.createHash` (already used by this backend codebase). The backend module imports both private helpers using `backend/...`; tracking imports `backend/adsFormRequirement.web`. No new npm geolocation library, service, secret, paid plan, invoice dependency or scheduled job is needed. Install all dependent modules together; a missing module is not an acceptable live installation test.
 
-## Owner decisions / activation prerequisites
+Reuse the existing **LIVE `ConsentRequirements`** collection; do not create a replacement or add invented rows. Expected fields: `countryCode` Text (supported uppercase ISO alpha-2), optional `usStateCode` Text (blank/absent for country-wide, only 50 supported US states when nonblank), `consentRequired` Boolean. `notes` is administrative only. Preserve admin/private-only access; the public web method performs narrowly scoped elevated reads and does not expose rules or rows. Explicit null state, malformed fields, unknown vocabulary or unavailable collection are failures, not permission.
 
-The committed candidate deliberately retains `BANNER_ENABLED = false` and `GRANT_ALL_WITHOUT_BANNER = true`. **In that configuration the new form handoff remains OFF, even though existing Google signals are automatically granted. This is not a working collection deployment until the consent prerequisites below are satisfied.**
+## Actual policy contract and limitations
 
-1. Approve activating the existing banner, its added booking-email advertising-measurement disclosure, and the choice retention policy. In the same head entry set `BANNER_ENABLED = true` and `GRANT_ALL_WITHOUT_BANNER = false`. This changes existing tag consent behavior for visitors who do not accept; do not silently install these flag changes. Review privacy-policy wording and the delivered **Cookie settings** control before activation. This persistent native button appears only when the banner is enabled, remains after Accept/Deny and on returning granted/denied visits, and reopens the banner; **Deny** withdraws consent and invalidates pending notifications. Verify keyboard access, visibility and placement in published Wix. This patch does not introduce a new CMP or claim jurisdictional compliance.
-2. Only a trusted Accept All click (or a nonexpired record written by that revised banner) opens the gate. The new `wbe_consent_choice_v2` record records `source: banner-click-v2`, choice and time; retention is 180 days. Old scalar `wbe_consent_choice`, unknown/automatic/expired records and all-true Wix policy never authorize this channel. Existing automatic Google grant and `wbeConsentGranted` do not open it. Deny and observed Google consent **update** `ad_user_data: denied` close it and replace the persisted grant with denial (removing stale authority first if the subsequent write fails); ordinary initial default-denied is not a withdrawal. External denial also resets the advertising grant cache so a fresh trusted acceptance really updates Google. A cross-tab v2 storage change closes the local gate conservatively and requires a fresh choice/reload; it never adopts a cross-tab grant. The original timestamp is preserved on reads and checked on each prepare and complete: exact 180-day expiry, future/malformed timestamps and observed clock rollback close eligibility. Reacceptance can renew retention but never revive old pending work. If saving acceptance fails, only bounded current-session permission is retained. No client can guarantee durable preference changes when the browser refuses both removal and writes; the current page still closes immediately. Deny never prevents booking.
-3. Bind the head to the actual HTML component: the published outer iframe must have the unique exact title **`WBE event bridge`**. The head requires exactly one `iframe[title="WBE event bridge"]`, matching `contentWindow`, and event origin equal to that iframe's nonopaque `src` origin. Verify Wix's accessibility/title setting actually produces this DOM title. If Wix cannot supply that exact binding, STOP and obtain a reviewed binding adjustment; do not remove source/origin checks. This has not been verified in live Wix.
-4. The iframe relay additionally requires its parent's origin and referrer origin to be `https://www.wanderlustcaribbean.com`. Preview, alternate hostname, opaque origin, missing referrer or a Wix nested-frame topology may therefore suppress the notification. Verify the real published relationship without weakening the checks. Ordinary existing generic tracking remains unchanged.
-5. Keep the already-correct Ads manual email selector exactly `#comp-mqo6cvon input[type="email"][name="email"]`; Form interactions ON; automatic user-data detection OFF; email only. The head uses that same selector, requires exactly one field and unchanged email between prepare/complete. Do not add a conversion action or switch account-wide methods. Customer-data terms and destination eligibility remain separate prerequisites.
+* A fresh, fully exhausted, validated empty or all-false policy is **NOT_REQUIRED**, without locating anyone. This is the owner's configured receipt prerequisite, not an affirmative choice or legal exemption.
+* Any true row, anywhere, currently produces **UNRESOLVED**, because this integration has no trusted visitor IP geography. Even a valid stored receipt does not override UNRESOLVED. If true rules are added, this extra Ads form event is suppressed until a separately reviewed trusted-IP integration exists. This candidate neither adopts nor promises a GeoIP provider. No location lookup is currently needed for empty/all-false rules.
+* Backend scans use `_id`-ordered keyset reads, pages of 100, maximum 4096 rows / 41 pages / ten-second application deadline, with `suppressAuth:true`, `consistentRead:true`, `suppressHooks:true`. Failure, timeout, invalid/incomplete/overflow reads fail closed. Frontend's shorter deadline does not cancel an in-flight backend SDK query; the backend remains independently bounded.
+* `consistentRead` is **not an atomic multipage snapshot**. This is an ordinary admin-only configuration read, assuming normal administrative maintenance rather than an adversarial concurrent writer. Avoid editing policy during guest submissions. Each phase does a new uncached scan. A SHA-256 content fingerprint of validated rules plus row IDs/update evidence detects observed changes; it is not a signature, guest credential, atomic revision or proof that no update occurred between/after observations. No fake coherent revision or new revision datastore is introduced.
+* The minimized resolved DTO is exactly `{v:1, requirement, policyKey, observedAt}`. Error results are UNRESOLVED and rejected by the frontend gate. The browser checks current timestamps (at most 1500ms old, not future), a 750ms local read deadline and ten-minute submission lifetime. Significant server/browser clock skew suppresses this optional event; it does not block booking.
+* Only the dedicated strict-schema channel accepts these observations. The relay requires the canonical parent origin; the head binds the unique frame source/origin, sequence, phase, policy shape and freshness. Generic message booleans, extra properties, wrong frames/origins and missing evidence do not authorize it. Normal same-site JavaScript/browser trust applies: this is not a cryptographic defense against compromised first-party script, extensions, developer tools or a visitor controlling their browser.
+
+## Choices, denials and UI
+
+Keep delivered `BANNER_ENABLED = false` and `GRANT_ALL_WITHOUT_BANNER = true`; **do not enable a universal banner**. With valid NOT_REQUIRED policy, no stored denial, and readable negative state, the new event works without a receipt. It creates no consent record. Default Google grants, disclosure acceptance, Wix all-true policy and completed bookings are never transformed into affirmative receipts.
+
+`wbe_consent_choice_v2` is read independently of banner visibility, at beginning and both gated phases. Valid purposeful historical grants use exactly `source:'banner-click-v2', choice:'granted', at:<integer>`; the original timestamp is never renewed by a read. Only these explicit choices support the REQUIRED branch (the current backend never returns REQUIRED without future trusted geography). Grants expire at 180 days. Malformed, future or expired records conservatively close even the NOT_REQUIRED event until a new explicit choice; they do not silently become “no choice.” Observed clock rollback closes the current page. Automatic/legacy scalar grants supply no affirmative provenance.
+
+Stored v2 denials and legacy `wbe_consent_choice:'denied'` have **no expiry**. Explicit Google **update** `ad_user_data:'denied'` closes pending work immediately, resets the advertising-grant cache, and persists a `google-denial-v1` negative record plus a small legacy negative fallback; Google **default** denial is initialization, not withdrawal. No stale grant is retained intentionally after external denial. Browser storage read failure closes the event. Failed grant persistence supplies no REQUIRED permission. If all preference writes/removal are refused, current-page denial remains effective but no client-only solution can guarantee durable denial after the browser discards that page; this is a storage limitation, not a promised cross-device consent store.
+
+A persistent native **Cookie settings** button is present even with the banner OFF. It opens the existing dialog only on request; **Deny** withdraws and invalidates pending submissions, including a policy read in flight. A trusted **Accept All** click writes a fresh purposeful choice and removes the legacy denial; it cannot revive an old sequence. Cross-tab changes invalidate the observing page and send a local Google denial, conservatively requiring explicit choice/reload there. The observer never overwrites the other tab's saved choice or churns denial timestamps. A fresh page evaluates the actual stored choice again.
+
+Narrow legacy correction: this head snippet's automatic and helper-based Google grants now honor stored denial/read failure instead of ignoring them when the banner is OFF. Existing raw `gtag` calls by other tags, generic event routing, click capture and the server import are not redesigned. Do not claim site-wide opt-out coverage or legal compliance from this scoped fix.
+
+## Published binding prerequisites (not yet verified)
+
+1. The published outer iframe must have unique exact title **`WBE event bridge`**. The head requires exactly one `iframe[title="WBE event bridge"]`, its matching `contentWindow`, and event origin equal to its nonopaque `src` origin. Verify Wix's accessibility/title setting produces that DOM. If unavailable, stop for a reviewed binding change; do not remove the fences.
+2. The relay requires parent/referrer origin `https://www.wanderlustcaribbean.com`. Preview/alternate hostname, opaque origins, missing referrer or different nested-frame topology can suppress it. Verify the published relationship.
+3. Keep the existing manual email selector `#comp-mqo6cvon input[type="email"][name="email"]`, email only, Form interactions ON, automatic user-data detection OFF. Require one field and unchanged value between actual asynchronous prepare and complete; Summary independently checks its original form email at whole-cart success. Do not add a conversion action or change account-wide methods. Verify destination/customer-data terms separately.
+4. Verify the settings control's published visibility, keyboard access and placement. No claim that local simulated trusted clicks prove published UI behavior.
 
 ## Offline verification
 
-Run from repository root:
-
 ```text
+node tests/ads-location-policy.cjs
+node --experimental-vm-modules tests/ads-location-policy-boundaries.cjs
+node --experimental-vm-modules tests/ads-location-integration.cjs
 node --experimental-vm-modules tests/ads-custom-form.cjs
 node --experimental-vm-modules tests/ads-consent-lifecycle.cjs
 node tests/attribution-hotfix.cjs
@@ -49,12 +71,10 @@ node --experimental-vm-modules tests/google-ads-identifier-async.cjs
 node tests/google-ads-private-journal.cjs
 ```
 
-The new harness runs the full actual Summary callback with inert SDK/backend boundaries, the native ESM tracking module with resolved inert Wix imports, and actual iframe/head inline scripts in separate VM contexts. It validates Summary's actual tracking import names. It never loads the external Google script or performs a booking/provider request. Browser DOM and trusted clicks are explicitly simulated: these tests are not published Wix frame compatibility or legal consent verification. Existing source pins are updated only for the two changed pinned runtime files; listener assertions distinguish the new dedicated listener/storage observer from the unchanged generic purchase listener.
+The new native-linked tracer executes actual Summary callbacks, tracking, backend web module, reader/resolver, iframe and head. Only SDK/storage/DOM/webmethod transport and provider boundaries are inert; rules are fixture data, never live CMS observations. Historical REQUIRED-branch tests use an explicitly synthetic webmethod response because the current backend correctly cannot issue REQUIRED. Malformed-response controls are labelled boundary injections. Original reviewer tests are retained outside the worktree; updated protocol assertions and source pins are author verification, **not independent approval**. Tests never load Google, call a live booking endpoint or send provider events.
 
-## Separately authorized live acceptance (pending)
+## Later live verification and rollback
 
-After independent review and owner installation, verify exact published bytes and iframe binding, banner choice provenance and selector resolution. Observe a separately authorized successful booking with network capture active through navigation; do not create an unsolicited booking, click an owner's paid ad, fabricate click IDs, or resend historical uncertain imports. Check the specific AW destination and supported user-data indicators without exporting contacts/hashes/full payloads. Verify denied/unknown consent emits no new handoff, and ensure no duplicate automatic form trigger or GA4 identifier contamination. Record trigger delivery, email collection, ingestion/processing, and matching/attribution separately. Passing offline tests does not establish these outcomes or clear historical diagnostics.
+After review and separate installation authorization, verify published bytes and bindings, current LIVE schema/read availability, no unsolicited banner, returning choices, withdrawal/reload and one whole-cart success. Only a separately authorized booking/provider observation may establish the AW event plus supported email-collection evidence. Retain privacy-minimized destination/indicator evidence, not contacts/hashes/full payloads. Keep trigger delivery, email collection, processing and attribution distinct. Do not replay historical uncertain imports or fabricate paid-ad interactions.
 
-## Rollback
-
-Retain the previous four runtime files and flag values before installing. Restore all four together from base `65002a1603dcfcbcf5074d92583606a2c79c01b1`; leave backend sending/journal settings untouched and never replay bookings. To disable just this candidate handoff while investigating, retain its consent gate closed (banner disabled); do not reenable silent collection as a workaround. Preserve the v2 consent record unless the owner explicitly authorizes removing consent preferences. Reverting code does not repair or delete historical analytics.
+Retain all seven runtime files/entry contents and flag values before installation. Rollback the coordinated consumer files to base `98a5d408e1ec4a086056098adeee428459280da9`; remove the three newly introduced backend modules only after no imports refer to them. That base restores the old closed custom-form gate but also restores its banner-OFF saved-denial defect, so rollback needs an explicit owner decision, not a claim of equivalent consent behavior. Preserve stored denial preferences and all existing backend sender/journal settings. Banner OFF is **not** the new disable switch. Do not erase consent preferences or replay bookings as rollback steps. Historical analytics are not repaired by any source rollback.

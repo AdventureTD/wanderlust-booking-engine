@@ -3,6 +3,7 @@
 // Captures Google Ads click IDs (gclid/gbraid/wbraid) from the landing URL,
 // persists them across pages, and pushes dataLayer events for GA4 / Google Ads.
 
+import { getAdsFormRequirement } from 'backend/adsFormRequirement.web';
 import { local } from 'wix-storage-frontend';
 import wixLocationFrontend from 'wix-location-frontend';
 
@@ -121,24 +122,65 @@ let _suspendGoogleAds = false;
 export function initTracking(w) { _$w = w; }
 
 // Dedicated contact-free channel. Never put identifiers in generic event params.
-let _adsFormSequence = 0;
-export function prepareAdsFormSubmission() {
+let _adsFormSequence = 0, _adsFormPending = null;
+// A read may outlive its deadline, but can never publish a late permission.
+async function readAdsFormPolicy() {
+  let timer;
+  const started = Date.now();
   try {
-    if (_suspendGoogleAds || !_$w) return 0;
-    const sequence = ++_adsFormSequence;
-    _$w('#wbeEventBridge').postMessage({ type: 'wbe-ads-form', phase: 'prepare', sequence });
-    return sequence;
-  } catch (e) { return 0; }
+    const result = await Promise.race([
+      Promise.resolve().then(() => getAdsFormRequirement()),
+      new Promise(resolve => { timer = setTimeout(() => resolve(null), 750); })
+    ]);
+    const now = Date.now();
+    if (!result || Object.keys(result).sort().join(',') !== 'observedAt,policyKey,requirement,v' ||
+        result.v !== 1 || !['REQUIRED', 'NOT_REQUIRED'].includes(result.requirement) ||
+        typeof result.policyKey !== 'string' || !/^[a-f0-9]{64}$/.test(result.policyKey) ||
+        !Number.isSafeInteger(result.observedAt) || now < result.observedAt ||
+        now - result.observedAt > 1500 || now < started || now - started >= 750) return null;
+    return { v: 1, requirement: result.requirement, policyKey: result.policyKey, observedAt: result.observedAt };
+  } catch (_) { return null; }
+  finally { clearTimeout(timer); }
+}
+export function prepareAdsFormSubmission() {
+  if (_suspendGoogleAds || !_$w) return 0;
+  const sequence = ++_adsFormSequence;
+  const pending = { sequence, completing: false, at: Date.now() };
+  _adsFormPending = pending;
+  try {
+    _$w('#wbeEventBridge').postMessage({ type: 'wbe-ads-form', phase: 'begin', sequence, policy: null });
+  } catch (_) { _adsFormPending = null; return 0; }
+  pending.ready = (async () => {
+    try {
+      const policy = await readAdsFormPolicy();
+      if (!policy || _adsFormPending !== pending || _suspendGoogleAds) return null;
+      _$w('#wbeEventBridge').postMessage({ type: 'wbe-ads-form', phase: 'prepare', sequence, policy });
+      return policy;
+    } catch (_) { return null; }
+  })();
+  return sequence; // Booking never awaits optional Ads IO.
 }
 export function completeAdsFormSubmission(sequence) {
-  try {
-    if (_suspendGoogleAds || !_$w || !Number.isSafeInteger(sequence) || sequence < 1) return;
-    _$w('#wbeEventBridge').postMessage({ type: 'wbe-ads-form', phase: 'complete', sequence });
-  } catch (e) { /* Optional collection never changes reservation outcomes. */ }
+  const pending = _adsFormPending;
+  if (!pending || pending.sequence !== sequence || pending.completing) return;
+  pending.completing = true;
+  void (async () => {
+    try {
+      const before = await pending.ready;
+      if (!before || _adsFormPending !== pending || _suspendGoogleAds) return;
+      const policy = await readAdsFormPolicy();
+      if (!policy || _adsFormPending !== pending || _suspendGoogleAds ||
+          policy.policyKey !== before.policyKey || policy.requirement !== before.requirement ||
+          Date.now() < pending.at || Date.now() - pending.at > 600000) return;
+      _$w('#wbeEventBridge').postMessage({ type: 'wbe-ads-form', phase: 'complete', sequence, policy });
+    } catch (_) { /* No reservation dependency, no retry or contact/error logging. */ }
+    finally { if (_adsFormPending === pending) _adsFormPending = null; }
+  })();
 }
 
 export function setSuspendGoogleAds(value) {
   _suspendGoogleAds = !!value;
+  if (_suspendGoogleAds) _adsFormPending = null;
   console.log('[WBE-TRACKING] Google Ads / Analytics suspended:', _suspendGoogleAds);
 }
 

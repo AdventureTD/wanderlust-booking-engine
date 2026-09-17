@@ -2,13 +2,16 @@
 // Actual-source reviewer scenarios, inert transport and attached DOM controls.
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const harness=fs.readFileSync(__dirname+'/ads-custom-form.cjs','utf8').split('(async()=>{')[0];
-const context={require,__dirname,console,URL};
+const context={require,__dirname,console,URL,setTimeout,clearTimeout};
 vm.runInNewContext(harness+'\nthis.fixture=fixture;',context);
 const fixture=context.fixture, key='wbe_consent_choice_v2', ttl=15552000000;
 const count=f=>f.events().filter(e=>e[1]==='form_submit').length;
 const saved=(at,choice='granted')=>({[key]:JSON.stringify({source:'banner-click-v2',choice,at})});
 const clock=(f,t)=>vm.runInContext('Date.now=()=>'+t,f.head);
-const pair=(f,n)=>[{source:'wbe-ads-form',phase:'prepare',sequence:n},{source:'wbe-ads-form',phase:'complete',sequence:n}];
+const pair=(f,n)=>{
+ f.dispatch({source:'wbe-ads-form',phase:'begin',sequence:n,policy:null});
+ return ['prepare','complete'].map(phase=>({source:'wbe-ads-form',phase,sequence:n,policy:{v:1,requirement:'REQUIRED',policyKey:'a'.repeat(64),observedAt:vm.runInContext('Date.now()',f.head)}}));
+};
 (async()=>{
   const f=await fixture({consent:'yes'});
   assert.equal(f.document.getElementById('wbe-consent-banner'),null);
@@ -35,10 +38,10 @@ const pair=(f,n)=>[{source:'wbe-ads-form',phase:'prepare',sequence:n},{source:'w
     clock(x,now);
     const [p,c]=pair(x,1);
     if(mode==='init-expired'||mode==='exact-expiry')clock(x,at+ttl+(mode==='init-expired'?1000:0));
-    x.dispatch(p);
+    p.policy.observedAt=vm.runInContext('Date.now()',x.head); x.dispatch(p);
     if(mode==='complete-expired')clock(x,now+2000);
     if(mode==='rollback')clock(x,now-1);
-    x.dispatch(c);
+    c.policy.observedAt=vm.runInContext('Date.now()',x.head); x.dispatch(c);
     assert.equal(count(x),mode==='before'?1:0,mode);
     assert.equal(x.store.get(key),original,'read must not renew retention');
     if(mode==='complete-expired') {
@@ -62,9 +65,9 @@ const pair=(f,n)=>[{source:'wbe-ads-form',phase:'prepare',sequence:n},{source:'w
     const x=await fixture({now,stored:{[key]:v}});await x.submit();assert.equal(count(x),0,'malformed storage');
   }
   const failed=await fixture({now,consent:'yes',storageWriteFails:true});
-  for(const d of pair(failed,1))failed.dispatch(d);assert.equal(count(failed),1);
-  clock(failed,now+ttl);for(const d of pair(failed,2))failed.dispatch(d);assert.equal(count(failed),1,'failed storage session also expires');
-  const automatic=await fixture({automatic:true,stored:saved(now)});assert.deepEqual(Object.keys(automatic.buttons),[]);await automatic.submit();assert.equal(count(automatic),0);
+  for(const d of pair(failed,1))failed.dispatch(d);assert.equal(count(failed),0,'unpersisted grant fails closed');
+  clock(failed,now+ttl);for(const d of pair(failed,2))failed.dispatch(d);assert.equal(count(failed),0,'failed storage stays closed');
+  const automatic=await fixture({automatic:true,stored:saved(now)});assert.ok(automatic.document.getElementById('wbe-consent-settings'));assert.equal(automatic.document.getElementById('wbe-consent-banner'),null);await automatic.submit();assert.equal(count(automatic),1,'returning valid choice independent of banner visibility');
   const defaults=await fixture({consent:'yes'});vm.runInContext("gtag('consent','default',{ad_user_data:'denied'})",defaults.head);await defaults.submit();assert.equal(count(defaults),1,'default initialization is not a withdrawal');
   const quota=await fixture({now,stored:saved(now),storageWriteFails:true});
   vm.runInContext("gtag('consent','update',{ad_user_data:'denied'})",quota.head);

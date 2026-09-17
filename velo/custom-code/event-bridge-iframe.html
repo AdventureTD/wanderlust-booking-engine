@@ -16,11 +16,16 @@
       var d = event && event.data;
       // Dedicated fixed schema: never forward arbitrary fields or contacts.
       if (event.source === window.parent && d && d.type === 'wbe-ads-form' &&
-          Object.keys(d).length === 3 && ['prepare', 'complete'].indexOf(d.phase) !== -1 &&
+          Object.keys(d).sort().join(',') === 'phase,policy,sequence,type' &&
+          ((d.phase === 'begin' && d.policy === null) ||
+          (d.policy && Object.keys(d.policy).sort().join(',') === 'observedAt,policyKey,requirement,v' &&
+          d.policy.v === 1 && ['REQUIRED', 'NOT_REQUIRED'].indexOf(d.policy.requirement) !== -1 &&
+          typeof d.policy.policyKey === 'string' && /^[a-f0-9]{64}$/.test(d.policy.policyKey) &&
+          Number.isSafeInteger(d.policy.observedAt) && d.policy.observedAt >= 0 && ['prepare', 'complete'].indexOf(d.phase) !== -1)) &&
           Number.isSafeInteger(d.sequence) && d.sequence > 0) {
         var parentOrigin = new URL(document.referrer).origin;
         if (parentOrigin !== 'https://www.wanderlustcaribbean.com' || event.origin !== parentOrigin) return;
-        window.parent.postMessage({ source: 'wbe-ads-form', phase: d.phase, sequence: d.sequence }, parentOrigin);
+        window.parent.postMessage({ source: 'wbe-ads-form', phase: d.phase, sequence: d.sequence, policy: d.phase === 'begin' ? null : { v: 1, requirement: d.policy.requirement, policyKey: d.policy.policyKey, observedAt: d.policy.observedAt } }, parentOrigin);
         return;
       }
       if (d && d.type === 'wbe-datalayer-event' && d.payload) {

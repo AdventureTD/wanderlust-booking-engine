@@ -77,77 +77,129 @@
   // Path 1: custom event (kept for any future non-sandboxed dispatcher).
   document.addEventListener('wbeConsentGranted', function () { grantConsent(); });
 
-  // This separate gate is NEVER opened by grantConsent(), Wix policy or auto-grant.
-  // Default-OFF until the owner activates the existing banner and binds the iframe title.
-  if (!window.__wbeAdsFormGate) {
-    window.__wbeAdsFormGate = (function () {
-      var allowed = false, revision = 0, acceptedAt = 0, lastChecked = 0;
+  // Private policy/choice consumer; the global is an install sentinel, not a setter.
+  (function () {
+  if (window.__wbeAdsFormGate) return;
+  window.__wbeAdsFormGate = true;
+  var formGate = (function () {
+      var allowed = false, revision = 0, lastChecked = 0, denied = false, lastRecord;
+      var clear = false, observingStorage = false;
       var states = new WeakMap();
       var selector = '#comp-mqo6cvon input[type="email"][name="email"]';
-      function choice(value, at) {
-        allowed = value === true;
-        acceptedAt = at;
-        lastChecked = at;
+      function choice(value) {
+        denied = value !== true;
         revision++;
-        currentChoice();
+        lastRecord = undefined;
       }
       function currentChoice() {
         var now = Date.now();
-        if (allowed && (!Number.isSafeInteger(acceptedAt) || acceptedAt < 0 ||
-            !Number.isSafeInteger(now) || now < lastChecked || now < acceptedAt ||
-            now - acceptedAt >= 15552000000)) {
-          allowed = false;
-          revision++;
-        }
+        allowed = false; clear = false;
+        if (!Number.isSafeInteger(now) || now < lastChecked) { denied = true; revision++; }
         lastChecked = now;
-        return allowed;
+        try {
+          var raw = localStorage.getItem('wbe_consent_choice_v2');
+          var legacy = localStorage.getItem('wbe_consent_choice');
+          if (lastRecord !== undefined && raw !== lastRecord) revision++;
+          lastRecord = raw;
+          if (legacy === 'denied') return false;
+          if (raw === null) { clear = !denied; return false; }
+          var v = JSON.parse(raw);
+          if (!v || Object.keys(v).sort().join(',') !== 'at,choice,source' ||
+              ['banner-click-v2', 'google-denial-v1'].indexOf(v.source) === -1 ||
+              !Number.isSafeInteger(v.at) || v.at < 0) return false;
+          // Denials have no TTL. Invalid/expired grants never revive participation.
+          if (v.choice === 'denied') { denied = true; return false; }
+          if (denied || v.source !== 'banner-click-v2' || v.choice !== 'granted' ||
+              now < v.at || now - v.at >= 15552000000) return false;
+          clear = true; allowed = true;
+          return true;
+        } catch (_) { return false; }
+      }
+      function eligible(policy) {
+        currentChoice();
+        return clear && (policy.requirement === 'NOT_REQUIRED' || allowed);
       }
       // Observe revocations only; a Google grant can never establish provenance.
       var priorPush = window.dataLayer.push;
-      window.dataLayer.push = function () {
-        for (var i = 0; i < arguments.length; i++) {
-          var entry = arguments[i];
+      function observeDenials(entries) {
+        for (var i = 0; i < entries.length; i++) {
+          var entry = entries[i];
           if (entry && entry[0] === 'consent' && entry[1] === 'update' &&
               entry[2] && entry[2].ad_user_data === 'denied') {
             choice(false);
             _granted.advertising = false;
             if (entry[2].analytics_storage === 'denied') _granted.analytics = false;
             // No gtag call here: avoid recursive observation. Initial defaults are not choices.
-            // Remove stale authority first, including when a quota error prevents the denial write.
-            try { localStorage.removeItem('wbe_consent_choice_v2'); } catch (e) {}
-            try { localStorage.setItem('wbe_consent_choice_v2', JSON.stringify({
-              source: 'banner-click-v2', choice: 'denied', at: Date.now()
-            })); } catch (e) {}
+            // Stable denial tombstone avoids cross-tab write ping-pong. Legacy
+            // negative key is a second small fallback, never affirmative provenance.
+            if (!observingStorage) {
+              try { localStorage.setItem('wbe_consent_choice', 'denied'); } catch (_) {}
+              var savedDenial = false;
+              try {
+                var saved = JSON.parse(localStorage.getItem('wbe_consent_choice_v2'));
+                savedDenial = saved && saved.choice === 'denied';
+              } catch (_) {}
+              if (!savedDenial) {
+                try { localStorage.removeItem('wbe_consent_choice_v2'); } catch (_) {}
+                try { localStorage.setItem('wbe_consent_choice_v2', JSON.stringify({
+                  source: 'google-denial-v1', choice: 'denied', at: Date.now()
+                })); } catch (_) {}
+              }
+            }
           }
         }
+      }
+      window.dataLayer.push = function () {
+        observeDenials(arguments);
         return priorPush.apply(this, arguments);
       };
+      observeDenials(window.dataLayer); // Prior explicit updates count; defaults do not.
       window.addEventListener('storage', function (e) {
-        if (!e.key || e.key === 'wbe_consent_choice_v2') choice(false);
+        if (!e.key || e.key === 'wbe_consent_choice_v2' || e.key === 'wbe_consent_choice') {
+          choice(false);
+          observingStorage = true;
+          try { gtag('consent', 'update', { ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' }); }
+          finally { observingStorage = false; }
+        }
       });
       window.addEventListener('message', function (event) {
         try {
           var d = event.data;
-          if (!d || d.source !== 'wbe-ads-form' || Object.keys(d).length !== 3 ||
-              ['prepare', 'complete'].indexOf(d.phase) === -1 ||
+          if (!d || d.source !== 'wbe-ads-form' || Object.keys(d).sort().join(',') !== 'phase,policy,sequence,source' ||
               !Number.isSafeInteger(d.sequence) || d.sequence < 1) return;
+          if (!(d.phase === 'begin' && d.policy === null) && (
+              !d.policy || Object.keys(d.policy).sort().join(',') !== 'observedAt,policyKey,requirement,v' ||
+              d.policy.v !== 1 || ['REQUIRED', 'NOT_REQUIRED'].indexOf(d.policy.requirement) === -1 ||
+              typeof d.policy.policyKey !== 'string' || !/^[a-f0-9]{64}$/.test(d.policy.policyKey) ||
+              !Number.isSafeInteger(d.policy.observedAt) || d.policy.observedAt < 0 ||
+              Date.now() < d.policy.observedAt || Date.now() - d.policy.observedAt > 1500 ||
+              ['prepare', 'complete'].indexOf(d.phase) === -1)) return;
           var frames = document.querySelectorAll('iframe[title="WBE event bridge"]');
           if (frames.length !== 1 || frames[0].contentWindow !== event.source ||
               new URL(frames[0].src).origin !== event.origin || event.origin === 'null') return;
-          currentChoice(); // Recheck retention and clock rollback at every use.
+          currentChoice();
           var old = states.get(event.source);
-          if (d.phase === 'prepare') {
+          if (d.phase === 'begin') {
             if (old && d.sequence <= old.sequence) return;
-            var fields = allowed ? document.querySelectorAll(selector) : [];
+            states.set(event.source, { sequence: d.sequence, stage: 'begin', revision: revision, clear: clear });
+            return;
+          }
+          var permitted = eligible(d.policy); // Recheck after every async policy boundary.
+          if (d.phase === 'prepare') {
+            if (!old || old.sequence !== d.sequence || old.stage !== 'begin' ||
+                old.revision !== revision || !old.clear) return;
+            var fields = permitted ? document.querySelectorAll(selector) : [];
             var email = fields.length === 1 ? fields[0].value.trim() : '';
             states.set(event.source, { sequence: d.sequence, revision: revision,
-              eligible: allowed && email.indexOf('@') > 0, email: email, at: Date.now() });
+              eligible: permitted && email.indexOf('@') > 0, email: email, at: Date.now(),
+              policyKey: d.policy.policyKey, requirement: d.policy.requirement });
             return;
           }
           if (!old || old.sequence !== d.sequence) return;
           // Consume before calling external tag code; no uncertain-send retries.
           states.set(event.source, { sequence: d.sequence });
-          if (!allowed || !old.eligible || revision !== old.revision ||
+          if (!permitted || !old.eligible || revision !== old.revision ||
+              old.policyKey !== d.policy.policyKey || old.requirement !== d.policy.requirement ||
               Date.now() < old.at || Date.now() - old.at > 600000) return;
           var current = document.querySelectorAll(selector);
           if (current.length !== 1 || current[0].value.trim() !== old.email) return;
@@ -156,41 +208,27 @@
           gtag('event', 'form_submit', { send_to: 'AW-788746633' });
         } catch (e) { /* Optional, fail closed, no contact/error logging. */ }
       });
-      return { choice: choice };
+      return { choice: choice, current: currentChoice, clear: function () { currentChoice(); return clear; } };
     })();
-  }
 
-  // Path 2 (primary): our own consent banner below. Choice persists in the
-  // PAGE's localStorage (wbe_consent_choice: 'granted' | 'denied'), which is
-  // readable here — unlike Velo's partitioned storage. On load, a stored
-  // 'granted' re-grants silently; a stored 'denied' keeps defaults; no stored
-  // choice shows the banner.
+  // Narrow correction: this snippet's legacy grants must not override a denial.
+  var previousGrant = grantConsent;
+  grantConsent = function (analytics, advertising) {
+    if (formGate.clear()) previousGrant(analytics, advertising);
+  };
+
+  // Optional settings dialog; no universal prompt in the delivered configuration.
   (function () {
-    // Master switch for the consent banner. Set false to hide the banner.
-    // With the banner hidden you must also pick what consent defaults to:
-    //   GRANT_ALL_WITHOUT_BANNER false  -> strict: everything stays denied
-    //                                     (no GA4, no remarketing; EU-safe)
-    //   GRANT_ALL_WITHOUT_BANNER true   -> track everyone silently (US-tolerant,
-    //                                     NOT recommended if you get EU/UK traffic)
+    // These legacy Google-mode flags do not supply affirmative provenance.
     var BANNER_ENABLED = false;
     var GRANT_ALL_WITHOUT_BANNER = true;
     var CHOICE_KEY = 'wbe_consent_choice_v2'; // Old/automatic choices are not provenance.
     var PRIVACY_URL = 'https://www.wanderlustcaribbean.com/policies';
 
-    if (!BANNER_ENABLED) {
-      if (GRANT_ALL_WITHOUT_BANNER) { grantConsent(); }
-      return;
-    }
+    // Load negative state even with the banner OFF. No automatic prompt.
+    formGate.current();
+    if (!BANNER_ENABLED && GRANT_ALL_WITHOUT_BANNER && formGate.clear()) grantConsent();
 
-    function getChoice() {
-      try {
-        var v = JSON.parse(localStorage.getItem(CHOICE_KEY));
-        if (!v || Object.keys(v).length !== 3 || v.source !== 'banner-click-v2' ||
-            ['granted', 'denied'].indexOf(v.choice) === -1 || !Number.isSafeInteger(v.at) || v.at < 0 ||
-            Date.now() < v.at || Date.now() - v.at >= 15552000000) return null;
-        return v;
-      } catch (e) { return null; }
-    }
     function setChoice(v, at) {
       try { localStorage.setItem(CHOICE_KEY, JSON.stringify({ source: 'banner-click-v2', choice: v, at: at === undefined ? Date.now() : at })); } catch (e) {}
     }
@@ -203,15 +241,16 @@
     function acceptAll(event) {
       if (!event || event.isTrusted !== true) return;
       var at = Date.now();
-      window.__wbeAdsFormGate.choice(true, at);
+      try { localStorage.removeItem('wbe_consent_choice'); } catch (_) { return; }
       setChoice('granted', at);
+      formGate.choice(true, at);
       grantConsent();
       hideBanner();
       console.log('[WBE-CONSENT] visitor accepted all');
     }
 
     function denyAll() {
-      window.__wbeAdsFormGate.choice(false);
+      formGate.choice(false);
       _granted = { analytics: false, advertising: false };
       gtag('consent', 'update', { analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' });
       setChoice('denied');
@@ -275,13 +314,13 @@
         settings.addEventListener('click', showBanner);
         document.body.appendChild(settings);
       }
-      var choice = getChoice();
-      if (choice && choice.choice === 'granted') {
-        window.__wbeAdsFormGate.choice(true, choice.at);
+      // Choice is evaluated independently of banner visibility.
+      if (formGate.current()) {
+        // Preserve the receipt timestamp; reads never renew it.
         grantConsent();
         return;
       }
-      if (choice && choice.choice === 'denied') { return; }
+      if (!BANNER_ENABLED || !formGate.clear()) return;
       showBanner();
     }
 
@@ -290,6 +329,8 @@
     } else {
       initBanner();
     }
+  })();
+
   })();
 
   // Receive GA4/Ads events from Velo page code via the wbeEventBridge HTML
