@@ -25,7 +25,26 @@ A clear advances the worker epoch conservatively even when its old target differ
 
 The established contact-free form path and generic analytics remain separate. Production banner flag remains OFF; no universal opt-in or forced choice was added. NOT_REQUIRED follows the existing completed location/rules decision, not an invented affirmative consent receipt. Existing Microsoft retry/logging behavior and the generic Head event listener are not redesigned or globally certified by this bounded review.
 
-## Coordinated owner installation inventory
+## Single-file `globalThis` compatibility follow-up (locally verified; hosted NOTRUN)
+
+The owner reports the coordinated files from `e172b1f178dffa99b70c73a583ff2a77df08ae07` are installed in the correct Public/Backend locations and `libphonenumber-js@1.13.13` is installed. Publish stopped on Public `clickAttribution.js` line 8:21: `no-undef` for `globalThis`. The matching new Head has **not** been Applied; the old live version remains retained. These are owner-reported installation facts, not an independently observed hosted build.
+
+After independent review and GitHub delivery, **replace only `velo/public/clickAttribution.js` → Dev Mode → Public → `clickAttribution.js` (whole file)**. Do not reinstall the coordinated set, change packages, or Apply the Head to diagnose this error. Save and retry the owner-controlled publish/build under the existing approval. If it still fails, retain the exact new build message and leave Head unapplied. The already staged matching Head remains a separate coordinated activation step after successful publication; this candidate does not perform or authorize that step.
+
+The correction declares only `globalThis` read-only to ESLint; it does not disable `no-undef` or create a runtime global. The existing source had **no `typeof globalThis` guard**. It now checks optional Web Crypto and returns no nonce on absence/throw/malformed return, stopping before a channel request. Valid Web Crypto still fills the same 16-byte `Uint8Array`; no weaker randomness, browser `window`, eval, or imported public crypto fallback is used. The clear path no longer rejects solely because crypto is unavailable. A hostile replacement which mimics a valid Web Crypto implementation is not authenticated by these shape checks; actual cryptographic runtime support remains a hosted prerequisite.
+
+Evidence and limitations:
+- Wix documents JavaScript support through ES2020: https://dev.wix.com/docs/develop-websites/articles/coding-with-velo/java-script-velo/java-script-support
+- `globalThis` is an ES2020 standard global: https://tc39.es/ecma262/2020/#sec-globalthis
+- ESLint explicitly documents `/*global */` declarations for `no-undef`: https://eslint.org/docs/latest/rules/no-undef . The declaration is configuration, not runtime capability evidence.
+- **No official Wix guarantee of inline global-comment acceptance or exact hosted lint configuration was located.** This candidate reproduces the exact original 8:21 diagnostic with a local legacy-global ESLint configuration, but must not be described as having passed Wix compilation. The owner retry is necessary; do not replace that missing evidence with the assumption that ES2020 support guarantees worker Web Crypto.
+- Local ESLint 8.57.1 configuration: `parserOptions: {ecmaVersion:2019, sourceType:'module'}`, `env:{es6:true}`, `globals:{setTimeout:'readonly',clearTimeout:'readonly'}`, `rules:{'no-undef':['error',{typeof:true}],'no-global-assign':'error'}`. This deliberately lacks `globalThis`; it is a matching-rule reproduction, **not a recovered Wix config/version**.
+- Run the new test with separately installed tooling, without modifying runtime dependencies: `npm install --prefix <tool-directory> --ignore-scripts --no-audit --no-fund eslint@8.57.1`, then `NODE_PATH=<tool-directory>/node_modules node --experimental-vm-modules --test tests/click-attribution-globalthis-compat.cjs`.
+- Tests use the VM's native `globalThis`, never a host `{globalThis: ...}` injection. A negative explicitly deletes the VM global; real Node Web Crypto is an inert positive fixture, not evidence of Wix support. Missing globals/methods, throwing getters/methods, and malformed returns deny optional attribution with no channel post. Original channel/fresh-producer/reviewer assertions are preserved.
+
+**Hosted Wix compile, worker crypto observation, publication, Head Apply and provider verification: NOTRUN by this candidate.** Original R2's undelivered-revocation limit above is unchanged.
+
+## Coordinated owner installation inventory (original full delivery; not the follow-up copy list)
 
 Use the **Raw** contents from the exact delivery commit, not rendered line numbers or snippets. Do not publish a partial set. The final handoff provides commit-pinned links.
 

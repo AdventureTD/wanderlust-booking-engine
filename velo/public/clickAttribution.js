@@ -1,3 +1,5 @@
+/* global globalThis:readonly */
+// ESLint global declaration only; optional runtime Web Crypto is checked below.
 // Dedicated attribution channel; never carries contacts or generic events.
 import { local } from 'wix-storage-frontend';
 import { getAdsFormRequirement } from 'backend/adsFormRequirement.web';
@@ -5,7 +7,14 @@ const KEY = 'wl_click_attribution', CLEAR = 'wl_click_attribution_clear_pending'
 let component, sequence = 0, revision = 0, suspended = false, pending = null;
 let denied = true, nonce = '', channel = '';
 function freshNonce() {
-  return Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+  try {
+    if (typeof globalThis === 'undefined') return '';
+    const crypto = globalThis.crypto;
+    if (!crypto || typeof crypto.getRandomValues !== 'function') return '';
+    const bytes = new Uint8Array(16);
+    if (crypto.getRandomValues(bytes) !== bytes) return '';
+    return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  } catch (_) { return ''; }
 }
 function revoke() {
   revision++; denied = true; channel = ''; erase();
@@ -54,6 +63,7 @@ function request(op, policy, record) {
 }
 async function openChannel() {
   nonce = freshNonce(); channel = ''; sequence = 0;
+  if (!nonce) return false;
   const opened = await request('open', null, null);
   if (!opened || !opened.allowed) return false;
   channel = opened.channel;
