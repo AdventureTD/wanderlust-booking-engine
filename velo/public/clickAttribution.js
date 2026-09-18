@@ -6,6 +6,33 @@ import { getAdsFormRequirement } from 'backend/adsFormRequirement.web';
 const KEY = 'wl_click_attribution', CLEAR = 'wl_click_attribution_clear_pending';
 let component, sequence = 0, revision = 0, suspended = false, pending = null;
 let denied = true, nonce = '', channel = '';
+let lateOpen = null;
+function cancelReadiness() {
+  if (lateOpen) clearTimeout(lateOpen.timer);
+  lateOpen = null;
+}
+// A timed-out open is transport uncertainty, never a consent choice. Its
+// authenticated late reply may wake a NEW handshake, but cannot grant access.
+function armReadiness(p, task) {
+  if (!task || task.remaining <= 0 || task.deadline <= Date.now() ||
+      p.revision !== revision || p.nonce !== nonce || suspended) return;
+  cancelReadiness();
+  const watch = { nonce, sequence: p.sequence, revision, task, timer: null };
+  watch.timer = setTimeout(() => { if (lateOpen === watch) cancelReadiness(); }, task.deadline - Date.now());
+  lateOpen = watch;
+}
+function wakeReadiness(d) {
+  const watch = lateOpen;
+  if (!watch || watch.revision !== revision || suspended || Date.now() >= watch.task.deadline ||
+      !d || d.type !== 'wbe-click-attribution-result' || d.v !== 1 ||
+      Object.keys(d).sort().join(',') !== 'allowed,channel,nonce,op,record,sequence,type,v' ||
+      d.nonce !== watch.nonce || d.sequence !== watch.sequence || d.op !== 'open' ||
+      !/^[a-f0-9]{32}$/.test(d.channel) || d.record !== null || typeof d.allowed !== 'boolean') return;
+  cancelReadiness();
+  if (!d.allowed) { revoke(); return; }
+  watch.task.remaining--;
+  void waitAttribution(watch.task);
+}
 function freshNonce() {
   try {
     if (typeof globalThis === 'undefined') return '';
@@ -17,6 +44,7 @@ function freshNonce() {
   } catch (_) { return ''; }
 }
 function revoke() {
+  cancelReadiness();
   revision++; denied = true; channel = ''; erase();
   try { local.removeItem(CLEAR); } catch (_) {}
   if (pending) pending.finish(null);
@@ -26,6 +54,7 @@ export function attributionDenied() { return denied || suspended; }
 // Local observation fence, not an atomic claim about the page partition.
 export function attributionRevision() { return revision; }
 export function suspendAttribution(value) {
+  cancelReadiness();
   suspended = !!value; revision++;
   if (suspended) revoke();
 }
@@ -39,6 +68,7 @@ export function initClickAttribution(w) {
       if (d && d.type === 'wbe-click-revoke' && d.v === 1 && d.nonce === nonce &&
           Object.keys(d).sort().join(',') === 'channel,nonce,type,v' &&
           (!channel || d.channel === channel)) { revoke(); return; }
+      if (!pending) { wakeReadiness(d); return; }
       if (!pending || !d || d.type !== 'wbe-click-attribution-result' || d.v !== 1 ||
           Object.keys(d).sort().join(',') !== 'allowed,channel,nonce,op,record,sequence,type,v' ||
           d.nonce !== nonce || !/^[a-f0-9]{32}$/.test(d.channel) ||
@@ -49,23 +79,30 @@ export function initClickAttribution(w) {
     component = c; // Listener is installed before the first request.
   } catch (_) {}
 }
-function request(op, policy, record) {
+function request(op, policy, record, task) {
   if (!component) return Promise.resolve(null);
   if (pending) pending.finish(null);
   return new Promise(resolve => {
-    const p = { sequence: ++sequence, op, finish: null };
-    const timer = setTimeout(() => p.finish(null), 500);
+    const p = { sequence: ++sequence, op, revision, nonce, finish: null };
+    const timer = setTimeout(() => {
+      if (pending === p && op === 'open') armReadiness(p, task);
+      p.finish(null);
+    }, 500);
     p.finish = value => { if (pending !== p) return; pending = null; clearTimeout(timer); resolve(value); };
     pending = p;
-    try { component.postMessage({ type: 'wbe-click-attribution', v: 1, op, sequence: p.sequence, nonce, channel, policy, record }); }
+    try {
+      if (task && Date.now() >= task.deadline) { p.finish(null); return; }
+      component.postMessage({ type: 'wbe-click-attribution', v: 1, op, sequence: p.sequence, nonce, channel, policy, record });
+    }
     catch (_) { p.finish(null); }
   });
 }
-async function openChannel() {
+async function openChannel(task) {
+  const own = revision;
   nonce = freshNonce(); channel = ''; sequence = 0;
   if (!nonce) return false;
-  const opened = await request('open', null, null);
-  if (!opened || !opened.allowed) return false;
+  const opened = await request('open', null, null, task);
+  if (own !== revision || suspended || !opened || !opened.allowed) return false;
   channel = opened.channel;
   return true;
 }
@@ -87,6 +124,7 @@ function sameRecord(a, b) {
   return a && b && ['capturedAt', 'gclid', 'gbraid', 'wbraid', 'msclkid'].every(k => a[k] === b[k]);
 }
 export async function clearPageAttribution(snapshot) {
+  cancelReadiness();
   revision++;
   let record = snapshot || storedRecord();
   try { if (!record) record = JSON.parse(local.getItem(CLEAR)); } catch (_) {}
@@ -98,6 +136,12 @@ export async function clearPageAttribution(snapshot) {
   if (result && result.allowed && result.record === null) { try { local.removeItem(CLEAR); } catch (_) {} }
 }
 export async function waitForClickAttribution() {
+  return waitAttribution({ remaining: 2, deadline: Date.now() + 10000 });
+}
+async function waitAttribution(task) {
+  cancelReadiness();
+  if (pending) pending.finish(null);
+  denied = true;
   let own = ++revision;
   if (suspended || !component) return;
   try {
@@ -111,10 +155,12 @@ export async function waitForClickAttribution() {
         own = ++revision;
       } else local.removeItem(CLEAR); // The established attribution window has expired.
     }
-    if (!await openChannel() || own !== revision || suspended) { denied = true; erase(); return; }
+    const opened = await openChannel(task);
+    if (own !== revision || suspended) return;
+    if (!opened) { denied = true; erase(); return; }
     let timer;
     const policy = await Promise.race([
-      Promise.resolve().then(() => getAdsFormRequirement()).catch(() => null),
+      Promise.resolve().then(() => Date.now() < task.deadline ? getAdsFormRequirement() : null).catch(() => null),
       new Promise(resolve => { timer = setTimeout(() => resolve(null), 500); })
     ]).finally(() => clearTimeout(timer));
     if (own !== revision || suspended) return;
@@ -122,9 +168,9 @@ export async function waitForClickAttribution() {
         !['REQUIRED', 'NOT_REQUIRED'].includes(policy.requirement) || typeof policy.policyKey !== 'string' ||
         !/^[a-f0-9]{64}$/.test(policy.policyKey) || !Number.isSafeInteger(policy.observedAt) ||
         Date.now() < policy.observedAt || Date.now() - policy.observedAt > 1500) { denied = true; erase(); return; }
-    let result = await request('read', policy, storedRecord());
+    let result = await request('read', policy, storedRecord(), task);
     if (own !== revision || suspended) return;
-    if (result && result.allowed) result = await request('confirm', policy, null);
+    if (result && result.allowed) result = await request('confirm', policy, null, task);
     if (own !== revision || suspended) return;
     denied = !result || !result.allowed;
     if (denied) { erase(); return; }
@@ -133,5 +179,5 @@ export async function waitForClickAttribution() {
     // Head has reconciled first touch in this revocation epoch. An older local
     // copy cannot override its answer after a missed/delayed withdrawal notice.
     local.setItem(KEY, JSON.stringify(result.record));
-  } catch (_) { denied = true; erase(); }
+  } catch (_) { if (own === revision) { denied = true; erase(); } }
 }
