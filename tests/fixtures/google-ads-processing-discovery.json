@@ -1,0 +1,333 @@
+{
+  "source": "https://datamanager.googleapis.com/$discovery/rest?version=v1",
+  "revision": "20260910",
+  "method": {
+    "path": "v1/requestStatus:retrieve",
+    "id": "datamanager.requestStatus.retrieve",
+    "parameters": {
+      "requestId": {
+        "type": "string",
+        "location": "query"
+      }
+    },
+    "scopes": [
+      "https://www.googleapis.com/auth/datamanager"
+    ],
+    "response": {
+      "$ref": "RetrieveRequestStatusResponse"
+    },
+    "flatPath": "v1/requestStatus:retrieve",
+    "parameterOrder": [],
+    "description": "",
+    "httpMethod": "GET"
+  },
+  "schemas": {
+    "RetrieveRequestStatusResponse": {
+      "properties": {
+        "requestStatusPerDestination": {
+          "type": "array",
+          "items": {
+            "$ref": "RequestStatusPerDestination"
+          }
+        }
+      },
+      "id": "RetrieveRequestStatusResponse",
+      "type": "object"
+    },
+    "RequestStatusPerDestination": {
+      "properties": {
+        "destination": {
+          "$ref": "Destination"
+        },
+        "removeAllAudienceMembersStatus": {
+          "$ref": "RemoveAllAudienceMembersStatus"
+        },
+        "eventsIngestionStatus": {
+          "$ref": "IngestEventsStatus"
+        },
+        "warningInfo": {
+          "$ref": "WarningInfo"
+        },
+        "audienceMembersIngestionStatus": {
+          "$ref": "IngestAudienceMembersStatus"
+        },
+        "requestStatus": {
+          "enum": [
+            "REQUEST_STATUS_UNKNOWN",
+            "SUCCESS",
+            "PROCESSING",
+            "FAILED",
+            "PARTIAL_SUCCESS"
+          ],
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        "errorInfo": {
+          "$ref": "ErrorInfo"
+        },
+        "audienceMembersRemovalStatus": {
+          "$ref": "RemoveAudienceMembersStatus"
+        }
+      },
+      "id": "RequestStatusPerDestination",
+      "type": "object"
+    },
+    "ErrorInfo": {
+      "type": "object",
+      "id": "ErrorInfo",
+      "properties": {
+        "errorCounts": {
+          "type": "array",
+          "items": {
+            "$ref": "ErrorCount"
+          }
+        }
+      }
+    },
+    "ErrorCount": {
+      "id": "ErrorCount",
+      "properties": {
+        "recordCount": {
+          "format": "int64",
+          "type": "string"
+        },
+        "reason": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "PROCESSING_ERROR_REASON_UNSPECIFIED",
+            "PROCESSING_ERROR_REASON_INVALID_CUSTOM_VARIABLE",
+            "PROCESSING_ERROR_REASON_CUSTOM_VARIABLE_NOT_ENABLED",
+            "PROCESSING_ERROR_REASON_EVENT_TOO_OLD",
+            "PROCESSING_ERROR_REASON_DENIED_CONSENT",
+            "PROCESSING_ERROR_REASON_NO_CONSENT",
+            "PROCESSING_ERROR_REASON_UNKNOWN_CONSENT",
+            "PROCESSING_ERROR_REASON_DUPLICATE_GCLID",
+            "PROCESSING_ERROR_REASON_DUPLICATE_TRANSACTION_ID",
+            "PROCESSING_ERROR_REASON_INVALID_GBRAID",
+            "PROCESSING_ERROR_REASON_INVALID_GCLID",
+            "PROCESSING_ERROR_REASON_INVALID_MERCHANT_ID",
+            "PROCESSING_ERROR_REASON_INVALID_WBRAID",
+            "PROCESSING_ERROR_REASON_INTERNAL_ERROR",
+            "PROCESSING_ERROR_REASON_DESTINATION_ACCOUNT_ENHANCED_CONVERSIONS_TERMS_NOT_SIGNED",
+            "PROCESSING_ERROR_REASON_INVALID_EVENT",
+            "PROCESSING_ERROR_REASON_INSUFFICIENT_MATCHED_TRANSACTIONS",
+            "PROCESSING_ERROR_REASON_INSUFFICIENT_TRANSACTIONS",
+            "PROCESSING_ERROR_REASON_INVALID_FORMAT",
+            "PROCESSING_ERROR_REASON_DECRYPTION_ERROR",
+            "PROCESSING_ERROR_REASON_DEK_DECRYPTION_ERROR",
+            "PROCESSING_ERROR_REASON_INVALID_WIP",
+            "PROCESSING_ERROR_REASON_INVALID_KEK",
+            "PROCESSING_ERROR_REASON_WIP_AUTH_FAILED",
+            "PROCESSING_ERROR_REASON_KEK_PERMISSION_DENIED",
+            "PROCESSING_ERROR_REASON_AWS_AUTH_FAILED",
+            "PROCESSING_ERROR_REASON_USER_IDENTIFIER_DECRYPTION_ERROR",
+            "PROCESSING_ERROR_OPERATING_ACCOUNT_MISMATCH_FOR_AD_IDENTIFIER",
+            "PROCESSING_ERROR_REASON_ONE_PER_CLICK_CONVERSION_ACTION_NOT_PERMITTED_WITH_BRAID",
+            "PROCESSING_ERROR_REASON_MATCH_ID_NOT_FOUND",
+            "PROCESSING_ERROR_REASON_USER_ID_NOT_FOUND_FOR_MATCH_ID",
+            "PROCESSING_ERROR_REASON_USER_ID_NOT_FOUND_FOR_GCLID",
+            "PROCESSING_ERROR_REASON_USER_ID_NOT_FOUND_FOR_DCLID",
+            "PROCESSING_ERROR_REASON_INVALID_AD_IDENTIFIERS",
+            "PROCESSING_ERROR_REASON_INVALID_MOBILE_ID_FORMAT",
+            "PROCESSING_ERROR_REASON_ORIGINAL_CONVERSIONS_NOT_FOUND",
+            "PROCESSING_ERROR_REASON_EVENT_ID_DECODE_ERROR",
+            "PROCESSING_ERROR_REASON_USER_ID_NOT_FOUND_FOR_IMPRESSION_ID",
+            "PROCESSING_ERROR_REASON_USER_ID_NOT_FOUND",
+            "PROCESSING_ERROR_REASON_CONVERSION_PRECEDES_CLICK",
+            "PROCESSING_ERROR_REASON_TOO_RECENT_CLICK",
+            "PROCESSING_ERROR_REASON_INVALID_CLICK",
+            "PROCESSING_ERROR_REASON_INVALID_OPERATING_ACCOUNT_FOR_CLICK",
+            "PROCESSING_ERROR_REASON_CLICK_NOT_FOUND",
+            "PROCESSING_ERROR_REASON_EXTERNAL_ATTRIBUTION_DATA_MISSING"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "WarningInfo": {
+      "id": "WarningInfo",
+      "properties": {
+        "warningCounts": {
+          "items": {
+            "$ref": "WarningCount"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "WarningCount": {
+      "id": "WarningCount",
+      "properties": {
+        "recordCount": {
+          "format": "int64",
+          "type": "string"
+        },
+        "reason": {
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "type": "string",
+          "enum": [
+            "PROCESSING_WARNING_REASON_UNSPECIFIED",
+            "PROCESSING_WARNING_REASON_KEK_PERMISSION_DENIED",
+            "PROCESSING_WARNING_REASON_DEK_DECRYPTION_ERROR",
+            "PROCESSING_WARNING_REASON_DECRYPTION_ERROR",
+            "PROCESSING_WARNING_REASON_WIP_AUTH_FAILED",
+            "PROCESSING_WARNING_REASON_INVALID_WIP",
+            "PROCESSING_WARNING_REASON_INVALID_KEK",
+            "PROCESSING_WARNING_REASON_USER_IDENTIFIER_DECRYPTION_ERROR",
+            "PROCESSING_WARNING_REASON_INTERNAL_ERROR",
+            "PROCESSING_WARNING_REASON_AWS_AUTH_FAILED"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "IngestEventsStatus": {
+      "id": "IngestEventsStatus",
+      "type": "object",
+      "properties": {
+        "recordCount": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "Destination": {
+      "type": "object",
+      "id": "Destination",
+      "properties": {
+        "loginAccount": {
+          "$ref": "ProductAccount"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "operatingAccount": {
+          "$ref": "ProductAccount"
+        },
+        "linkedAccount": {
+          "$ref": "ProductAccount"
+        },
+        "productDestinationId": {
+          "type": "string"
+        }
+      }
+    },
+    "ProductAccount": {
+      "type": "object",
+      "id": "ProductAccount",
+      "properties": {
+        "product": {
+          "type": "string",
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "enum": [
+            "PRODUCT_UNSPECIFIED",
+            "GOOGLE_ADS",
+            "DISPLAY_VIDEO_PARTNER",
+            "DISPLAY_VIDEO_ADVERTISER",
+            "DATA_PARTNER"
+          ],
+          "deprecated": true
+        },
+        "accountType": {
+          "enum": [
+            "ACCOUNT_TYPE_UNSPECIFIED",
+            "GOOGLE_ADS",
+            "DISPLAY_VIDEO_PARTNER",
+            "DISPLAY_VIDEO_ADVERTISER",
+            "DATA_PARTNER",
+            "GOOGLE_ANALYTICS_PROPERTY",
+            "GOOGLE_AD_MANAGER_AUDIENCE_LINK",
+            "FLOODLIGHT_CONFIG",
+            "GOOGLE_AD_MANAGER"
+          ],
+          "enumDescriptions": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "type": "string"
+        },
+        "accountId": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
