@@ -1,35 +1,33 @@
 import crypto from 'crypto';
+import { normalizePhone } from 'public/phoneNormalization';
 
 function sha256Hex(value) {
   return crypto.createHash('sha256').update(value, 'utf8').digest('hex');
 }
 
 export function hashEmail(email) {
-  if (!email) { return undefined; }
-  let e = String(email).trim().toLowerCase();
+  if (typeof email !== 'string') { return undefined; }
+  let e = email.replace(/\s/g, '').toLowerCase();
+  if (e.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return undefined;
   const parts = e.split('@');
   const user = parts[0];
   const domain = parts[1];
   if (domain === 'gmail.com' || domain === 'googlemail.com') {
     const cleanUser = user.split('+')[0].replace(/\./g, '');
+    if (!cleanUser) return undefined;
     e = cleanUser + '@gmail.com';
   }
   return sha256Hex(e);
 }
 
 export function hashPhone(phone, defaultCountryCode) {
-  if (!phone) { return undefined; }
-  let p = String(phone).replace(/[^\d+]/g, '');
-  if (!p.startsWith('+')) {
-    const cc = defaultCountryCode ? String(defaultCountryCode).replace(/\D/g, '') : '';
-    p = '+' + cc + p;
-  }
-  return sha256Hex(p);
+  const p = normalizePhone(phone, defaultCountryCode);
+  return p ? sha256Hex(p) : undefined;
 }
 
 export function hashName(name) {
   if (!name) { return undefined; }
-  const n = String(name).trim().toLowerCase().replace(/[^a-z]/g, '');
+  const n = String(name).trim().toLowerCase().replace(/[^\p{L}\p{M}]/gu, '');
   if (!n) { return undefined; }
   return sha256Hex(n);
 }

@@ -17,37 +17,61 @@
   gtag('config', 'G-MKGG3X1WP9');
   gtag('config', 'AW-788746633');
 
-  // Capture Google Ads click IDs before Wix's client-side router strips them.
-  (function () {
-    function parseParams(url) {
-      const out = {};
-      const idx = (url || '').indexOf('?');
-      if (idx === -1) return out;
-      const qs = url.substring(idx + 1);
-      const pairs = qs.split('&');
-      for (let i = 0; i < pairs.length; i++) {
-        const pair = pairs[i];
-        const eq = pair.indexOf('=');
-        if (eq === -1) { out[decodeURIComponent(pair)] = ''; continue; }
-        out[decodeURIComponent(pair.substring(0, eq))] = decodeURIComponent(pair.substring(eq + 1));
+  // Capture before routing, but never transport URL/contact data. First touch,
+  // expiry and literal identifier validation match the worker's 90-day policy.
+  var clickAttribution = (function () {
+    var key = 'wl_click_attribution', fields = ['gclid', 'gbraid', 'wbraid', 'msclkid'];
+    function valid(v) { return typeof v === 'string' && v.length <= 512 && (v === '' || /^[\x21-\x7e]+$/.test(v)); }
+    function clean(value) {
+      if (!value || typeof value.capturedAt !== 'string') return null;
+      var at = Date.parse(value.capturedAt), now = Date.now();
+      if (!Number.isFinite(at) || now < at || now - at > 90 * 86400000) return null;
+      var out = { capturedAt: value.capturedAt }, any = false;
+      for (var i = 0; i < fields.length; i++) {
+        var v = value[fields[i]] === undefined ? '' : value[fields[i]];
+        if (!valid(v)) return null;
+        out[fields[i]] = v; if (v) any = true;
       }
-      return out;
+      return any ? out : null;
     }
-
-    const params = parseParams(window.location.href);
-    if (params.gclid || params.gbraid || params.wbraid || params.msclkid) {
-      try {
-        const record = {
-          gclid: params.gclid || '',
-          gbraid: params.gbraid || '',
-          wbraid: params.wbraid || '',
-          msclkid: params.msclkid || '',
-          landingUrl: window.location.href,
-          capturedAt: new Date().toISOString()
-        };
-        localStorage.setItem('wl_click_attribution', JSON.stringify(record));
-      } catch (e) {}
+    function clear() { try { localStorage.removeItem(key); } catch (_) {} }
+    function read() {
+      try { var v = clean(JSON.parse(localStorage.getItem(key))); if (!v) clear(); return v; }
+      catch (_) { clear(); return null; }
     }
+    try {
+      var existing = read();
+      if (!existing) {
+        var url = new URL(window.location.href), record = { capturedAt: new Date().toISOString() };
+        // URL query identifiers are percent-decoded once, not form-decoded:
+        // a literal '+' is an identifier byte, never a space or a repair hint.
+        fields.forEach(function (k) {
+          record[k] = '';
+          var pairs = url.search.slice(1).split('&');
+          for (var i = 0; i < pairs.length; i++) {
+            var at = pairs[i].indexOf('='), name = at < 0 ? pairs[i] : pairs[i].slice(0, at);
+            if (decodeURIComponent(name) === k) {
+              record[k] = at < 0 ? '' : decodeURIComponent(pairs[i].slice(at + 1));
+              break;
+            }
+          }
+        });
+        var next = clean(record);
+        if (next) localStorage.setItem(key, JSON.stringify(next));
+      }
+    } catch (_) {}
+    function reconcile(incoming) {
+      var next = clean(incoming), old = read();
+      if (next && (!old || Date.parse(next.capturedAt) < Date.parse(old.capturedAt))) {
+        try { localStorage.setItem(key, JSON.stringify(next)); } catch (_) {}
+      }
+      return read();
+    }
+    function clearSnapshot(snapshot) {
+      var old = read(), next = clean(snapshot);
+      if (old && next && ['capturedAt'].concat(fields).every(function (k) { return old[k] === next[k]; })) clear();
+    }
+    return { read: read, clear: clear, reconcile: reconcile, clearSnapshot: clearSnapshot, clean: clean };
   })();
 
   // Grant consent per-category: the Wix banner's analytics/advertising toggles
@@ -83,11 +107,12 @@
   window.__wbeAdsFormGate = true;
   var formGate = (function () {
       var allowed = false, revision = 0, lastChecked = 0, denied = false, lastRecord;
-      var clear = false, observingStorage = false;
+      var clear = false, observingStorage = false, channelState, copyAllowed = true;
       var states = new WeakMap();
       var selector = '#comp-mqo6cvon input[type="email"][name="email"]';
       function choice(value) {
         denied = value !== true;
+        if (denied) { clickAttribution.clear(); revokeClicks(); }
         revision++;
         lastRecord = undefined;
       }
@@ -99,7 +124,7 @@
         try {
           var raw = localStorage.getItem('wbe_consent_choice_v2');
           var legacy = localStorage.getItem('wbe_consent_choice');
-          if (lastRecord !== undefined && raw !== lastRecord) revision++;
+          if (lastRecord !== undefined && raw !== lastRecord) { revision++; revokeClicks(); }
           lastRecord = raw;
           if (legacy === 'denied') return false;
           if (raw === null) { clear = !denied; return false; }
@@ -208,6 +233,54 @@
           gtag('event', 'form_submit', { send_to: 'AW-788746633' });
         } catch (e) { /* Optional, fail closed, no contact/error logging. */ }
       });
+      // Isolated attribution protocol. Exact component identity plus canonical
+      // parent origin; no wildcard reply and no dependency on the generic relay.
+      function revokeClicks() {
+        copyAllowed = false;
+        var old = channelState; channelState = null;
+        if (old) try { old.frame.postMessage({ type: 'wbe-click-revoke', v: 1, nonce: old.nonce, channel: old.channel }, old.origin); } catch (_) {}
+      }
+      window.addEventListener('message', function (event) {
+        try {
+          var d = event.data;
+          if (!d || Object.keys(d).sort().join(',') !== 'channel,nonce,op,policy,record,sequence,source,v' ||
+              d.source !== 'wbe-click-attribution' || d.v !== 1 || !/^[a-f0-9]{32}$/.test(d.nonce) ||
+              !Number.isSafeInteger(d.sequence) || d.sequence < 1 || ['open', 'read', 'confirm', 'clear'].indexOf(d.op) === -1 ||
+              new URL(window.location.href).origin !== 'https://www.wanderlustcaribbean.com') return;
+          var frames = document.querySelectorAll('iframe[title="WBE event bridge"]');
+          if (frames.length !== 1 || frames[0].isConnected === false || frames[0].contentWindow !== event.source ||
+              new URL(frames[0].src).origin !== event.origin || event.origin === 'null') return;
+          currentChoice();
+          var s = channelState;
+          if (d.op === 'open') {
+            if (d.channel !== '' || d.sequence !== 1 || d.policy !== null || d.record !== null) return;
+            s = channelState = { nonce: d.nonce, channel: Array.from(crypto.getRandomValues(new Uint8Array(16)), function (b) { return b.toString(16).padStart(2, '0'); }).join(''),
+              frame: event.source, origin: event.origin, sequence: 0, revision: revision };
+          } else if (!s || s.frame !== event.source || s.origin !== event.origin || s.nonce !== d.nonce ||
+              s.channel !== d.channel || s.revision !== revision || d.sequence <= s.sequence) return;
+          if (['open', 'clear'].indexOf(d.op) !== -1 && d.policy !== null) return;
+          var policy = d.policy;
+          if (['read', 'confirm'].indexOf(d.op) !== -1 && (!policy || Object.keys(policy).sort().join(',') !== 'observedAt,policyKey,requirement,v' ||
+              policy.v !== 1 || ['REQUIRED', 'NOT_REQUIRED'].indexOf(policy.requirement) === -1 ||
+              typeof policy.policyKey !== 'string' || !/^[a-f0-9]{64}$/.test(policy.policyKey) ||
+              !Number.isSafeInteger(policy.observedAt) || Date.now() < policy.observedAt || Date.now() - policy.observedAt > 1500)) return;
+          if (d.record !== null && (!d.record || Object.keys(d.record).sort().join(',') !== 'capturedAt,gbraid,gclid,msclkid,wbraid' || !clickAttribution.clean(d.record))) return;
+          s.sequence = d.sequence;
+          var permitted = d.op === 'open' || d.op === 'clear' || eligible(policy);
+          if (d.op === 'confirm') {
+            permitted = permitted && s.read === JSON.stringify(policy) && d.record === null;
+            s.read = null;
+            if (permitted && copyAllowed) clickAttribution.reconcile(s.record);
+            s.record = null;
+          }
+          if (!permitted) { clickAttribution.clear(); copyAllowed = false; }
+          else if (d.op === 'clear') clickAttribution.clearSnapshot(d.record);
+          else if (d.op === 'read') { s.read = JSON.stringify(policy); s.record = d.record; }
+          event.source.postMessage({ type: 'wbe-click-attribution-result', v: 1, op: d.op, nonce: s.nonce, channel: s.channel,
+            sequence: d.sequence, allowed: !!permitted, record: d.op === 'confirm' && permitted ? clickAttribution.read() : null }, event.origin);
+        } catch (_) {}
+      });
+      if (!currentChoice() && !clear) { clickAttribution.clear(); copyAllowed = false; }
       return { choice: choice, current: currentChoice, clear: function () { currentChoice(); return clear; } };
     })();
 

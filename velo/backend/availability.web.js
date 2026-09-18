@@ -1071,7 +1071,7 @@ export const cancelBooking = webMethod(
             let adjResult;
             if (await isGoogleAdsSuspended()) {
               console.log('[WBE-CANCEL] skipping Google Ads conversion retraction — suspendGoogleAds is enabled');
-              adjResult = { ok: true, suspended: true };
+              adjResult = { ok: false, suspended: true, outcome: 'NOT_ATTEMPTED', reasonCode: 'SUSPENDED' };
             } else {
               adjResult = await adjustBookingConversion({
                 transactionId: b.bookingNumber,
@@ -1086,11 +1086,8 @@ export const cancelBooking = webMethod(
               });
             }
             console.log('>>> SERVER cancelBooking adjustment result:', JSON.stringify(adjResult).substring(0, 300));
-            if (adjResult && adjResult.ok) {
-              summary.googleConversionRetracted = true;
-              summary.status = 'In Process';
-              await wixData.update(BOOKING_SUMMARIES, summary);
-            }
+            // No supported adjustment route exists. Preserve the existing flag
+            // and reservation cancellation status for every adjustment outcome.
           }
         }
       } catch (adjErr) {

@@ -5,6 +5,9 @@
 
 import { getAdsFormRequirement } from 'backend/adsFormRequirement.web';
 import { local } from 'wix-storage-frontend';
+import { initClickAttribution as initAttribution, waitForClickAttribution as waitAttribution, clearPageAttribution, attributionDenied, attributionRevision, suspendAttribution } from 'public/clickAttribution';
+export function initClickAttribution(w) { initAttribution(w); }
+export function waitForClickAttribution() { return waitAttribution(); }
 import wixLocationFrontend from 'wix-location-frontend';
 
 const STORAGE_KEY = 'wl_click_attribution';
@@ -34,7 +37,7 @@ function parseUrlParams(url) {
 // Reads click IDs from URL query and stores them (first-touch wins).
 export function captureClickIds() {
   try {
-    if (_suspendGoogleAds) {
+    if (_suspendGoogleAds || attributionDenied()) {
       console.log('[WBE-TRACKING] suspended — skipping click-id capture');
       return null;
     }
@@ -42,26 +45,26 @@ export function captureClickIds() {
     // so read the real browser URL first and use Wix data only as fallback.
     const rawBrowserUrl = (typeof window !== 'undefined' && window.location && window.location.href) || '';
     let query = parseUrlParams(rawBrowserUrl);
-    console.log('[WBE-TRACKING] raw browser URL:', rawBrowserUrl);
-    console.log('[WBE-TRACKING] parsed from window.location:', JSON.stringify(query));
+
+
 
     // Fallback to Wix APIs if window.location is unavailable.
     if (!query.gclid && !query.gbraid && !query.wbraid && !query.msclkid) {
       query = wixLocationFrontend.query || {};
-      console.log('[WBE-TRACKING] wixLocationFrontend.query:', JSON.stringify(query));
+
       if (!query.gclid && !query.gbraid && !query.wbraid && !query.msclkid) {
         query = parseUrlParams(wixLocationFrontend.url);
-        console.log('[WBE-TRACKING] parsed from wixLocationFrontend.url:', JSON.stringify(query));
+
       }
     }
 
     const found = {};
     for (let i = 0; i < CLICK_PARAMS.length; i++) {
       const p = CLICK_PARAMS[i];
-      if (query[p]) { found[p] = query[p]; }
+      if (typeof query[p] === 'string' && query[p].length <= 512 && /^[\x21-\x7e]+$/.test(query[p])) { found[p] = query[p]; }
     }
 
-    console.log('[WBE-TRACKING] parsed click IDs:', JSON.stringify(found));
+
 
     if (Object.keys(found).length === 0) { return getStoredClickIds(); }
 
@@ -73,7 +76,7 @@ export function captureClickIds() {
       gbraid: found.gbraid || '',
       wbraid: found.wbraid || '',
       msclkid: found.msclkid || '',
-      landingUrl: wixLocationFrontend.url || '',
+
       capturedAt: new Date().toISOString()
     };
     local.setItem(STORAGE_KEY, JSON.stringify(record));
@@ -84,21 +87,40 @@ export function captureClickIds() {
   }
 }
 
-// Returns stored attribution object or null if none/expired.
-export function getStoredClickIds() {
+const attributionSnapshots = new WeakMap();
+// No argument: legacy ID read. includeEmpty: capture policy-authorized contact-only
+// work too. Passing that exact snapshot revalidates its original worker epoch;
+// never substitute a later touch or reauthorize old work after reacceptance.
+export function getStoredClickIds(snapshot, includeEmpty = false) {
   try {
     const raw = local.getItem(STORAGE_KEY);
-    if (!raw) { return null; }
-    const record = JSON.parse(raw);
-
-    if (record.capturedAt) {
-      const ageMs = Date.now() - new Date(record.capturedAt).getTime();
-      const maxMs = ATTRIBUTION_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-      if (ageMs > maxMs) {
-        local.removeItem(STORAGE_KEY);
-        return null;
-      }
+    if (snapshot !== undefined) {
+      if (attributionDenied()) return null;
+      const saved = attributionSnapshots.get(snapshot);
+      if (!saved || saved.revision !== attributionRevision() || saved.raw !== raw) return null;
+      if (saved.raw && !getStoredClickIds()) return null;
+      return snapshot;
     }
+    if (!raw) {
+      if (!includeEmpty || attributionDenied()) return null;
+      const empty = Object.freeze({});
+      attributionSnapshots.set(empty, { revision: attributionRevision(), raw });
+      return empty;
+    }
+    const value = JSON.parse(raw);
+    const at = value && typeof value.capturedAt === 'string' ? Date.parse(value.capturedAt) : NaN;
+    const ageMs = Date.now() - at;
+    const maxMs = ATTRIBUTION_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > maxMs ||
+        !CLICK_PARAMS.every(k => value[k] === undefined || (typeof value[k] === 'string' && value[k].length <= 512 && (value[k] === '' || /^[\x21-\x7e]+$/.test(value[k]))))) {
+      local.removeItem(STORAGE_KEY);
+      return null;
+    }
+    if (attributionDenied()) return null;
+    const record = { capturedAt: value.capturedAt };
+    CLICK_PARAMS.forEach(k => { record[k] = value[k] || ''; });
+    Object.freeze(record);
+    attributionSnapshots.set(record, { revision: attributionRevision(), raw });
     return record;
   } catch (err) {
     console.error('getStoredClickIds failed:', err && err.message || err);
@@ -107,8 +129,8 @@ export function getStoredClickIds() {
 }
 
 // Clears stored attribution after a successful conversion upload.
-export function clearClickIds() {
-  try { local.removeItem(STORAGE_KEY); } catch (err) { /* noop */ }
+export function clearClickIds(snapshot) {
+  return clearPageAttribution(snapshot);
 }
 
 // Push an event onto window.dataLayer for the Google tag to pick up.
@@ -179,6 +201,7 @@ export function completeAdsFormSubmission(sequence) {
 }
 
 export function setSuspendGoogleAds(value) {
+  suspendAttribution(value);
   _suspendGoogleAds = !!value;
   if (_suspendGoogleAds) _adsFormPending = null;
   console.log('[WBE-TRACKING] Google Ads / Analytics suspended:', _suspendGoogleAds);

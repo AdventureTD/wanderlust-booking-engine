@@ -6,7 +6,7 @@
 // 'wbeConsentGranted' DOM event that custom-code/google-tag-and-consent.html
 // listens for, upgrading consent from denied → granted (enables remarketing).
 
-import { captureClickIds, initTracking, setSuspendGoogleAds } from 'public/tracking';
+import { captureClickIds, initTracking, setSuspendGoogleAds, initClickAttribution, waitForClickAttribution } from 'public/tracking';
 import { getAllSettings } from 'backend/settings';
 import { consentPolicy } from 'wix-window-frontend';
 
@@ -51,9 +51,11 @@ $w.onReady(async function () {
     }
 
     initTracking($w);
+    initClickAttribution($w);
+    await waitForClickAttribution();
     console.log('[WBE-MASTER] captureClickIds started');
     const ids = captureClickIds();
-    console.log('[WBE-MASTER] captureClickIds result:', JSON.stringify(ids));
+
     initConsentBridge();
   } catch (err) {
     console.error('[WBE-MASTER] error:', err && err.message || err);

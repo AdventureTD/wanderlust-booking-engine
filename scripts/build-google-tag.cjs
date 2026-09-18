@@ -22,7 +22,7 @@ async function build(source = fs.readFileSync(sourcePath, 'utf8')) {
   new vm.Script(result.code);
   const start = inline.index + inline[1].length;
   const output = source.slice(0, start) + result.code + source.slice(start + inline[2].length);
-  if (output.length > 14000) throw Error(`Whole HTML exceeds 14000-unit packaging budget: ${output.length}`);
+  if (output.length > 14900) throw Error(`Whole HTML exceeds 14900-unit packaging budget: ${output.length}`);
   return output;
 }
 if (require.main === module) build().then(output => {

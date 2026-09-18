@@ -11,10 +11,11 @@ async function page(options={}) {
  const elements=new Map(),payloads=[],purchases=[],ads=[],invoices=[],timers=[];
  const w=id=>{if(!elements.has(id))elements.set(id,{text:'',value:'',disable(){this.disabled=true;},enable(){this.disabled=false;},show(){},hide(){},expand(){},collapse(){},onClick(f){this.click=f;},onItemReady(f){this.ready=f;},onBlur(f){this.blur=f;},onKeyPress(){},onKeyDown(){},onInput(){}});return elements.get(id);};w.onReady=()=>{};
  w('#inputGuestName').value='Offline Fixture';w('#inputGuestEmail').value='fixture@example.invalid';w('#inputGuestPhone').value='2025550100';
- const c=realm({$w:w,setTimeout:f=>{timers.push(f);return timers.length;},clearTimeout(){},getPackageBaseRate:async()=>100,getStoredClickIds:()=>({}),getPackageAmenities:async()=>({title:'Offline'}),validatePromoCode:options.promo|| (async()=>({valid:true,discount:0.5,description:'Offline'})),
+ const c=realm({$w:w,setTimeout:f=>{timers.push(f);return timers.length;},clearTimeout(){},getPackageBaseRate:async()=>100,initClickAttribution:()=>{},waitForClickAttribution:async()=>{},parsePhoneNumberFromString:require('./phone-library-fixture.cjs').parsePhoneNumberFromString,getStoredClickIds:()=>({}),getPackageAmenities:async()=>({title:'Offline'}),validatePromoCode:options.promo|| (async()=>({valid:true,discount:0.5,description:'Offline'})),
  wixData:{query:()=>({eq(){return this;},limit(){return this;},find:async()=>({items:[]})})},
  createBooking:async p=>{payloads.push(JSON.parse(JSON.stringify(p)));if(options.book){const result=await options.book(p,payloads.length);if(result!==undefined)return result;}return {bookingNumber:'OFFLINE-SNAPSHOT'};},
  trackPurchase:p=>{purchases.push({...p});if(options.track)options.track();},recordBookingConversion:async p=>{ads.push({...p});return {ok:false};},issueBookingInvoice:async()=>{invoices.push('invoice');if(options.invoice) return options.invoice();return {emailed:false};},wixLocation:{to(){}}});
+ run(c,read('velo/public/phoneNormalization.js').replace(/^import .*;\r?\n/gm,'').replace(/export /g,''));
  run(c,read('velo/page-booking-summary.js').replace(/^import .*;\r?\n/gm,''));
  run(c,"_summaryRooms=[{roomCode:'adventure_suite',qty:2,numGuests:2},{roomCode:'two_bedroom_apartment',qty:1,numGuests:1}];_summaryNights=1;_summaryCis='2027-01-01';_summaryCos='2027-01-02';_summarySettings={};_selectedPackageBaseRate=100;_selectedPackageTitle='Offline';initRoomRepeater();");
  if(options.setup)run(c,options.setup);
@@ -50,7 +51,7 @@ async function main(){
   const p=await page({setup:"_promoDiscount=1;_promoCodeApplied='FREE';"});await p.click();assert.equal(p.purchases[0].value,0);assert.equal(p.ads[0].value,0);
  });
  await test('repeated head configuration remains outside listener guard',()=>{
-  const listeners=[];const c=realm({document:{addEventListener(){},getElementById(){return {};}},localStorage:{getItem:()=>null,setItem(){}},location:{href:'https://offline.invalid/'},addEventListener:(t,f)=>listeners.push({t,f})});c.window=c;const body=read('velo/custom-code/google-tag-and-consent.html').match(/<script>([\s\S]*?)<\/script>/)[1];run(c,body);run(c,body);assert.equal(listeners.filter(x=>x.t==='message').length,2);assert.equal(listeners.filter(x=>x.t==='storage').length,1);assert.equal(run(c,"dataLayer.filter(x=>x[0]==='config').length"),4);assert.equal(run(c,"dataLayer.filter(x=>x[0]==='consent'&&x[1]==='default').length"),2);
+  const listeners=[];const c=realm({document:{addEventListener(){},getElementById(){return {};}},localStorage:{getItem:()=>null,setItem(){}},location:{href:'https://offline.invalid/'},addEventListener:(t,f)=>listeners.push({t,f})});c.window=c;const body=read('velo/custom-code/google-tag-and-consent.html').match(/<script>([\s\S]*?)<\/script>/)[1];run(c,body);run(c,body);assert.equal(listeners.filter(x=>x.t==='message').length,3);assert.equal(listeners.filter(x=>x.t==='storage').length,1);assert.equal(run(c,"dataLayer.filter(x=>x[0]==='config').length"),4);assert.equal(run(c,"dataLayer.filter(x=>x[0]==='consent'&&x[1]==='default').length"),2);
  });
  await test('promo controls stay disabled through awaited price rendering',async()=>{
   const p=await page();let release;const gate=new Promise(r=>release=r);p.c.getPackageBaseRate=()=>gate;run(p.c,'_selectedPackageBaseRate=0;');p.w('#promoCode').value='HALF';p.w('#btnApplyPromo').click();for(let i=0;i<10;i++)await Promise.resolve();assert.equal(p.w('#promoCode').disabled,true);assert.equal(p.w('#btnApplyPromo').disabled,true);await p.click();assert.equal(p.payloads.length,0);release(100);for(let i=0;i<30;i++)await Promise.resolve();assert.equal(p.w('#promoCode').disabled,false);await p.click();assert.equal(p.payloads.length,2);
@@ -89,9 +90,9 @@ async function main(){
   const b=bookingBackend();let reject=true;const p=await page({book:async()=>reject?b.c.createBookingImpl({roomCode:'A',checkIn:'2027-01-01',checkOut:'2027-01-02'}):undefined});
   await p.click();assert.equal(p.payloads.length,1);assert.equal(run(p.c,'_bookingInProgress'),false);assert.equal(p.w('#btnContinue').disabled,false);assert.equal(p.w('#promoCode').disabled,false);assert.equal(p.invoices.length,0);assert.match(p.w('#bookingStatus').text,/availability|available/i);reject=false;await p.click();assert.equal(p.payloads.length,3);
  });
- await test('local preparation failure unlocks without dispatch or rejected handler',async()=>{
-  const p=await page();p.c.getStoredClickIds=()=>{throw Error('inert preparation failure');};await p.click();assert.equal(p.payloads.length,0);assert.equal(run(p.c,'_bookingInProgress'),false);assert.equal(p.w('#btnContinue').disabled,false);assert.match(p.w('#bookingStatus').text,/try again/i);
- });
+ await test('failed optional marketing capture preserves booking without replay',async()=>{
+   const p=await page();p.c.getStoredClickIds=()=>{throw Error('inert preparation failure');};await p.click();await p.click();assert.equal(p.payloads.length,2);assert.equal(run(p.c,'_bookingInProgress'),true);assert.equal(p.ads.length,0);assert.equal(p.invoices.length,1);assert.equal(p.timers.length,1);assert.match(p.w('#bookingStatus').text,/Booking confirmed/);
+  });
  for(const response of [null,{}, {outcome:'NO_RESERVATION',reasonCode:'UNTRUSTED'}])await test('malformed result cannot confirm or unlock '+JSON.stringify(response),async()=>{
   const p=await page({book:async()=>response});await p.click();await p.click();assert.equal(p.payloads.length,1);assert.equal(run(p.c,'_bookingInProgress'),true);assert.equal(p.invoices.length,0);assert.equal(p.timers.length,0);assert.match(p.w('#bookingStatus').text,/contact/i);
  });
@@ -114,7 +115,7 @@ async function main(){
   const html=read('velo/custom-code/google-tag-and-consent.html');const body=html.match(/<script>([\s\S]*?)<\/script>/)[1];
   run(c,body);run(c,body);
   for(const {t,f} of listeners)if(t==='message')f({data:{source:'wbe-event-bridge',payload:{event:'purchase',transaction_id:'OFFLINE',value:0,currency:'USD'}}});
-  assert.equal(listeners.filter(x=>x.t==='message').length,2);assert.equal(listeners.filter(x=>x.t==='storage').length,1);assert.equal(run(c,"dataLayer.filter(x=>x[0]==='event'&&x[1]==='purchase').length"),1);
+  assert.equal(listeners.filter(x=>x.t==='message').length,3);assert.equal(listeners.filter(x=>x.t==='storage').length,1);assert.equal(run(c,"dataLayer.filter(x=>x[0]==='event'&&x[1]==='purchase').length"),1);
  });
  await test('rendered numeric value survives display corruption during save',async()=>{
   let release;const gate=new Promise(r=>release=r);const p=await page({book:async(_,n)=>{if(n===1)await gate;}});

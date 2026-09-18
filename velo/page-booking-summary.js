@@ -13,6 +13,7 @@ async function fetchRoomFees(roomCodes) {
   return feeMap;
 }
 
+import { normalizePhone } from 'public/phoneNormalization';
 import wixLocation from 'wix-location';
 import wixData from 'wix-data';
 import { getAllSettings } from 'backend/settings';
@@ -20,7 +21,7 @@ import { getRoomNames } from 'backend/rooms';
 import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights, getPackagesByNights } from 'backend/packages';
 import { readPricingQuote } from 'backend/pricingQuotes';
 import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
-import { trackPurchase, getStoredClickIds, clearClickIds, initTracking, setSuspendGoogleAds, prepareAdsFormSubmission, completeAdsFormSubmission } from 'public/tracking';
+import { initClickAttribution, waitForClickAttribution, trackPurchase, getStoredClickIds, clearClickIds, initTracking, setSuspendGoogleAds, prepareAdsFormSubmission, completeAdsFormSubmission } from 'public/tracking';
 import { recordBookingConversion } from 'backend/googleAdsConversions.web';
 import { recordMicrosoftBookingConversion } from 'backend/microsoftAdsConversions.web';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
@@ -895,8 +896,11 @@ function wireContinueButton() {
     const note = safeVal('bookingNotes');
     const marketSource = safeVal('marketSource').trim();
     const email = safeVal('inputGuestEmail').trim();
-    const phone = normalizePhone(safeVal('inputGuestPhone'));
     const dialingCode = safeVal('inputDialingCode').replace(/\D/g, '') || '1';
+    const rawPhone = safeVal('inputGuestPhone').trim();
+    // E.164 metadata is a marketing eligibility check, not booking authority.
+    // Keep an unrecognized supplied contact literal; the backend omits its hash.
+    const phone = normalizePhone(rawPhone, dialingCode) || (/\d/.test(rawPhone) ? rawPhone : '');
 
     if (!name || !email || !phone) {
       safeText('bookingStatus', 'Please enter the required information to complete your booking');
@@ -931,13 +935,19 @@ function wireContinueButton() {
     console.log('[WBE-FRONTEND] dateToStr(ci)=', dateToStr(ci), 'dateToStr(_summaryCos)=', dateToStr(_summaryCos));
     const bookings = [], errors = [];
 
-    const att = getStoredClickIds() || {};
-    const clickIds = {
-      gclid: att.gclid || '',
-      gbraid: att.gbraid || '',
-      wbraid: att.wbraid || '',
-      msclkid: att.msclkid || ''
+    // Bounded optional readiness precedes the immutable cart attribution snapshot.
+    // The existing post-confirmation redirect is unchanged.
+    let att = null;
+    try {
+      initClickAttribution($w);
+      await waitForClickAttribution();
+      att = getStoredClickIds(undefined, true);
+    } catch (_) { /* Optional capture failure cannot abort or unlock booking. */ }
+    const currentAttribution = () => {
+      try { return att ? getStoredClickIds(att) : null; }
+      catch (_) { return null; }
     };
+    let clickIds = currentAttribution() || {};
 
       // Phase 1: book first room to get shared booking number
       if (rooms.length > 0) {
@@ -988,10 +998,11 @@ function wireContinueButton() {
             if (summaryRes.items.length > 0) {
               const s = summaryRes.items[0];
               s.notes = note || '';
-              s.gclid = clickIds.gclid || s.gclid || '';
-              s.gbraid = clickIds.gbraid || s.gbraid || '';
-              s.wbraid = clickIds.wbraid || s.wbraid || '';
-              s.msclkid = clickIds.msclkid || s.msclkid || '';
+              clickIds = currentAttribution() || {};
+              s.gclid = clickIds.gclid || '';
+              s.gbraid = clickIds.gbraid || '';
+              s.wbraid = clickIds.wbraid || '';
+              s.msclkid = clickIds.msclkid || '';
               if (s.checkIn) s.checkIn = normalizeDate(s.checkIn);
               if (s.checkOut) s.checkOut = normalizeDate(s.checkOut);
               if (s.bookingDate) s.bookingDate = normalizeDate(s.bookingDate);
@@ -1010,6 +1021,7 @@ function wireContinueButton() {
         const restResults = [];
         for (let i = 1; i < rooms.length; i++) {
           const r = rooms[i];
+          clickIds = currentAttribution() || {};
           const payload = {
             roomCode: r.roomCode,
             checkIn: dateToStr(ci),
@@ -1081,6 +1093,11 @@ function wireContinueButton() {
           currency: 'USD'
         });
 
+        // Last controllable browser boundary: received denial/clear invalidates
+        // this invocation, including contacts. Allocation AUTH is not consent.
+        // Once called, backend awaits/IO cannot be recalled by this worker.
+        clickIds = currentAttribution();
+        if (clickIds) {
         const googlePayload = {
           conversionCapability,
           transactionId: sharedBookingNumber,
@@ -1101,12 +1118,14 @@ function wireContinueButton() {
         // Existing redirect timing is unchanged; browser closure can still leave UNKNOWN.
         recordBookingConversion(googlePayload)
           .then(function (convResult) {
-            if (convResult && convResult.ok) clearClickIds();
+            if (convResult && convResult.ok) clearClickIds(att);
           })
           .catch(function () { /* Conversion failure never changes booking confirmation. */ });
+        }
 
         // Microsoft Ads conversion upload (mirrors Google, uses msclkid).
-        if (clickIds.msclkid) {
+        clickIds = currentAttribution();
+        if (clickIds && clickIds.msclkid) {
           const microsoftPayload = {
             transactionId: sharedBookingNumber,
             value: grandTotal,
@@ -1216,13 +1235,4 @@ function invoiceEmailWasAccepted(invResult) {
   // `emailed` field was returned. Invoice number + URL are only returned after
   // Render accepts and generates the invoice request.
   return !!(invResult.invoice_number && invResult.invoice_url);
-}
-
-function normalizePhone(raw) {
-  if (!raw) { return ''; }
-  let digits = String(raw).replace(/[^\d+]/g, '');
-  if (digits.startsWith('+')) { return digits; }
-  if (digits.length === 11 && digits.charAt(0) === '1') { return '+' + digits; }
-  if (digits.length === 10) { return '+1' + digits; }
-  return digits;
 }

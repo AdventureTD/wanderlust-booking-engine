@@ -1,6 +1,6 @@
 import { Permissions, webMethod } from 'wix-web-module';
 import { getSecret } from 'wix-secrets-backend';
-import { ingestEvent } from 'backend/dataManagerClient.web';
+
 import { buildUserIdentifiers } from 'backend/hashUtils.web';
 import { getAllSettings } from 'backend/settings.web';
 import { recordPrivateGoogleAdsAttempt } from 'backend/googleAdsAttemptJournal';
@@ -18,7 +18,11 @@ function stripEmpty(obj) {
   const out = {};
   Object.keys(obj).forEach(function (k) {
     const v = obj[k];
-    if (v !== undefined && v !== null && String(v).trim() !== '') { out[k] = v; }
+    if (v === undefined || v === null || v === '') return;
+    if (typeof v !== 'string' || v.length > 512 || !/^[\x21-\x7e]+$/.test(v)) {
+      throw new Error('Invalid click identifier');
+    }
+    out[k] = v;
   });
   return out;
 }
@@ -38,37 +42,15 @@ export const retryBookingConversion = webMethod(
   async () => ({ ok: false, outcome: 'NOT_ATTEMPTED', reasonCode: 'RETRY_DISABLED_UNKNOWN_HISTORY' })
 );
 
+// Data Manager ingestion is not a conversion-adjustment operation. A supported
+// Google Ads route requires separately verified access and eligibility.
 export const adjustBookingConversion = webMethod(
   Permissions.Admin,
-  async ({ transactionId, gclid, gbraid, wbraid, adjustmentType, newValue, currency, adjustmentTime, originalEvent, email, phone }) => {
-    try {
-      if (await isGoogleAdsSuspended()) {
-        console.log('[WBE-GOOGLE] adjustBookingConversion skipped — suspendGoogleAds is enabled');
-        return { ok: false, suspended: true };
-      }
-      if (!transactionId) { throw new Error('transactionId required for adjustment'); }
-      const payload = await buildAdjustmentPayload({
-        transactionId,
-        gclid, gbraid, wbraid,
-        email,
-        phone,
-        value: newValue,
-        currency: currency || 'USD',
-        conversionTime: adjustmentTime || new Date().toISOString(),
-        originalEvent
-      }, adjustmentType || 'RETRACTION');
-
-      const response = await ingestEvent(payload);
-      console.log('[WBE-GOOGLE] adjustment ingestEvent raw response:', JSON.stringify(response));
-      return { ok: true, transactionId, adjustmentType, response };
-    } catch (err) {
-      console.error('[WBE-GOOGLE] adjustBookingConversion error:', err);
-      return { ok: false, error: String(err && err.message || err) };
-    }
-  }
+  async () => ({ ok: false, outcome: 'NOT_ATTEMPTED', reasonCode: 'UNSUPPORTED_ADJUSTMENT_ROUTE' })
 );
 
 async function buildIngestPayload(booking) {
+  validateBooking(booking);
   const customerId = await getSecret('GOOGLE_ADS_CUSTOMER_ID');
   const conversionActionId = await getSecret('GOOGLE_ADS_CONVERSION_ACTION_ID');
 
@@ -88,11 +70,15 @@ async function buildIngestPayload(booking) {
     wbraid: booking.wbraid
   });
 
+  if (!Object.keys(adIds).length && !userIds.length) {
+    throw new Error('need at least one useful identifier');
+  }
+
   const event = {
     transactionId: booking.transactionId,
     eventTimestamp: toGoogleTimestamp(booking.conversionTime),
     eventName: 'purchase',
-    conversionValue: Number(booking.value || 0),
+    conversionValue: booking.value,
     currency: booking.currency || 'USD',
     eventSource: 'WEB'
   };
@@ -118,53 +104,15 @@ async function buildIngestPayload(booking) {
   };
 }
 
-async function buildAdjustmentPayload(booking, adjustmentType) {
-  const customerId = await getSecret('GOOGLE_ADS_CUSTOMER_ID');
-  const conversionActionId = await getSecret('GOOGLE_ADS_CONVERSION_ACTION_ID');
 
-  const userIds = await buildUserIdentifiers({
-    email: booking.email,
-    phone: booking.phone
-  });
-
-  const event = {
-    transactionId: booking.transactionId,
-    eventTimestamp: toGoogleTimestamp(booking.originalEvent && booking.originalEvent.conversionTime),
-    eventName: adjustmentType === 'RETRACTION' ? 'purchase_retraction' : 'purchase_adjustment',
-    conversionValue: adjustmentType === 'RETRACTION' ? 0 : Number(booking.value || 0),
-    currency: booking.currency || 'USD',
-    eventSource: 'WEB'
-  };
-
-  const adjAdIds = stripEmpty({
-    gclid: booking.gclid,
-    gbraid: booking.gbraid,
-    wbraid: booking.wbraid
-  });
-  if (Object.keys(adjAdIds).length > 0) {
-    event.adIdentifiers = adjAdIds;
-  }
-
-  if (userIds.length > 0) {
-    event.userData = { userIdentifiers: userIds };
-  }
-
-  return {
-    destinations: [{
-      operatingAccount: {
-        accountType: 'GOOGLE_ADS',
-        accountId: customerId
-      },
-      productDestinationId: conversionActionId
-    }],
-    encoding: 'HEX',
-    events: [event]
-  };
-}
 
 function validateBooking(b) {
   if (!b) { throw new Error('booking payload missing'); }
-  if (!b.transactionId) { throw new Error('transactionId is required'); }
+  if (typeof b.transactionId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(b.transactionId)) throw new Error('Invalid transactionId');
+  if (typeof b.value !== 'number' || !Number.isFinite(b.value) || b.value < 0 ||
+      (b.currency !== undefined && b.currency !== 'USD')) throw new Error('Invalid USD amount');
+  stripEmpty({ gclid: b.gclid, gbraid: b.gbraid, wbraid: b.wbraid });
+  toGoogleTimestamp(b.conversionTime);
   const hasClickId = b.gclid || b.gbraid || b.wbraid;
   const hasPii = b.email || b.phone;
   if (!hasClickId && !hasPii) {
@@ -173,7 +121,13 @@ function validateBooking(b) {
 }
 
 function toGoogleTimestamp(iso) {
-  const d = iso ? new Date(iso) : new Date();
-  if (isNaN(d.getTime())) { throw new Error('Invalid conversion timestamp'); }
+  if (iso === undefined) return new Date().toISOString();
+  if (typeof iso !== 'string') throw new Error('Invalid conversion timestamp');
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|[+-]\d{2}:\d{2})$/.exec(iso);
+  if (!m || Number(m[4]) > 23 || Number(m[5]) > 59 || Number(m[6]) > 59) throw new Error('Invalid conversion timestamp');
+  const civil = new Date(m[1] + '-' + m[2] + '-' + m[3] + 'T00:00:00.000Z');
+  if (!Number.isFinite(civil.getTime()) || civil.toISOString().slice(0, 10) !== iso.slice(0, 10)) throw new Error('Invalid conversion timestamp');
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) throw new Error('Invalid conversion timestamp');
   return d.toISOString();
 }

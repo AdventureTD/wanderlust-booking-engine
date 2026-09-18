@@ -23,6 +23,7 @@ async function fixture(mode) {
   const deny = () => { throw Error('NETWORK_DENIED'); };
   const context = vm.createContext({Date, Buffer, URLSearchParams, console:{log(){},warn(){},error(){}}, fetch:deny, XMLHttpRequest:deny, WebSocket:deny});
   const external = {
+    'libphonenumber-js/max':{parsePhoneNumberFromString:(s,o)=>require('libphonenumber-js/max').parsePhoneNumberFromString(s,JSON.parse(JSON.stringify(o)))},
     'crypto':{default:{...crypto, randomBytes:n=>Buffer.alloc(n, ++entropy), createSign:()=>({update(){return this;},sign:()=>Buffer.from('INERT_SIGNATURE')})}},
     'wix-data':{default:sdk},
     'wix-web-module':{Permissions:{Anyone:'Anyone',Admin:'Admin'},webMethod:(_,fn)=>async(...args)=>fn(...args)},
@@ -50,8 +51,8 @@ async function fixture(mode) {
       const body=mode==='promise' ? 'return actual(pii);' : "throw Error('INERT_HASH_REJECTION');";
       mod=new vm.SourceTextModule("import { buildUserIdentifiers as actual } from 'actual/hashUtils.web'; export async function buildUserIdentifiers(pii) { "+body+' }',{context,identifier:spec});
     } else {
-      assert.ok(['backend/googleAdsConversions.web','backend/googleAdsAttemptJournal','backend/dataManagerClient.web','backend/googleAdsHttpDiagnostics','backend/hashUtils.web','actual/hashUtils.web'].includes(spec),'unexpected import '+spec);
-      mod=new vm.SourceTextModule(fs.readFileSync(path.join(root,spec.split('/')[1]+'.js'),'utf8'),{context,identifier:spec});
+      assert.ok(['backend/googleAdsConversions.web','backend/googleAdsAttemptJournal','backend/dataManagerClient.web','backend/googleAdsHttpDiagnostics','backend/hashUtils.web','actual/hashUtils.web','public/phoneNormalization'].includes(spec),'unexpected import '+spec);
+      mod=new vm.SourceTextModule(fs.readFileSync(path.join(root,spec==='public/phoneNormalization'?'../public/phoneNormalization.js':spec.split('/')[1]+'.js'),'utf8'),{context,identifier:spec});
     }
     cache.set(spec,mod);return mod;
   }
@@ -67,7 +68,8 @@ const expected=[{emailAddress:crypto.createHash('sha256').update(contacts.email)
 for(const mode of ['sync','promise']) for(const route of ['recordBookingConversion','adjustBookingConversion']) {
   test(`${route}: ${mode} helper preserves contact identifiers on serialized wire`,{timeout:3000},async()=>{
     const f=await fixture(mode), booking={...f.booking,...contacts};
-    await f.sender[route](booking);
+    const result = await f.sender[route](booking);
+    if(route==='adjustBookingConversion') { assert.equal(result.reasonCode,'UNSUPPORTED_ADJUSTMENT_ROUTE'); assert.deepEqual(f.fetches,[]); return; }
     assert.equal(f.wires.length,1);
     const payload=f.wires[0],event=payload.events[0];
     assert.equal(payload.encoding,'HEX');
@@ -90,7 +92,8 @@ for(const mode of ['sync','promise']) for(const route of ['recordBookingConversi
   });
   test(`${route}: ${mode} absent contacts stay absent with click-only input`,{timeout:3000},async()=>{
     const f=await fixture(mode);
-    await f.sender[route]({...f.booking,gclid:'INERT_NOT_A_REAL_CLICK'});
+    const result = await f.sender[route]({...f.booking,gclid:'INERT_NOT_A_REAL_CLICK'});
+    if(route==='adjustBookingConversion') { assert.equal(result.reasonCode,'UNSUPPORTED_ADJUSTMENT_ROUTE'); assert.deepEqual(f.fetches,[]); return; }
     assert.equal(f.wires.length,1);
     assert.equal('userData' in f.wires[0].events[0],false);
     assert.deepEqual(f.wires[0].events[0].adIdentifiers,{gclid:'INERT_NOT_A_REAL_CLICK'});
@@ -103,7 +106,7 @@ for(const route of ['recordBookingConversion','adjustBookingConversion']) test(`
   if(route==='recordBookingConversion') {
     assert.equal(result.outcome,'NOT_ATTEMPTED');
     assert.equal(result.reasonCode,'ADMISSION_UNAVAILABLE');
-  } else assert.equal(result.error,'INERT_HASH_REJECTION');
+  } else assert.equal(result.reasonCode,'UNSUPPORTED_ADJUSTMENT_ROUTE');
   assert.deepEqual(f.fetches,[],'neither OAuth nor provider entered');
   assert.deepEqual(f.wires,[]);
   assert.deepEqual(plain([...f.rows.values()]),before,'pre-admission failure leaves AUTH and Summary intact');

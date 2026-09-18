@@ -11,7 +11,9 @@ async function fixture(opts = {}) {
   const logs = [], messages = [], listeners = {}, buttons = {}, store = new Map();
   if (opts.stored) for (const [k,v] of Object.entries(opts.stored)) store.set(k,v);
   const field = { value: 'fixture@example.invalid' };
-  const frame = {}, parent = {}, frameElement = { contentWindow: frame, src: 'https://fixture.invalid/bridge' };
+  let workerListener;
+  const workerStore = new Map();
+  const frame = {}, parent = {}, frameElement = { contentWindow: frame, src: 'https://fixture.invalid/bridge', isConnected: true };
   const handlers = new Map(), createdElements = [], documentListeners = {};
   const element = () => { const el = { style: {}, children: [], parentNode: null,
     appendChild(child) { this.children.push(child); child.parentNode=this; },
@@ -25,7 +27,7 @@ async function fixture(opts = {}) {
     querySelectorAll(s) { return s === 'iframe[title="WBE event bridge"]' ? [frameElement] : opts.missingField ? [] : [field]; } };
   const window = { dataLayer: opts.priorDataLayer || [], location: { href: 'https://www.wanderlustcaribbean.com'+(opts.route || '/booking-summary') }, addEventListener(t, f) { (listeners[t] ||= []).push(f); } };
   const deny = () => { throw Error('OFFLINE_NETWORK_DENIED'); };
-  const head = vm.createContext({ window, document, localStorage: { getItem:k=>{if(opts.storageReadFails)throw Error('inert storage read failure');return store.get(k)||null;}, removeItem:k=>store.delete(k), setItem:(k,v)=>{if(opts.storageWriteFails)throw Error('inert storage failure');store.set(k,v);} }, console:{ log:(...x)=>logs.push(x), error:(...x)=>logs.push(x) }, URL, fetch:deny, XMLHttpRequest:deny, Image:deny, WebSocket:deny });
+  const head = vm.createContext({ crypto:require('node:crypto').webcrypto, window, document, localStorage: { getItem:k=>{if(opts.storageReadFails)throw Error('inert storage read failure');return store.get(k)||null;}, removeItem:k=>store.delete(k), setItem:(k,v)=>{if(opts.storageWriteFails)throw Error('inert storage failure');store.set(k,v);} }, console:{ log:(...x)=>logs.push(x), error:(...x)=>logs.push(x) }, URL, fetch:deny, XMLHttpRequest:deny, Image:deny, WebSocket:deny });
   Object.defineProperty(head, 'dataLayer', { get:()=>window.dataLayer });
   let headSource = inline(opts.headFile || 'velo/custom-code/google-tag-and-consent.html');
   // Packaging removes whitespace only; retain explicit synthetic banner-ON coverage
@@ -38,24 +40,33 @@ async function fixture(opts = {}) {
   if (opts.now !== undefined) vm.runInContext('Date.now=()=>'+opts.now,head);
   vm.runInContext(headSource, head);
   const dispatch = (data, overrides={}) => { for (const f of listeners.message || []) f({data, source:frame, origin:'https://fixture.invalid',...overrides}); };
-  parent.postMessage = data => { messages.push(JSON.parse(JSON.stringify(data))); if (!opts.pause) dispatch(data); };
+  parent.postMessage = data => { messages.push(JSON.parse(JSON.stringify(data))); if (!opts.pause) { if(data.source) dispatch(data); else if(workerListener) workerListener({data}); } };
   const iframe = vm.createContext({ window:{parent}, document:{referrer:'https://www.wanderlustcaribbean.com/'}, URL });
   vm.runInContext(inline('velo/custom-code/event-bridge-iframe.html'), iframe);
-  const context = vm.createContext({setTimeout,clearTimeout,console:{log:(...x)=>logs.push(x),warn(){},error(){}}});
-    const policyCalls=[];
+  frame.postMessage = data => iframe.window.onmessage({data,source:parent,origin:'https://www.wanderlustcaribbean.com'});
+  const context = vm.createContext({crypto:require('node:crypto').webcrypto,setTimeout,clearTimeout,console:{log:(...x)=>logs.push(x),warn(){},error(){}}});
+    // Keep existing form begin/complete schedules separate from attribution
+    // reads; both still execute the same actual backend policy implementation.
+    const policyCalls=[], attributionPolicyCalls=[];
+    const policyContext=new (require('node:async_hooks').AsyncLocalStorage)();
     context.sdkFind = async () => {
-      policyCalls.push([]);
-      if(opts.policyRead) await opts.policyRead(policyCalls.length);
+      if(policyContext.getStore()==='attribution') attributionPolicyCalls.push([]);
+      else {policyCalls.push([]);if(opts.policyRead) await opts.policyRead(policyCalls.length);}
       if(opts.policyRows === 'error') throw Error('inert policy failure');
       return JSON.stringify(opts.policyRows || []);
     };
     vm.runInContext(`const sdk={query(){return {ascending(){return this},limit(){return this},async find(){const items=JSON.parse(await sdkFind());return {items,hasNext(){return false}}}}}}`,context);
     const cache=new Map();
-    async function load(spec) {
+    async function load(spec, ref) {
+      if(spec==='backend/adsFormRequirement.web' && ref?.identifier==='public/clickAttribution') {
+        return new vm.SyntheticModule(['getAdsFormRequirement'],function(){
+          this.setExport('getAdsFormRequirement',()=>policyContext.run('attribution',()=>cache.get(spec).namespace.getAdsFormRequirement()));
+        },{context});
+      }
       if(cache.has(spec))return cache.get(spec);
       let m;
-      if(spec.startsWith('backend/')) {
-        m=new vm.SourceTextModule(read('velo/'+spec+'.js'),{context});cache.set(spec,m);await m.link(load);return m;
+      if(spec.startsWith('backend/') || spec === 'public/clickAttribution') {
+        m=new vm.SourceTextModule(read('velo/'+spec+'.js'),{context,identifier:spec});cache.set(spec,m);return m;
       }
       let values;
       if(spec==='wix-data') values={default:vm.runInContext('sdk',context)};
@@ -66,7 +77,7 @@ async function fixture(opts = {}) {
         return opts.policyRows === undefined ? {v:1,requirement:'REQUIRED',policyKey:'a'.repeat(64),observedAt:Date.now()} : JSON.parse(JSON.stringify(result));
       }};
       else if(spec==='crypto') values={createHash:require('node:crypto').createHash};
-      else if(spec==='wix-storage-frontend') values={local:{getItem(){return null;},removeItem(){}}};
+      else if(spec==='wix-storage-frontend') values={local:{getItem:k=>workerStore.get(k)||null,setItem:(k,v)=>workerStore.set(k,v),removeItem:k=>workerStore.delete(k)}};
       else if(spec==='wix-location-frontend') values={default:{url:'',query:{}}};
       else throw Error('unapproved import '+spec);
       m=new vm.SyntheticModule(Object.keys(values),function(){for(const [k,v] of Object.entries(values))this.setExport(k,v);},{context});cache.set(spec,m);return m;
@@ -77,6 +88,7 @@ async function fixture(opts = {}) {
   const names = read('velo/page-booking-summary.js').match(/import \{([^}]+)\} from 'public\/tracking';/)[1].split(',').map(x=>x.trim());
   for (const name of names) assert.equal(typeof tracking.namespace[name],'function','real tracking import: '+name);
   const p = await sandbox.makePage({book:opts.book});
+  p.w('#wbeEventBridge').onMessage = fn => {workerListener=fn;};
   p.w('#wbeEventBridge').postMessage = data => { messages.push(JSON.parse(JSON.stringify(data))); iframe.window.onmessage({data,source:parent,origin:'https://www.wanderlustcaribbean.com'}); };
   tracking.namespace.initTracking(p.w);
   for (const k of Object.getOwnPropertyNames(tracking.namespace)) p.c[k] = tracking.namespace[k];
@@ -86,7 +98,7 @@ async function fixture(opts = {}) {
   if(opts.consent === 'synthetic') buttons['Accept All']?.({isTrusted:false});
   if(opts.consent === 'no') buttons.Deny?.({isTrusted:true});
   const settle=async()=>{for(let i=0;i<80;i++)await Promise.resolve();};
-  return {createdElements,documentListeners,policyCalls,tracking,settle,store,listeners,iframe,frameElement,document,click,p,head,window,buttons,messages,logs,field,dispatch,events:()=>window.dataLayer.filter(x=>x[0]==='event'), submit:async()=>{await p.click();await p.click();await settle();}};
+  return {createdElements,documentListeners,policyCalls,attributionPolicyCalls,tracking,settle,store,listeners,iframe,frameElement,document,click,p,head,window,buttons,messages,logs,field,dispatch,events:()=>window.dataLayer.filter(x=>x[0]==='event'), submit:async()=>{await p.click();await p.click();await settle();}};
 }
 (async()=>{
   const f = await fixture({consent:'yes'}); await f.submit();

@@ -11,9 +11,45 @@
 </head>
 <body>
 <script>
+  function validPolicy(p) {
+    return p && Object.keys(p).sort().join(',') === 'observedAt,policyKey,requirement,v' && p.v === 1 &&
+      ['REQUIRED', 'NOT_REQUIRED'].indexOf(p.requirement) !== -1 && typeof p.policyKey === 'string' &&
+      /^[a-f0-9]{64}$/.test(p.policyKey) && Number.isSafeInteger(p.observedAt) && p.observedAt >= 0;
+  }
+  function validRecord(r) {
+    return r === null || (r && Object.keys(r).sort().join(',') === 'capturedAt,gbraid,gclid,msclkid,wbraid' &&
+      typeof r.capturedAt === 'string' && r.capturedAt.length <= 30 &&
+      ['gclid', 'gbraid', 'wbraid', 'msclkid'].every(function (k) {
+        return typeof r[k] === 'string' && r[k].length <= 512 && (r[k] === '' || /^[\x21-\x7e]+$/.test(r[k]));
+      }));
+  }
   window.onmessage = function (event) {
     try {
       var d = event && event.data;
+      // Separate attribution read/clear protocol; only the canonical parent.
+      var canonical = 'https://www.wanderlustcaribbean.com';
+      if (event.source === window.parent && event.origin === canonical && new URL(document.referrer).origin === canonical) {
+        if (d && d.type === 'wbe-click-attribution' && d.v === 1 &&
+            Object.keys(d).sort().join(',') === 'channel,nonce,op,policy,record,sequence,type,v' &&
+            /^[a-f0-9]{32}$/.test(d.nonce) && (d.op === 'open' ? d.channel === '' : /^[a-f0-9]{32}$/.test(d.channel)) &&
+            ['open', 'read', 'confirm', 'clear'].indexOf(d.op) !== -1 && Number.isSafeInteger(d.sequence) && d.sequence > 0 &&
+            validRecord(d.record) && (['open', 'clear'].indexOf(d.op) !== -1 ? d.policy === null : validPolicy(d.policy))) {
+          window.parent.postMessage({ source: 'wbe-click-attribution', v: 1, op: d.op, sequence: d.sequence, nonce: d.nonce, channel: d.channel, policy: d.policy, record: d.record }, canonical);
+          return;
+        }
+        if (d && d.type === 'wbe-click-attribution-result' && d.v === 1 &&
+            Object.keys(d).sort().join(',') === 'allowed,channel,nonce,op,record,sequence,type,v' &&
+            /^[a-f0-9]{32}$/.test(d.nonce) && /^[a-f0-9]{32}$/.test(d.channel) &&
+            ['open', 'read', 'confirm', 'clear'].indexOf(d.op) !== -1 && Number.isSafeInteger(d.sequence) && d.sequence > 0 && typeof d.allowed === 'boolean' && validRecord(d.record)) {
+          window.parent.postMessage(d, canonical);
+          return;
+        }
+        if (d && d.type === 'wbe-click-revoke' && d.v === 1 &&
+            Object.keys(d).sort().join(',') === 'channel,nonce,type,v' &&
+            /^[a-f0-9]{32}$/.test(d.nonce) && /^[a-f0-9]{32}$/.test(d.channel)) {
+          window.parent.postMessage(d, canonical); return;
+        }
+      }
       // Dedicated fixed schema: never forward arbitrary fields or contacts.
       if (event.source === window.parent && d && d.type === 'wbe-ads-form' &&
           Object.keys(d).sort().join(',') === 'phase,policy,sequence,type' &&
@@ -28,11 +64,11 @@
         window.parent.postMessage({ source: 'wbe-ads-form', phase: d.phase, sequence: d.sequence, policy: d.phase === 'begin' ? null : { v: 1, requirement: d.policy.requirement, policyKey: d.policy.policyKey, observedAt: d.policy.observedAt } }, parentOrigin);
         return;
       }
-      if (d && d.type === 'wbe-datalayer-event' && d.payload) {
+      if (event.source === window.parent && event.origin === canonical && new URL(document.referrer).origin === canonical && d && d.type === 'wbe-datalayer-event' && d.payload) {
         window.parent.postMessage({
           source: 'wbe-event-bridge',
           payload: d.payload
-        }, '*');
+        }, canonical);
       }
     } catch (e) {}
   };

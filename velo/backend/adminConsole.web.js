@@ -417,11 +417,11 @@ export const adminCancelBooking = webMethod(
     // 2. Google Ads retraction (if conversion was uploaded and not yet retracted)
     let adsRetraction = { attempted: false };
     if (summary.googleConversionUploaded && !summary.googleConversionRetracted) {
-      adsRetraction.attempted = true;
+      // No supported adjustment route is implemented; cancellation still proceeds.
       let result;
       if (await isGoogleAdsSuspended()) {
         console.log('[WBE-ADMIN] skipping Google Ads retraction — suspendGoogleAds is enabled');
-        result = { ok: true, suspended: true };
+        result = { ok: false, suspended: true, outcome: 'NOT_ATTEMPTED', reasonCode: 'SUSPENDED' };
       } else {
         result = await adjustBookingConversion({
           transactionId: bookingNumber,
@@ -437,9 +437,8 @@ export const adminCancelBooking = webMethod(
         });
       }
       adsRetraction.result = result;
-      if (result && result.ok) {
-        summary.googleConversionRetracted = true;
-      }
+      // Neither ingestion acknowledgment nor suspension proves a retraction.
+      // Preserve the existing flag until a supported adjustment is implemented.
     }
 
     // 3. Update BookingSummary status and append cancellation note
