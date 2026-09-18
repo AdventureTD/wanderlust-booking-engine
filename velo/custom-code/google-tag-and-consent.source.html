@@ -305,6 +305,12 @@
     }
 
     function initBanner() {
+      // Choice loading is independent of UI; OFF means no controls, even briefly.
+      // This flag is not a location resolver. Keep OFF until a separately reviewed
+      // applicable-REQUIRED UI integration exists; any true row alone is not a match.
+      var hasChoice = formGate.current();
+      if (hasChoice) grantConsent(); // Preserve the original receipt timestamp.
+      if (!BANNER_ENABLED) return;
       if (!document.getElementById('wbe-consent-settings')) {
         var settings = document.createElement('button');
         settings.id = 'wbe-consent-settings';
@@ -314,13 +320,7 @@
         settings.addEventListener('click', showBanner);
         document.body.appendChild(settings);
       }
-      // Choice is evaluated independently of banner visibility.
-      if (formGate.current()) {
-        // Preserve the receipt timestamp; reads never renew it.
-        grantConsent();
-        return;
-      }
-      if (!BANNER_ENABLED || !formGate.clear()) return;
+      if (hasChoice || !formGate.clear()) return;
       showBanner();
     }
 

@@ -12,21 +12,47 @@ No contacts, hashes, caller geography or consent claims are sent to the policy e
 
 **The explicit form event is not proof that Google attached email.** The retained manual selector plus AW-routed event still needs separately authorized provider-payload observation. Do not fix a failed provider check by adding a global setter or contacts to purchase.
 
-## Wix 15,000-character packaging fix
+## Cookie settings visibility correction — single Head replacement
+
+This delta replaces **only** the existing Google tag + consent Head Custom Code
+entry with the entire Raw `velo/custom-code/google-tag-and-consent.html` after
+independent review. Keep its existing All pages scope. Do not create a second
+entry or paste the development-only `.source.html`. All backend/public/page,
+iframe, Microsoft, GA4 purchase, policy collection and provider settings remain
+unchanged; the coordinated table below describes historical dependencies, not
+an instruction to reinstall them for this correction.
+
+Delivered `BANNER_ENABLED = false` now stops before creating either the Cookie
+settings button or dialog, including on About and during DOMContentLoaded.
+This is a UI-OFF correction, **not an active location-conditional UI feature**.
+Empty/all-false rules need neither UI nor GeoIP; any true rule still produces
+UNRESOLVED with the actual backend, not REQUIRED. No GeoIP or policy change is
+introduced. Keep the flag OFF: flipping it alone would enable legacy universal
+UI and is not an approved geographic gate. Future UI requires a separately
+reviewed current applicable REQUIRED decision from trusted visitor location;
+row existence or an unrelated true rule cannot establish a match.
+
+Saved choices and denials continue to be loaded and enforced without controls.
+There is no new in-page reacceptance/settings path in delivered OFF mode; no
+negative preference is cleared or expired to compensate. Existing explicit UI
+handlers remain exercised only in separately enabled synthetic REQUIRED tests,
+not claimed as a currently reachable location feature.
+
+## Wix 15,000-character packaging
 
 For the Head Custom Code entry, copy the **entire raw contents** of
 `velo/custom-code/google-tag-and-consent.html` from the approved GitHub revision,
 including both script tags. Replace the existing entry; do not add a second tag.
-This generated installation file is **10,895 UTF-16 code units / 10,895 Unicode
-characters / 10,901 UTF-8 bytes**, including all HTML and comments, leaving
-**4,105 characters** below Wix's 15,000-character limit. Do not paste the readable
+This generated installation file is **10,931 UTF-16 code units / 10,931 Unicode
+characters / 10,937 UTF-8 bytes**, including all HTML and comments, leaving
+**4,069 characters** below Wix's 15,000-character limit. Do not paste the readable
 `google-tag-and-consent.source.html` file: it intentionally exceeds that limit.
 
-This packaging delta changes **only the installed Head HTML**. All other runtime
+This visibility delta changes **only the installed Head HTML**. All other runtime
 files in the coordinated installation table below remain unchanged. If the
 preceding location-policy release has not yet been installed, its coordinated
-dependencies are still required; this size fix does not replace them. No Wix,
-provider, policy, GeoIP, selector, consent or settings change is part of packaging.
+dependencies are still required; this Head fix does not replace them. No provider,
+policy, GeoIP, selector or consent-storage change is included.
 
 Maintainers: edit `velo/custom-code/google-tag-and-consent.source.html`, never the
 generated file, then run from the repository root:
@@ -38,7 +64,7 @@ npm run check:google-tag
 npm run test:google-tag
 ```
 
-Node 22 was used for verification. The lockfile pins build-only Terser and Acorn;
+Use the locked build dependencies; see the candidate checkpoint for the verified Node version. The lockfile pins build-only Terser and Acorn;
 none is installed into Wix. Terser strips JavaScript comments/whitespace and
 prints equivalent literals with **compression OFF, all mangling OFF, no source
 map**. No branches, globals, listeners or safety checks are removed. All HTML
@@ -46,7 +72,7 @@ outside the inline script (including the async external loader and its order)
 is preserved. LF attributes keep the build deterministic across checkouts.
 Tests check identical JavaScript ASTs, deterministic output, full-file size and
 readable/deploy parity through the actual inert Summary/tracking/policy/iframe/
-head and consent lifecycle suites. The 18 existing CJS suites use the deployable
+head and consent lifecycle suites. The 21 existing CJS suites use the deployable
 artifact by default. Offline success is not published-Wix/provider verification.
 
 ## Exact coordinated installation — after review and authorization only
@@ -84,7 +110,7 @@ Keep delivered `BANNER_ENABLED = false` and `GRANT_ALL_WITHOUT_BANNER = true`; *
 
 Stored v2 denials and legacy `wbe_consent_choice:'denied'` have **no expiry**. Explicit Google **update** `ad_user_data:'denied'` closes pending work immediately, resets the advertising-grant cache, and persists a `google-denial-v1` negative record plus a small legacy negative fallback; Google **default** denial is initialization, not withdrawal. No stale grant is retained intentionally after external denial. Browser storage read failure closes the event. Failed grant persistence supplies no REQUIRED permission. If all preference writes/removal are refused, current-page denial remains effective but no client-only solution can guarantee durable denial after the browser discards that page; this is a storage limitation, not a promised cross-device consent store.
 
-A persistent native **Cookie settings** button is present even with the banner OFF. It opens the existing dialog only on request; **Deny** withdraws and invalidates pending submissions, including a policy read in flight. A trusted **Accept All** click writes a fresh purposeful choice and removes the legacy denial; it cannot revive an old sequence. Cross-tab changes invalidate the observing page and send a local Google denial, conservatively requiring explicit choice/reload there. The observer never overwrites the other tab's saved choice or churns denial timestamps. A fresh page evaluates the actual stored choice again.
+No **Cookie settings** button or dialog is created with the delivered banner OFF. In the retained separately enabled synthetic REQUIRED test path, **Deny** withdraws and invalidates pending submissions, including a policy read in flight; a trusted **Accept All** writes a fresh purposeful choice and removes the legacy denial without reviving an old sequence. This is handler regression coverage, not production geographic UI activation. Cross-tab changes invalidate the observing page and send a local Google denial, closing that page until a separately available explicit choice or reload reevaluates retained state. Reload never clears a denial. The observer never overwrites the other tab's saved choice or churns denial timestamps. A fresh page evaluates the actual stored choice again.
 
 Narrow legacy correction: this head snippet's automatic and helper-based Google grants now honor stored denial/read failure instead of ignoring them when the banner is OFF. Existing raw `gtag` calls by other tags, generic event routing, click capture and the server import are not redesigned. Do not claim site-wide opt-out coverage or legal compliance from this scoped fix.
 
@@ -93,7 +119,7 @@ Narrow legacy correction: this head snippet's automatic and helper-based Google 
 1. The published outer iframe must have unique exact title **`WBE event bridge`**. The head requires exactly one `iframe[title="WBE event bridge"]`, its matching `contentWindow`, and event origin equal to its nonopaque `src` origin. Verify Wix's accessibility/title setting produces that DOM. If unavailable, stop for a reviewed binding change; do not remove the fences.
 2. The relay requires parent/referrer origin `https://www.wanderlustcaribbean.com`. Preview/alternate hostname, opaque origins, missing referrer or different nested-frame topology can suppress it. Verify the published relationship.
 3. Keep the existing manual email selector `#comp-mqo6cvon input[type="email"][name="email"]`, email only, Form interactions ON, automatic user-data detection OFF. Require one field and unchanged value between actual asynchronous prepare and complete; Summary independently checks its original form email at whole-cart success. Do not add a conversion action or change account-wide methods. Verify destination/customer-data terms separately.
-4. Verify the settings control's published visibility, keyboard access and placement. No claim that local simulated trusted clicks prove published UI behavior.
+4. Verify no Cookie settings button or consent dialog appears on About or other pages, including a hard refresh. Local DOM fixtures do not prove published UI behavior; no new booking or provider call is needed for this visibility check.
 
 ## Offline verification
 
@@ -112,6 +138,6 @@ The new native-linked tracer executes actual Summary callbacks, tracking, backen
 
 ## Later live verification and rollback
 
-After review and separate installation authorization, verify published bytes and bindings, current LIVE schema/read availability, no unsolicited banner, returning choices, withdrawal/reload and one whole-cart success. Only a separately authorized booking/provider observation may establish the AW event plus supported email-collection evidence. Retain privacy-minimized destination/indicator evidence, not contacts/hashes/full payloads. Keep trigger delivery, email collection, processing and attribution distinct. Do not replay historical uncertain imports or fabricate paid-ad interactions.
+After review and separate installation authorization, verify published bytes and bindings, current LIVE schema/read availability, no button/dialog, retained returning choices and external-denial/reload handling. Whole-cart/provider verification is separate from this visibility fix. Only a separately authorized booking/provider observation may establish the AW event plus supported email-collection evidence. Retain privacy-minimized destination/indicator evidence, not contacts/hashes/full payloads. Keep trigger delivery, email collection, processing and attribution distinct. Do not replay historical uncertain imports or fabricate paid-ad interactions.
 
-Retain all seven runtime files/entry contents and flag values before installation. Rollback the coordinated consumer files to base `98a5d408e1ec4a086056098adeee428459280da9`; remove the three newly introduced backend modules only after no imports refer to them. That base restores the old closed custom-form gate but also restores its banner-OFF saved-denial defect, so rollback needs an explicit owner decision, not a claim of equivalent consent behavior. Preserve stored denial preferences and all existing backend sender/journal settings. Banner OFF is **not** the new disable switch. Do not erase consent preferences or replay bookings as rollback steps. Historical analytics are not repaired by any source rollback.
+Retain all seven runtime files/entry contents and flag values before installation. Rollback the coordinated consumer files to base `98a5d408e1ec4a086056098adeee428459280da9`; remove the three newly introduced backend modules only after no imports refer to them. That base restores the old closed custom-form gate but also restores its banner-OFF saved-denial defect, so rollback needs an explicit owner decision, not a claim of equivalent consent behavior. Preserve stored denial preferences and all existing backend sender/journal settings. Banner OFF disables this local UI, not the policy-authorized Ads event. Do not erase consent preferences or replay bookings as rollback steps. Historical analytics are not repaired by any source rollback.

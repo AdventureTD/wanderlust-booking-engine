@@ -12,22 +12,22 @@ async function fixture(opts = {}) {
   if (opts.stored) for (const [k,v] of Object.entries(opts.stored)) store.set(k,v);
   const field = { value: 'fixture@example.invalid' };
   const frame = {}, parent = {}, frameElement = { contentWindow: frame, src: 'https://fixture.invalid/bridge' };
-  const handlers = new Map();
-  const element = () => ({ style: {}, children: [], parentNode: null,
+  const handlers = new Map(), createdElements = [], documentListeners = {};
+  const element = () => { const el = { style: {}, children: [], parentNode: null,
     appendChild(child) { this.children.push(child); child.parentNode=this; },
     removeChild(child) { this.children.splice(this.children.indexOf(child),1); child.parentNode=null; },
-    setAttribute() {}, addEventListener(t,f) { if(t==='click') { handlers.set(this,f); buttons[this.textContent]=event=>{ assert.ok(attached(this),'cannot click detached '+this.textContent); f(event); }; } } });
+    setAttribute() {}, addEventListener(t,f) { if(t==='click') { handlers.set(this,f); buttons[this.textContent]=event=>{ assert.ok(attached(this),'cannot click detached '+this.textContent); f(event); }; } } }; createdElements.push(el); return el; };
   const body=element();
   const attached = el => el===body || !!el.parentNode && attached(el.parentNode);
   const visit = (el,id) => el.id===id ? el : el.children.map(c=>visit(c,id)).find(Boolean);
   const click = label => { const entry=[...handlers].find(([el])=>attached(el)&&el.textContent===label); assert.ok(entry,'attached button: '+label); entry[1]({isTrusted:true}); };
-  const document = { readyState: 'complete', body, addEventListener() {}, getElementById(id) { return visit(body,id)||null; }, createElement: element,
+  const document = { readyState: opts.readyState || 'complete', body, addEventListener(t,f) { (documentListeners[t] ||= []).push(f); }, getElementById(id) { return visit(body,id)||null; }, createElement: element,
     querySelectorAll(s) { return s === 'iframe[title="WBE event bridge"]' ? [frameElement] : opts.missingField ? [] : [field]; } };
-  const window = { dataLayer: opts.priorDataLayer || [], location: { href: 'https://www.wanderlustcaribbean.com/booking-summary' }, addEventListener(t, f) { (listeners[t] ||= []).push(f); } };
+  const window = { dataLayer: opts.priorDataLayer || [], location: { href: 'https://www.wanderlustcaribbean.com'+(opts.route || '/booking-summary') }, addEventListener(t, f) { (listeners[t] ||= []).push(f); } };
   const deny = () => { throw Error('OFFLINE_NETWORK_DENIED'); };
   const head = vm.createContext({ window, document, localStorage: { getItem:k=>{if(opts.storageReadFails)throw Error('inert storage read failure');return store.get(k)||null;}, removeItem:k=>store.delete(k), setItem:(k,v)=>{if(opts.storageWriteFails)throw Error('inert storage failure');store.set(k,v);} }, console:{ log:(...x)=>logs.push(x), error:(...x)=>logs.push(x) }, URL, fetch:deny, XMLHttpRequest:deny, Image:deny, WebSocket:deny });
   Object.defineProperty(head, 'dataLayer', { get:()=>window.dataLayer });
-  let headSource = inline('velo/custom-code/google-tag-and-consent.html');
+  let headSource = inline(opts.headFile || 'velo/custom-code/google-tag-and-consent.html');
   // Packaging removes whitespace only; retain explicit synthetic banner-ON coverage
   // against the deployable artifact and fail if either fixture seam disappears.
   if (!opts.automatic) {
@@ -86,7 +86,7 @@ async function fixture(opts = {}) {
   if(opts.consent === 'synthetic') buttons['Accept All']?.({isTrusted:false});
   if(opts.consent === 'no') buttons.Deny?.({isTrusted:true});
   const settle=async()=>{for(let i=0;i<80;i++)await Promise.resolve();};
-  return {policyCalls,tracking,settle,store,listeners,iframe,frameElement,document,click,p,head,window,buttons,messages,logs,field,dispatch,events:()=>window.dataLayer.filter(x=>x[0]==='event'), submit:async()=>{await p.click();await p.click();await settle();}};
+  return {createdElements,documentListeners,policyCalls,tracking,settle,store,listeners,iframe,frameElement,document,click,p,head,window,buttons,messages,logs,field,dispatch,events:()=>window.dataLayer.filter(x=>x[0]==='event'), submit:async()=>{await p.click();await p.click();await settle();}};
 }
 (async()=>{
   const f = await fixture({consent:'yes'}); await f.submit();

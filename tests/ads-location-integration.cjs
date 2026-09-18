@@ -16,11 +16,20 @@ const count=f=>f.events().filter(e=>e[1]==='form_submit').length;
  let release;const pause=new Promise(r=>release=r);
  const race=await fixture({automatic:true,policyRows:[],policyRead:async n=>{if(n===1)await pause;}});
  await race.p.click();
- race.click('Cookie settings');race.click('Deny');
- race.click('Cookie settings');race.click('Accept All');
+ vm.runInContext("gtag('consent','update',{ad_user_data:'denied'})",race.head);
+  // A later technical Google grant is not an affirmative reacceptance.
+  vm.runInContext("gtag('consent','update',{ad_user_data:'granted'})",race.head);
  release();await race.settle();
- assert.equal(count(race),0,'withdraw/reaccept while policy pending must invalidate old submission');
- console.log('PASS withdrawal during prepare policy await');
+ assert.equal(count(race),0,'external denial/regrant while policy pending must invalidate old submission');
+ console.log('PASS external denial during native prepare policy await without UI');
+ let finish;const pendingChoice=new Promise(r=>finish=r);
+ const choiceRace=await fixture({consent:'yes',policyRead:async n=>{if(n===1)await pendingChoice;}});
+ await choiceRace.p.click();
+ choiceRace.click('Cookie settings');choiceRace.click('Deny');
+ choiceRace.click('Cookie settings');choiceRace.click('Accept All');
+ finish();await choiceRace.settle();
+ assert.equal(count(choiceRace),0,'synthetic REQUIRED enabled-UI withdrawal/reacceptance fences pending policy');
+ console.log('PASS synthetic REQUIRED enabled-UI withdrawal/reacceptance during prepare await');
  const denied=await fixture({automatic:true,policyRows:[],stored:{wbe_consent_choice_v2:JSON.stringify({source:'banner-click-v2',choice:'denied',at:0})}});
  await denied.submit();assert.equal(count(denied),0,'denial never expires');
  assert.equal(denied.window.dataLayer.some(e=>e[0]==='consent'&&e[1]==='update'&&e[2].ad_user_data==='granted'),false);
@@ -73,6 +82,7 @@ const count=f=>f.events().filter(e=>e[1]==='form_submit').length;
   const x=await fixture({automatic:true,...options});await x.submit();assert.equal(count(x),expected,name);
   assert.equal(x.p.payloads.length,2,name+' booking independence');
   assert.equal(x.document.getElementById('wbe-consent-banner'),null,name+' no universal banner');
+  assert.equal(x.document.getElementById('wbe-consent-settings'),null,name+' no universal settings');
   console.log('PASS '+name);
  }
  for(const mode of ['true','false-change','read-failure','deny','storage-deny']) {

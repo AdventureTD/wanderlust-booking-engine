@@ -13,6 +13,39 @@ const pair=(f,n)=>{
  return ['prepare','complete'].map(phase=>({source:'wbe-ads-form',phase,sequence:n,policy:{v:1,requirement:'REQUIRED',policyKey:'a'.repeat(64),observedAt:vm.runInContext('Date.now()',f.head)}}));
 };
 (async()=>{
+  // Screenshot regression: real source with delivered flags and native empty policy.
+  // Track every created node, not just final attachment, to reject hide-after-flash.
+  for (const headFile of ['velo/custom-code/google-tag-and-consent.source.html','velo/custom-code/google-tag-and-consent.html']) {
+    for (const readyState of ['complete','loading']) {
+      const x=await fixture({automatic:true,policyRows:[],route:'/about',readyState,headFile});
+      const noControls=()=>{
+        assert.equal(x.document.getElementById('wbe-consent-settings'),null,'banner OFF must not create the About-page Cookie settings button');
+        assert.equal(x.document.getElementById('wbe-consent-banner'),null);
+        assert.equal(x.createdElements.some(el=>el.id==='wbe-consent-settings'||el.id==='wbe-consent-banner'),false,'no transient controls or showBanner');
+        assert.equal(x.buttons['Cookie settings'],undefined,'no hidden settings click handler');
+      };
+      noControls();
+      for(const h of x.documentListeners.DOMContentLoaded||[])h();
+      noControls();
+      await x.submit();assert.equal(count(x),1,'native empty policy stays eligible without UI');
+      assert.equal(x.store.has(key),false,'no fabricated choice');
+      noControls();
+      vm.runInContext("gtag('consent','update',{ad_user_data:'denied'})",x.head);
+      for(const d of pair(x,99)) { if(d.policy)d.policy.requirement='NOT_REQUIRED'; x.dispatch(d); }
+      assert.equal(count(x),1,'same-page external denial blocks later empty-policy event');
+      const retained=x.store.get(key);
+      const reload=await fixture({automatic:true,policyRows:[],headFile,stored:Object.fromEntries(x.store)});
+      await reload.submit();assert.equal(count(reload),0,'external denial survives reload without UI');
+      assert.equal(reload.store.get(key),retained,'denial is neither erased nor renewed');
+    }
+    for(const policyRows of [[],[{_id:'a',countryCode:'CA',usStateCode:'',consentRequired:false}],[{_id:'a',countryCode:'CA',usStateCode:'',consentRequired:true}],'error']) {
+      const x=await fixture({automatic:true,policyRows,headFile,stored:saved(0,'denied')});
+      await x.submit();assert.equal(count(x),0,'historical denial survives UI OFF');
+      assert.equal(x.store.get(key),saved(0,'denied')[key]);
+      assert.equal(x.createdElements.some(el=>el.id==='wbe-consent-settings'||el.id==='wbe-consent-banner'),false,'NOT_REQUIRED/UNRESOLVED do not create UI');
+    }
+  }
+  console.log('PASS delivered source/deploy About DOM: no creation/flash/click path; empty policy eligible; persistent and same-page denial');
   const f=await fixture({consent:'yes'});
   assert.equal(f.document.getElementById('wbe-consent-banner'),null);
   f.click('Cookie settings'); f.click('Deny');
@@ -67,7 +100,7 @@ const pair=(f,n)=>{
   const failed=await fixture({now,consent:'yes',storageWriteFails:true});
   for(const d of pair(failed,1))failed.dispatch(d);assert.equal(count(failed),0,'unpersisted grant fails closed');
   clock(failed,now+ttl);for(const d of pair(failed,2))failed.dispatch(d);assert.equal(count(failed),0,'failed storage stays closed');
-  const automatic=await fixture({automatic:true,stored:saved(now)});assert.ok(automatic.document.getElementById('wbe-consent-settings'));assert.equal(automatic.document.getElementById('wbe-consent-banner'),null);await automatic.submit();assert.equal(count(automatic),1,'returning valid choice independent of banner visibility');
+  const automatic=await fixture({automatic:true,stored:saved(now)});assert.equal(automatic.document.getElementById('wbe-consent-settings'),null);assert.equal(automatic.document.getElementById('wbe-consent-banner'),null);await automatic.submit();assert.equal(count(automatic),1,'returning valid choice independent of banner visibility');
   const defaults=await fixture({consent:'yes'});vm.runInContext("gtag('consent','default',{ad_user_data:'denied'})",defaults.head);await defaults.submit();assert.equal(count(defaults),1,'default initialization is not a withdrawal');
   const quota=await fixture({now,stored:saved(now),storageWriteFails:true});
   vm.runInContext("gtag('consent','update',{ad_user_data:'denied'})",quota.head);

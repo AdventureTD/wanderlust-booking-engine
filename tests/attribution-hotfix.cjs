@@ -36,7 +36,7 @@ async function main(){
   const result=await b.c.createBookingImpl({roomCode:'A',checkIn:'2027-01-01',checkOut:'2027-01-02'});assert.equal(result.bookingNumber,'OFFLINE-KNOWN');assert.equal(result.outcome,conflict?'UNKNOWN':undefined);assert.deepEqual(b.writes,conflict?['insert','draft','remove']:['insert','draft','summary']);
  });
  await test('pinned checkout sources match reviewed canonical bytes',async()=>{
-  // Preserve the reviewed head hash on its unchanged readable source. Runtime
+  // Pin the candidate readable head source for independent review. Runtime
   // tests below still execute the installed .html; require exact build parity.
   assert.equal(await require('../scripts/build-google-tag.cjs').build(), read('velo/custom-code/google-tag-and-consent.html'));
   const pins=JSON.parse(read('tests/attribution-hotfix-sources.json'));assert.equal(Object.keys(pins).length,3);
