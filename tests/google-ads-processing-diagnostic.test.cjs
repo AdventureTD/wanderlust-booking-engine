@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const {load,payload,names,ids,token} = require('./google-ads-processing-test-helper.cjs');
 test('two private zero-argument exports read only their retained requests', async () => {
   const h = await load();
-  assert.deepEqual(Object.keys(h.api).sort(), names.slice().sort());
+  assert.deepEqual(Object.keys(h.api).sort(), [...names, 'readWC1034ProcessingStatus'].sort());
   for (let i=0; i<names.length; i++) {
     assert.equal(h.api[names[i]].length, 0);
     const out = await h.api[names[i]]();

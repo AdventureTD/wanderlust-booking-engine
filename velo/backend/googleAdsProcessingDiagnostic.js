@@ -1,4 +1,4 @@
-// Private temporary processing READ diagnostic for two retained acknowledgments.
+// Private temporary processing READ diagnostic for fixed retained acknowledgments.
 // Run only the named function tester. No event send, retry, or journal write.
 import { getAccessToken } from 'backend/dataManagerClient.web';
 import { fetch } from 'wix-fetch';
@@ -16,6 +16,12 @@ export async function readWC1035ProcessingStatus() {
 
 export async function readWC1036ProcessingStatus() {
   const id = '0e453038-1a79-4b99-af2d-cd433bc8cf4f';
+  if (arguments.length) return failure(id, 'ARGUMENTS_NOT_ALLOWED');
+  return readStatus(id);
+}
+
+export async function readWC1034ProcessingStatus() {
+  const id = '82e091ac-6686-4a7d-ab9e-5a2aada23c32';
   if (arguments.length) return failure(id, 'ARGUMENTS_NOT_ALLOWED');
   return readStatus(id);
 }
