@@ -1,6 +1,6 @@
 import { getActiveMessages } from 'backend/messages';
 import { searchAvailability, suggestAlternateDates } from 'backend/search';
-import { getPackageAmenities, getPackagesByNights, packageExistsForNights } from 'backend/packages';
+import { getPackagesByNights, packageExistsForNights } from 'backend/packages';
 import { createPricingQuote } from 'backend/pricingQuotes';
 import { getRoomNames } from 'backend/rooms';
 import { trackBeginBooking, captureClickIds, trackViewBookingSearch, trackRoomView, trackSearchNoResults, initTracking, setSuspendGoogleAds } from 'public/tracking';
@@ -792,7 +792,6 @@ async function searchHandler() {
     if (rep) { try { rep.show(); } catch (e) {} try { rep.expand(); } catch (e) {} }
     rep.data = availableData;
     syncSummaryButtonWithResults(availableData.length);
-    loadPackageInfo(res.requestedNights, search);
 
     // Show package column labels above the repeater.
     ['packageText', 'nightsLabel', 'specialtyText', 'priceText'].forEach(function (id) {
@@ -805,35 +804,6 @@ async function searchHandler() {
 
     if (!search.pending) safeText('Found ' + availableData.length + ' result' + (availableData.length === 1 ? '' : 's') + ' for ' + res.requestedNights + ' nights.');
   } catch (e) { if (isCurrentSearch(search)) safeText('Error: ' + e.message); }
-}
-
-async function loadPackageInfo(nights, search) {
-  if (!nights || nights <= 0) { console.log('>>> loadPackageInfo: invalid nights'); hidePackageInfo(); return; }
-  try {
-    console.log('>>> loadPackageInfo: fetching package for', nights, 'nights');
-    const pkg = await getPackageAmenities(nights);
-    if (!isCurrentSearch(search)) return;
-    console.log('>>> loadPackageInfo response:', pkg);
-    const pkgNameEl = $w('#packageName');
-    const pkgAmenEl = $w('#packageAmenities');
-    const title = pkg.title || '';
-    if (title) {
-      pkgNameEl.text = title;
-      pkgNameEl.expand();
-      console.log('>>> packageName set to:', title);
-    } else {
-      pkgNameEl.collapse();
-      console.log('>>> packageName collapsed (no title)');
-    }
-    if (pkg && pkg.includedAmenities) {
-      pkgAmenEl.text = pkg.includedAmenities;
-      pkgAmenEl.expand();
-      console.log('>>> packageAmenities set to:', pkg.includedAmenities.substring(0, 50) + '...');
-    } else {
-      pkgAmenEl.collapse();
-      console.log('>>> packageAmenities collapsed (no amenities)');
-    }
-  } catch (e) { if (isCurrentSearch(search)) hidePackageInfo(); }
 }
 
 function hidePackageInfo() {
@@ -899,6 +869,10 @@ function loadPackageOptions(nights, search) {
     _selectedPackage = _availablePackages[0];
     _cachedPerPersonStayTotal = _selectedPackage.stayTotalPerPerson || 0;
     _hasCachedStayPricing = !!_selectedPackage.pricingResolved;
+
+    // Summary identity comes only from the selected, quoted package.
+    updatePackageNameField();
+    updatePackageAmenitiesField();
 
     // Legacy single-package elements
     const pkgName2 = tryFind('packageName2');
@@ -1055,6 +1029,9 @@ function updatePackageAmenitiesField() {
     packageAmenitiesEl.text = _selectedPackage.includedAmenities;
     if (typeof packageAmenitiesEl.show === 'function') { try { packageAmenitiesEl.show(); } catch (e) {} }
     if (typeof packageAmenitiesEl.expand === 'function') { try { packageAmenitiesEl.expand(); } catch (e) {} }
+  } else {
+    packageAmenitiesEl.text = '';
+    if (typeof packageAmenitiesEl.collapse === 'function') { try { packageAmenitiesEl.collapse(); } catch (e) {} }
   }
 }
 
