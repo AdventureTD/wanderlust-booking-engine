@@ -20,6 +20,8 @@ let _searchCheckOut = null;
 let _searchGeneration = 0;
 let _activeSearch = null;
 let _summaryNavigating = false;
+let _packageRepeaterReady = false;
+const _packageRowBindings = new Map();
 
 function isCurrentSearch(search) {
   return !!search && search === _activeSearch && search.generation === _searchGeneration &&
@@ -29,6 +31,7 @@ function isCurrentSearch(search) {
 function invalidateSearch() {
   _searchGeneration++;
   _activeSearch = null;
+  _packageRowBindings.clear();
   _selectedPackage = null;
   _availablePackages = [];
   _cachedPerPersonStayTotal = 0;
@@ -912,53 +915,17 @@ function loadPackageOptions(nights, search) {
     // Repeater with multiple package options
     const repeater = tryFind('packageRepeater');
     if (repeater) {
-      if (typeof repeater.onItemReady === 'function') {
+      if (!_packageRepeaterReady && typeof repeater.onItemReady === 'function') {
         repeater.onItemReady(($item, itemData) => {
-          safeItem($item, '#packageName2', 'text', itemData.title || '');
-          safeItem($item, '#nightsText', 'text', String(nights) + ' night' + (nights === 1 ? '' : 's'));
-          safeItem($item, '#specialtyTours', 'text', itemData.specialtyTours || '');
-          const packagePriceEl = safeItem($item, '#packagePrice', null, null);
-          if (packagePriceEl) {
-            const price = Number(itemData.stayTotalPerPerson) || 0;
-            packagePriceEl.text = '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          }
-
-          // Ensure indicator starts hidden; shown only when row is selected.
-          hidePackageIndicator($item);
-
-          // Bind click to the row container and each text element inside the item.
-          function selectThisPackage(evt) {
-            if (!isCurrentSearch(search) || search.pending) return;
-            console.log('>>> package row clicked:', itemData.title, 'id:', itemData._id);
-            // Use the original package object from _availablePackages so _id is preserved.
-            const originalPkg = _availablePackages.find(function (p) { return p._id === itemData._id; });
-            if (!originalPkg) return;
-            _selectedPackage = originalPkg;
-            _cachedPerPersonStayTotal = originalPkg.stayTotalPerPerson || 0;
-            _hasCachedStayPricing = !!originalPkg.pricingResolved;
-            updateSelectionPanel();
-            updatePackageNameField();
-            updatePackageAmenitiesField();
-            highlightSelectedPackageRow();
-            if (evt && evt.stopPropagation) { evt.stopPropagation(); }
-          }
-
-          const rowContainer = $item('#packageContainer');
-          if (rowContainer && typeof rowContainer.onClick === 'function') {
-            rowContainer.onClick(selectThisPackage);
-          }
-          ['#packageName2', '#nightsText', '#specialtyTours', '#packagePrice'].forEach(function (sel) {
-            const el = $item(sel);
-            if (el && typeof el.onClick === 'function') {
-              try { el.onClick(selectThisPackage); } catch (e) {}
-            }
-          });
+          renderPackageRow($item, itemData, repeater, _activeSearch);
         });
+        _packageRepeaterReady = true;
       }
 
       // Mark first as selected by default
       try {
         repeater.data = _availablePackages.map((p, idx) => ({ ...p, _id: p._id || String(idx) }));
+        repeater.forEachItem(($item, itemData) => renderPackageRow($item, itemData, repeater, search));
       } catch (e) {
         console.log('>>> packageRepeater data error:', e.message);
       }
@@ -1012,6 +979,60 @@ function loadPackageOptions(nights, search) {
   });
 }
 
+function renderPackageRow($item, itemData, repeater, search) {
+  if (!isCurrentSearch(search) || search.pending || !_availablePackages.some(p => p._id === itemData._id && p.pricingQuoteToken === itemData.pricingQuoteToken)) return;
+  const nights = _summaryNights;
+  safeItem($item, '#packageName2', 'text', itemData.title || '');
+  safeItem($item, '#nightsText', 'text', String(nights) + ' night' + (nights === 1 ? '' : 's'));
+  safeItem($item, '#specialtyTours', 'text', itemData.specialtyTours || '');
+  const packagePriceEl = safeItem($item, '#packagePrice', null, null);
+  if (packagePriceEl) {
+    const price = Number(itemData.stayTotalPerPerson) || 0;
+    packagePriceEl.text = '$' + price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  // Readiness can run after the initial data assignment.
+  if (_selectedPackage && itemData._id === _selectedPackage._id) showPackageIndicator($item);
+  else hidePackageIndicator($item);
+  const rowContainer = $item('#packageContainer');
+  let binding = _packageRowBindings.get(itemData._id);
+  if (binding && binding.rowContainer === rowContainer) {
+    binding.search = search;
+    binding.itemData = itemData;
+    return;
+  }
+  binding = { rowContainer, search, itemData };
+  _packageRowBindings.set(itemData._id, binding);
+  // Bind once per physical row; retained rows refresh the binding above.
+  function selectThisPackage(evt) {
+    const { search, itemData } = binding;
+    if (_packageRowBindings.get(itemData._id) !== binding || !isCurrentSearch(search) || search.pending) return;
+    if (!repeater.data.some(p => p._id === itemData._id && p.pricingQuoteToken === itemData.pricingQuoteToken)) return;
+    console.log('>>> package row clicked:', itemData.title, 'id:', itemData._id);
+    // Use the original package object from _availablePackages so _id is preserved.
+    const originalPkg = _availablePackages.find(function (p) { return p._id === itemData._id; });
+    if (!originalPkg || originalPkg.pricingQuoteToken !== itemData.pricingQuoteToken || originalPkg.quoteCheckIn !== search.checkIn || originalPkg.quoteCheckOut !== search.checkOut) return;
+    _selectedPackage = originalPkg;
+    _cachedPerPersonStayTotal = originalPkg.stayTotalPerPerson || 0;
+    _hasCachedStayPricing = !!originalPkg.pricingResolved;
+    updateSelectionPanel();
+    updatePackageNameField();
+    updatePackageAmenitiesField();
+    highlightSelectedPackageRow();
+    if (evt && evt.stopPropagation) { evt.stopPropagation(); }
+  }
+  const radio = getPackageSelectionIndicator($item);
+  if (radio && typeof radio.onChange === 'function') radio.onChange(selectThisPackage);
+  if (rowContainer && typeof rowContainer.onClick === 'function') {
+    rowContainer.onClick(selectThisPackage);
+  }
+  ['#packageName2', '#nightsText', '#specialtyTours', '#packagePrice'].forEach(function (sel) {
+    const el = $item(sel);
+    if (el && typeof el.onClick === 'function') {
+      try { el.onClick(selectThisPackage); } catch (e) {}
+    }
+  });
+}
+
 function updatePackageNameField() {
   const packageNameEl = tryFind('packageName');
   if (packageNameEl) {
@@ -1034,9 +1055,9 @@ function updatePackageAmenitiesField() {
 function getPackageSelectionIndicator($item) {
   if (!$item) return null;
   try {
-    return $item('#vectorImage1');
+    return $item('#radioPackage');
   } catch (e) {
-    console.log('>>> vectorImage1 selection indicator not found:', e.message);
+    console.log('>>> radioPackage selection indicator not found:', e.message);
     return null;
   }
 }
@@ -1044,16 +1065,15 @@ function getPackageSelectionIndicator($item) {
 function hidePackageIndicator($item) {
   const indicator = getPackageSelectionIndicator($item);
   if (!indicator) return;
-  try { indicator.hide(); } catch (e) { console.log('>>> hide vectorImage1 error:', e.message); }
+  try { indicator.selectedIndex = undefined; } catch (e) { console.log('>>> clear radioPackage error:', e.message); }
 }
 
 function showPackageIndicator($item) {
   const indicator = getPackageSelectionIndicator($item);
   if (!indicator) return;
   try {
-    indicator.show();
-    if (typeof indicator.expand === 'function') indicator.expand();
-  } catch (e) { console.log('>>> show vectorImage1 error:', e.message); }
+    indicator.selectedIndex = 0;
+  } catch (e) { console.log('>>> select radioPackage error:', e.message); }
 }
 
 function highlightSelectedPackageRow() {
