@@ -9,8 +9,8 @@ function mount(s, missing=false) {
  rep.onItemReady=f=>{ready.push(f);rep.itemReady=f;};
  function make(p){
   const item=elements(), registrations=new Map(), lookups=[];
-  const scope=id=>{lookups.push(id);if(id==='#vectorImage1'||(missing&&id==='#radioPackage'))throw Error('Deleted element');return item.w(id);};
-  for(const id of ['#packageContainer','#packageName2','#nightsText','#specialtyTours','#packagePrice','#radioPackage']){
+  const scope=id=>{lookups.push(id);if(id==='#vectorImage1'||(missing===true&&id==='#radioPackage')||(missing==='box7'&&id==='#box7'))throw Error('Deleted element');return item.w(id);};
+  for(const id of ['#box7','#packageContainer','#packageName2','#nightsText','#specialtyTours','#packagePrice','#radioPackage']){
    const el=item.w(id), clicks=[],changes=[];registrations.set(id,{clicks,changes});
    el.onClick=f=>clicks.push(f);el.onChange=f=>changes.push(f);
    el.click=()=>clicks.forEach(f=>f());el.change=()=>changes.forEach(f=>f());
@@ -52,7 +52,22 @@ function visuals(m,id){for(const [key,r] of m.rows){assert.equal(r.radio.selecte
   await s.run();ready(old.scope,old.p);old.radio.change();assert.equal(selected(s),'first');visuals(m,'first');m.rows.get('other').radio.change();assert.equal(selected(s),'other');visuals(m,'other');
  });
  await test('missing radio safely preserves existing row selection',async()=>{const {s,m}=await setup(true);m.rows.get('other').item.w('#packageContainer').click();assert.equal(selected(s),'other');assert.equal(s.w('#packageAmenities').text,'Other');});
- console.log(JSON.stringify({cases},null,2));assert.equal(cases.length,5);assert.equal(cases.filter(x=>!x.pass).length,0);
+ await test('box7 selects its nondefault package, single radio, amenities, price and verified quote',async()=>{
+  const {s,m}=await setup();s.select();assert.equal(selected(s),'first');visuals(m,'first');
+  const r=m.rows.get('other');r.item.w('#box7').click();assert.equal(selected(s),'other');visuals(m,'other');assert.equal(s.w('#packageAmenities').text,'Other');assert.equal(s.w('#finalTotal').text,'$9,504.00');
+  assert.equal(r.registrations.get('#box7').clicks.length,1);await s.w('#btnSummary').click();assert.equal(s.nav.length,1);const q=new URL(s.nav[0],'https://inert.invalid').searchParams;assert.equal(q.get('pkg'),'other');assert.equal(q.get('quote'),vm.runInContext('_selectedPackage.pricingQuoteToken',s.c));const verified=await quote.verifyLockedPricingQuote(q.get('quote'),{packageId:'other',checkIn:q.get('ci'),checkOut:q.get('co')});assert.equal(verified.totalPerPerson,2376);
+ });
+ await test('box7 retained row uses refreshed price and quote with one original listener',async()=>{
+  const {s,m}=await setup();s.select();const r=m.rows.get('other'),fn=r.registrations.get('#box7').clicks[0],oldToken=r.p.pricingQuoteToken;
+  quote.resolvePerPersonStay=async()=>({totalPerPerson:3000,averageNightlyRate:500});vm.runInContext('loadPackageOptions(6, _activeSearch)',s.c);await flush();assert.equal(m.rows.get('other'),r);assert.equal(r.item.w('#packagePrice').text,'$3,000.00');assert.notEqual(r.p.pricingQuoteToken,oldToken);visuals(m,'first');assert.equal(m.ready.length,1);assert.equal(r.registrations.get('#box7').clicks.length,1);assert.equal(r.registrations.get('#box7').clicks[0],fn);fn();assert.equal(selected(s),'other');visuals(m,'other');assert.equal(s.w('#finalTotal').text,'$12,000.00');await s.w('#btnSummary').click();const q=new URL(s.nav[0],'https://inert.invalid').searchParams;assert.equal(q.get('quote'),r.p.pricingQuoteToken);const verified=await quote.verifyLockedPricingQuote(q.get('quote'),{packageId:'other',checkIn:q.get('ci'),checkOut:q.get('co')});assert.equal(verified.totalPerPerson,3000);
+ });
+ await test('box7 removed row and obsolete readiness cannot select same-ID replacement',async()=>{
+  const {s,m}=await setup();const old=m.rows.get('other'),ready=m.rep.itemReady;assert.equal(old.registrations.get('#box7').clicks.length,1);await s.run();assert.notEqual(m.rows.get('other'),old);ready(old.scope,old.p);old.item.w('#box7').click();assert.equal(selected(s),'first');visuals(m,'first');m.rows.get('other').item.w('#box7').click();assert.equal(selected(s),'other');visuals(m,'other');
+ });
+ await test('missing optional box7 preserves radio and existing row selection',async()=>{
+  const {s,m}=await setup('box7');m.rows.get('other').radio.change();assert.equal(selected(s),'other');visuals(m,'other');m.rows.get('scuba').item.w('#packageContainer').click();assert.equal(selected(s),'scuba');visuals(m,'scuba');
+ });
+ console.log(JSON.stringify({cases},null,2));assert.equal(cases.length,9);assert.equal(cases.filter(x=>!x.pass).length,0);
 })().catch(e=>{console.error(e.stack);process.exitCode=1;}).finally(()=>clearTimeout(watchdog));
 `;
 vm.runInThisContext('(function(require,__dirname){'+original.slice(0,marker)+tests+'})',{filename:__filename})(require,__dirname);

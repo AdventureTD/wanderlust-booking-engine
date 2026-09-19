@@ -12,6 +12,8 @@ Code preserves the Editor option list, labels and values. It selects option inde
 
 The first valid quoted visible package is selected, retaining non-Scuba-before-Scuba order. Radio changes and existing row/text clicks use the same guarded selection path and update amenities, price and signed Summary handoff. Matching uses package IDs, not titles. Retained repeater rows refresh without duplicate registrations.
 
+The existing Box `#box7` inside each `packageRepeater` row also selects that same row through this path, including its `#radioPackage`. It is optional: a missing Box does not block radio or other row clicks. This addition needs only the same Booking Search page-code replacement above, not a new element, overlay or Editor event handler. Verify a nondefault row's Box click and selection after a repeat search; do not configure a redirect link on the Box. Box API: https://dev.wix.com/docs/velo/velo-only-apis/$w/box/on-click.
+
 After reviewed delivery, verify in Wix Preview: exactly the first row selected; select another radio and confirm only it is selected and amenities/price change; repeat a search and verify the new first row. No reservation submission is needed. Preview is not SSR verification. No backend/CMS/Secrets/dependencies, tracking, styling or other page replacements are part of this change.
 
 Rollback requires both the prior Booking Search page code and restoring its `vectorImage1` item-template indicator; restoring only the old code after deleting the vector will not restore its visual indicator.

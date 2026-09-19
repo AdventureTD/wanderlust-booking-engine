@@ -1025,6 +1025,10 @@ function renderPackageRow($item, itemData, repeater, search) {
   if (rowContainer && typeof rowContainer.onClick === 'function') {
     rowContainer.onClick(selectThisPackage);
   }
+  const box = safeItem($item, '#box7', null, null);
+  if (box && typeof box.onClick === 'function') {
+    try { box.onClick(selectThisPackage); } catch (e) {}
+  }
   ['#packageName2', '#nightsText', '#specialtyTours', '#packagePrice'].forEach(function (sel) {
     const el = $item(sel);
     if (el && typeof el.onClick === 'function') {
