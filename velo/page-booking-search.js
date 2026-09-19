@@ -786,7 +786,9 @@ async function searchHandler() {
       showAlternateDates(ciDate, coDate);
       return;
     }
-    showSearchHeader(ciDate, coDate, computedNights, search);
+    // Populate quoted packages and their default selection before room rows.
+    await showSearchHeader(ciDate, coDate, computedNights, search);
+    if (!isCurrentSearch(search)) return;
     if (rep) { try { rep.show(); } catch (e) {} try { rep.expand(); } catch (e) {} }
     rep.data = availableData;
     syncSummaryButtonWithResults(availableData.length);
@@ -801,7 +803,7 @@ async function searchHandler() {
       }
     });
 
-    safeText('Found ' + availableData.length + ' result' + (availableData.length === 1 ? '' : 's') + ' for ' + res.requestedNights + ' nights.');
+    if (!search.pending) safeText('Found ' + availableData.length + ' result' + (availableData.length === 1 ? '' : 's') + ' for ' + res.requestedNights + ' nights.');
   } catch (e) { if (isCurrentSearch(search)) safeText('Error: ' + e.message); }
 }
 
@@ -843,7 +845,7 @@ function loadPackageOptions(nights, search) {
   const pkgContainer = tryFind('packageContainer');
   if (!pkgContainer) return;
 
-  getPackagesByNights(nights).then(async function (packages) {
+  return getPackagesByNights(nights).then(async function (packages) {
     if (!isCurrentSearch(search)) return;
     let availablePackages = (packages || []).map(pkg => ({ ...pkg }));
     if (!availablePackages.length) { safeText('No packages are available. Please search again.'); return; }
@@ -1127,7 +1129,7 @@ function showSearchHeader(ciDate, coDate, nights, search) {
   }
 
   if (nights > 0) {
-    loadPackageOptions(nights, search);
+    return loadPackageOptions(nights, search);
   }
 }
 
