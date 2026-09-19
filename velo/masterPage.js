@@ -8,7 +8,7 @@
 
 import { captureClickIds, initTracking, setSuspendGoogleAds, initClickAttribution, waitForClickAttribution } from 'public/tracking';
 import { getAllSettings } from 'backend/settings';
-import { consentPolicy } from 'wix-window-frontend';
+import wixWindowFrontend, { consentPolicy } from 'wix-window-frontend';
 
 // Velo's worker sandbox blocks every bridge to the page context (DOM events,
 // window.postMessage, and wix-storage's partitioned localStorage). Consent is
@@ -41,6 +41,9 @@ async function initConsentBridge() {
 
 $w.onReady(async function () {
   try {
+    // HTML-component tracking is browser-only; keep it out of Wix's SSR budget.
+    if (wixWindowFrontend.rendering.env !== 'browser') return;
+
     let settings = {};
     try { settings = await getAllSettings(); } catch (e) {}
     const suspend = String(settings.suspendGoogleAds).trim() === '1' || Number(settings.suspendGoogleAds) === 1;
@@ -52,9 +55,14 @@ $w.onReady(async function () {
 
     initTracking($w);
     initClickAttribution($w);
-    await waitForClickAttribution();
-    console.log('[WBE-MASTER] captureClickIds started');
-    const ids = captureClickIds();
+    // Do not hold onReady (or the consent observer) for the iframe handshake.
+    // Capture still follows settlement; contain both wait and capture failures.
+    Promise.resolve().then(() => waitForClickAttribution()).then(() => {
+      console.log('[WBE-MASTER] captureClickIds started');
+      return captureClickIds();
+    }).catch(err => {
+      console.error('[WBE-MASTER] error:', err && err.message || err);
+    });
 
     initConsentBridge();
   } catch (err) {
