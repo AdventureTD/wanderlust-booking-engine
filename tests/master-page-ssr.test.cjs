@@ -17,7 +17,7 @@ async function bounded(promise) {
   let timer;
   try {
     return await Promise.race([promise, new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error('onReady remained blocked by handshake')), 500);
+      timer = setTimeout(() => reject(new Error('optional initialization exceeded test deadline')), 500);
     })]);
   } finally { clearTimeout(timer); }
 }
@@ -70,7 +70,7 @@ test('pending handshake does not hold onReady or consent; capture waits for reso
   const gate = deferred();
   const f = await fixture({ wait: () => gate.promise });
   try {
-    await bounded(f.ready());
+    await bounded(f.ready()); await turn();
     assert.ok(f.calls.includes('wait'));
     assert.ok(f.calls.includes('consent'));
     assert.ok(f.calls.includes('watch'));
@@ -124,19 +124,21 @@ for (const sync of [false, true]) {
     assert.deepEqual(f.errors, []);
   });
 }
-test('browser still waits for settings before initialization', async () => {
+test('browser readiness returns immediately while initialization still waits for settings', async () => {
   const gate = deferred();
   const f = await fixture({ settings: () => gate.promise });
-  let done = false;
-  const result = f.ready().then(() => { done = true; });
+  const result = f.ready();
   try {
+    assert.equal(result, undefined, 'onReady must not return the optional initializer promise');
+    await bounded(Promise.resolve(result));
     await turn();
-    assert.equal(done, false);
-    assert.deepEqual(f.calls, ['settings']);
+    assert.deepEqual(f.calls, ['settings'], 'no suspension, tracking or consent before Settings settles');
     gate.resolve({ suspendGoogleAds: '1' });
-    await bounded(result); await turn();
+    await turn();
     assert.deepEqual(f.calls.slice(0, 5), ['settings', 'suspend', true, 'tracking', 'attribution']);
-  } finally { gate.resolve({}); await bounded(result); }
+    assert.ok(f.calls.includes('consent'));
+    assert.ok(f.calls.indexOf('wait') < f.calls.indexOf('capture'));
+  } finally { gate.resolve({}); await bounded(result); await turn(); }
 });
 for (const phase of ['wait', 'capture']) for (const sync of [false, true]) {
   test(`${phase} ${sync ? 'throw' : 'rejection'} is contained without unhandled rejection`, async () => {
@@ -164,13 +166,71 @@ test('late handshake rejection does not capture and leaves consent initialized',
   const gate = deferred();
   const f = await fixture({ wait: () => gate.promise });
   try {
-    await bounded(f.ready());
+    await bounded(f.ready()); await turn();
     assert.ok(f.calls.includes('watch'));
     gate.reject(new Error('late handshake failure'));
     await turn(); await turn();
     assert.ok(!f.calls.includes('capture'));
     assert.equal(f.errors.length, 1);
   } finally { gate.resolve(); }
+});
+
+for (const phase of ['suspend', 'tracking', 'attribution']) {
+  test(`${phase} initializer throw is caught after detached Settings settlement`, async () => {
+    const gate = deferred(), unhandled = [];
+    const listener = error => unhandled.push(error);
+    process.on('unhandledRejection', listener);
+    const failure = new Error(`${phase} init failed`);
+    try {
+      const f = await fixture({ settings: () => gate.promise, [phase]: () => { throw failure; } });
+      assert.equal(f.ready(), undefined);
+      assert.deepEqual(f.calls, ['settings']);
+      gate.resolve({});
+      await turn(); await turn();
+      assert.equal(f.errors.length, 1);
+      assert.equal(f.errors[0][1], failure.message);
+      assert.equal(f.calls.at(-1), phase, 'preserve stop-on-initializer-error behavior');
+      assert.ok(!f.calls.includes('consent'));
+      assert.deepEqual(unhandled, []);
+    } finally { gate.resolve({}); await turn(); process.removeListener('unhandledRejection', listener); }
+  });
+}
+for (const phase of ['capture', 'consent']) {
+  test(`pending ${phase} does not hold browser readiness`, async () => {
+    const gate = deferred();
+    const f = await fixture({ [phase]: () => gate.promise });
+    try {
+      assert.equal(f.ready(), undefined);
+      await bounded(Promise.resolve()); await turn();
+      assert.ok(f.calls.includes('capture'));
+      assert.ok(f.calls.includes('consent'));
+      assert.equal(f.calls.includes('watch'), phase !== 'consent');
+    } finally { gate.resolve({ policy: {} }); await turn(); }
+  });
+}
+for (const sync of [false, true]) {
+  test(`consent ${sync ? 'throw' : 'rejection'} remains observational and contained`, async () => {
+    const unhandled = [], failure = new Error('consent unavailable');
+    const listener = error => unhandled.push(error);
+    process.on('unhandledRejection', listener);
+    try {
+      const f = await fixture({ consent: () => { if (sync) throw failure; return Promise.reject(failure); } });
+      assert.equal(f.ready(), undefined);
+      await turn(); await turn();
+      assert.ok(f.calls.includes('capture'));
+      assert.ok(!f.calls.includes('watch'));
+      assert.equal(f.errors.length, 1);
+      assert.equal(f.errors[0][1], failure.message);
+      assert.deepEqual(unhandled, []);
+    } finally { process.removeListener('unhandledRejection', listener); }
+  });
+}
+test('server skips all intentionally pending optional dependencies', async () => {
+  const gate = deferred();
+  const f = await fixture({ env: 'backend', settings: () => gate.promise, wait: () => gate.promise,
+    capture: () => gate.promise, consent: () => gate.promise });
+  try { assert.equal(f.ready(), undefined); await turn(); assert.deepEqual(f.calls, []); }
+  finally { gate.resolve(); }
 });
 
 test('actual public import closure has no evaluation or SSR SDK effects', async () => {

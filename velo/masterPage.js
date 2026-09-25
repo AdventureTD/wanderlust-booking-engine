@@ -39,11 +39,19 @@ async function initConsentBridge() {
   }
 }
 
-$w.onReady(async function () {
+$w.onReady(function () {
   try {
     // HTML-component tracking is browser-only; keep it out of Wix's SSR budget.
     if (wixWindowFrontend.rendering.env !== 'browser') return;
+    // Optional Settings and tracking must not hold browser readiness.
+    void initBrowserTracking();
+  } catch (err) {
+    console.error('[WBE-MASTER] error:', err && err.message || err);
+  }
+});
 
+async function initBrowserTracking() {
+  try {
     let settings = {};
     try { settings = await getAllSettings(); } catch (e) {}
     const suspend = String(settings.suspendGoogleAds).trim() === '1' || Number(settings.suspendGoogleAds) === 1;
@@ -68,4 +76,4 @@ $w.onReady(async function () {
   } catch (err) {
     console.error('[WBE-MASTER] error:', err && err.message || err);
   }
-});
+}
