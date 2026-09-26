@@ -26,6 +26,12 @@ export async function readWC1034ProcessingStatus() {
   return readStatus(id);
 }
 
+export async function readWC1037ProcessingStatus() {
+  const id = '18818d9b-212a-43a6-9619-a29d1727644f';
+  if (arguments.length) return failure(id, 'ARGUMENTS_NOT_ALLOWED');
+  return readStatus(id);
+}
+
 function failure(requestId, failureCode, httpStatus = null) {
   return { requestId, observedAtUtc: new Date().toISOString(), httpStatus,
     projectionComplete: false, unknownReasonPresent: false, failureCode, destinations: [] };
