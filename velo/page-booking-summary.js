@@ -866,6 +866,54 @@ function renderRoomRepeater(repData) {
   safeExpand('summaryRoomsRepeater');
 }
 
+// Observe the already-started RPC only; this is not a retry or durable queue.
+// Both budgets start at the original post-invoice redirect scheduling boundary.
+function scheduleConfirmedRedirect(googleConversionPromise) {
+  const startedAt = Date.now();
+  let settled = !googleConversionPromise;
+  let minimumElapsed = false;
+  let redirected = false;
+  let diagnostic = null;
+  let timer;
+  function redirect() {
+    if (redirected) return;
+    redirected = true;
+    clearTimeout(timer);
+    if (googleConversionPromise) {
+      try {
+        console.log({ event: 'GOOGLE_ADS_BROWSER_HANDOFF', schemaVersion: 1,
+          outcome: diagnostic ? diagnostic.outcome : 'UNKNOWN',
+          reasonCode: diagnostic ? diagnostic.reasonCode : 'WAIT_CAP_EXPIRED' });
+      } catch (_) { /* Optional logging cannot prevent navigation. */ }
+    }
+    console.log('[WBE-FRONTEND] confirmed booking redirecting to home');
+    wixLocation.to('https://www.wanderlustcaribbean.com');
+  }
+  function settle(result, rejected) {
+    if (redirected) return;
+    settled = true;
+    // An expired browser wait is UNKNOWN even if a late receipt arrives.
+    if (Date.now() - startedAt < 5000) {
+      const outcome = !rejected && result &&
+        ['NOT_ATTEMPTED', 'UNKNOWN', 'INGESTION_ACKNOWLEDGED', 'EXPLICIT_REJECTION'].includes(result.outcome)
+        ? result.outcome : 'UNKNOWN';
+      diagnostic = { outcome, reasonCode: rejected ? 'RPC_REJECTED' : 'RPC_SETTLED' };
+    }
+    if (minimumElapsed) redirect();
+  }
+  if (googleConversionPromise) {
+    Promise.resolve(googleConversionPromise).then(
+      result => settle(result, false),
+      () => settle(null, true)
+    ).catch(function () { /* Contain observer errors, not the existing analytics logger. */ });
+  }
+  timer = setTimeout(function () {
+    minimumElapsed = true;
+    if (settled || Date.now() - startedAt >= 5000) redirect();
+    else timer = setTimeout(redirect, Math.max(0, 5000 - (Date.now() - startedAt)));
+  }, 2000);
+}
+
 function wireContinueButton() {
   console.log('[WBE-FRONTEND] wireContinueButton starting');
   let btn;
@@ -936,7 +984,7 @@ function wireContinueButton() {
     const bookings = [], errors = [];
 
     // Bounded optional readiness precedes the immutable cart attribution snapshot.
-    // The existing post-confirmation redirect is unchanged.
+    // The post-confirmation Google wait never delays booking persistence.
     let att = null;
     try {
       initClickAttribution($w);
@@ -1080,6 +1128,7 @@ function wireContinueButton() {
           if (safeVal('inputGuestEmail').trim() === email) completeAdsFormSubmission(adsFormSequence);
         } catch (e) { /* Optional collection never changes booking outcomes. */ }
 
+        let googleConversionPromise = null;
         // Analytics must never change confirmed booking/invoice outcomes.
         try {
         if (financialSnapshot) {
@@ -1115,8 +1164,14 @@ function wireContinueButton() {
           conversionTime: new Date().toISOString()
         };
         // Backend owns attempt/result persistence and the legacy uploaded flag.
-        // Existing redirect timing is unchanged; browser closure can still leave UNKNOWN.
-        recordBookingConversion(googlePayload)
+        // Capture exactly this invocation without moving its consent boundary.
+        try {
+          googleConversionPromise = recordBookingConversion(googlePayload);
+        } catch (conversionError) {
+          googleConversionPromise = Promise.reject(conversionError);
+          throw conversionError; // Preserve the existing analytics error logger.
+        }
+        googleConversionPromise
           .then(function (convResult) {
             if (convResult && convResult.ok) clearClickIds(att);
           })
@@ -1183,7 +1238,7 @@ function wireContinueButton() {
 
         // Start invoice creation without blocking the confirmed-booking redirect.
         // The backend request begins immediately and continues server-side while
-        // the guest sees confirmation briefly and returns home after two seconds.
+        // the page sets confirmation immediately; Google alone may extend the wait.
         safeText('bookingStatus', 'Booking confirmed! Your invoice is being emailed. Taking you home...');
         issueBookingInvoice(sharedBookingNumber, false)
           .then(function (invResult) {
@@ -1199,10 +1254,7 @@ function wireContinueButton() {
             console.error('[WBE-FRONTEND] Invoice generation failed after booking confirmation:', invoiceError && invoiceError.message || invoiceError);
           });
 
-        setTimeout(function () {
-          console.log('[WBE-FRONTEND] confirmed booking redirecting to home');
-          wixLocation.to('https://www.wanderlustcaribbean.com');
-        }, 2000);
+        scheduleConfirmedRedirect(googleConversionPromise);
       } else {
         safeText('bookingStatus', 'Booking confirmed! Taking you home...');
         wixLocation.to('https://www.wanderlustcaribbean.com');

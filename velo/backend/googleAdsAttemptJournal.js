@@ -16,7 +16,23 @@ const validId = v => typeof v === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(v);
 const hash = v => crypto.createHash('sha256').update(v, 'utf8').digest('hex');
 // Fixed 36-character native IDs; never use save/upsert to acquire a send grant.
 const key = (kind, bookingNumber) => kind + '-' + hash(PURPOSE + '\n1\n' + bookingNumber).slice(0, 32);
-const denied = reasonCode => ({ ok: false, outcome: 'NOT_ATTEMPTED', reasonCode });
+const PRE_ATTEMPT_REASONS = new Set([
+  'DISABLED_OR_SUSPENDED', 'CAPABILITY_REQUIRED', 'CAPABILITY_DENIED',
+  'INVALID_PAYLOAD', 'ADMISSION_UNAVAILABLE', 'DESTINATION_CHANGED',
+  'CAPABILITY_EXPIRED_OR_DISABLED', 'ATTEMPT_EXISTS_OR_UNAVAILABLE'
+]);
+function denied(reasonCode) {
+  const outcome = reasonCode === 'ATTEMPT_EXISTS_OR_UNAVAILABLE' ? 'UNKNOWN' : 'NOT_ATTEMPTED';
+  // Operational logs only: no subject, payload, authority or exception data.
+  // This is not durable acceptance or a retained per-booking diagnostic.
+  try {
+    if (PRE_ATTEMPT_REASONS.has(reasonCode)) console.log({
+      event: 'GOOGLE_ADS_PRE_ATTEMPT', schemaVersion: 1,
+      outcome, reasonCode
+    });
+  } catch (_) { /* Optional logging must not change admission outcomes. */ }
+  return { ok: false, outcome, reasonCode };
+}
 async function enabled() {
   try {
     const s = await getAllSettings();
@@ -177,7 +193,7 @@ export async function recordPrivateGoogleAdsAttempt(booking, buildPayload) {
     await insertVerified({ ...base, _id: attemptKey, kind: 'ATTEMPT', recordedAt: new Date(), outcome: 'UNKNOWN' });
   } catch (_) {
     // Duplicate, missing collection, lost insert ACK or readback all fail closed.
-    return { ok: false, outcome: 'UNKNOWN', reasonCode: 'ATTEMPT_EXISTS_OR_UNAVAILABLE' };
+    return denied('ATTEMPT_EXISTS_OR_UNAVAILABLE');
   }
   let response, error;
   try { response = await ingestEvent(payload); } catch (e) { error = e; }
