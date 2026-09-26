@@ -26,7 +26,8 @@ test('real ESM graph links actual .web auth export and private sanitizer; SDK IO
     async function linker(specifier) {
       if(modules.has(specifier)) return modules.get(specifier);
       let mod;
-      if(specifier==='wix-fetch') mod=synthetic({fetch:sdkFetch});
+      if(specifier==='wix-data') mod=synthetic({default:new Proxy({}, {get(){throw new Error('CMS forbidden for processing readers');}})});
+      else if(specifier==='wix-fetch') mod=synthetic({fetch:sdkFetch});
       else if(specifier==='wix-secrets-backend') mod=synthetic({getSecret:async name=>{secretNames.push(name); return 'INERT_PLACEHOLDER_NOT_A_SECRET';}});
       else if(specifier==='crypto') mod=synthetic({default:{createSign(){return {update(unsigned){claims.push(JSON.parse(Buffer.from(unsigned.split('.')[1],'base64url').toString()));return this;},sign(){return Buffer.from('INERT_SIGNATURE');}};}}});
       else {
@@ -70,8 +71,8 @@ test('known SUCCESS with warnings is not changed to FAILED or converted into suc
   assert.equal(out.destinations[0].recordCount,'1'); assert.equal(out.destinations[0].warnings.length,1);
   assert.equal('successCount' in out.destinations[0],false);
 });
-test('entry source is private and has no upload, adjustment, CMS, logging or arbitrary endpoint exports',()=>{
+test('entry remains private without upload, CMS writes, logging or arbitrary endpoint exports',()=>{
   const source=fs.readFileSync(file,'utf8');
-  assert.equal(/webMethod|Permissions|wix-data|console\.|ingestEvent|adjustBooking|events:ingest|http-functions/.test(source),false);
-  assert.deepEqual([...source.matchAll(/from '([^']+)'/g)].map(m=>m[1]),['backend/dataManagerClient.web','wix-fetch']);
+  assert.equal(/webMethod|Permissions|console\.|ingestEvent|adjustBooking|events:ingest|http-functions|wixData\.(insert|save|update|remove|bulk)/.test(source),false);
+  assert.deepEqual([...source.matchAll(/from '([^']+)'/g)].map(m=>m[1]),['backend/dataManagerClient.web','wix-fetch','wix-data']);
 });

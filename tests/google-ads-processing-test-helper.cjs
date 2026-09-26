@@ -25,6 +25,7 @@ async function load(options = {}) {
   const source = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '';
   const module = new vm.SourceTextModule(source, {context, identifier: file});
   await module.link(async specifier => {
+    if (specifier === 'wix-data') return synthetic({default: new Proxy({}, {get(){throw new Error('CMS forbidden for processing readers');}})});
     if (specifier === 'wix-fetch') return synthetic({fetch});
     if (specifier === 'backend/dataManagerClient.web') return synthetic({getAccessToken: auth});
     throw new Error('Unexpected runtime import: ' + specifier);

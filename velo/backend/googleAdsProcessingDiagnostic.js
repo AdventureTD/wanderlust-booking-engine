@@ -2,6 +2,74 @@
 // Run only the named function tester. No event send, retry, or journal write.
 import { getAccessToken } from 'backend/dataManagerClient.web';
 import { fetch } from 'wix-fetch';
+import wixData from 'wix-data';
+
+// Current CMS observations only: not event-time consent, admission or resend authority.
+// Private .js export for the owner tester; never add a web/public wrapper.
+export async function readWC1038AttributionDiagnostic() {
+  const base = { bookingNumber: 'WC-1038', observedAtUtc: new Date().toISOString(),
+    projectionComplete: false, failureCode: null, summary: null, journal: null };
+  const fail = code => ({ ...base, failureCode: code });
+  if (arguments.length) return fail('ARGUMENTS_NOT_ALLOWED');
+  let stopped = false, timer;
+  const end = Date.now() + DEADLINE_MS;
+  const expired = () => stopped || Date.now() >= end;
+  const work = async () => {
+    try {
+      const read = async (collection, limit) => {
+        if (expired()) throw new Error('TIMEOUT');
+        const result = await wixData.query(collection).eq('bookingNumber', 'WC-1038').limit(limit)
+          .find({ suppressAuth: true, suppressHooks: true, consistentRead: true });
+        if (expired()) throw new Error('TIMEOUT');
+        // Native Wix SDK items/hasNext may be inherited accessors.
+        const items = result.items;
+        if (!Array.isArray(items) || items.length > limit || typeof result.hasNext !== 'function' ||
+            result.hasNext() !== false) throw new Error('INCOMPLETE_READ');
+        if (items.some(row => !row || field(row, 'bookingNumber') !== 'WC-1038')) throw new Error('SUBJECT_MISMATCH');
+        return items;
+      };
+      const summaries = await read('BookingSummary', 2);
+      if (summaries.length !== 1) return fail(summaries.length ? 'SUMMARY_AMBIGUOUS' : 'SUMMARY_NOT_FOUND');
+      const rows = await read('GoogleAdsAttemptJournal', 100);
+      const s = summaries[0];
+      const bool = key => typeof field(s, key) === 'boolean' ? field(s, key) : null;
+      const numeric = key => typeof field(s, key) === 'number' && Number.isFinite(field(s, key)) ? field(s, key) : null;
+      const presence = {};
+      for (const key of ['gclid', 'gbraid', 'wbraid', 'guestEmail', 'guestPhone', 'invoiceCapabilityHash',
+        'googleRequestId', 'lastError', 'consentCaptured', 'grandTotal', 'currency']) {
+        presence[key] = Object.prototype.hasOwnProperty.call(s, key);
+      }
+      const counts = { AUTH: 0, ATTEMPT: 0, RESULT: 0, OTHER: 0 };
+      const entries = rows.map(row => {
+        const kind = ['AUTH', 'ATTEMPT', 'RESULT'].includes(field(row, 'kind')) ? field(row, 'kind') : 'OTHER';
+        counts[kind]++;
+        const id = field(row, 'requestId');
+        const outcome = field(row, 'outcome');
+        const status = field(row, 'statusCode');
+        return { kind,
+          outcome: ['UNKNOWN', 'NOT_ATTEMPTED', 'EXPLICIT_REJECTION', 'INGESTION_ACKNOWLEDGED'].includes(outcome) ? outcome : null,
+          statusCode: Number.isInteger(status) && status >= 100 && status <= 599 ? status : null,
+          requestIdPresent: typeof id === 'string' && id.length > 0,
+          requestId: typeof id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id : null,
+          commercialAuthority: field(row, 'commercialAuthority') === 'UNVERIFIED' ? 'UNVERIFIED' : null };
+      });
+      return { ...base, projectionComplete: true,
+        summary: { status: ['confirmed', 'cancelled', 'pending'].includes(field(s, 'status')) ? field(s, 'status') : null,
+          googleConversionUploaded: bool('googleConversionUploaded'), consentCaptured: bool('consentCaptured'),
+          grandTotal: numeric('grandTotal'), currency: field(s, 'currency') === 'USD' ? 'USD' : null,
+          fieldPresence: presence },
+        journal: { total: rows.length, counts, entries } };
+    } catch (_) { return fail(expired() ? 'TIMEOUT' : 'CMS_READ_UNAVAILABLE'); }
+  };
+  const timeout = new Promise(resolve => {
+    timer = setTimeout(() => { stopped = true; resolve(fail('TIMEOUT')); }, DEADLINE_MS);
+  });
+  try { return await Promise.race([work(), timeout]); }
+  finally { stopped = true; clearTimeout(timer); }
+}
+
+// Never invoke stored getters or serialize CMS objects/capability JSON.
+function field(row, key) { return Object.getOwnPropertyDescriptor(row, key)?.value; }
 
 const DEADLINE_MS = 15000;
 const INPUT_BYTES = 65536;
