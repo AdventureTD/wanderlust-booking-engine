@@ -19,7 +19,7 @@
  *    - WBE_CALENDAR_SECRET = <a secret passphrase you'll share with me>
  */
 
-var CALENDAR_SECRET = 'DominicaBooking';
+var CALENDAR_SECRET = PropertiesService.getScriptProperties().getProperty('WBE_CALENDAR_SECRET');
 
 // Parse an ISO calendar date as local midnight. JavaScript treats
 // new Date('YYYY-MM-DD') as UTC, which shifts it to the previous day in
@@ -48,10 +48,11 @@ function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
 
-    if (data.secret !== CALENDAR_SECRET) {
+    if (!CALENDAR_SECRET || data.secret !== CALENDAR_SECRET) {
       return jsonResponse({status: 'error', message: 'Unauthorized'});
     }
 
+    if (data.bookingNumber || data.action) return jsonResponse(bookingCalendarAction(data));
     var calendar = CalendarApp.getDefaultCalendar();
 
     var startDate = parseLocalCalendarDate(data.startDate);
@@ -72,6 +73,49 @@ function doPost(e) {
   } catch (err) {
     return jsonResponse({status: 'error', message: err.toString()});
   }
+}
+
+// Script properties retain one booking-bound event identity. Never search/delete by name.
+function bookingCalendarAction(data) {
+  if (!/^WC-[0-9]+$/.test(data.bookingNumber || '') || (data.action && data.action !== 'cancel')) return {status: 'INVALID_REQUEST'};
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) return {status: 'PENDING'};
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var key = 'booking:' + data.bookingNumber;
+    var raw = props.getProperty(key);
+    var record = raw ? JSON.parse(raw) : null;
+    var calendar = CalendarApp.getDefaultCalendar();
+    if (data.action === 'cancel') {
+      if (!record) {
+        props.setProperty(key, JSON.stringify({state: 'CANCELLED_UNBOUND'}));
+        return {status: 'NEEDS_RECONCILIATION'};
+      }
+      if (!record || !record.eventId || record.calendarId !== calendar.getId()) return {status: 'NEEDS_RECONCILIATION'};
+      var existing = calendar.getEventById(record.eventId);
+      if (!existing || existing.getTag('wbeBooking') !== data.bookingNumber) return {status: 'NEEDS_RECONCILIATION'};
+      var title = 'CANCELLED — ' + record.title;
+      if (existing.getTitle() !== title) existing.setTitle(title);
+      if (calendar.getEventById(record.eventId).getTitle() !== title) return {status: 'UNKNOWN'};
+      record.state = 'CANCELLED';
+      props.setProperty(key, JSON.stringify(record));
+      return {status: 'CANCELLED', bookingNumber: data.bookingNumber, eventId: record.eventId};
+    }
+    if (record) {
+      if (record.state !== 'CREATED' || record.startDate !== data.startDate || record.endDate !== data.endDate || record.title !== data.summary) return {status: 'NEEDS_RECONCILIATION'};
+      return {status: 'created', bookingNumber: data.bookingNumber, eventId: record.eventId};
+    }
+    var start = parseLocalCalendarDate(data.startDate), end = parseLocalCalendarDate(data.endDate);
+    if (end <= start || typeof data.summary !== 'string' || data.summary.length > 500) return {status: 'INVALID_REQUEST'};
+    record = {state: 'STARTED', calendarId: calendar.getId(), title: data.summary, startDate: data.startDate, endDate: data.endDate};
+    props.setProperty(key, JSON.stringify(record));
+    var event = calendar.createAllDayEvent(data.summary, start, end, {description: data.description || ''});
+    event.setTag('wbeBooking', data.bookingNumber);
+    record.eventId = event.getId(); record.state = 'CREATED';
+    props.setProperty(key, JSON.stringify(record));
+    return {status: 'created', bookingNumber: data.bookingNumber, eventId: record.eventId};
+  } catch (_) { return {status: 'UNKNOWN'}; }
+  finally { lock.releaseLock(); }
 }
 
 function jsonResponse(obj) {

@@ -12,6 +12,9 @@ import {
 } from 'backend/adminConsole.web';
 
 let _currentBooking = null;
+let _detailRevision = 0;
+let _cancelBusy = false;
+let _cancelConfirmation = null;
 let _currentRooms = [];
 let _currentPayments = [];
 let _currentTotals = null;
@@ -156,7 +159,7 @@ function wireBookingsRepeater() {
 function wireDetailPanel() {
   const closeBtn = tryFind('btnCloseDetail');
   if (closeBtn && typeof closeBtn.onClick === 'function') {
-    closeBtn.onClick(function () { hide('detailPanel'); });
+    closeBtn.onClick(function () { ++_detailRevision; _currentBooking = null; _currentRooms = []; _cancelConfirmation = null; const button = tryFind('btnCancelBooking'); if (button) button.disable(); hide('detailPanel'); });
   }
   const saveBtn = tryFind('btnSaveChanges');
   if (saveBtn && typeof saveBtn.onClick === 'function') saveBtn.onClick(saveChanges);
@@ -234,21 +237,36 @@ function setButtonActive(id, active) {
 }
 
 async function openDetail(bookingNumber) {
+  const revision = ++_detailRevision;
+  _currentBooking = null;
+  _currentRooms = [];
+  _cancelConfirmation = null;
+  const cancelButton = tryFind('btnCancelBooking');
+  if (cancelButton) cancelButton.disable();
   txt('detailStatusText', 'Loading ' + bookingNumber + '...');
   switchTab('details');
   show('detailPanel');
   try {
     const res = await adminGetBooking(bookingNumber);
+    if (revision !== _detailRevision) return;
     if (!res.ok) { txt('detailStatusText', 'Error: ' + (res.error || 'unknown')); return; }
     _currentBooking = res.summary;
+    const cancellation = res.cancellation;
+    const resume = /^(cancelled|canceled)$/i.test(String(res.summary.status || '').trim());
+    if (cancelButton) cancelButton.label = resume ? 'Resume / Reconcile Cancellation' : 'Cancel Booking';
+    txt('cancelStatusText', cancellation ? bookingNumber + ': reservation ' + cancellation.reservation +
+      '. External effects: ' + Object.keys(cancellation.effects || {}).map(k => k + '=' + cancellation.effects[k]).join('; ') +
+      (cancellation.complete ? '. Complete.' : cancellation.coreComplete ? '. Core complete; Google reconciliation remains required.' : '. Reconciliation remains required.') : '');
     _currentRooms = res.rooms || [];
     _currentPayments = res.payments || [];
     _currentInvoices = res.invoices || [];
     _currentActiveInvoice = res.activeInvoice || null;
     _currentTotals = res.totals || null;
     renderDetail();
-    txt('detailStatusText', '');
+    if (cancelButton && !_cancelBusy && _currentRooms.length) cancelButton.enable();
+    txt('detailStatusText', _currentRooms.length ? _currentRooms.map(r => r._id + ': ' + r.roomCode + ' x' + r.quantity + ' — ' + r.status).join('\n') : 'No room rows: cancellation is blocked.');
   } catch (e) {
+    if (revision !== _detailRevision) return;
     txt('detailStatusText', 'Error: ' + (e && e.message || e));
   }
 }
@@ -319,6 +337,8 @@ function renderDetail() {
   setVal('inputGuestPhone', s.guestPhone || '');
   setVal('inputRoomsNum', String(s.roomCount || _currentRooms.length || 0));
   setVal('inputStatusDropdown', s.status || 'confirmed');
+  const statusInput = tryFind('inputStatusDropdown');
+  if (statusInput) statusInput.disable();
   setVal('inputGclid', s.gclid || '');
   setVal('inputGbraid', s.gbraid || '');
   setVal('inputWbraid', s.wbraid || '');
@@ -424,11 +444,11 @@ function renderDetail() {
 
   // Payments tab
   const t = _currentTotals || { grandTotal: 0, totalPaid: 0, totalRefunded: 0, balance: 0 };
-  txt('invoiceTotalText', money(t.grandTotal));
+  txt('invoiceTotalText', money(t.grandTotal) + (_currentBooking.cancellationSettlement === 'FULL_NO_FEE' ? ' (historical invoice)' : ''));
   txt('totalPaidText', money(t.totalPaid));
   txt('totalRefundedText', money(t.totalRefunded));
   txt('balanceText', money(t.balance));
-  txt('remBalance', money(t.grandTotal - t.totalPaid + t.totalRefunded));
+  txt('remBalance', money(t.balance));
 
   wirePaymentSave();
 
@@ -457,7 +477,7 @@ async function saveChanges() {
       checkIn: val('dateCheckIn') ? new Date(val('dateCheckIn')) : undefined,
       checkOut: val('dateCheckOut') ? new Date(val('dateCheckOut')) : undefined,
       roomCount: Number(val('inputRoomsNum')) || undefined,
-      status: val('inputStatusDropdown') || undefined,
+      // Cancellation owns status; ordinary edits never carry a stale status.
       gclid: String(val('inputGclid') || ''),
       gbraid: String(val('inputGbraid') || ''),
       wbraid: String(val('inputWbraid') || ''),
@@ -536,25 +556,40 @@ async function newInvoice() {
 }
 
 async function cancelBooking() {
-  if (!_currentBooking) return;
+  if (!_currentBooking || _cancelBusy || !_currentRooms.length) return;
+  const target = _currentBooking.bookingNumber;
+  const revision = _detailRevision;
   const reason = String(val('inputCancelReason') || '');
-  txt('cancelStatusText', 'Cancelling...');
+  const confirmation = target + ':' + revision + ':' + reason;
+  if (_cancelConfirmation !== confirmation) {
+    _cancelConfirmation = confirmation;
+    txt('cancelStatusText', (/^(cancelled|canceled)$/i.test(String(_currentBooking.status || '').trim()) ?
+      'Confirm resume/reconcile. Unknown email/Ads/GA4 attempts are never resent. Full cancellation with NO FEE for ' :
+      'Confirm full cancellation with NO FEE for ') + target + ' (' +
+      (_currentBooking.guestName || '') + ', ' + dstr(_currentBooking.checkIn) + ' to ' + dstr(_currentBooking.checkOut) +
+      '). Review the room rows, then click Cancel Booking again. Payments and historical invoices are preserved.');
+    return;
+  }
+  _cancelConfirmation = null;
+  _cancelBusy = true;
+  const button = tryFind('btnCancelBooking');
+  if (button) button.disable();
+  txt('cancelStatusText', 'Cancelling ' + target + '...');
   try {
-    const res = await adminCancelBooking(_currentBooking.bookingNumber, reason);
-    if (!res.ok) { txt('cancelStatusText', 'Error: ' + (res.error || 'unknown')); return; }
-    let msg = 'Cancelled.';
-    if (res.adsRetraction && res.adsRetraction.attempted) {
-      msg += res.adsRetraction.result && res.adsRetraction.result.ok
-        ? ' Google Ads conversion retracted.'
-        : ' Google Ads retraction FAILED: ' + JSON.stringify(res.adsRetraction.result || {});
-    }
-    if (res.email && res.email.attempted) {
-      msg += res.email.ok ? ' Cancellation email sent.' : ' Email FAILED: ' + (res.email.error || res.email.status);
-    }
-    txt('cancelStatusText', msg);
-    await openDetail(_currentBooking.bookingNumber);
+    const res = await adminCancelBooking(target, reason);
+    if (revision !== _detailRevision) return;
+    if (!res.ok) { txt('cancelStatusText', 'Cancellation unresolved: ' + (res.error || 'read status before retrying')); return; }
+    txt('cancelStatusText', target + ': reservation ' + res.reservation +
+      '. External effects: ' + Object.keys(res.effects || {}).map(k => k + '=' + res.effects[k]).join('; ') +
+      (res.complete ? '. Complete.' : '. Reconciliation remains required.'));
+    _cancelBusy = false;
+    await openDetail(target);
     refreshList();
   } catch (e) {
-    txt('cancelStatusText', 'Error: ' + (e && e.message || e));
+    if (revision !== _detailRevision) return;
+    txt('cancelStatusText', target + ': outcome unresolved. Reopen this booking to read status; do not send manually.');
+  } finally {
+    _cancelBusy = false;
+    if (button && _currentBooking && _currentRooms.length) button.enable();
   }
 }

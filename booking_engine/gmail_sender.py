@@ -72,7 +72,33 @@ def build_invoice_email(to_email: str, guest_name: str, invoice_number: str,
     return msg
 
 
-def _gmail_service():
+class _CancellationHttp:
+    """Single-attempt Gmail transport; no httplib2 or auth-response replay."""
+    def __init__(self, credentials):
+        import requests
+        self.credentials = credentials
+        self.session = requests.Session()
+        self.session.trust_env = False
+        self.session.mount('https://', requests.adapters.HTTPAdapter(max_retries=0))
+
+    def request(self, uri, method='GET', body=None, headers=None, **kwargs):
+        from google.auth.transport.requests import Request
+        import httplib2
+        headers = dict(headers or {})
+        # Refresh, if necessary, BEFORE Gmail POST. Never refresh/replay on 401.
+        self.credentials.before_request(Request(session=self.session), method, uri, headers)
+        response = self.session.request(method, uri, data=body, headers=headers,
+                                       timeout=(10, 30), allow_redirects=False)
+        try:
+            return httplib2.Response(dict(response.headers, status=str(response.status_code))), response.content
+        finally:
+            response.close()
+
+    def close(self):
+        self.session.close()
+
+
+def _gmail_service(cancellation=False):
     """Build an authorized Gmail API client from the stored token."""
     from google.oauth2.credentials import Credentials
     from google.auth.transport.requests import Request
@@ -83,7 +109,8 @@ def _gmail_service():
             f"Gmail token not found at {GMAIL_TOKEN_PATH}. Run the Gmail "
             "authorization step first (see INVOICING_EMAIL.md)."
         )
-    tok = json.load(open(GMAIL_TOKEN_PATH))
+    with open(GMAIL_TOKEN_PATH) as token_file:
+        tok = json.load(token_file)
     creds = Credentials(
         token=tok.get("token"), refresh_token=tok.get("refresh_token"),
         token_uri=tok.get("token_uri", "https://oauth2.googleapis.com/token"),
@@ -95,6 +122,8 @@ def _gmail_service():
         tok["token"] = creds.token
         with open(GMAIL_TOKEN_PATH, "w") as fh:
             json.dump(tok, fh, indent=2)
+    if cancellation:
+        return build("gmail", "v1", http=_CancellationHttp(creds), static_discovery=True)
     return build("gmail", "v1", credentials=creds)
 
 
@@ -136,9 +165,11 @@ def send_cancellation_email(to_email: str, guest_name: str, booking_number: str,
     msg = build_cancellation_email(to_email, guest_name, booking_number,
                                    check_in, check_out, rooms_desc, reason)
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
-    service = _gmail_service()
+    service = _gmail_service(cancellation=True)
     sent = service.users().messages().send(
-        userId="me", body={"raw": raw}).execute()
+        userId="me", body={"raw": raw}).execute(num_retries=0)
+    if not isinstance(sent, dict) or not isinstance(sent.get("id"), str) or not sent["id"]:
+        raise RuntimeError("Cancellation send receipt missing; reconcile before retry")
     return {"gmail_message_id": sent.get("id"),
             "to": to_email, "cc": BCC_COPY,
             "booking_number": booking_number}

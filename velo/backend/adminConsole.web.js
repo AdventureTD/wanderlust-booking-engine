@@ -1,11 +1,13 @@
 import wixData from 'wix-data';
+import { items } from '@wix/data';
+import { cancelReservation, cancellationRows, isCancelled, assertCancellationWriteAllowed, reservationCancellationVerified } from 'backend/bookingCancellation';
 import { Permissions, webMethod } from 'wix-web-module';
-import { getSecret } from 'wix-secrets-backend';
-import { fetch } from 'wix-fetch';
+import { cancellationEffects, readCancellationEffects } from 'backend/cancellationEffects';
+
 import { currentUser } from 'wix-users-backend';
 import { searchAvailability } from 'backend/search.web';
 import { issueBookingInvoice } from 'backend/availability.web';
-import { adjustBookingConversion, isGoogleAdsSuspended } from 'backend/googleAdsConversions.web';
+
 
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
@@ -165,37 +167,34 @@ export const adminGetBooking = webMethod(
   Permissions.Admin,
   async (bookingNumber) => {
     await requireAdmin();
-    const sRes = await wixData.query(BOOKING_SUMMARIES)
-      .eq('bookingNumber', bookingNumber).limit(1).find();
-    if (!sRes.items.length) return { ok: false, error: 'BookingSummary not found' };
-    const summary = sRes.items[0];
-
-    const bRes = await wixData.query(BOOKINGS)
-      .eq('bookingNumber', bookingNumber).limit(50).find();
-
-    const pRes = await wixData.query(BOOKING_PAYMENTS)
-      .eq('bookingNumber', bookingNumber).limit(200).find();
-
-    const iRes = await wixData.query(BOOKING_INVOICES)
-      .eq('bookingNumber', bookingNumber)
-      .descending('_createdDate')
-      .limit(200)
-      .find();
-    const invoices = iRes.items;
+    const summaries = await cancellationRows(BOOKING_SUMMARIES, bookingNumber);
+    if (summaries.length !== 1) return { ok: false, error: 'Exactly one BookingSummary required' };
+    const summary = summaries[0];
+    const bRes = { items: await cancellationRows(BOOKINGS, bookingNumber) };
+    const pRes = { items: await cancellationRows(BOOKING_PAYMENTS, bookingNumber) };
+    const invoices = (await cancellationRows(BOOKING_INVOICES, bookingNumber)).sort((a,b) => new Date(b._createdDate || 0) - new Date(a._createdDate || 0));
     const activeInvoice = invoices.find(function (i) { return i.status === 'Active'; }) || invoices[0] || null;
 
     const payments = pRes.items.map(paymentDto);
     return {
       ok: true,
+      cancellation: cancellationProjection(await reservationCancellationVerified(summary,bRes.items) ? 'CANCELLED' : 'NOT_VERIFIED', await readCancellationEffects(summary)),
       summary: summary,
       rooms: bRes.items,
       payments: payments,
       invoices: invoices,
       activeInvoice: activeInvoice,
-      totals: computeTotals(activeInvoice || summary, payments),
+      totals: computeTotals(activeInvoice || summary, payments, summary),
     };
   }
 );
+
+function cancellationProjection(reservation, effects) {
+  const coreComplete = reservation === 'CANCELLED' && effects.email === 'ACKNOWLEDGED' && effects.calendar === 'CANCELLED';
+  // GA4 transport receipt is deliberately not processing confirmation.
+  const complete = coreComplete && effects.ads === 'ACKNOWLEDGED' && effects.ga4 === 'ACKNOWLEDGED';
+  return {reservation, coreComplete, complete, effects};
+}
 
 function paymentDto(p) {
   return {
@@ -209,7 +208,7 @@ function paymentDto(p) {
   };
 }
 
-function computeTotals(invoiceOrSummary, payments) {
+function computeTotals(invoiceOrSummary, payments, summary) {
   const grand = money(invoiceOrSummary && (invoiceOrSummary.grandTotal || invoiceOrSummary.totalInvoice));
   let paid = 0, refunded = 0;
   payments.forEach(function (p) {
@@ -220,11 +219,21 @@ function computeTotals(invoiceOrSummary, payments) {
     grandTotal: grand,
     totalPaid: money(paid),
     totalRefunded: money(refunded),
-    balance: money(grand - paid + refunded),
+    balance: summary && isCancelled(summary.status) && summary.cancellationSettlement === 'FULL_NO_FEE' ? 0 : money(grand - paid + refunded),
   };
 }
 
 // ---------- UPDATE ----------
+
+// Server-side field patch preserves cancellation-owned status/settlement fields.
+// No read/merge/update fallback: that would restore the stale-writer race.
+async function patchAdminFields(collection, id, fields) {
+  const keys = Object.keys(fields);
+  if (!keys.length) return;
+  let patch = items.patch(collection,id);
+  for (const key of keys) patch = patch.setField(key,fields[key]);
+  await patch.run();
+}
 
 export const adminUpdateBooking = webMethod(
   Permissions.Admin,
@@ -232,6 +241,7 @@ export const adminUpdateBooking = webMethod(
     await requireAdmin();
     if (!bookingNumber) throw new Error('bookingNumber required');
     const ch = changes || {};
+    if (ch.status !== undefined) throw new Error('Status changes require the dedicated cancellation workflow; reactivation is not supported');
 
     const sRes = await wixData.query(BOOKING_SUMMARIES)
       .eq('bookingNumber', bookingNumber).limit(1).find();
@@ -279,22 +289,23 @@ export const adminUpdateBooking = webMethod(
 
     // Apply to Bookings rows (no financial fields).
     for (const r of rooms) {
-      const updated = Object.assign({}, r);
+      const updated = {};
       if (ch.guestName !== undefined) updated.guestName = ch.guestName;
       if (ch.guestEmail !== undefined) updated.guestEmail = ch.guestEmail;
       if (ch.guestPhone !== undefined) updated.guestPhone = ch.guestPhone;
       if (ch.numGuests !== undefined) updated.guests = Number(ch.numGuests) || r.guests;
-      if (ch.status !== undefined) updated.status = ch.status;
+
       if (datesChanged) { updated.checkIn = newCi instanceof Date ? newCi : new Date(newCi); updated.checkOut = newCo instanceof Date ? newCo : new Date(newCo); }
-      await wixData.update(BOOKINGS, updated);
+      await assertCancellationWriteAllowed(bookingNumber);
+      await patchAdminFields(BOOKINGS, r._id, updated);
     }
 
     // Apply to BookingSummary (no financial fields).
-    const sUpd = Object.assign({}, summary);
+    const sUpd = {};
     if (ch.guestName !== undefined) sUpd.guestName = ch.guestName;
     if (ch.guestEmail !== undefined) sUpd.guestEmail = ch.guestEmail;
     if (ch.guestPhone !== undefined) sUpd.guestPhone = ch.guestPhone;
-    if (ch.status !== undefined) sUpd.status = ch.status;
+
     if (ch.notes !== undefined) sUpd.notes = ch.notes;
     if (ch.gclid !== undefined) sUpd.gclid = ch.gclid;
     if (ch.gbraid !== undefined) sUpd.gbraid = ch.gbraid;
@@ -302,7 +313,8 @@ export const adminUpdateBooking = webMethod(
     if (ch.googleConversionUploaded !== undefined) sUpd.googleConversionUploaded = ch.googleConversionUploaded;
     if (ch.googleConversionRetracted !== undefined) sUpd.googleConversionRetracted = ch.googleConversionRetracted;
     if (datesChanged) { sUpd.checkIn = newCi instanceof Date ? newCi : new Date(newCi); sUpd.checkOut = newCo instanceof Date ? newCo : new Date(newCo); }
-    await wixData.update(BOOKING_SUMMARIES, sUpd);
+    await assertCancellationWriteAllowed(bookingNumber);
+    await patchAdminFields(BOOKING_SUMMARIES, summary._id, sUpd);
 
     // Apply financial changes to the active/draft BookingInvoices record.
     if (invoice) {
@@ -315,7 +327,8 @@ export const adminUpdateBooking = webMethod(
       if (ch.promoCode !== undefined) invUpd.promoCode = ch.promoCode;
       if (ch.promoDiscountAmount !== undefined) invUpd.promoDiscountAmount = money(ch.promoDiscountAmount);
       if (datesChanged) { invUpd.checkIn = new Date(newCi); invUpd.checkOut = new Date(newCo); }
-      await wixData.update(BOOKING_INVOICES, invUpd);
+      await assertCancellationWriteAllowed(invoice.bookingNumber);
+    await wixData.update(BOOKING_INVOICES, invUpd);
     }
 
     // Generate new invoice when material details changed.
@@ -358,6 +371,7 @@ export const adminUpdateInvoice = webMethod(
     if (ch.promoCode !== undefined) invUpd.promoCode = String(ch.promoCode || '');
     if (ch.promoDiscountAmount !== undefined) invUpd.promoDiscountAmount = money(ch.promoDiscountAmount);
 
+    await assertCancellationWriteAllowed(invoice.bookingNumber);
     await wixData.update(BOOKING_INVOICES, invUpd);
     return { ok: true, invoiceId: invoiceId };
   }
@@ -383,6 +397,7 @@ export const adminIssueNewInvoice = webMethod(
   async (bookingNumber) => {
     await requireAdmin();
     if (!bookingNumber) throw new Error('bookingNumber required');
+    await assertCancellationWriteAllowed(bookingNumber);
     const result = await issueBookingInvoice(bookingNumber, true);
     return { ok: true, bookingNumber: bookingNumber, invoiceNumber: result.invoice_number, invoiceUrl: result.invoice_url };
   }
@@ -394,99 +409,11 @@ export const adminCancelBooking = webMethod(
   Permissions.Admin,
   async (bookingNumber, reason) => {
     await requireAdmin();
-    if (!bookingNumber) throw new Error('bookingNumber required');
-
-    const sRes = await wixData.query(BOOKING_SUMMARIES)
-      .eq('bookingNumber', bookingNumber).limit(1).find();
-    if (!sRes.items.length) return { ok: false, error: 'BookingSummary not found' };
-    const summary = sRes.items[0];
-
-    if (String(summary.status || '').toLowerCase() === 'cancelled') {
-      return { ok: false, error: 'Already cancelled' };
-    }
-
-    const bRes = await wixData.query(BOOKINGS)
-      .eq('bookingNumber', bookingNumber).limit(50).find();
-
-    // 1. Free the room nights immediately
-    for (const r of bRes.items) {
-      const updated = Object.assign({}, r, { status: 'Cancelled' });
-      await wixData.update(BOOKINGS, updated);
-    }
-
-    // 2. Google Ads retraction (if conversion was uploaded and not yet retracted)
-    let adsRetraction = { attempted: false };
-    if (summary.googleConversionUploaded && !summary.googleConversionRetracted) {
-      // No supported adjustment route is implemented; cancellation still proceeds.
-      let result;
-      if (await isGoogleAdsSuspended()) {
-        console.log('[WBE-ADMIN] skipping Google Ads retraction — suspendGoogleAds is enabled');
-        result = { ok: false, suspended: true, outcome: 'NOT_ATTEMPTED', reasonCode: 'SUSPENDED' };
-      } else {
-        result = await adjustBookingConversion({
-          transactionId: bookingNumber,
-          gclid: summary.gclid || '',
-          gbraid: summary.gbraid || '',
-          wbraid: summary.wbraid || '',
-          adjustmentType: 'RETRACTION',
-          newValue: 0,
-          currency: 'USD',
-          email: summary.guestEmail || '',
-          phone: summary.guestPhone || '',
-          originalEvent: { conversionTime: summary.bookingDate || new Date().toISOString() },
-        });
-      }
-      adsRetraction.result = result;
-      // Neither ingestion acknowledgment nor suspension proves a retraction.
-      // Preserve the existing flag until a supported adjustment is implemented.
-    }
-
-    // 3. Update BookingSummary status and append cancellation note
-    summary.status = 'Cancelled';
-    const today = new Date().toISOString().slice(0, 10);
-    const cancelNote = 'Cancellation on ' + today + (reason ? ': ' + reason : '.');
-    summary.notes = (summary.notes || '') + (summary.notes ? '\n' : '') + cancelNote;
-    await wixData.update(BOOKING_SUMMARIES, summary);
-
-    // 4. Cancellation email via invoice service
-    let emailResult = { attempted: false };
-    if (summary.guestEmail) {
-      emailResult.attempted = true;
-      try {
-        const serviceUrl = await getSecret(INVOICE_SERVICE_URL_KEY);
-        const secret = await getSecret(SHARED_SECRET_KEY);
-        const roomsDesc = bRes.items.map(function (r) {
-          return (r.roomCode || 'room') + ' x' + (r.quantity || 1);
-        }).join(', ');
-        const res = await fetch(serviceUrl + '/send-cancellation-email', {
-          method: 'post',
-          headers: { 'Content-Type': 'application/json', 'X-WBE-Secret': secret },
-          body: JSON.stringify({
-            guest_name: summary.guestName || 'Guest',
-            guest_email: summary.guestEmail,
-            owner_email: 'info@wanderlustcaribbean.com',
-            booking_number: bookingNumber,
-            check_in: isoDate(summary.checkIn),
-            check_out: isoDate(summary.checkOut),
-            rooms_desc: roomsDesc,
-            reason: reason || '',
-          }),
-        });
-        emailResult.ok = res.ok;
-        emailResult.status = res.status;
-        if (!res.ok) emailResult.error = await res.text();
-      } catch (e) {
-        emailResult.ok = false;
-        emailResult.error = String(e && e.message || e);
-      }
-    }
-
-    return {
-      ok: true,
-      bookingNumber: bookingNumber,
-      adsRetraction: adsRetraction,
-      email: emailResult,
-    };
+    if (typeof bookingNumber !== 'string' || !bookingNumber || bookingNumber.length > 100 ||
+        (reason !== undefined && (typeof reason !== 'string' || reason.length > 2000))) throw new Error('Invalid cancellation input');
+    const context = await cancelReservation(bookingNumber, reason);
+    const effects = await cancellationEffects(context);
+    return { ok: true, bookingNumber, ...cancellationProjection('CANCELLED', effects) };
   }
 );
 

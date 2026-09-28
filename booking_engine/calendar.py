@@ -6,6 +6,7 @@ Uses the same shared-secret pattern as the invoice service.
 """
 
 import json
+import re
 import os
 import urllib.request
 
@@ -13,7 +14,28 @@ CALENDAR_WEB_APP_URL = os.environ.get("WBE_CALENDAR_WEB_APP_URL", "")
 CALENDAR_SECRET = os.environ.get("WBE_CALENDAR_SECRET", "")
 
 
-def create_calendar_event(guest_name: str, check_in: str, check_out: str) -> dict:
+def reconcile_calendar_cancellation(booking_number: str) -> dict:
+    if not re.fullmatch(r"WC-[0-9]+", booking_number):
+        return {"status": "INVALID_REQUEST"}
+    if not CALENDAR_SECRET or not CALENDAR_WEB_APP_URL.startswith("https://script.google.com/macros/s/"):
+        return {"status": "UNSENT_CONFIGURATION"}
+    payload = {"action": "cancel", "bookingNumber": booking_number, "secret": CALENDAR_SECRET}
+    req = urllib.request.Request(CALENDAR_WEB_APP_URL, data=json.dumps(payload).encode(),
+                                 headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as response:
+            raw = response.read(16385)
+        if len(raw) > 16384:
+            return {"status": "UNKNOWN"}
+        result = json.loads(raw)
+        if result.get("status") == "CANCELLED" and result.get("bookingNumber") == booking_number and isinstance(result.get("eventId"), str) and result["eventId"]:
+            return {"status": "CANCELLED", "booking_number": booking_number, "event_id": result["eventId"]}
+        return {"status": "NEEDS_RECONCILIATION" if result.get("status") == "NEEDS_RECONCILIATION" else "UNKNOWN"}
+    except Exception:
+        return {"status": "UNKNOWN"}
+
+
+def create_calendar_event(guest_name: str, check_in: str, check_out: str, booking_number: str | None = None) -> dict:
     """
     Create an all-day Google Calendar event from check-in to check-out.
 
@@ -44,6 +66,8 @@ def create_calendar_event(guest_name: str, check_in: str, check_out: str) -> dic
         "startDate": check_in,
         "endDate": check_out,
     }
+    if booking_number:
+        payload["bookingNumber"] = booking_number
     _diag["payload_sent"] = {k: v for k, v in payload.items() if k != "secret"}
     _diag["payload_secret_present"] = bool(payload.get("secret"))
 

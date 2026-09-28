@@ -23,6 +23,7 @@ Header: X-WBE-Secret: <shared secret>
 
 import os
 import tempfile
+import hmac
 from datetime import date
 
 from fastapi import FastAPI, Header, HTTPException, BackgroundTasks
@@ -35,7 +36,7 @@ from booking_engine.invoice_word import DEFAULT_TEMPLATE_PATH, find_libreoffice
 from booking_engine.invoice_number import next_invoice_number
 from booking_engine.report import build_report_record
 from booking_engine import gmail_sender
-from booking_engine.calendar import create_calendar_event
+from booking_engine.calendar import create_calendar_event, reconcile_calendar_cancellation
 
 SHARED_SECRET = os.environ.get("WBE_SHARED_SECRET", "")
 
@@ -59,13 +60,14 @@ def _bg_send_email(to_email, guest_name, invoice_number, pdf_path, total_str,
         print(f"[WBE-BG] Email FAILED: {e}")
 
 
-def _bg_calendar_event(guest_name, check_in, check_out):
+def _bg_calendar_event(guest_name, check_in, check_out, booking_number=None):
     """Background task for Google Calendar event creation."""
     try:
         result = create_calendar_event(
             guest_name=guest_name,
             check_in=check_in,
             check_out=check_out,
+            booking_number=booking_number,
         )
         print(f"[WBE-BG] Calendar result: {result}")
     except Exception as e:
@@ -121,7 +123,7 @@ class CancellationEmailRequest(BaseModel):
 @app.post("/send-cancellation-email")
 def send_cancellation_email(req: CancellationEmailRequest,
                             x_wbe_secret: str = Header(default="")):
-    """Send a booking-cancellation email from info@ via Gmail API."""
+    """Legacy request/response contract retained for coordinated rollout."""
     if not SHARED_SECRET or x_wbe_secret != SHARED_SECRET:
         raise HTTPException(status_code=401, detail="Bad or missing X-WBE-Secret")
     try:
@@ -138,6 +140,46 @@ def send_cancellation_email(req: CancellationEmailRequest,
     except Exception as e:
         print(f"[WBE] Cancellation email FAILED for {req.booking_number}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class CancellationEmailV2Request(CancellationEmailRequest):
+    operation_id: str
+
+
+@app.post("/v2/send-cancellation-email")
+def send_cancellation_email_v2(req: CancellationEmailV2Request,
+                            x_wbe_secret: str = Header(default="")):
+    """One transport attempt; Wix owns durable START. This HTTP endpoint is not idempotent."""
+    if not SHARED_SECRET or not hmac.compare_digest(x_wbe_secret, SHARED_SECRET):
+        raise HTTPException(status_code=401, detail="Bad or missing X-WBE-Secret")
+    operation_id = getattr(req, "operation_id", "")
+    if not isinstance(operation_id, str) or len(operation_id) != 32 or any(c not in "0123456789abcdef" for c in operation_id):
+        raise HTTPException(status_code=400, detail="Bound cancellation operation_id required")
+    try:
+        result = gmail_sender.send_cancellation_email(
+            to_email=req.guest_email,
+            guest_name=req.guest_name,
+            booking_number=req.booking_number,
+            check_in=req.check_in,
+            check_out=req.check_out,
+            rooms_desc=req.rooms_desc,
+            reason=req.reason,
+        )
+        return {"ok": True, **result, "operation_id": operation_id}
+    except Exception as e:
+        print(f"[WBE] Cancellation email FAILED for {req.booking_number}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class CalendarCancellationRequest(BaseModel):
+    booking_number: str
+
+
+@app.post("/reconcile-cancellation-calendar")
+def cancel_calendar(req: CalendarCancellationRequest, x_wbe_secret: str = Header(default="")):
+    if not SHARED_SECRET or not hmac.compare_digest(x_wbe_secret, SHARED_SECRET):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return reconcile_calendar_cancellation(req.booking_number)
 
 
 class RecomputeRequest(BaseModel):
@@ -251,6 +293,7 @@ async def issue_invoice(req: IssueRequest, background_tasks: BackgroundTasks, x_
             guest_name=guest.name,
             check_in=req.check_in[:10],
             check_out=req.check_out[:10],
+            booking_number=req.booking_number,
         )
     else:
         result["calendar"] = "skipped"

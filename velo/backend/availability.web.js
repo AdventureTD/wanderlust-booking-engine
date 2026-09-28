@@ -1,5 +1,7 @@
 
 import wixData from 'wix-data';
+import { items } from '@wix/data';
+import { assertCancellationWriteAllowed } from 'backend/bookingCancellation';
 import { Permissions, webMethod } from 'wix-web-module';
 import { fetch } from 'wix-fetch';
 import { getSecret } from 'wix-secrets-backend';
@@ -895,6 +897,7 @@ export const issueBookingInvoice = webMethod(
       throw new Error('No bookings found for ' + bookingNumber);
     }
 
+    if (bookingsRes.items.some(r => /^(cancelled|canceled)$/.test(String(r.status || '').trim().toLowerCase()))) throw new Error('Cancelled booking cannot issue a new invoice');
     const firstRow = bookingsRes.items[0];
 
     let checkInDate = '', checkOutDate = '';
@@ -913,6 +916,8 @@ export const issueBookingInvoice = webMethod(
       console.log('>>> issueBookingInvoice BookingSummary read ERROR:', summaryErr.message);
     }
 
+    if (summaryRow && /^(cancelled|canceled)$/.test(String(summaryRow.status || '').trim().toLowerCase())) throw new Error('Cancelled booking cannot issue a new invoice');
+    await assertCancellationWriteAllowed(bookingNumber);
     const activeInvoice = await getActiveInvoice(bookingNumber);
     if (!checkInDate || !checkOutDate) {
       if (activeInvoice && activeInvoice.checkIn && activeInvoice.checkOut) {
@@ -967,6 +972,7 @@ export const issueBookingInvoice = webMethod(
       accommodationShare: quoteBreakdown.accommodationShare,
     }));
 
+    await assertCancellationWriteAllowed(bookingNumber);
     const invoiceNumber = await getNextInvoiceNumber();
 
     // Fetch payments for this booking to show in the Payment Summary section.
@@ -985,6 +991,7 @@ export const issueBookingInvoice = webMethod(
       console.log('>>> issueBookingInvoice payment fetch error:', payErr.message);
     }
 
+    await assertCancellationWriteAllowed(bookingNumber);
     const result = await callIssueInvoice(guest, quoteBreakdown, dates, true, invoiceNumber, ownerOnly, payments, bookingNumber);
     console.log('>>> issueBookingInvoice full service result keys:', Object.keys(result || {}).join(','));
     console.log('>>> issueBookingInvoice full service result:', JSON.stringify(result));
@@ -1017,6 +1024,7 @@ export const issueBookingInvoice = webMethod(
     };
 
     try {
+      await assertCancellationWriteAllowed(bookingNumber);
       await recordBookingInvoice(bookingNumber, invoiceNumber, invoiceUrl, totals, toDate(checkInDate), toDate(checkOutDate));
       console.log('>>> issueBookingInvoice recorded invoice', invoiceNumber, 'for booking', bookingNumber);
     } catch (invErr) {
@@ -1034,7 +1042,10 @@ export const issueBookingInvoice = webMethod(
         sItem.checkIn = toDate(checkInDate);
         sItem.checkOut = toDate(checkOutDate);
         sItem.bookingDate = toDate(sItem.bookingDate) || toDate(new Date().toISOString());
-        await wixData.update(BOOKING_SUMMARIES, sItem, { suppressAuth: true });
+        await assertCancellationWriteAllowed(bookingNumber);
+        await items.patch(BOOKING_SUMMARIES, sItem._id)
+          .setField('checkIn',sItem.checkIn).setField('checkOut',sItem.checkOut)
+          .setField('bookingDate',sItem.bookingDate).run();
         console.log('>>> issueBookingInvoice mirrored dates to BookingSummary');
       }
     } catch (e) {
@@ -1050,11 +1061,13 @@ export const cancelBooking = webMethod(
   async (bookingId) => {
     const b = await wixData.get(BOOKINGS, bookingId);
     if (!b) throw new Error('No booking ' + bookingId);
+    await assertCancellationWriteAllowed(b.bookingNumber);
     b.status = 'Cancelled';
     const updated = await wixData.update(BOOKINGS, b);
 
     if (b.bookingNumber) {
       try {
+        await assertCancellationWriteAllowed(b.bookingNumber);
         await updateBookingSummary(b.bookingNumber);
       } catch (e) {
         console.log('>>> SERVER updateBookingSummary ERROR after cancel:', e.message);
