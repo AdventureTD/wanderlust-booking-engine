@@ -42,8 +42,11 @@ export async function emailCancellation({ operation, summary, rooms }) {
     if (!retained || retained.bookingNumber !== operation.bookingNumber || retained.state !== 'STARTED') return 'UNKNOWN';
   } catch (_) { return 'UNKNOWN'; }
   try {
-    const response = await bounded(fetch(url + '/v2/send-cancellation-email', { method: 'post', redirect: 'error',
-      headers: { 'Content-Type': 'application/json', 'X-WBE-Secret': secret }, body }));
+    // Wix documents node-fetch extensions for backend fetch; retain redirect denial.
+    /** @type {{method: string, redirect: 'error', headers: Object<string, string>, body: string}} */
+    const emailRequest = { method: 'post', redirect: 'error',
+      headers: { 'Content-Type': 'application/json', 'X-WBE-Secret': secret }, body };
+    const response = await bounded(fetch(url + '/v2/send-cancellation-email', emailRequest));
     if (!response.ok) return 'UNKNOWN';
     const result = await bounded(response.json());
     if (!result || result.ok !== true || result.operation_id !== startId || result.booking_number !== operation.bookingNumber ||

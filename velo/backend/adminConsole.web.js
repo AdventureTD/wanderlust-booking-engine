@@ -172,7 +172,7 @@ export const adminGetBooking = webMethod(
     const summary = summaries[0];
     const bRes = { items: await cancellationRows(BOOKINGS, bookingNumber) };
     const pRes = { items: await cancellationRows(BOOKING_PAYMENTS, bookingNumber) };
-    const invoices = (await cancellationRows(BOOKING_INVOICES, bookingNumber)).sort((a,b) => new Date(b._createdDate || 0) - new Date(a._createdDate || 0));
+    const invoices = (await cancellationRows(BOOKING_INVOICES, bookingNumber)).sort((a,b) => new Date(b._createdDate || 0).getTime() - new Date(a._createdDate || 0).getTime());
     const activeInvoice = invoices.find(function (i) { return i.status === 'Active'; }) || invoices[0] || null;
 
     const payments = pRes.items.map(paymentDto);
