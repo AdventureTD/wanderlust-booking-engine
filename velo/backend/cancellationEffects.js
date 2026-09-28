@@ -65,9 +65,12 @@ async function calendarCancellation(context) {
     const url = await bounded(getSecret('WBE_INVOICE_SERVICE_URL'));
     const secret = await bounded(getSecret('WBE_SHARED_SECRET'));
     if (!/^https:\/\/[^/?#]+$/.test(url) || !secret) return 'UNSENT_CONFIGURATION';
-    const response = await bounded(fetch(url + '/reconcile-cancellation-calendar', {method: 'post',
+    // Deny redirects before forwarding the shared secret to any successor URL.
+    /** @type {{method: string, redirect: 'error', headers: Object<string, string>, body: string}} */
+    const calendarRequest = {method: 'post', redirect: 'error',
       headers: {'Content-Type':'application/json', 'X-WBE-Secret':secret},
-      body: JSON.stringify({booking_number:context.operation.bookingNumber})}));
+      body: JSON.stringify({booking_number:context.operation.bookingNumber})};
+    const response = await bounded(fetch(url + '/reconcile-cancellation-calendar', calendarRequest));
     if (!response.ok) return 'UNKNOWN';
     const result = await bounded(response.json());
     if (result.status === 'CANCELLED' && result.booking_number === op.bookingNumber && typeof result.event_id === 'string' && result.event_id) {

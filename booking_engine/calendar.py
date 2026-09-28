@@ -8,10 +8,41 @@ Uses the same shared-secret pattern as the invoice service.
 import json
 import re
 import os
+import urllib.error
+import urllib.parse
 import urllib.request
 
 CALENDAR_WEB_APP_URL = os.environ.get("WBE_CALENDAR_WEB_APP_URL", "")
 CALENDAR_SECRET = os.environ.get("WBE_CALENDAR_SECRET", "")
+
+
+class _CancellationContentRedirect(urllib.request.HTTPRedirectHandler):
+    """Permit only Google's one-time ContentService response GET, never POST replay."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        destination = urllib.parse.urlsplit(newurl)
+        if (req.get_method() != "POST" or code not in (301, 302, 303)
+                or destination.scheme != "https"
+                or "#" in newurl or "#" in headers.get("Location", "")
+                or destination.netloc != "script.googleusercontent.com"):
+            raise urllib.error.HTTPError(req.full_url, code, "Redirect denied", headers, fp)
+        # Fresh request deliberately carries neither original headers nor secret body.
+        return urllib.request.Request(newurl, method="GET")
+
+    def http_error_302(self, req, fp, code, msg, headers):
+        # Do not use the inherited handler: it drains fp.read() without a cap.
+        # Close the response even on rejection, before any successor is opened.
+        try:
+            successor = self.redirect_request(
+                req, fp, code, msg, headers, headers.get("Location", ""))
+        finally:
+            fp.close()
+        return self.parent.open(successor, timeout=req.timeout)
+
+    http_error_301 = http_error_302
+    http_error_303 = http_error_302
+    http_error_307 = http_error_302
+    http_error_308 = http_error_302
 
 
 def reconcile_calendar_cancellation(booking_number: str) -> dict:
@@ -23,7 +54,8 @@ def reconcile_calendar_cancellation(booking_number: str) -> dict:
     req = urllib.request.Request(CALENDAR_WEB_APP_URL, data=json.dumps(payload).encode(),
                                  headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=15) as response:
+        opener = urllib.request.build_opener(_CancellationContentRedirect())
+        with opener.open(req, timeout=15) as response:
             raw = response.read(16385)
         if len(raw) > 16384:
             return {"status": "UNKNOWN"}
