@@ -70,7 +70,7 @@ class CancellationTests(unittest.TestCase):
         calls = []
         def open_(request, **kw):
             calls.append((json.loads(request.data), kw))
-            return io.BytesIO(b'{"status":"CANCELLED","bookingNumber":"WC-1038","eventId":"event1"}')
+            return io.BytesIO(b'{"status":"CANCELLED","bookingNumber":"WC-1038","eventId":"event1","calendarId":"owner-calendar","disposition":"DELETED","deletionVersion":1}')
         with patch.object(m.urllib.request, 'build_opener', return_value=SimpleNamespace(open=open_)):
             result = m.reconcile_calendar_cancellation('WC-1038')
         self.assertEqual(result['status'], 'CANCELLED')

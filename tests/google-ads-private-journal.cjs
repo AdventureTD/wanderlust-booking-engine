@@ -17,6 +17,16 @@ function fixture(opts={}){
  async function mint(){const summary={_id:'summary-inert',bookingNumber:'WC-INERT',checkIn:new Date('2027-01-01T12:00:00Z'),checkOut:new Date('2027-01-02T12:00:00Z'),bookingDate:new Date('2026-09-14T12:00:00Z')};rows.set(key('BookingSummary',summary._id),copy(summary));return globals.mintGoogleAdsCapability({bookingNumber:'WC-INERT',_id:'room-inert'},summary);}
  return {rows,trace,settings,globals,sender,booking,mint,sdk,get sends(){return sends;}};
 }
+test('future original emission metadata comes from actual private purchase producer without contacts',async()=>{
+ const f=fixture(),token=await f.mint();
+ await f.sender.recordBookingConversion(f.booking({conversionCapability:token,conversionTime:'2026-10-01T12:00:00Z',value:123.45}));
+ for(const kind of ['ATTEMPT','RESULT']){
+ const row=[...f.rows.values()].find(r=>r.kind===kind);
+ assert.deepEqual(row.originalEvent,{transport:'DATA_MANAGER_V1',transactionId:'WC-INERT',value:123.45,currency:'USD',eventTimestamp:'2026-10-01T12:00:00.000Z'});
+ assert.equal(row.commercialAuthority,'UNVERIFIED');assert.equal(JSON.stringify(row).includes('inert@example.invalid'),false);
+ }
+ assert.equal(f.sends,1);
+});
 test('forged or missing authority causes zero journal writes and provider calls',async()=>{const f=fixture();for(const capability of [undefined,'forged','gac1.'+'a'.repeat(64)]){const r=await f.sender.recordBookingConversion(f.booking({conversionCapability:capability}));assert.equal(r.ok,false);}assert.equal(f.sends,0);assert.equal(f.trace.filter(x=>x[0]==='insert').length,0);});
 function producer(f,opts={}) {
  const c=vm.createContext({...f.globals,getAllSettings:async()=>f.settings,Date,console:{log(){},error(){}},toDate:x=>x?new Date(x):null,getRoomDisplayName:x=>x,ROOM_UNITS:{A:3},ROOM_MIN_OCCUPANCY:{A:1},ROOM_MAX_OCCUPANCY:{A:2},nightsBetween:()=>1,overlappingCount:async()=>0,getNextBookingNumber:async()=>{if(opts.fallback)throw Error('number');return 'WC-INERT';},BOOKINGS:'Bookings',wouldExceedBookingRoomLimit:()=>false,getPackagePricingForBooking:async()=>({_id:'P'}),verifyLockedPricingQuote:async()=>({packageId:'P',baseRate:100,totalPerPerson:100}),normalizePriceModifier:()=>1,getAuthoritativeRoomFee:async()=>0,roundMoney:x=>x,

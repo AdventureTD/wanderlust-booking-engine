@@ -21,7 +21,7 @@ class CalendarRedirectTests(unittest.TestCase):
                 status = code if len(calls) == 1 or second_redirect else 200
                 if status != 200:
                     headers['Location'] = location
-                body = json.dumps({'status':'CANCELLED','bookingNumber':'WC-900001','eventId':'exact-event'}).encode()
+                body = json.dumps({'status':'CANCELLED','bookingNumber':'WC-900001','eventId':'exact-event','calendarId':'owner-calendar','disposition':'DELETED','deletionVersion':1}).encode()
                 response = urllib.response.addinfourl(io.BytesIO(body), headers, req.full_url, status)
                 response.msg = 'INERT'
                 return response
@@ -72,7 +72,7 @@ class CalendarRedirectTests(unittest.TestCase):
                                 redirects.append(body)
                             else:
                                 body = CappedReceipt(json.dumps({'status': 'CANCELLED',
-                                    'bookingNumber': 'WC-900001', 'eventId': 'exact-event'}).encode())
+                                    'bookingNumber': 'WC-900001', 'eventId': 'exact-event', 'calendarId': 'owner-calendar', 'disposition': 'DELETED', 'deletionVersion': 1}).encode())
                             response = urllib.response.addinfourl(body, headers, req.full_url, status)
                             response.msg = 'INERT'
                             return response

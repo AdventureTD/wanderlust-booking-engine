@@ -57,11 +57,34 @@ export async function emailCancellation({ operation, summary, rooms }) {
   } catch (_) { return 'UNKNOWN'; }
 }
 
+// Inspect only contract fields; never invoke boundary getters or serialize raw objects.
+function calendarOwnData(value, fields) {
+  if (!value || typeof value !== 'object') return null;
+  const proof = Object.create(null);
+  try {
+    for (const field of fields) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, field);
+      if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, 'value')) return null;
+      proof[field] = descriptor.value;
+    }
+  } catch (_) { return null; }
+  return proof;
+}
+
+function calendarDeletionAck(value, bookingNumber) {
+  const ack = calendarOwnData(value, ['bookingNumber', 'effect', 'state', 'disposition', 'deletionVersion', 'eventId', 'calendarId']);
+  return ack && typeof ack.bookingNumber === 'string' && ack.bookingNumber === bookingNumber && ack.effect === 'CALENDAR' &&
+    ack.state === 'CANCELLED' && ack.disposition === 'DELETED' && ack.deletionVersion === 1 &&
+    typeof ack.eventId === 'string' && !!ack.eventId && typeof ack.calendarId === 'string' && !!ack.calendarId ? ack : null;
+}
+
 async function calendarCancellation(context) {
-  const op = context.operation, ackId = effectId(op._id, 'calendar-ack');
+  const op = context.operation, ackId = effectId(op._id, 'calendar-delete-ack-v1');
   try {
     const retained = await bounded(wixData.get(LEDGER, ackId, READ));
-    if (retained && retained.bookingNumber === op.bookingNumber && retained.state === 'CANCELLED' && retained.eventId) return 'CANCELLED';
+    if (calendarDeletionAck(retained, op.bookingNumber)) return 'CANCELLED';
+    if (retained || await bounded(wixData.get(LEDGER, effectId(op._id, 'calendar-ack'), READ))) return 'NEEDS_RECONCILIATION';
+    // Historical title-only ACKs require explicit reconciliation, never automatic replay.
     const url = await bounded(getSecret('WBE_INVOICE_SERVICE_URL'));
     const secret = await bounded(getSecret('WBE_SHARED_SECRET'));
     if (!/^https:\/\/[^/?#]+$/.test(url) || !secret) return 'UNSENT_CONFIGURATION';
@@ -72,15 +95,31 @@ async function calendarCancellation(context) {
       body: JSON.stringify({booking_number:context.operation.bookingNumber})};
     const response = await bounded(fetch(url + '/reconcile-cancellation-calendar', calendarRequest));
     if (!response.ok) return 'UNKNOWN';
-    const result = await bounded(response.json());
-    if (result.status === 'CANCELLED' && result.booking_number === op.bookingNumber && typeof result.event_id === 'string' && result.event_id) {
-      // Calendar's exact-event mark is idempotent; uncertain observations may be reconciled, never recreated.
-      try { await bounded(wixData.insert(LEDGER, {_id:ackId,bookingNumber:op.bookingNumber,effect:'CALENDAR',state:'CANCELLED',eventId:result.event_id},WRITE)); } catch (_) { /* read retained ACK */ }
-      const ack = await bounded(wixData.get(LEDGER,ackId,READ));
-      return ack && ack.bookingNumber === op.bookingNumber && ack.state === 'CANCELLED' && ack.eventId === result.event_id ? 'CANCELLED' : 'UNKNOWN';
+    const rawResult = await bounded(response.json());
+    const result = calendarOwnData(rawResult, ['status', 'booking_number', 'disposition', 'deletion_version', 'calendar_id', 'event_id']);
+    if (result && result.status === 'CANCELLED' && typeof result.booking_number === 'string' && result.booking_number === op.bookingNumber &&
+        result.disposition === 'DELETED' && result.deletion_version === 1 &&
+        typeof result.calendar_id === 'string' && result.calendar_id && typeof result.event_id === 'string' && result.event_id) {
+      // Only the detached, versioned exact-event deletion proof may become durable success.
+      try { await bounded(wixData.insert(LEDGER, {_id:ackId,bookingNumber:result.booking_number,effect:'CALENDAR',state:'CANCELLED',
+        disposition:'DELETED',deletionVersion:1,calendarId:result.calendar_id,eventId:result.event_id},WRITE)); } catch (_) { /* read retained ACK */ }
+      const ack = calendarDeletionAck(await bounded(wixData.get(LEDGER,ackId,READ)), op.bookingNumber);
+      return ack && ack.eventId === result.event_id && ack.calendarId === result.calendar_id ? 'CANCELLED' : 'UNKNOWN';
     }
-    return result.status === 'NEEDS_RECONCILIATION' ? 'NEEDS_RECONCILIATION' : 'UNKNOWN';
+    const status = calendarOwnData(rawResult, ['status']);
+    return status && status.status === 'NEEDS_RECONCILIATION' ? 'NEEDS_RECONCILIATION' : 'UNKNOWN';
   } catch (_) { return 'UNKNOWN'; }
+}
+
+// Google-only response cap: node-fetch enforces decoded body size when supported;
+// the text check also denies oversized JSON before parsing in hosted Wix.
+async function googleJson(response) {
+  if (!response || !response.ok) throw new Error('GOOGLE_RESPONSE');
+  const text = await bounded(response.text());
+  if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > 65536) throw new Error('GOOGLE_RESPONSE_SIZE');
+  const value = JSON.parse(text);
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('GOOGLE_RESPONSE_SHAPE');
+  return value;
 }
 
 async function ga4Cancellation(context) {
@@ -96,7 +135,7 @@ async function ga4Cancellation(context) {
         metadata.duplicateCheckClear !== true || metadata.consentEligible !== true || metadata.withdrawn !== false ||
         !(new Date(metadata.consentValidUntil).getTime() > Date.now()) ||
         typeof metadata.clientId !== 'string' || !metadata.clientId || metadata.clientId.length > 200 ||
-        typeof metadata.transactionId !== 'string' || !metadata.transactionId || metadata.transactionId.length > 100 ||
+        typeof metadata.transactionId !== 'string' || metadata.transactionId !== op.bookingNumber || metadata.transactionId.length > 100 ||
         !Number.isFinite(metadata.value) || metadata.value <= 0 || !/^[A-Z]{3}$/.test(metadata.currency)) return 'NEEDS_RECONCILIATION';
     const measurementId = await bounded(getSecret('WBE_GA4_MEASUREMENT_ID'));
     const secret = await bounded(getSecret('WBE_GA4_API_SECRET'));
@@ -104,8 +143,8 @@ async function ga4Cancellation(context) {
     url = '?measurement_id=' + encodeURIComponent(measurementId) + '&api_secret=' + encodeURIComponent(secret);
     body = {client_id:metadata.clientId, events:[{name:'refund', params:{transaction_id:metadata.transactionId, value:metadata.value, currency:metadata.currency}}]};
     const validation = await bounded(fetch('https://www.google-analytics.com/debug/mp/collect' + url,
-      {method:'post',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,validation_behavior:'ENFORCE_RECOMMENDATIONS'})}));
-    const validated = await bounded(validation.json());
+      {method:'post',redirect:'error',size:65536,timeout:8000,headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,validation_behavior:'ENFORCE_RECOMMENDATIONS'})}));
+    const validated = await googleJson(validation);
     if (!validation.ok || !Array.isArray(validated.validationMessages) || validated.validationMessages.length) return 'UNSENT_VALIDATION';
     // Re-read withdrawal/approval after the optional validation network wait.
     const current = await bounded(wixData.get('BookingCancellationAnalytics', op._id, READ));
@@ -119,7 +158,7 @@ async function ga4Cancellation(context) {
     const current = await bounded(wixData.get('BookingCancellationAnalytics',op._id,READ));
     if (!current || current.bookingNumber !== op.bookingNumber || JSON.stringify(current.ga4) !== JSON.stringify(metadata) || !(new Date(metadata.consentValidUntil).getTime() > Date.now())) return 'NEEDS_RECONCILIATION';
     const response = await bounded(fetch('https://www.google-analytics.com/mp/collect' + url,
-      {method:'post',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));
+      {method:'post',redirect:'error',size:65536,timeout:8000,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));
     if (!response.ok) return 'UNKNOWN';
     await bounded(wixData.insert(LEDGER,{_id:ackId,bookingNumber:op.bookingNumber,effect:'GA4',state:'RECEIVED_UNVERIFIED'},WRITE));
     const ack = await bounded(wixData.get(LEDGER,ackId,READ));
@@ -128,11 +167,16 @@ async function ga4Cancellation(context) {
 }
 
 async function adsApprovedNow(op, metadata) {
+  // Manual approval is never consent and cannot override withdrawal/expiry.
+  if (metadata.consentEligible !== true || metadata.withdrawn !== false ||
+      !(new Date(metadata.consentValidUntil).getTime() > Date.now())) return false;
   // Unlike the legacy helper, missing/failed settings deny dispatch.
   const settings = await bounded(wixData.query('Settings').eq('key','suspendGoogleAds').limit(2).find(READ));
   if (!settings || !Array.isArray(settings.items) || settings.items.length !== 1 || String(settings.items[0].value).trim() !== '0') return false;
   const current = await bounded(wixData.get('BookingCancellationAnalytics',op._id,READ));
-  return !!current && current.bookingNumber === op.bookingNumber && JSON.stringify(current.ads) === JSON.stringify(metadata);
+  // Expiry is locally observable after both policy waits, even without a metadata change.
+  return !!current && current.bookingNumber === op.bookingNumber && JSON.stringify(current.ads) === JSON.stringify(metadata) &&
+    new Date(metadata.consentValidUntil).getTime() > Date.now();
 }
 
 async function adsCancellation(context) {
@@ -145,7 +189,7 @@ async function adsCancellation(context) {
     const approval = await bounded(wixData.get('BookingCancellationAnalytics', op._id, READ));
     metadata = approval && approval.ads;
     if (!approval || approval.bookingNumber !== op.bookingNumber || !metadata || metadata.approved !== true || metadata.originalRecorded !== true ||
-        typeof metadata.orderId !== 'string' || !metadata.orderId || metadata.orderId.length > 100) return 'NEEDS_RECONCILIATION';
+        typeof metadata.orderId !== 'string' || metadata.orderId !== op.bookingNumber || metadata.orderId.length > 100) return 'NEEDS_RECONCILIATION';
     if (!await adsApprovedNow(op,metadata)) return 'UNSENT_SUSPENDED_OR_APPROVAL_CHANGED';
     if (await bounded(getSecret('WBE_GOOGLE_ADS_ADJUSTMENTS_ENABLED')) !== 'true') return 'UNSENT_CONFIGURATION';
     developerToken = await bounded(getSecret('GOOGLE_ADS_DEVELOPER_TOKEN'));
@@ -161,9 +205,12 @@ async function adsCancellation(context) {
     const encode = value => Buffer.from(value).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
     const unsigned = encode(JSON.stringify({alg:'RS256',typ:'JWT'})) + '.' + encode(JSON.stringify({iss:email,scope:'https://www.googleapis.com/auth/adwords',aud:'https://oauth2.googleapis.com/token',iat:now,exp:now+3600}));
     const assertion = unsigned + '.' + encode(crypto.createSign('RSA-SHA256').update(unsigned).sign(key));
-    const response = await bounded(fetch('https://oauth2.googleapis.com/token', {method:'post',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    // Secret reads may outlast consent; no awaited gap between this sample and OAuth.
+    const oauthDispatchNow = Date.now();
+    if (!(new Date(metadata.consentValidUntil).getTime() > oauthDispatchNow)) return 'UNSENT_SUSPENDED_OR_APPROVAL_CHANGED';
+    const response = await bounded(fetch('https://oauth2.googleapis.com/token', {method:'post',redirect:'error',size:65536,timeout:8000,headers:{'Content-Type':'application/x-www-form-urlencoded'},
       body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion}).toString()}));
-    const auth = await bounded(response.json());
+    const auth = await googleJson(response);
     if (!response.ok || typeof auth.access_token !== 'string' || !auth.access_token) return 'UNSENT_CONFIGURATION';
     token = auth.access_token;
     if (!await adsApprovedNow(op,metadata)) return 'UNSENT_SUSPENDED_OR_APPROVAL_CHANGED';
@@ -176,12 +223,16 @@ async function adsCancellation(context) {
     const conversionAction = 'customers/' + customer + '/conversionActions/' + action;
     const headers = {'Content-Type':'application/json',Authorization:'Bearer ' + token,'developer-token':developerToken};
     if (login) headers['login-customer-id'] = login;
+    // Last observable policy read is not atomic revocation. Locally known expiry is checked now.
+    const adsDispatchNow = Date.now();
+    if (!(new Date(metadata.consentValidUntil).getTime() > adsDispatchNow)) return 'NEEDS_RECONCILIATION';
+    const adjustmentDateTime = new Date(adsDispatchNow).toISOString().slice(0,19).replace('T',' ') + '+00:00';
     const response = await bounded(fetch('https://googleads.googleapis.com/v25/customers/' + customer + ':uploadConversionAdjustments', {
-      method:'post',headers,body:JSON.stringify({partialFailure:true,validateOnly:false,conversionAdjustments:[{orderId:metadata.orderId,conversionAction,
-        adjustmentType:'RETRACTION',adjustmentDateTime:new Date().toISOString().slice(0,19).replace('T',' ') + '+00:00'}]})}));
-    const result = await bounded(response.json());
+      method:'post',redirect:'error',size:65536,timeout:8000,headers,body:JSON.stringify({partialFailure:true,validateOnly:false,conversionAdjustments:[{orderId:metadata.orderId,conversionAction,
+        adjustmentType:'RETRACTION',adjustmentDateTime}]})}));
+    const result = await googleJson(response);
     const receipt = result && Array.isArray(result.results) && result.results.length === 1 && result.results[0];
-    if (!response.ok || result.partialFailureError || !receipt || receipt.orderId !== metadata.orderId || receipt.conversionAction !== conversionAction || receipt.adjustmentType !== 'RETRACTION') return 'UNKNOWN';
+    if (!response.ok || Object.prototype.hasOwnProperty.call(result, 'partialFailureError') || !receipt || receipt.orderId !== metadata.orderId || receipt.conversionAction !== conversionAction || receipt.adjustmentType !== 'RETRACTION' || receipt.adjustmentDateTime !== adjustmentDateTime) return 'UNKNOWN';
     await bounded(wixData.insert(LEDGER,{_id:ackId,bookingNumber:op.bookingNumber,effect:'ADS',state:'ACKNOWLEDGED'},WRITE));
     const ack = await bounded(wixData.get(LEDGER,ackId,READ));
     return ack && ack.bookingNumber === op.bookingNumber && ack.state === 'ACKNOWLEDGED' ? 'ACKNOWLEDGED' : 'UNKNOWN';
@@ -192,9 +243,10 @@ export async function readCancellationEffects(summary) {
   const effects = {};
   for (const effect of ['email','calendar','ads','ga4']) {
     try {
-      const ack = await bounded(wixData.get(LEDGER,effectId(summary._id, effect + '-ack'),READ));
+      const ack = await bounded(wixData.get(LEDGER,effectId(summary._id, effect === 'calendar' ? 'calendar-delete-ack-v1' : effect + '-ack'),READ));
       const allowed = effect === 'ga4' ? 'RECEIVED_UNVERIFIED' : effect === 'calendar' ? 'CANCELLED' : 'ACKNOWLEDGED';
-      if (ack && ack.bookingNumber === summary.bookingNumber && ack.state === allowed) effects[effect] = allowed;
+      if (effect === 'calendar' ? calendarDeletionAck(ack, summary.bookingNumber) :
+          ack && ack.bookingNumber === summary.bookingNumber && ack.state === allowed) effects[effect] = allowed;
       else effects[effect] = await bounded(wixData.get(LEDGER,effectId(summary._id, effect),READ)) ? 'UNKNOWN' : 'NEEDS_RECONCILIATION';
     } catch (_) { effects[effect] = 'NEEDS_RECONCILIATION'; }
   }

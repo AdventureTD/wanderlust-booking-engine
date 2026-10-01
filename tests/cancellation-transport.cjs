@@ -38,7 +38,7 @@ test('Calendar lost body remains unknown; exact receipt becomes durable and stat
   const rows = new Map(); let calls = 0;
   const lost = load(rows, async () => {calls++;return {ok:true,json:async()=>{throw Error('BODY_LOST');}};});
   assert.equal(await lost.call({operation}), 'UNKNOWN'); assert.equal(rows.size,0); assert.equal(calls,1);
-  const good = load(rows, async () => {calls++;return {ok:true,json:async()=>({status:'CANCELLED',booking_number:operation.bookingNumber,event_id:'inert-exact-event'})};});
+  const good = load(rows, async () => {calls++;return {ok:true,json:async()=>({status:'CANCELLED',booking_number:operation.bookingNumber,event_id:'inert-exact-event',calendar_id:'owner-calendar',disposition:'DELETED',deletion_version:1})};});
   assert.equal(await good.call({operation}),'CANCELLED'); assert.equal(rows.size,1); assert.equal(calls,2);
   const restarted = load(rows, () => {throw Error('NO_EXTRA_EFFECT');});
   assert.equal(await restarted.call({operation}),'CANCELLED');

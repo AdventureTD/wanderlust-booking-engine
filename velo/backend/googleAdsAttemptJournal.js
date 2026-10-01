@@ -188,7 +188,16 @@ export async function recordPrivateGoogleAdsAttempt(booking, buildPayload) {
   const attemptKey = key('att', subject);
   const base = { schemaVersion: VERSION, purpose: PURPOSE, bookingNumber: subject,
     attemptKey, destinationAccount: auth.destinationAccount, destinationAction: auth.destinationAction,
-    commercialAuthority: 'UNVERIFIED' };
+    commercialAuthority: 'UNVERIFIED',
+    // Exact non-contact fields from the actual emitted event. An ingestion ACK
+    // is not processing/attribution or Ads-API retraction eligibility evidence.
+    ...(payload.events && payload.events.length === 1 && payload.events[0] &&
+        payload.events[0].transactionId === subject && Number.isFinite(payload.events[0].conversionValue) &&
+        payload.events[0].currency === 'USD' && typeof payload.events[0].eventTimestamp === 'string' ? {
+      originalEvent: { transport: 'DATA_MANAGER_V1', transactionId: payload.events[0].transactionId,
+        value: payload.events[0].conversionValue, currency: payload.events[0].currency,
+        eventTimestamp: payload.events[0].eventTimestamp }
+    } : {}) };
   try {
     await insertVerified({ ...base, _id: attemptKey, kind: 'ATTEMPT', recordedAt: new Date(), outcome: 'UNKNOWN' });
   } catch (_) {

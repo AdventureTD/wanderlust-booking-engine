@@ -15,7 +15,7 @@ test('reopen displays durable effects and explicit Resume button for already can
 const crypto=require('node:crypto');
 const key=crypto.generateKeyPairSync('rsa',{modulusLength:2048}).privateKey.export({type:'pkcs8',format:'pem'});
 const adsSecrets={WBE_GOOGLE_ADS_ADJUSTMENTS_ENABLED:'true',GOOGLE_ADS_CUSTOMER_ID:'123',GOOGLE_ADS_CONVERSION_ACTION_ID:'456',GOOGLE_ADS_LOGIN_CUSTOMER_ID:'',GOOGLE_ADS_DEVELOPER_TOKEN:'A'.repeat(22),GOOGLE_SA_CLIENT_EMAIL:'inert@example.invalid',GOOGLE_SA_PRIVATE_KEY:key};
-function adsApproval(f){f.db.BookingCancellationAnalytics.push({_id:'s',bookingNumber:'WC-1038',ads:{approved:true,originalRecorded:true,orderId:'WC-1038',customerId:'123',conversionActionId:'456'}});}
+function adsApproval(f){f.db.BookingCancellationAnalytics.push({_id:'s',bookingNumber:'WC-1038',ads:{approved:true,originalRecorded:true,consentEligible:true,withdrawn:false,consentValidUntil:new Date(Date.now()+60000).toISOString(),orderId:'WC-1038',customerId:'123',conversionActionId:'456'}});}
 test('Ads suspension and approval changes at OAuth and START prevent provider dispatch',async()=>{
  for(const phase of ['initial','oauth','start','oauth-approval','start-approval','missing-settings']){
   const options={count:1,secrets:adsSecrets};
@@ -71,7 +71,7 @@ test('baseline GREEN: decision appearing between admin child writes stops later 
  assert.equal(f.calls.filter(c=>c[0]==='update').length,1);assert.equal(f.db.BookingInvoices[0].grandTotal,22286.74);assert.equal(f.db.Bookings[1].guestName,undefined);
 });
 test('baseline GREEN: Calendar ACK loss reads retained receipt and unknown email remains nonretryable',async()=>{
- const ack=crypto.createHash('sha256').update('cancellation-v1:s:calendar-ack').digest('hex').slice(0,32);
+ const ack=crypto.createHash('sha256').update('cancellation-v1:s:calendar-delete-ack-v1').digest('hex').slice(0,32);
  const f=await fixture({count:1,calendarAck:true,lost:'BookingCancellationEffects:'+ack});const out=await f.api.adminCancelBooking('WC-1038','');assert.equal(out.effects.calendar,'CANCELLED');
  const g=await fixture({count:1,malformed:true});await g.api.adminCancelBooking('WC-1038','');const again=await fixture({calendarAck:true},g.db);const result=await again.api.adminCancelBooking('WC-1038','');assert.equal(result.effects.email,'UNKNOWN');assert.equal(again.calls.filter(c=>c[0]==='network'&&c[1].endsWith('/send-cancellation-email')).length,0);
 });

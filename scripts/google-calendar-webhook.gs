@@ -91,15 +91,34 @@ function bookingCalendarAction(data) {
         props.setProperty(key, JSON.stringify({state: 'CANCELLED_UNBOUND'}));
         return {status: 'NEEDS_RECONCILIATION'};
       }
-      if (!record || !record.eventId || record.calendarId !== calendar.getId()) return {status: 'NEEDS_RECONCILIATION'};
+      if (typeof record.eventId !== 'string' || !record.eventId || record.calendarId !== calendar.getId() ||
+          !calendar.isOwnedByMe()) return {status: 'NEEDS_RECONCILIATION'};
       var existing = calendar.getEventById(record.eventId);
-      if (!existing || existing.getTag('wbeBooking') !== data.bookingNumber) return {status: 'NEEDS_RECONCILIATION'};
-      var title = 'CANCELLED — ' + record.title;
-      if (existing.getTitle() !== title) existing.setTitle(title);
-      if (calendar.getEventById(record.eventId).getTitle() !== title) return {status: 'UNKNOWN'};
-      record.state = 'CANCELLED';
-      props.setProperty(key, JSON.stringify(record));
-      return {status: 'CANCELLED', bookingNumber: data.bookingNumber, eventId: record.eventId};
+      if (existing) {
+        if (existing.getTag('wbeBooking') !== data.bookingNumber ||
+            ['CREATED', 'CANCELLED', 'DELETING', 'DELETED'].indexOf(record.state) < 0) return {status: 'NEEDS_RECONCILIATION'};
+        // Old CANCELLED means title-marked, NOT deleted. Retain exact authority
+        // before deletion so an applied-but-lost ACK can resume without creation.
+        record.state = 'DELETING'; record.deletionVersion = 1; record.bookingNumber = data.bookingNumber;
+        var pending = JSON.stringify(record);
+        props.setProperty(key, pending);
+        if (props.getProperty(key) !== pending) return {status: 'UNKNOWN'};
+        existing.deleteEvent();
+      } else if ((record.state !== 'DELETING' && record.state !== 'DELETED') ||
+                 record.deletionVersion !== 1 || record.bookingNumber !== data.bookingNumber) {
+        return {status: 'NEEDS_RECONCILIATION'};
+      }
+      // getEventById null also means inaccessible, not an HTTP 404. Only accept
+      // absence on the same executor-owned calendar after a retained tagged
+      // deletion attempt; permission/lookup exceptions remain UNKNOWN.
+      if (calendar.getEventById(record.eventId) !== null || !calendar.isOwnedByMe() ||
+          calendar.getId() !== record.calendarId) return {status: 'UNKNOWN'};
+      record.state = 'DELETED';
+      var deleted = JSON.stringify(record);
+      props.setProperty(key, deleted);
+      if (props.getProperty(key) !== deleted) return {status: 'UNKNOWN'};
+      return {status: 'CANCELLED', disposition: 'DELETED', deletionVersion: 1,
+        bookingNumber: data.bookingNumber, calendarId: record.calendarId, eventId: record.eventId};
     }
     if (record) {
       if (record.state !== 'CREATED' || record.startDate !== data.startDate || record.endDate !== data.endDate || record.title !== data.summary) return {status: 'NEEDS_RECONCILIATION'};

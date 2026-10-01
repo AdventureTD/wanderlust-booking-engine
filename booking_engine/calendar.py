@@ -60,8 +60,13 @@ def reconcile_calendar_cancellation(booking_number: str) -> dict:
         if len(raw) > 16384:
             return {"status": "UNKNOWN"}
         result = json.loads(raw)
-        if result.get("status") == "CANCELLED" and result.get("bookingNumber") == booking_number and isinstance(result.get("eventId"), str) and result["eventId"]:
-            return {"status": "CANCELLED", "booking_number": booking_number, "event_id": result["eventId"]}
+        if (result.get("status") == "CANCELLED" and result.get("bookingNumber") == booking_number
+                and result.get("disposition") == "DELETED"
+                and type(result.get("deletionVersion")) is int and result["deletionVersion"] == 1
+                and isinstance(result.get("calendarId"), str) and result["calendarId"]
+                and isinstance(result.get("eventId"), str) and result["eventId"]):
+            return {"status": "CANCELLED", "booking_number": booking_number, "event_id": result["eventId"],
+                    "calendar_id": result["calendarId"], "disposition": "DELETED", "deletion_version": 1}
         return {"status": "NEEDS_RECONCILIATION" if result.get("status") == "NEEDS_RECONCILIATION" else "UNKNOWN"}
     except Exception:
         return {"status": "UNKNOWN"}
