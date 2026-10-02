@@ -142,8 +142,9 @@ async function ga4Cancellation(context) {
     if (measurementId !== metadata.measurementId || !/^G-[A-Z0-9]+$/.test(measurementId) || !secret) return 'UNSENT_CONFIGURATION';
     url = '?measurement_id=' + encodeURIComponent(measurementId) + '&api_secret=' + encodeURIComponent(secret);
     body = {client_id:metadata.clientId, events:[{name:'refund', params:{transaction_id:metadata.transactionId, value:metadata.value, currency:metadata.currency}}]};
-    const validation = await bounded(fetch('https://www.google-analytics.com/debug/mp/collect' + url,
-      {method:'post',redirect:'error',size:65536,timeout:8000,headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,validation_behavior:'ENFORCE_RECOMMENDATIONS'})}));
+    /** @type {{method: string, redirect: 'error', size: number, timeout: number, headers: Object<string, string>, body: string}} */
+    const validationRequest = {method:'post',redirect:'error',size:65536,timeout:8000,headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,validation_behavior:'ENFORCE_RECOMMENDATIONS'})};
+    const validation = await bounded(fetch('https://www.google-analytics.com/debug/mp/collect' + url, validationRequest));
     const validated = await googleJson(validation);
     if (!validation.ok || !Array.isArray(validated.validationMessages) || validated.validationMessages.length) return 'UNSENT_VALIDATION';
     // Re-read withdrawal/approval after the optional validation network wait.
@@ -157,8 +158,9 @@ async function ga4Cancellation(context) {
     // Last observable approval read. Revocation after this await is not atomically observable by Google.
     const current = await bounded(wixData.get('BookingCancellationAnalytics',op._id,READ));
     if (!current || current.bookingNumber !== op.bookingNumber || JSON.stringify(current.ga4) !== JSON.stringify(metadata) || !(new Date(metadata.consentValidUntil).getTime() > Date.now())) return 'NEEDS_RECONCILIATION';
-    const response = await bounded(fetch('https://www.google-analytics.com/mp/collect' + url,
-      {method:'post',redirect:'error',size:65536,timeout:8000,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));
+    /** @type {{method: string, redirect: 'error', size: number, timeout: number, headers: Object<string, string>, body: string}} */
+    const ga4Request = {method:'post',redirect:'error',size:65536,timeout:8000,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)};
+    const response = await bounded(fetch('https://www.google-analytics.com/mp/collect' + url, ga4Request));
     if (!response.ok) return 'UNKNOWN';
     await bounded(wixData.insert(LEDGER,{_id:ackId,bookingNumber:op.bookingNumber,effect:'GA4',state:'RECEIVED_UNVERIFIED'},WRITE));
     const ack = await bounded(wixData.get(LEDGER,ackId,READ));
@@ -208,8 +210,10 @@ async function adsCancellation(context) {
     // Secret reads may outlast consent; no awaited gap between this sample and OAuth.
     const oauthDispatchNow = Date.now();
     if (!(new Date(metadata.consentValidUntil).getTime() > oauthDispatchNow)) return 'UNSENT_SUSPENDED_OR_APPROVAL_CHANGED';
-    const response = await bounded(fetch('https://oauth2.googleapis.com/token', {method:'post',redirect:'error',size:65536,timeout:8000,headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion}).toString()}));
+    /** @type {{method: string, redirect: 'error', size: number, timeout: number, headers: Object<string, string>, body: string}} */
+    const oauthRequest = {method:'post',redirect:'error',size:65536,timeout:8000,headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion}).toString()};
+    const response = await bounded(fetch('https://oauth2.googleapis.com/token', oauthRequest));
     const auth = await googleJson(response);
     if (!response.ok || typeof auth.access_token !== 'string' || !auth.access_token) return 'UNSENT_CONFIGURATION';
     token = auth.access_token;
@@ -227,9 +231,11 @@ async function adsCancellation(context) {
     const adsDispatchNow = Date.now();
     if (!(new Date(metadata.consentValidUntil).getTime() > adsDispatchNow)) return 'NEEDS_RECONCILIATION';
     const adjustmentDateTime = new Date(adsDispatchNow).toISOString().slice(0,19).replace('T',' ') + '+00:00';
-    const response = await bounded(fetch('https://googleads.googleapis.com/v25/customers/' + customer + ':uploadConversionAdjustments', {
+    /** @type {{method: string, redirect: 'error', size: number, timeout: number, headers: Object<string, string>, body: string}} */
+    const adsRequest = {
       method:'post',redirect:'error',size:65536,timeout:8000,headers,body:JSON.stringify({partialFailure:true,validateOnly:false,conversionAdjustments:[{orderId:metadata.orderId,conversionAction,
-        adjustmentType:'RETRACTION',adjustmentDateTime}]})}));
+        adjustmentType:'RETRACTION',adjustmentDateTime}]})};
+    const response = await bounded(fetch('https://googleads.googleapis.com/v25/customers/' + customer + ':uploadConversionAdjustments', adsRequest));
     const result = await googleJson(response);
     const receipt = result && Array.isArray(result.results) && result.results.length === 1 && result.results[0];
     if (!response.ok || Object.prototype.hasOwnProperty.call(result, 'partialFailureError') || !receipt || receipt.orderId !== metadata.orderId || receipt.conversionAction !== conversionAction || receipt.adjustmentType !== 'RETRACTION' || receipt.adjustmentDateTime !== adjustmentDateTime) return 'UNKNOWN';
