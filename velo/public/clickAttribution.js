@@ -16,7 +16,7 @@ function diagnostic(stage, reason) {
   const key = stage + ':' + reason;
   if (diagnosticSeen.has(key) || diagnosticSeen.size >= 32) return;
   diagnosticSeen.add(key);
-  try { console.log({ event: 'ATTR_DIAG', v: 1, stage, reason }); } catch (_) { /* Diagnostic logging must not interrupt attribution. */ }
+  try { console.log('ATTR_DIAG ' + JSON.stringify({ event: 'ATTR_DIAG', v: 1, stage, reason })); } catch (_) { /* Diagnostic logging must not interrupt attribution. */ }
 }
 function cancelReadiness() {
   if (lateOpen) clearTimeout(lateOpen.timer);

@@ -57,7 +57,7 @@ async function scenario(mode){
   assert.equal(purchaseCount,1);assert.equal(redirects,1);assert.equal(result.analyticsCatch,false);
   const expected=['policy-timeout','wrong-title','withdrawal'].includes(mode)?0:1;
   assert.equal(p.ads.length,expected);assert.equal(result.handoffCount,expected);
-  const diagnostics=diagnosticLogs.concat(logs.map(x=>x[0])).filter(x=>x&&x.event==='ATTR_DIAG');
+  const diagnostics=require('./attribution-diagnostic-console.cjs').events(diagnosticLogs.concat(logs.map(x=>x[0])));
   const wanted={'policy-timeout':'TIMEOUT','wrong-title':'FRAME_BINDING',withdrawal:'WITHDRAWAL'}[mode]||'READY_EMPTY';
   assert.ok(diagnostics.some(x=>x.reason===wanted),wanted);
   assert.ok(diagnostics.some(x=>x.stage==='browser'&&x.reason===(expected?'RPC_INVOKED':'ATTRIBUTION_NULL')));

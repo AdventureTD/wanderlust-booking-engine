@@ -1132,7 +1132,7 @@ function wireContinueButton() {
         // No identifiers, financial values, contacts, errors or capabilities.
         const attributionDiagnostic = reason => {
           if (!['FINANCIAL_MISSING', 'ATTRIBUTION_NULL', 'RPC_INVOKED'].includes(reason)) return;
-          try { console.log({ event: 'ATTR_DIAG', v: 1, stage: 'browser', reason }); } catch (_) {}
+          try { console.log('ATTR_DIAG ' + JSON.stringify({ event: 'ATTR_DIAG', v: 1, stage: 'browser', reason })); } catch (_) { /* Diagnostics cannot affect booking. */ }
         };
         let googleConversionPromise = null;
         // Analytics must never change confirmed booking/invoice outcomes.

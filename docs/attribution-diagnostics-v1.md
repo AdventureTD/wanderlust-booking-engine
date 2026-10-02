@@ -8,11 +8,11 @@ In the **published site's browser Developer Tools → Console**, enable Preserve
 
 **No CMS collection is created or written by these diagnostics.** They are not in BookingSummary, Bookings, Wix backend logs or Google Ads UI. Existing backend attempt/result evidence remains in **Wix CMS → GoogleAdsAttemptJournal**; absence of an ATTEMPT does not independently establish the cause. This change adds no journal entries, endpoint, network requests, retries or provider calls.
 
-Console logs are not durable across tab/browser close; Preserve log only assists navigation in the current debugging session. This cannot retroactively diagnose WC-1041. Do not export the entire legacy console: unrelated existing logs can contain guest/booking data. Retain only objects whose event is `ATTR_DIAG` and exactly the four fields below.
+Each new entry is a plain string: no object expansion is needed, and copied text retains its fields even after its worker is gone. Enable Preserve log before navigation; this is not persistent storage across tab/browser close. Old opaque object history cannot be recovered by this correction. This cannot retroactively diagnose WC-1041. Do not export the entire legacy console: unrelated existing logs can contain guest/booking data. Retain only lines beginning `ATTR_DIAG `, then parse the JSON suffix with exactly the four fields below.
 
 ## Exact new schema
 
-`{"event":"ATTR_DIAG","v":1,"stage":"policy","reason":"TIMEOUT"}`
+`ATTR_DIAG {"event":"ATTR_DIAG","v":1,"stage":"policy","reason":"TIMEOUT"}`
 
 Only event/version/stage/reason, all finite constants. No contact values, hashes, click IDs, URLs, queries, booking references, capabilities, raw errors or raw records. No correlation identifiers. New objects serialize under 180 ASCII bytes. Worker logging is deduplicated by stage/reason for the module lifetime (hard cap 32); Head is at most three distinct reasons per listener lifetime. Summary emits at most one boundary reason per confirmed-cart callback; its existing submission latch remains unchanged. A missing repeated log is not a successful repeated handshake.
 
@@ -36,7 +36,7 @@ A browser ATTRIBUTION_NULL with no corresponding source diagnostic remains unres
 
 ## Installation inventory and unchanged boundaries
 
-After review only: Public `clickAttribution.js`; Booking Summary page source; Head `google-tag-and-consent.html` (generated from `.source.html`). No iframe replacement, tracking.js change, backend change, public webmethod, collection migration or setting change. Install the coordinated reviewed versions; a worker-only installation cannot observe Head frame failures. Head v1 is exactly 14,900 LF characters, at the unchanged packaging budget, so rebuild/check after any later edit.
+After review only: Public `clickAttribution.js`; Booking Summary page source; Head `google-tag-and-consent.html` (generated from `.source.html`). No iframe replacement, tracking.js change, backend change, public webmethod, collection migration or setting change. Install the coordinated reviewed versions; a worker-only installation cannot observe Head frame failures. Head is 14,877 LF characters within the unchanged 14,900 packaging budget. A private storage-observation local was shortened without changing behavior; rebuild/check after any later edit. GitHub preparation does not authorize Wix access, installation, Head Apply or publication: request scoped approval first.
 
 Existing 500 ms handshake deadlines, 10 second bounded late-readiness envelope, existing retry count, exact protocol schema/version, consent/expiry/revision/storage fences, clear/revocation behavior and Summary 2–5 second redirect scheduling remain unchanged. Local tests use inert boundaries: no claim of actual hosted latency, native Wix frame destruction/replacement, backend processing or provider receipt. The unrelated Date bug is untouched.
 

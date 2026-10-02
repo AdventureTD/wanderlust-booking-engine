@@ -6,7 +6,8 @@ let support=fs.readFileSync(path.join(__dirname,'click-attribution-corrections.c
 support=support.replaceAll('console:{log(){},error(){}}','console:{log:(x)=>logs.push(x),error(){}}');
 const box={require,__dirname,console,setTimeout,clearTimeout,URL,logs};
 vm.runInNewContext(support+'\nthis.fixture=fixture;',box);
-const events=()=>logs.filter(x=>x&&x.event==='ATTR_DIAG');
+const {events: copiedEvents}=require('./attribution-diagnostic-console.cjs');
+const events=()=>copiedEvents(logs);
 const pagebox={require:require('node:module').createRequire(path.join(__dirname,'attribution-hotfix.cjs')),__dirname,console};
 vm.runInNewContext(fs.readFileSync(path.join(__dirname,'attribution-hotfix.cjs'),'utf8').split('function bookingBackend')[0]+'\nthis.page=page;',pagebox);
 for(const mode of ['missing-financial','null-attribution','direct'])test('Summary diagnostic '+mode,async()=>{
@@ -14,7 +15,7 @@ for(const mode of ['missing-financial','null-attribution','direct'])test('Summar
  const captured=[];p.c.console={log:x=>captured.push(x),warn(){},error(){}};
  if(mode==='null-attribution')p.c.getStoredClickIds=()=>null;
  await p.click();
- const es=captured.filter(x=>x&&x.event==='ATTR_DIAG');
+ const es=copiedEvents(captured);
  assert.equal(es.length,1);assert.equal(es[0].stage,'browser');
  assert.equal(es[0].reason,{'missing-financial':'FINANCIAL_MISSING','null-attribution':'ATTRIBUTION_NULL',direct:'RPC_INVOKED'}[mode]);
  assert.equal(p.ads.length,mode==='direct'?1:0);assert.equal(p.invoices.length,1);

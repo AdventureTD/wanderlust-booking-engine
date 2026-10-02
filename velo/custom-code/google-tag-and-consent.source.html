@@ -106,13 +106,13 @@
   window.__wbeAdsFormGate = true;
   var formGate = (function () {
       var allowed = false, revision = 0, lastChecked = 0, denied = false, lastRecord;
-      var clear = false, observingStorage = false, channelState, copyAllowed = true;
+      var clear = false, obs = false, channelState, copyAllowed = true;
       // Diagnostic v1 stays in this Head realm; no new wire fields or authority.
       var ds = [];
       function ad(n) {
         if (ds[n]) return;
         ds[n] = 1;
-        try { console.log({ event: 'ATTR_DIAG', v: 1, stage: 'head', reason: ['FRAME_BINDING', 'CONSENT_DENIED', 'WITHDRAWAL'][n] }); } catch (_) {}
+        try { console.log('ATTR_DIAG ' + JSON.stringify({ event: 'ATTR_DIAG', v: 1, stage: 'head', reason: ['FRAME_BINDING', 'CONSENT_DENIED', 'WITHDRAWAL'][n] })); } catch (_) { /* Diagnostics cannot affect consent. */ }
       }
       var states = new WeakMap();
       var selector = '#comp-mqo6cvon input[type="email"][name="email"]';
@@ -163,7 +163,7 @@
             // No gtag call here: avoid recursive observation. Initial defaults are not choices.
             // Stable denial tombstone avoids cross-tab write ping-pong. Legacy
             // negative key is a second small fallback, never affirmative provenance.
-            if (!observingStorage) {
+            if (!obs) {
               try { localStorage.setItem('wbe_consent_choice', 'denied'); } catch (_) {}
               var savedDenial = false;
               try {
@@ -188,9 +188,9 @@
       window.addEventListener('storage', function (e) {
         if (!e.key || e.key === 'wbe_consent_choice_v2' || e.key === 'wbe_consent_choice') {
           choice(false);
-          observingStorage = true;
+          obs = true;
           try { gtag('consent', 'update', { ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' }); }
-          finally { observingStorage = false; }
+          finally { obs = false; }
         }
       });
       window.addEventListener('message', function (event) {
