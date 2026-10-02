@@ -1,4 +1,3 @@
-<!-- Google tag (gtag.js) + Consent Mode v2 — paste in Wix Settings → Custom Code → Head -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-MKGG3X1WP9"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -108,11 +107,18 @@
   var formGate = (function () {
       var allowed = false, revision = 0, lastChecked = 0, denied = false, lastRecord;
       var clear = false, observingStorage = false, channelState, copyAllowed = true;
+      // Diagnostic v1 stays in this Head realm; no new wire fields or authority.
+      var ds = [];
+      function ad(n) {
+        if (ds[n]) return;
+        ds[n] = 1;
+        try { console.log({ event: 'ATTR_DIAG', v: 1, stage: 'head', reason: ['FRAME_BINDING', 'CONSENT_DENIED', 'WITHDRAWAL'][n] }); } catch (_) {}
+      }
       var states = new WeakMap();
       var selector = '#comp-mqo6cvon input[type="email"][name="email"]';
       function choice(value) {
         denied = value !== true;
-        if (denied) { clickAttribution.clear(); revokeClicks(); }
+        if (denied) { ad(2); clickAttribution.clear(); revokeClicks(); }
         revision++;
         lastRecord = undefined;
       }
@@ -126,14 +132,14 @@
           var legacy = localStorage.getItem('wbe_consent_choice');
           if (lastRecord !== undefined && raw !== lastRecord) { revision++; revokeClicks(); }
           lastRecord = raw;
-          if (legacy === 'denied') return false;
+          if (legacy === 'denied') { ad(1); return false; }
           if (raw === null) { clear = !denied; return false; }
           var v = JSON.parse(raw);
           if (!v || Object.keys(v).sort().join(',') !== 'at,choice,source' ||
               ['banner-click-v2', 'google-denial-v1'].indexOf(v.source) === -1 ||
               !Number.isSafeInteger(v.at) || v.at < 0) return false;
           // Denials have no TTL. Invalid/expired grants never revive participation.
-          if (v.choice === 'denied') { denied = true; return false; }
+          if (v.choice === 'denied') { ad(1); denied = true; return false; }
           if (denied || v.source !== 'banner-click-v2' || v.choice !== 'granted' ||
               now < v.at || now - v.at >= 15552000000) return false;
           clear = true; allowed = true;
@@ -249,7 +255,7 @@
               new URL(window.location.href).origin !== 'https://www.wanderlustcaribbean.com') return;
           var frames = document.querySelectorAll('iframe[title="WBE event bridge"]');
           if (frames.length !== 1 || frames[0].isConnected === false || frames[0].contentWindow !== event.source ||
-              new URL(frames[0].src).origin !== event.origin || event.origin === 'null') return;
+              new URL(frames[0].src).origin !== event.origin || event.origin === 'null') { ad(0); return; }
           currentChoice();
           var s = channelState;
           if (d.op === 'open') {

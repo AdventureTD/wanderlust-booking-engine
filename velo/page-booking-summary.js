@@ -1128,6 +1128,12 @@ function wireContinueButton() {
           if (safeVal('inputGuestEmail').trim() === email) completeAdsFormSubmission(adsFormSequence);
         } catch (e) { /* Optional collection never changes booking outcomes. */ }
 
+        // Exactly one finite browser-boundary observation for this confirmed cart.
+        // No identifiers, financial values, contacts, errors or capabilities.
+        const attributionDiagnostic = reason => {
+          if (!['FINANCIAL_MISSING', 'ATTRIBUTION_NULL', 'RPC_INVOKED'].includes(reason)) return;
+          try { console.log({ event: 'ATTR_DIAG', v: 1, stage: 'browser', reason }); } catch (_) {}
+        };
         let googleConversionPromise = null;
         // Analytics must never change confirmed booking/invoice outcomes.
         try {
@@ -1146,6 +1152,7 @@ function wireContinueButton() {
         // this invocation, including contacts. Allocation AUTH is not consent.
         // Once called, backend awaits/IO cannot be recalled by this worker.
         clickIds = currentAttribution();
+        if (!clickIds) attributionDiagnostic('ATTRIBUTION_NULL');
         if (clickIds) {
         const googlePayload = {
           conversionCapability,
@@ -1166,6 +1173,7 @@ function wireContinueButton() {
         // Backend owns attempt/result persistence and the legacy uploaded flag.
         // Capture exactly this invocation without moving its consent boundary.
         try {
+          attributionDiagnostic('RPC_INVOKED');
           googleConversionPromise = recordBookingConversion(googlePayload);
         } catch (conversionError) {
           googleConversionPromise = Promise.reject(conversionError);
@@ -1230,6 +1238,7 @@ function wireContinueButton() {
         }
 
         } else {
+          attributionDiagnostic('FINANCIAL_MISSING');
           console.warn('[WBE-FRONTEND] Analytics skipped: no valid numeric financial snapshot.');
         }
         } catch (analyticsError) {

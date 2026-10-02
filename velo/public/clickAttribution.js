@@ -7,6 +7,17 @@ const KEY = 'wl_click_attribution', CLEAR = 'wl_click_attribution_clear_pending'
 let component, sequence = 0, revision = 0, suspended = false, pending = null;
 let denied = true, nonce = '', channel = '';
 let lateOpen = null;
+// Diagnostic v1: finite, value-free, once per stage/reason per worker lifetime.
+// Observation only: no permission, storage, timers or transport are added.
+const diagnosticSeen = new Set();
+function diagnostic(stage, reason) {
+  if (!['policy', 'open', 'read', 'confirm', 'clear', 'worker'].includes(stage) ||
+      !['TIMEOUT', 'REJECTED', 'TRANSPORT_ERROR', 'CRYPTO_UNAVAILABLE', 'READY_EMPTY', 'READY_RECORD'].includes(reason)) return;
+  const key = stage + ':' + reason;
+  if (diagnosticSeen.has(key) || diagnosticSeen.size >= 32) return;
+  diagnosticSeen.add(key);
+  try { console.log({ event: 'ATTR_DIAG', v: 1, stage, reason }); } catch (_) {}
+}
 function cancelReadiness() {
   if (lateOpen) clearTimeout(lateOpen.timer);
   lateOpen = null;
@@ -74,6 +85,7 @@ export function initClickAttribution(w) {
           d.nonce !== nonce || !/^[a-f0-9]{32}$/.test(d.channel) ||
           (pending.op !== 'open' && d.channel !== channel) ||
           d.sequence !== pending.sequence || d.op !== pending.op || typeof d.allowed !== 'boolean') return;
+      if (!d.allowed) diagnostic(pending.op, 'REJECTED');
       pending.finish(d);
     });
     component = c; // Listener is installed before the first request.
@@ -86,6 +98,7 @@ function request(op, policy, record, task) {
     const p = { sequence: ++sequence, op, revision, nonce, finish: null };
     const timer = setTimeout(() => {
       if (pending === p && op === 'open') armReadiness(p, task);
+      if (pending === p) diagnostic(op, 'TIMEOUT');
       p.finish(null);
     }, 500);
     p.finish = value => { if (pending !== p) return; pending = null; clearTimeout(timer); resolve(value); };
@@ -94,13 +107,13 @@ function request(op, policy, record, task) {
       if (task && Date.now() >= task.deadline) { p.finish(null); return; }
       component.postMessage({ type: 'wbe-click-attribution', v: 1, op, sequence: p.sequence, nonce, channel, policy, record });
     }
-    catch (_) { p.finish(null); }
+    catch (_) { diagnostic(op, 'TRANSPORT_ERROR'); p.finish(null); }
   });
 }
 async function openChannel(task) {
   const own = revision;
   nonce = freshNonce(); channel = ''; sequence = 0;
-  if (!nonce) return false;
+  if (!nonce) { diagnostic('open', 'CRYPTO_UNAVAILABLE'); return false; }
   const opened = await request('open', null, null, task);
   if (own !== revision || suspended || !opened || !opened.allowed) return false;
   channel = opened.channel;
@@ -158,11 +171,11 @@ async function waitAttribution(task) {
     const opened = await openChannel(task);
     if (own !== revision || suspended) return;
     if (!opened) { denied = true; erase(); return; }
-    let timer;
+    let timer, policySettled = false;
     const policy = await Promise.race([
-      Promise.resolve().then(() => Date.now() < task.deadline ? getAdsFormRequirement() : null).catch(() => null),
-      new Promise(resolve => { timer = setTimeout(() => resolve(null), 500); })
-    ]).finally(() => clearTimeout(timer));
+      Promise.resolve().then(() => Date.now() < task.deadline ? getAdsFormRequirement() : null).catch(() => { if (!policySettled && own === revision && !suspended) diagnostic('policy', 'REJECTED'); return null; }),
+      new Promise(resolve => { timer = setTimeout(() => { if (own === revision && !suspended) diagnostic('policy', 'TIMEOUT'); resolve(null); }, 500); })
+    ]).finally(() => { policySettled = true; clearTimeout(timer); });
     if (own !== revision || suspended) return;
     if (!policy || Object.keys(policy).sort().join(',') !== 'observedAt,policyKey,requirement,v' || policy.v !== 1 ||
         !['REQUIRED', 'NOT_REQUIRED'].includes(policy.requirement) || typeof policy.policyKey !== 'string' ||
@@ -174,10 +187,11 @@ async function waitAttribution(task) {
     if (own !== revision || suspended) return;
     denied = !result || !result.allowed;
     if (denied) { erase(); return; }
-    if (result.record === null) { erase(); return; }
+    if (result.record === null) { diagnostic('worker', 'READY_EMPTY'); erase(); return; }
     if (!validRecord(result.record)) { denied = true; erase(); return; }
     // Head has reconciled first touch in this revocation epoch. An older local
     // copy cannot override its answer after a missed/delayed withdrawal notice.
     local.setItem(KEY, JSON.stringify(result.record));
+    diagnostic('worker', 'READY_RECORD');
   } catch (_) { if (own === revision) { denied = true; erase(); } }
 }
