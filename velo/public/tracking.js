@@ -4,6 +4,7 @@
 // persists them across pages, and pushes dataLayer events for GA4 / Google Ads.
 
 import { getAdsFormRequirement } from 'backend/adsFormRequirement.web';
+import { localBudget, remainingBudget, closeBudget, monotonicNow, freshPolicyNonce, policyRequest, validPolicy, withinBudget } from 'public/adsPolicyProtocol';
 import { local } from 'wix-storage-frontend';
 import { initClickAttribution as initAttribution, waitForClickAttribution as waitAttribution, clearPageAttribution, attributionDenied, attributionRevision, suspendAttribution } from 'public/clickAttribution';
 export function initClickAttribution(w) { initAttribution(w); }
@@ -141,45 +142,65 @@ export function clearClickIds(snapshot) {
 let _$w = null;
 let _suspendGoogleAds = false;
 
-export function initTracking(w) { _$w = w; }
+export function initTracking(w) {
+  _$w = w;
+  try {
+    const bridge = w('#wbeEventBridge');
+    if (_adsFormBridge === bridge) return;
+    _adsFormBridge = bridge;
+    bridge.onMessage(event => {
+      const d = event && event.data, wait = _adsFormAck;
+      if (!wait || bridge !== _adsFormBridge || !d ||
+          Object.keys(d).sort().join(',') !== 'challenge,nonce,phase,sequence,type,v' ||
+          d.type !== 'wbe-ads-form-started' || d.v !== 2 || d.sequence !== wait.sequence ||
+          d.phase !== wait.phase || d.nonce !== wait.nonce ||
+          typeof d.challenge !== 'string' || !/^[a-f0-9]{32}$/.test(d.challenge)) return;
+      _adsFormAck = null;
+      wait.resolve(d);
+    });
+  } catch (_) { _adsFormBridge = null; }
+}
 
 // Dedicated contact-free channel. Never put identifiers in generic event params.
-let _adsFormSequence = 0, _adsFormPending = null;
-// A read may outlive its deadline, but can never publish a late permission.
-async function readAdsFormPolicy() {
-  let timer;
-  const started = Date.now();
+let _adsFormSequence = 0, _adsFormPending = null, _adsFormBridge = null, _adsFormAck = null;
+// Each phase owns a worker-local lease and waits for a Head-local start ACK.
+// Completion does not replace the Head's original email/consent revision.
+async function readAdsFormPolicy(pending, phase) {
+  const budget = localBudget(1500), nonce = freshPolicyNonce();
+  let wait;
   try {
-    const result = await Promise.race([
-      Promise.resolve().then(() => getAdsFormRequirement()),
-      new Promise(resolve => { timer = setTimeout(() => resolve(null), 750); })
-    ]);
-    const now = Date.now();
-    if (!result || Object.keys(result).sort().join(',') !== 'observedAt,policyKey,requirement,v' ||
-        result.v !== 1 || !['REQUIRED', 'NOT_REQUIRED'].includes(result.requirement) ||
-        typeof result.policyKey !== 'string' || !/^[a-f0-9]{64}$/.test(result.policyKey) ||
-        !Number.isSafeInteger(result.observedAt) || now < result.observedAt ||
-        now - result.observedAt > 1500 || now < started || now - started >= 750) return null;
-    return { v: 1, requirement: result.requirement, policyKey: result.policyKey, observedAt: result.observedAt };
+    if (!nonce || !_adsFormBridge || !remainingBudget(budget)) return null;
+    const ack = await withinBudget(() => new Promise(resolve => {
+      wait = { sequence: pending.sequence, phase, nonce, resolve };
+      if (_adsFormAck) _adsFormAck.resolve(null);
+      _adsFormAck = wait;
+      _adsFormBridge.postMessage({ type: 'wbe-ads-form', v: 2, op: 'start',
+        phase, sequence: pending.sequence, nonce, policy: null });
+    }), budget);
+    if (!ack || _adsFormPending !== pending || _suspendGoogleAds) return null;
+    const binding = policyRequest('form', phase, nonce, ack.challenge);
+    const result = await withinBudget(() => _adsFormPending === pending && !_suspendGoogleAds ? getAdsFormRequirement(binding) : null, budget);
+    if (!remainingBudget(budget) || !validPolicy(result, binding) ||
+        _adsFormPending !== pending || _suspendGoogleAds) return null;
+    if (phase === 'complete' && (!pending.policy || result.policyKey !== pending.policy.policyKey ||
+        result.requirement !== pending.policy.requirement || !Number.isFinite(monotonicNow()) ||
+        monotonicNow() - pending.at >= 600000)) return null;
+    _adsFormBridge.postMessage({ type: 'wbe-ads-form', v: 2, op: 'result',
+      phase, sequence: pending.sequence, nonce, policy: result });
+    return result;
   } catch (_) { return null; }
-  finally { clearTimeout(timer); }
+  finally { if (_adsFormAck === wait) _adsFormAck = null; closeBudget(budget); }
 }
 export function prepareAdsFormSubmission() {
-  if (_suspendGoogleAds || !_$w) return 0;
+  if (_suspendGoogleAds || !_$w || !_adsFormBridge) return 0;
   const sequence = ++_adsFormSequence;
-  const pending = { sequence, completing: false, at: Date.now() };
+  const pending = { sequence, completing: false, at: monotonicNow() };
+  if (!Number.isFinite(pending.at)) return 0;
   _adsFormPending = pending;
-  try {
-    _$w('#wbeEventBridge').postMessage({ type: 'wbe-ads-form', phase: 'begin', sequence, policy: null });
-  } catch (_) { _adsFormPending = null; return 0; }
-  pending.ready = (async () => {
-    try {
-      const policy = await readAdsFormPolicy();
-      if (!policy || _adsFormPending !== pending || _suspendGoogleAds) return null;
-      _$w('#wbeEventBridge').postMessage({ type: 'wbe-ads-form', phase: 'prepare', sequence, policy });
-      return policy;
-    } catch (_) { return null; }
-  })();
+  pending.ready = readAdsFormPolicy(pending, 'prepare').then(policy => {
+    pending.policy = policy;
+    return policy;
+  });
   return sequence; // Booking never awaits optional Ads IO.
 }
 export function completeAdsFormSubmission(sequence) {
@@ -189,12 +210,9 @@ export function completeAdsFormSubmission(sequence) {
   void (async () => {
     try {
       const before = await pending.ready;
-      if (!before || _adsFormPending !== pending || _suspendGoogleAds) return;
-      const policy = await readAdsFormPolicy();
-      if (!policy || _adsFormPending !== pending || _suspendGoogleAds ||
-          policy.policyKey !== before.policyKey || policy.requirement !== before.requirement ||
-          Date.now() < pending.at || Date.now() - pending.at > 600000) return;
-      _$w('#wbeEventBridge').postMessage({ type: 'wbe-ads-form', phase: 'complete', sequence, policy });
+      if (!before || _adsFormPending !== pending || _suspendGoogleAds ||
+          !Number.isFinite(monotonicNow()) || monotonicNow() - pending.at >= 600000) return;
+      await readAdsFormPolicy(pending, 'complete');
     } catch (_) { /* No reservation dependency, no retry or contact/error logging. */ }
     finally { if (_adsFormPending === pending) _adsFormPending = null; }
   })();

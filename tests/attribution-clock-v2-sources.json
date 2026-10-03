@@ -1,0 +1,526 @@
+{
+  "v": 1,
+  "base": "dbe6075ad35d7b4adb8259f91a60c51f9b1e8e08",
+  "protected": {
+    "velo/admin-console-wireframe.html": {
+      "raw_sha256": "58f4143156cdb1bb93fb45c40aa74a27eed12182c90c2e9adb095f38157d60e8",
+      "canonical_lf_sha256": "7bb41d103b443e8ac903fc437139216a104414d06f4944cda1d50091ffca49d5"
+    },
+    "velo/ADMIN_CONSOLE.html": {
+      "raw_sha256": "fad46756e30692b87d75e3985801ca37ac708ea6eb00e7e788360b13b4d7b8e5",
+      "canonical_lf_sha256": "84a60535f6d98aaa7aa3ede20e5311ac66f865b6b1ac4807b26c3b284651fa95"
+    },
+    "velo/ADMIN_CONSOLE.md": {
+      "raw_sha256": "8ba0dafeae4825009d61accf3e22612ab46b215251761b72257a5f0df3e5815d",
+      "canonical_lf_sha256": "4b056f2183e5a87416b063277b0a17159f3a3d0dacba622470ffd532d3404bde"
+    },
+    "velo/ADMIN_PAGE_ELEMENTS.md": {
+      "raw_sha256": "312b69271fe3be47cae0b36861437aaa524d9b957c3a82180d2a069cc13e7910",
+      "canonical_lf_sha256": "f99e97534cfa0ac8a132ab301fdf66cd37a1c8311b505d8a672b9102bfda074e"
+    },
+    "velo/BOOKING-SEARCH-RADIO.md": {
+      "raw_sha256": "c56410ea2cc241072f79251881658b6abd6e77fb976acb54abbc38ce918daec7",
+      "canonical_lf_sha256": "ed3dabdbe09abc66db22d170c2c695f3c9ee6532482f8ce30196d1d352240785"
+    },
+    "velo/CANCELLATION_CANDIDATE.md": {
+      "raw_sha256": "3a5c926ab4002ce4fa9c158e2583de175a2895a5271a479d150c9609d0bf32ef",
+      "canonical_lf_sha256": "b48afa2536993640718e4fffb11e3763809b4535a92630bcbfd799809dc9d569"
+    },
+    "velo/GOOGLE_ADS_SETUP.md": {
+      "raw_sha256": "2a5ce7ffc02fb95315e6257d1a0580e6c9dccfd969c567db1d26242b1d390051",
+      "canonical_lf_sha256": "994a1c023b20f59ba3e7cb1e1817bfdef8c26d6de5650dcf934063ee369e92c2"
+    },
+    "velo/masterPage.js": {
+      "raw_sha256": "16ea680783e201ffa0d8eda36936fab2565e243d6ee18005804b5e6ffdee2181",
+      "canonical_lf_sha256": "2d1d608a497e85f680925fff257a06ac78ddfcf57364e5843eab0ce5f5360b56"
+    },
+    "velo/page-admin-bookings.js": {
+      "raw_sha256": "9da8026cc69dee68b576e597bcae69325f47dc34f41228582563447f3ef21bc5",
+      "canonical_lf_sha256": "429ee2ef9db58ec29acb3927a372fbf47ce64512929a2ec41093ada45766afc7"
+    },
+    "velo/page-booking-search.js": {
+      "raw_sha256": "e5b0af4762ee0f25671c0c808c385d0c69712218d939be44fd291870a54fb2ae",
+      "canonical_lf_sha256": "225fb309aeec814407c192b558887cb6fda26683a6be537b1a62fecce36e1697"
+    },
+    "velo/page-booking-summary.js": {
+      "raw_sha256": "ea90f52c05959171d657063670538863700f39bfc303d8ac49e70197ea003307",
+      "canonical_lf_sha256": "4db430f56dd6221d34be2e417a07f3080c9699c3d69ec00ad9f581fdc750ceef"
+    },
+    "velo/page-collections-export.js": {
+      "raw_sha256": "1517540564e40db673341710f7c5727c2a29b629740ede5388b6aef2702b73b7",
+      "canonical_lf_sha256": "446e3ac1569b80ec2a7c9c8a4bfe4213641408a66a2378be002fd9d9b5dee688"
+    },
+    "velo/page-diagnose.js": {
+      "raw_sha256": "95141249f2eaea630e196c75a48d8285ad3dc86875c9b83ed778280f9ef7297f",
+      "canonical_lf_sha256": "bd1dffaa3ea43163972c6518c04b766e04091322ce4c21862f2369b08c08774d"
+    },
+    "velo/SETUP_GUIDE.md": {
+      "raw_sha256": "0e8cae9dda6a3116770db2e3526fa3dbc6d6432e313e96d16d60694410dcc813",
+      "canonical_lf_sha256": "834d39863abbb320c9bbfe0d663c81d02a3095af256f0a9bb644ded4027103e7"
+    },
+    "velo/backend/adminConsole.web.js": {
+      "raw_sha256": "fbf6575394cae8487240e787587a41f6e15e28077ef9e704df3b64c4b5b55de2",
+      "canonical_lf_sha256": "7f8dc2d1cb5c40ef2352d134262e9523cb1df184fe0af5ab5e1f5b68314efc71"
+    },
+    "velo/backend/adsRequirementDiagnostics.js": {
+      "raw_sha256": "512a449d15ad19e8474c1c2d4ea357294b40bca9ed7e9d9148d83385f2502b9a",
+      "canonical_lf_sha256": "3f7030d099162e2dcd58c47c3ef71aaa31f71769c7304cabb7501cb6455fceaa"
+    },
+    "velo/backend/availability.web.js": {
+      "raw_sha256": "d17eaa16f8648c442540ac0d22765d22d7586f82685f95dba43b627cde4454f9",
+      "canonical_lf_sha256": "324d56dd3a1374e2ee640ef76e732278cbebaf4d3c9d642303716108103be397"
+    },
+    "velo/backend/bookingCancellation.js": {
+      "raw_sha256": "d7f8c99819c876e02781f18e40bf0b8aabc506dd3de8349866f168d18f40036f",
+      "canonical_lf_sha256": "e6bfd3689c13d0975854a89873c403e9725b76bd5d43fffb69bb43eef3b1b7ea"
+    },
+    "velo/backend/cancellationEffects.js": {
+      "raw_sha256": "1fd40dcde298e6e789ce8a613372a785b318fabf742139729c1f319ec7c979a8",
+      "canonical_lf_sha256": "7d039c1e8245d483b498ca08e188c4894cb2fc638e19a2e9783149e69da874a7"
+    },
+    "velo/backend/dataManagerClient.web.js": {
+      "raw_sha256": "22d370efb092b975381cc16d71d41346e95f0a127b4cc0d27fc0e96c5a73ab52",
+      "canonical_lf_sha256": "9df00ef2975efbb6f7670167a98c8bbe52921e3d0867f0fe915b1461ff7650b0"
+    },
+    "velo/backend/debug.web.js": {
+      "raw_sha256": "62db89705b9aaa7325d0dce994e6c0c9b2704952a325d1d8e0331536d8b221a6",
+      "canonical_lf_sha256": "4b17b72c95f893cd45f03470d10b3f3efd8abbfeb86e2220cabb0da7aed0b9d7"
+    },
+    "velo/backend/googleAdsAttemptJournal.js": {
+      "raw_sha256": "7d1db0e72967c8cb551411258634b8877663ed4568333613ec372bf58a19ebb3",
+      "canonical_lf_sha256": "0de05689c498a7fbd9d5de8052329d414925b88297b23ffc577498fc7b235d9b"
+    },
+    "velo/backend/googleAdsConversions.web.js": {
+      "raw_sha256": "9ab9dde6e834eaf1c88dbdb5cbe543fb1255e885d70df3e32ed2a995b0af2f9b",
+      "canonical_lf_sha256": "9cd7a359c1b5921957d71e5207f6c4447710efef519580b966926705f57a7945"
+    },
+    "velo/backend/googleAdsHttpDiagnostics.js": {
+      "raw_sha256": "317c87fb7b4e298452faf051c9e84890eee8b423eb805358a01fcf3d55d910a8",
+      "canonical_lf_sha256": "01756442297adf23acb240b74d376bf9e54a589bdaaf07b59d6d187bdae56446"
+    },
+    "velo/backend/googleAdsProcessingDiagnostic.js": {
+      "raw_sha256": "7c97852ff90996725fb0c4c8a29411b553a61b9a909efc5d73f6bda3f586f672",
+      "canonical_lf_sha256": "41d981498709d953a7fefe4d0e67f1f99c6d5c317bba768f47e7595edfe727c8"
+    },
+    "velo/backend/guestConsentLocationPolicy.js": {
+      "raw_sha256": "0c79dd5cb4ad6430b5c1670547be02fa547120c49c49a9851d7d9b4456a0638d",
+      "canonical_lf_sha256": "0c040cd671eeb045530c870e4c5d2a854169c26b84226c5d5a6cc8268dae17d9"
+    },
+    "velo/backend/guestConsentRequirementsReader.js": {
+      "raw_sha256": "a8d1747139c69ec994c7cb69fdb6ae4418f3a3a7fa84643eee6c22cfbed8228e",
+      "canonical_lf_sha256": "39a7759cf4782ab2520fefe0fc0c731009b5689285d6b8bc372d6cc0ad0068a2"
+    },
+    "velo/backend/hashUtils.web.js": {
+      "raw_sha256": "5a3f70225038f90c6328e9f7cea56260a9e6c89cb9df058f71f3220d5be45a3c",
+      "canonical_lf_sha256": "d788f772d5a072379724279e0bf649fc2837b0438b8988d82faaf8bacd1b6801"
+    },
+    "velo/backend/invoice.web.js": {
+      "raw_sha256": "37b42e5dded8de58217e735147924f82393c255ede7ca2bf0b89d1e095f6daa4",
+      "canonical_lf_sha256": "812368ee5b4cd4361e5042502c7e95826c7e9214ba05ad646556dc3a9e37027f"
+    },
+    "velo/backend/invoices.web.js": {
+      "raw_sha256": "f1e8d3dd5d1253e7491c345571d99c3d78eeeb66393971f0ebc0a582caedfa8d",
+      "canonical_lf_sha256": "059167c2e9de2e69d2b53607ef08502c0cfb14ed2f759ebbfeb3a38402989bf9"
+    },
+    "velo/backend/invoiceService.web.js": {
+      "raw_sha256": "f1e8d3dd5d1253e7491c345571d99c3d78eeeb66393971f0ebc0a582caedfa8d",
+      "canonical_lf_sha256": "059167c2e9de2e69d2b53607ef08502c0cfb14ed2f759ebbfeb3a38402989bf9"
+    },
+    "velo/backend/issueInvoice.web.js": {
+      "raw_sha256": "826a453977542839127f47dbc5daba93c8d586f25fca7e9df55494a7a9eeca79",
+      "canonical_lf_sha256": "e8349991f3db00600c88d7ec75b078ec39d75369ab8a631394b6da71e1d9d6f2"
+    },
+    "velo/backend/jobs.config": {
+      "raw_sha256": "7afa3b2d7205ae3a07a50a5721181eaff5add26c59643ea9fe11849c9708fc57",
+      "canonical_lf_sha256": "f0e5d67ff261947e2f2013f5187534d49294ce6dc7284bbc168b8d986998c372"
+    },
+    "velo/backend/listCollections.web.js": {
+      "raw_sha256": "03e6e27b4af7c0d5a05d6c5fb96b3ff62a2b06339f313cbb8b49ead3bd207cd8",
+      "canonical_lf_sha256": "6b1983f2d197911c2df16b92611cdfeb3cb4b912e971d62e3835c82093939169"
+    },
+    "velo/backend/messages.web.js": {
+      "raw_sha256": "40bf926a5543bdfb49e49c96c305c14baf9e33c1e371fac762b75a4a49017834",
+      "canonical_lf_sha256": "e2c840d207306a56d97acdfae36a4ee59dae6dfa9a85f439db6af0f0dd25c62a"
+    },
+    "velo/backend/microsoftAdsConversions.web.js": {
+      "raw_sha256": "d100c6dfdaac652737b27dda034eec17c8506916ed018289bba80ed506d62c22",
+      "canonical_lf_sha256": "b20abf4eebbec2c146a1fbd86bc73dc47f23e2ab2526fdf145c2c46c84ce41a1"
+    },
+    "velo/backend/packages.web.js": {
+      "raw_sha256": "070d26fe64b6ba7156d3ded64ceb49cdce6a581bb4d136f18c5585b90910224b",
+      "canonical_lf_sha256": "401f8f69b694f1bc04a86c881654938d3f45a1df17bf1d86d1c8895776fd0f53"
+    },
+    "velo/backend/payments.web.js": {
+      "raw_sha256": "2922c43988bd93b2aab1bf9fb6149c93cce228d0522d0f0f27812ce4a5008752",
+      "canonical_lf_sha256": "eafe1cb64abc36778a3f3fdb56affa10664a1defb16f51c202fb5d949d494844"
+    },
+    "velo/backend/pricingQuote.js": {
+      "raw_sha256": "207831651708e131732f5e997340da334495ba8a7542725744498ee1bb8dffcf",
+      "canonical_lf_sha256": "a7a70a8444565473b70ca8507166692db033730655928f1b9d1ab9a95d07fc1c"
+    },
+    "velo/backend/pricingQuotes.web.js": {
+      "raw_sha256": "fac99b107af42d65c7e0129c5f1517c88914f5a6564fc5c10325325d88651b5a",
+      "canonical_lf_sha256": "119a831ffe3e003f75fb95ff2d727c559c220fedd41f741245fd87bffca9127c"
+    },
+    "velo/backend/rateResolver.js": {
+      "raw_sha256": "ffb13d61c3a49e414f5d0617b7f6941a962be74ac477576a7d20c57e700ba7d6",
+      "canonical_lf_sha256": "56eba305902a44afa7ce17703c29a5e357d762559c712a3509c54f0bc74c4d72"
+    },
+    "velo/backend/reporting.web.js": {
+      "raw_sha256": "0b6e9aee85abe4b43553dcabff5cbe01f1d10a6cef29b185fd6208207d40927d",
+      "canonical_lf_sha256": "86c2ddb8a2e3e01afc66e7a866c3c83e5542d1651498d113196cd0b932f63190"
+    },
+    "velo/backend/rooms.web.js": {
+      "raw_sha256": "cdf66b7e6b58cb6f28d2e21049beefccfc6447b42dc8df5c410e7f2f367b13ed",
+      "canonical_lf_sha256": "97336f9e20210db7f0b01d8f714ed614de08cf9789d414eeefec2206905bf1f8"
+    },
+    "velo/backend/search.web.js": {
+      "raw_sha256": "d10f3ab0e6d3affe2cce999a61921af6591a152b68983e068da23551fdb88bbb",
+      "canonical_lf_sha256": "d3b32070568d234e189fe7b82012b4d54b95b6e4746b3f2724e88383d3c75a39"
+    },
+    "velo/backend/seasonal.web.js": {
+      "raw_sha256": "e3e47c7c9bbaf2156211647335ea6bda888148b4daf4cf8975e650ee735bcdf8",
+      "canonical_lf_sha256": "7ca7a9d5fef907cc35415e64ffdd1192d1cbfca3731bde22a0adc3b65049c56d"
+    },
+    "velo/backend/settings.web.js": {
+      "raw_sha256": "caab5eef79fc681dba5320627c42e07582adca7011c111e9b91a876a44f84e38",
+      "canonical_lf_sha256": "b5a30ea9f9a0811981fc4dc9c040366efa569de6cef5c3d911bf0a3b2a30aa61"
+    },
+    "velo/backend/storage.web.js": {
+      "raw_sha256": "1c41958f8a809171b4cf6cde1df38a88373c9302001bee500ca1b405437eb157",
+      "canonical_lf_sha256": "c86ac550503636808902ca2b78415d14a96d071084b3ca43871fe0bb0b404e9a"
+    },
+    "velo/backend/test.web.js": {
+      "raw_sha256": "5f8a9083ac4c6b70f43e508ea71e1048612a54345bf8116dd1f4d43fc3b7cfd4",
+      "canonical_lf_sha256": "0ec1c9b0af2a6526d16a00ab4d03ff23d1317a595829ad8999cd1ca8906fabd5"
+    },
+    "velo/backend/wbeConfig.js": {
+      "raw_sha256": "98ae3dcf11cf35b8076e0739d1fe7a86df029e8b509debf4dcb23f77e00da56d",
+      "canonical_lf_sha256": "ab2605869199c1d586dad2643f1f838abda1f6f3d1d18cc4ac4d0743edce70f2"
+    },
+    "velo/custom-code/microsoft-uet-and-events.html": {
+      "raw_sha256": "c473bea9a2da517556d5b424f2ec6bc801f0946381e644130ed6f005d443a5a7",
+      "canonical_lf_sha256": "9f9630d31f1f1ac7b186efdb462b64694742d37a6a6b56320580c85dc3ad7da7"
+    },
+    "velo/custom-code/summary-background.html": {
+      "raw_sha256": "25e8ca158eeeeb93ffc6ca56d0fff128c4e7494e597d733061e2cdff9aebc56c",
+      "canonical_lf_sha256": "6a99c0060336e05b4df08d9bdefd5abf8788ac02549466faef0fed5bf2fa834b"
+    },
+    "velo/public/phoneNormalization.js": {
+      "raw_sha256": "6d4b134dee22237621702e792ffdc0d8a773b2ba753fb386d7094421470c236c",
+      "canonical_lf_sha256": "c371eb954d1623c05f25bf34859c3e900bb1afe5ae54391c0b38a10af91a6609"
+    }
+  },
+  "candidate": {
+    "velo/ATTRIBUTION_V2_INSTALL.md": {
+      "raw_sha256": "8a7d0575122b85c9a17ba69d018803d41486cb7359532502a82ce8a95e45eb9f",
+      "canonical_lf_sha256": "8a7d0575122b85c9a17ba69d018803d41486cb7359532502a82ce8a95e45eb9f"
+    },
+    "velo/backend/adsFormRequirement.web.js": {
+      "raw_sha256": "9bacbb1f8e1ec5965a5f291f686d80aff528d844e0498c424ec7d5a909addf6d",
+      "canonical_lf_sha256": "37db1582a3cb073b72c0855b0cc7b21f51c8ccc89b9f3f7cdd159e444875ab64"
+    },
+    "velo/custom-code/event-bridge-iframe.html": {
+      "raw_sha256": "555d832114122ade8ca6c9d6b8d37d7092c5882c446b0d1a008eaa9f701d72a0",
+      "canonical_lf_sha256": "424e59509750f1cdcd706ba327466b12f231dc0ed53af685e8a7630ef21cab50"
+    },
+    "velo/custom-code/google-tag-and-consent.html": {
+      "raw_sha256": "d0eabd56016d92a709a3d79adee0248ae08f3a005cb47aea2e56fe85611d2907",
+      "canonical_lf_sha256": "d0eabd56016d92a709a3d79adee0248ae08f3a005cb47aea2e56fe85611d2907"
+    },
+    "velo/custom-code/google-tag-and-consent.source.html": {
+      "raw_sha256": "9c59bf59a22c43612b05dbdd013cb31bea7e462726263fbcfa82bdf7d2363dc8",
+      "canonical_lf_sha256": "9c59bf59a22c43612b05dbdd013cb31bea7e462726263fbcfa82bdf7d2363dc8"
+    },
+    "velo/public/adsPolicyProtocol.js": {
+      "raw_sha256": "3ef648c10f09d1246be6c8cc9c0ad413f03c127e5f3dc5f60ce57f47ad3af51c",
+      "canonical_lf_sha256": "3ef648c10f09d1246be6c8cc9c0ad413f03c127e5f3dc5f60ce57f47ad3af51c"
+    },
+    "velo/public/clickAttribution.js": {
+      "raw_sha256": "86cf6ebdff5bd875c2128f1db81797b1f0c6d09922a99ac8554fab9227b26e6a",
+      "canonical_lf_sha256": "bf5d63a5ff564bfbb163a66cb8c7ef90708c7a3f678d0b6fb1425cdfc451866e"
+    },
+    "velo/public/tracking.js": {
+      "raw_sha256": "e4011e1f69aced6a303d1b4c73a87ee75457ff6ee1d851e26e817d5e45d9d7ad",
+      "canonical_lf_sha256": "97d43951a5292262e23f65a5de5477cf9f769cfa9324e852cef696a363443633"
+    }
+  },
+  "support": {
+    "tests/ads-consent-lifecycle.cjs": {
+      "raw_sha256": "0800cf18d312a9355a118acc0b7f99f33ff48a65a2004420814ab042f270ad38",
+      "canonical_lf_sha256": "aafad2b0ce4cf767165a36943bac7dd2b356b1b0a5b22c0190e5b346e1e1298b"
+    },
+    "tests/ads-custom-form.cjs": {
+      "raw_sha256": "edea17323678bb574f5f42395cc8c3bd88c3e513ded30c662e27d075ee47055f",
+      "canonical_lf_sha256": "60545236a968b4b59ee33d42aefe35cba6d30b04e6135f256cc33f9eafb05dca"
+    },
+    "tests/ads-location-integration.cjs": {
+      "raw_sha256": "497d718fe6f06276766a6f82ceb764ac5adbf93d859170068f935e58d31e346f",
+      "canonical_lf_sha256": "fec64a553effd3af157253fcaab17192ce2f38c45a0a2d0b276375318e3f99d6"
+    },
+    "tests/ads-location-policy-boundaries.cjs": {
+      "raw_sha256": "2d75cb13eb7171548f167f03dfd654df6b1cc04383d8e7e13bdcc5bf6c2c1c43",
+      "canonical_lf_sha256": "e5cf333dd5a33aa99ca6b73644ae5c43277c7bf840c79a63d30bc8fcdba24eac"
+    },
+    "tests/ads-location-policy.cjs": {
+      "raw_sha256": "b7a52602fb993e2df0c8708f02b80529867832780668bc2862c9ce94500e5f95",
+      "canonical_lf_sha256": "6b119a0e0ee5301d4fee4c972b7dfeeb6ce052084abca31141d7956f2ac95682"
+    },
+    "tests/ads-requirement-sdk-result.cjs": {
+      "raw_sha256": "60d894c4f4fb76e58fcf889d9ef4d7f17d871c030383f707d81ef653f96d4a8a",
+      "canonical_lf_sha256": "fbd86b59c5c5491e25cfa16469a6fc129808b556c3ec2bb4f9cd5e79e434ca43"
+    },
+    "tests/ads-review-network-deny.cjs": {
+      "raw_sha256": "28158df1241387be6c32230dc856f8ae154ec5d6a7e99a2e0bc4ac3e21c8a730",
+      "canonical_lf_sha256": "303dcc617a1c62d35a77c1a8703859e0c3fe85f632b209f931f16e5a1fa8d173"
+    },
+    "tests/attribution-clock-v2-pins.cjs": {
+      "raw_sha256": "488ba2601dcf2bc49931c30187a31c1ec31ee98e80eb3a143fd524ab3fc0543d",
+      "canonical_lf_sha256": "488ba2601dcf2bc49931c30187a31c1ec31ee98e80eb3a143fd524ab3fc0543d"
+    },
+    "tests/attribution-clock-v2-security.cjs": {
+      "raw_sha256": "ed67a496776872c28116eb078f6930b7aad4113fb50dc217cd1d29b16bbd560d",
+      "canonical_lf_sha256": "ed67a496776872c28116eb078f6930b7aad4113fb50dc217cd1d29b16bbd560d"
+    },
+    "tests/attribution-clock-v2.cjs": {
+      "raw_sha256": "8f517368814c36db280340d50f0d6a2baec7134755e6554f31a89ecfb2fa104b",
+      "canonical_lf_sha256": "8f517368814c36db280340d50f0d6a2baec7134755e6554f31a89ecfb2fa104b"
+    },
+    "tests/attribution-diagnostic-console.cjs": {
+      "raw_sha256": "7e72fd9a167abeddccba64c0c05df6ac29a991953a9f256d6f165918c7f14f4e",
+      "canonical_lf_sha256": "e6b6d2e311acb47aa95b3c3bdfb83c3fccd60ea99bfe4bf496b5cbe165429380"
+    },
+    "tests/attribution-diagnostic-review-probes.cjs": {
+      "raw_sha256": "706127295e6e0ffe1d3dee440f07bfdbb83b80fe1d41a5d945e40f2c3d314209",
+      "canonical_lf_sha256": "55f4ea1ce0897b0fc67bfed1b01e56f13ff44bf03122178eabe3d0b1b7c16565"
+    },
+    "tests/attribution-diagnostic-serialization.cjs": {
+      "raw_sha256": "3ca004d6503af831879ddce518e9eb65feed8aa38a0f85ab31d52c1b8f515f59",
+      "canonical_lf_sha256": "e718bb3164608df8e9898d196b9e38cde7cc93059076204c9de0986664902eae"
+    },
+    "tests/attribution-diagnostics-lifecycle.cjs": {
+      "raw_sha256": "7a7d3b43f815383a71b4814e25e309f16d1ee975e72a3bd6f37a095d3e2b06a8",
+      "canonical_lf_sha256": "f16658d32580df4cda4e20fcbae938a93ea15eb24fc89351710ecfcb1ffc0c3e"
+    },
+    "tests/attribution-diagnostics.cjs": {
+      "raw_sha256": "2ed4a4e1b235e621f407ccf1882b35065f9003f0b4949dfe38260225573643ba",
+      "canonical_lf_sha256": "ad6150a26bf814f7cdfb57f6660d3b0f0193ed2ce5ff15342fa4c0581238d883"
+    },
+    "tests/attribution-hotfix.cjs": {
+      "raw_sha256": "dd547d46858b02caccbf04aa51aedef166f6a496386a4295d39375811c967e6d",
+      "canonical_lf_sha256": "ac234fc88931dea11a99d0f08bdd0045b2dede10a2ac6e4adbb3ba9c33e1877e"
+    },
+    "tests/calendar-deletion-contract.cjs": {
+      "raw_sha256": "50ac9f33e16d466cbacc6c6327ed51001dae392928bc9c0e0414d7ebbb9f4745",
+      "canonical_lf_sha256": "4a5e4796176eafeb787b84b223517414c0f6989fd7ca9e537a0c2d0647558e4f"
+    },
+    "tests/cancellation-all.cjs": {
+      "raw_sha256": "b6f7dd6d645ac3c0544ee45f8f91f9ccbcdc8d315be2fe9e9f3493782c16c1b6",
+      "canonical_lf_sha256": "d14eecf5f82d1ce248be4e3f780e5bd46e6a7691373f9a74808b01e99a75f277"
+    },
+    "tests/cancellation-blockers.cjs": {
+      "raw_sha256": "a4adfc1cf1bad0a3b8104cec7d57d784dd5245555013fa0997de624dcfebddb1",
+      "canonical_lf_sha256": "77fe086d1fc5445a2e38c4d4c580172246a21bef8cb191525a4cd92382fc33ac"
+    },
+    "tests/cancellation-calendar.cjs": {
+      "raw_sha256": "71cda2bff2d85b985b57a82bbf5f55fc7e909743aeda3068cef53677ce67a104",
+      "canonical_lf_sha256": "b87d0b0b0d187bd2d4ba712fd03912fcbb434a40c44fa68e94ccde4dfafb631b"
+    },
+    "tests/cancellation-completion.cjs": {
+      "raw_sha256": "a507ddd795d97e2173192912f9948184e96c8ab0c6219dee7c024650b9da4600",
+      "canonical_lf_sha256": "88a8ec2629ef0badd060116615690610ae6ca042c4d7d0ea49aab79b09c27887"
+    },
+    "tests/cancellation-editor-diagnostics.cjs": {
+      "raw_sha256": "f0ed9cdd544ab31793679becbec08553208d66bfa30bc57cf06a5150d25b69fe",
+      "canonical_lf_sha256": "390d3a0ca3f8f6d9b512d295db8f1294d83988bc15e217b977d49363c11fddb1"
+    },
+    "tests/cancellation-fetch-typing.cjs": {
+      "raw_sha256": "eed1eac6d12a674459e521956219a0bb668a4a7ad0057cacc9fe715049691fd6",
+      "canonical_lf_sha256": "e568167582dc04e90a7e138c51040c277d87d3d794efadf7a02422adbf26f9d3"
+    },
+    "tests/cancellation-google-expiry.cjs": {
+      "raw_sha256": "a90317b09a255523475c084db1f50299249fc6f2d6168531bef8b6056fd93371",
+      "canonical_lf_sha256": "596df70ebbc9caf453a937d643af26649c4c8b9e97966057fdd7347a83cbfafb"
+    },
+    "tests/cancellation-google.cjs": {
+      "raw_sha256": "84182e6039deebc0df0e45d68dac44e1eedb25101022636f552e7079892724c1",
+      "canonical_lf_sha256": "5eab5add4e2d7921be0d0c102cf4f0d70aad686f98730afb9f07a03298d2bf84"
+    },
+    "tests/cancellation-invoice.cjs": {
+      "raw_sha256": "697921e603f244ac1035d33a79f1fcf4f9914e7c7c3a6d98f457fc91dfcd8097",
+      "canonical_lf_sha256": "8f8689b9eb9753137d3c1f149863cdb429265414fcaae26fac74de6b95688f85"
+    },
+    "tests/cancellation-page.cjs": {
+      "raw_sha256": "6e76c8337a1c46a79dc87ca9a876e636dfa72b61a6e96977cb09b40cba0aaa21",
+      "canonical_lf_sha256": "d16c48fc671287e2d06afc6b943d2aed84a0e2b0e6f38eb2967b78c83fc29e4e"
+    },
+    "tests/cancellation-recovery.cjs": {
+      "raw_sha256": "0b64e0847044320655a0b60ce6d78ffaffe2e502cf1ee8226a90683416e970b6",
+      "canonical_lf_sha256": "ba6bdbc44f01c178e86dc6def73f12f22b229c88be0af262e5bb3fee11b9dd4c"
+    },
+    "tests/cancellation-transport.cjs": {
+      "raw_sha256": "89d67f4468184d3de331c68bfcc16627bfa5183ea6ea322c9705be52f50b7faf",
+      "canonical_lf_sha256": "fd99fcf1047bc440138e6d665827dce43cb50ef0dd74432f3c6b64c35553dffa"
+    },
+    "tests/click-attribution-corrections.cjs": {
+      "raw_sha256": "647bc713f59319a0fe575cb88ac52f0c76d1b5b8ef898ce93373ba1eb1dbb2dd",
+      "canonical_lf_sha256": "021d2e8aa1d8c588d46f6c20037eaea7f1ca4bfbc2fc337d334b2fce57440a04"
+    },
+    "tests/click-attribution-globalthis-compat.cjs": {
+      "raw_sha256": "86efe9e580c8c15cc366b0e9153e79ad04109a4712babbc423fad54e222f42a0",
+      "canonical_lf_sha256": "ebdbbbbdfe7d6af0a603e6b3348392c384687e08763884b4c59b8ed6dce42552"
+    },
+    "tests/click-attribution-readiness-review.cjs": {
+      "raw_sha256": "89988b732fe393a3457d14f2360c60c734128460d6684c47a0ec6185de87196c",
+      "canonical_lf_sha256": "4e3c70e34290963885412eaa891a1a3c593c1d68926865b94bf7ff671ecdcdf0"
+    },
+    "tests/click-attribution-readiness.cjs": {
+      "raw_sha256": "8c261dab7f10cacc8d63c15a45c79e4e13abcb189dc8c4ad05dad0932ec2c430",
+      "canonical_lf_sha256": "9edf5df43e8501c2e6277ea79775bd040767f0827f4827f479a105f5dfee62ac"
+    },
+    "tests/complete-cancellation.cjs": {
+      "raw_sha256": "1cd05c65706d1c632e52d0598f1b172e2db00f4b21604313a817285e807d609b",
+      "canonical_lf_sha256": "1367d54eccad18d0f55cbf7cbce812c7f13185fb4e87c02922d72c16985ca971"
+    },
+    "tests/google-ads-adjustment-unsupported.cjs": {
+      "raw_sha256": "54cb4331ce98b1a61205ca855e8a021652e84d5c90ee58b047745c03c2600b12",
+      "canonical_lf_sha256": "f1f9e8ddd0ac47685ee2976f66a5924eef4c16f56550e0db97c29fae2ce25105"
+    },
+    "tests/google-ads-admission-logging.cjs": {
+      "raw_sha256": "9fbcee972bdce48278c143f29461acce97b98f6f9f12ce24892952b6c5eeae33",
+      "canonical_lf_sha256": "6f9d9917efb4e100b63cf1aa35611ed609bfff710c0bf877844c4a1f0b93131c"
+    },
+    "tests/google-ads-attribution-wc1038.test.cjs": {
+      "raw_sha256": "6e52c8426c1e1677a0b549ac45925661e58b25b3f0410d07e8710e29e31a8271",
+      "canonical_lf_sha256": "f756633603718e0ac4bd5084b7657121cb2fe963777a024fb55de84f8e578e3a"
+    },
+    "tests/google-ads-contact-validation.cjs": {
+      "raw_sha256": "d7a6864c350205aec0c96d0660eedc1649ea0f94336ebeb5f8a1b6c63a9689d0",
+      "canonical_lf_sha256": "da7d22beeff38529d2b9a2c5dabccd11ac846c78fcf0f07a508d6d2252695150"
+    },
+    "tests/google-ads-diagnostic-client-fallback.cjs": {
+      "raw_sha256": "15c2b220910daec57c5aaa471ce00dd11251094c84447cb3aaaa312904c1928b",
+      "canonical_lf_sha256": "6c91cbdff11506241a149f8e6e33962aa012db57bedc969ecd751087ca0be85d"
+    },
+    "tests/google-ads-diagnostic-runtime.cjs": {
+      "raw_sha256": "9b646fe422b56957ea2c88fe56d9c265f96425928c6a0107aaf9cb1ba9ca058e",
+      "canonical_lf_sha256": "4bdd958b5a7c679d43c1dadfb0251360a67d92bafcb42362feae9c48d621ba37"
+    },
+    "tests/google-ads-final-review.cjs": {
+      "raw_sha256": "f5e2d6add2a4202007f61b68f29d81bc1c279ff4568f776db666b50353d2aa20",
+      "canonical_lf_sha256": "5b0dcf8e6a7d2b61553799b4fdccf015414b2921b9abb411bfbe22aa43415f42"
+    },
+    "tests/google-ads-fresh-producer.cjs": {
+      "raw_sha256": "34c4b9c7f4f51dc0cfd40a5680df5cc3b5950318d987d2ec804b9db454ebca56",
+      "canonical_lf_sha256": "ad68c79dd8d2d6e2e1299dac671aa75dc0bcaaaa25b14da664f1e46011331199"
+    },
+    "tests/google-ads-http-diagnostics.cjs": {
+      "raw_sha256": "c8f0724fb496194418aa4fa02e563ab02f29a99148751c54f693c3975898438a",
+      "canonical_lf_sha256": "032d03b55c416e212c33271956e3b76321982a97096dc251c13ec85b49d43fe6"
+    },
+    "tests/google-ads-identifier-async.cjs": {
+      "raw_sha256": "faf889fa3fa60d62b33469375e67a323f5e63e02da11349274b492ba6fca269a",
+      "canonical_lf_sha256": "2ef04c9c545c3aabeeb328edac0dd62af4fd78fea470c9458849163a61f9290b"
+    },
+    "tests/google-ads-private-journal.cjs": {
+      "raw_sha256": "4b92908a9a78490524201f9dcbee5fdf41569788149b905ec45b4286a778400a",
+      "canonical_lf_sha256": "dc1ef0ebae4228738a3451657fdcf1020bd22ddcd87824c6141f53cf1801c1fb"
+    },
+    "tests/google-ads-processing-bounds.test.cjs": {
+      "raw_sha256": "c6489eeffaefa70afdb37f486c01bd42b9612d1d534c3895eb008e8abf56c4b3",
+      "canonical_lf_sha256": "dca45cf349c1558b9db533b45b3d9c7a51a70ca6182365297914f8f2eaa59f04"
+    },
+    "tests/google-ads-processing-diagnostic.test.cjs": {
+      "raw_sha256": "f1cd1cc848dcd29b930c4e7f22e693563bbe7de8e2f1921ba39cbe0ff3e5bbac",
+      "canonical_lf_sha256": "8fda3c36eec3bad815689306d42aa410165925b94f22b2aae039f12a86d91b26"
+    },
+    "tests/google-ads-processing-native.test.cjs": {
+      "raw_sha256": "12cf6757f8d601c5c0fdbaccf776cf92cd81266bd95951a23d75120f14044837",
+      "canonical_lf_sha256": "ee527ed8d9b2a602d02f8c8341e88a07a6b80b975da31bd6737bd9fcf47edee1"
+    },
+    "tests/google-ads-processing-test-helper.cjs": {
+      "raw_sha256": "4b4d53dd6ea05fa38f9524b943d0abf59bac2069a1f01a251d67dfa06611831b",
+      "canonical_lf_sha256": "446829aa4f77af4142891537e268686208c0fdb9a5e865a066e64fac00314427"
+    },
+    "tests/google-ads-processing-wc1034.test.cjs": {
+      "raw_sha256": "77303018b902966bc75ece24af60f61690955180eb6466f4b594e6859bc5f739",
+      "canonical_lf_sha256": "7c07881b1dd4fb66533cfe43d52c195e620fac0fb6b57ce4459c150c5017f4d8"
+    },
+    "tests/google-ads-processing-wc1037.test.cjs": {
+      "raw_sha256": "6eb08b4597292cfa5ddc15c3aa547ae284c37b55e887afbd685d6fdb3666b587",
+      "canonical_lf_sha256": "657e49d560eb751c78e02fd92aef02dfac7bc8f68b3bca21932992e278ec97e6"
+    },
+    "tests/google-ads-summary-handoff.cjs": {
+      "raw_sha256": "0b7c88ed651a26667e8499a77dba004d61e99065dbdd6fe2c7a11a154d1a4801",
+      "canonical_lf_sha256": "907d4d1d7a9228a8c1d5eac3c537458685014d800f0d89e96ca623206e4248e2"
+    },
+    "tests/google-ads-upload-reliability.cjs": {
+      "raw_sha256": "fc93b00f1d8cf373850f1f07153354239cd74ca2ec93279a308c685cc3d64611",
+      "canonical_lf_sha256": "45c3050b217a4a859a59385fb4fd2cccc5c204efd6711ebfda9fbf599382402e"
+    },
+    "tests/google-tag-build-parity.cjs": {
+      "raw_sha256": "6d36b13c2b78a2e5e0158dfe452e91651ec09bfebc988094eea8d0c012b448f6",
+      "canonical_lf_sha256": "b0464bd5f5058cf0b793deddff5357d494dfa561db5c71a4ac65795dde117fd8"
+    },
+    "tests/google-tag-size.cjs": {
+      "raw_sha256": "287c45b34559895755c22bba2b3f1ff67297d518e144a843e93aff1171cf3c98",
+      "canonical_lf_sha256": "4960b7648677ac76413f95ad27e6fa6238d1cede8e6356062b33cfd06265c316"
+    },
+    "tests/legacy-date-handoff.cjs": {
+      "raw_sha256": "32e81fce7291266ab8d3206c27354149029b9e2f8d2f0d3566ddc0ae63d7c2d0",
+      "canonical_lf_sha256": "c200d8dfd35b7a2026f758e776bc456be2eec98477e80131f52e87120138035f"
+    },
+    "tests/legacy-search-eligible-rows.cjs": {
+      "raw_sha256": "8efa1e215f699cc0fa082a519bd318ddd12a59d371db395e16198a47b8a50e9c",
+      "canonical_lf_sha256": "5fca1bfab1aeda8a647c5c9fb374ea0b2517e4e4fb919b214d98a879c2d07733"
+    },
+    "tests/legacy-search-package-first.cjs": {
+      "raw_sha256": "0c8bffbc8ef2ce2aa28954c49d7f118c1bb3402f94ea14a8ae6addaf26885789",
+      "canonical_lf_sha256": "f713fea1f5edecd1521e41a5de902f160fd018dbc46f644f2aca14fcc1f9f78d"
+    },
+    "tests/legacy-search-package-radio.cjs": {
+      "raw_sha256": "de85c5af99c7ad42ccf93a50000dce7197bf68640b2c8f39bfbd07f9c10b37be",
+      "canonical_lf_sha256": "31d4f644058585bf793daad2ad54f267aeb8364601e8351eda3413c488343749"
+    },
+    "tests/legacy-search-package-summary.cjs": {
+      "raw_sha256": "202ab352deb8331160b7319c6a850e1b6be38bc59f9d897cc0b32440838d8c1c",
+      "canonical_lf_sha256": "5c14bfde6ccae5c7c72a053f9fd53049d509f107272280283dd07baf65f8fb40"
+    },
+    "tests/legacy-search-partial.cjs": {
+      "raw_sha256": "f7ffc94ffe8d8567d662fb6819de28c6f1c49f4e123545cbf52fd96cb8efcbd5",
+      "canonical_lf_sha256": "a5172969b433a925eecd3873c5c41d6d32bec988245f7ee408640d26d7e1cd4e"
+    },
+    "tests/legacy-search-scuba-order.cjs": {
+      "raw_sha256": "c0729facac0279e97ed6172f27da9d201419d72d6a33602f14d8dbdf03087d36",
+      "canonical_lf_sha256": "f34dce7ccf4038486bb4203ec452f36dfd1e9dc140abb03cf782edf1f5f00ac9"
+    },
+    "tests/legacy-search-silent-dates.cjs": {
+      "raw_sha256": "a741501b4a7d893cf3143249fa8e3b89c280b13a395d6911cd42f3461449b11a",
+      "canonical_lf_sha256": "0632539c13a90561cff594869caf6b92eb1d59f4774e6dfa1ff5d032a3b31fbd"
+    },
+    "tests/legacy-summary-review-fix.cjs": {
+      "raw_sha256": "62afcd0990ae10b47690169e5debb23b74ce979605e0d0ef178cbd9a2873b77d",
+      "canonical_lf_sha256": "ec2d52756ead6e9b28e0e934dff8cbb78ce3235d56bd7bd3a833e578a4ecf083"
+    },
+    "tests/master-page-ssr.test.cjs": {
+      "raw_sha256": "9a7c50f6f40ffb2660e10f6b99d8bd38ad84b89269499a5d6b5385ce3d2b1ee7",
+      "canonical_lf_sha256": "6172b3255e9684f3ca466e3b1f307b102f6c0c746b6d7d81429c4f155bd2e8b1"
+    },
+    "tests/phone-library-fixture.cjs": {
+      "raw_sha256": "d525d7736ac3e9a3d7b38ca2d49c990fb5da3b8c13dc4e725d21d83c6456853d",
+      "canonical_lf_sha256": "b38905d54fac7efbe21df05150c426165cd9748a5b5f1a5c4a1e3d10f5202521"
+    },
+    "scripts/build-google-tag.cjs": {
+      "raw_sha256": "bb257ed111a6fc82c797185a6b3b41288937ade29199a24141f5877a7009348b",
+      "canonical_lf_sha256": "b10c8cff9409d6f0e083239435ea767fac80fe5a316aa32242bf747b2ad7f29d"
+    },
+    "package.json": {
+      "raw_sha256": "40ada4864e3dd593504f4c6d9483a2107ae4ea42252438ebb92afa3e6de307b9",
+      "canonical_lf_sha256": "1350c7d00df11ca1a850fbd9a7718d36e520906751cdaf065fa76350e3ef48f1"
+    },
+    "package-lock.json": {
+      "raw_sha256": "44162ef8284e2cdb96b63eaf8cfe0af87515d027cdf674519b0710dd141d8174",
+      "canonical_lf_sha256": "93d75d6fe9045622fc8249425e63ac7e49d100296a5e80d6b6790f7e69465449"
+    }
+  }
+}

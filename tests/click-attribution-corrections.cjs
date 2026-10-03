@@ -14,13 +14,14 @@ async function fixture({deny=false,drop=false,delay=0,query='gclid=INERT_EXACT_F
  const frameNode={contentWindow:frame,src:frameOrigin+'/embed',isConnected:true};
  const document={body,referrer:origin+'/',addEventListener(){},createElement:element,getElementById:id=>nodes.find(n=>n.id===id&&attached(n))||null,querySelectorAll:s=>s==='iframe[title="WBE event bridge"]'?[frameNode]:[]};
  const window={location:{href:origin+'/?'+query},dataLayer:[],addEventListener:(k,f)=>(listeners[k]??=[]).push(f)};
- const head=vm.createContext({crypto:require('node:crypto').webcrypto,window,document,localStorage:pageStore,URL,console:{log(){},error(){}},setTimeout,clearTimeout});Object.defineProperty(head,'dataLayer',{get:()=>window.dataLayer});
+ const head=vm.createContext({crypto:require('node:crypto').webcrypto,window,document,performance:require('node:perf_hooks').performance,localStorage:pageStore,URL,console:{log(){},error(){}},setTimeout,clearTimeout});Object.defineProperty(head,'dataLayer',{get:()=>window.dataLayer});
  vm.runInContext(read('custom-code/google-tag-and-consent.source.html').match(/<script>([\s\S]*?)<\/script>/)[1].replace(/var BANNER_ENABLED\s*=\s*false;/,'var BANNER_ENABLED = '+banner+';'),head);
  const iframe=vm.createContext({window:{parent},document:{referrer:origin+'/'},URL});vm.runInContext(read('custom-code/event-bridge-iframe.html').match(/<script>([\s\S]*?)<\/script>/)[1],iframe);
  const component={onMessage:f=>{onMessage=f;},postMessage:d=>iframe.window.onmessage({data:d,source:parent,origin})};
  async function worker(){
- const context=vm.createContext({crypto:require('node:crypto').webcrypto,Date,console:{log(){},error(){}},setTimeout,clearTimeout}),cache=new Map();
- const external={'wix-storage-frontend':{local:workerStore},'wix-location-frontend':{default:{query:{},url:origin+'/stripped'}},'backend/adsFormRequirement.web':{getAdsFormRequirement:policyRead|| (async()=>({v:1,requirement:'NOT_REQUIRED',policyKey:'a'.repeat(64),observedAt:Date.now()}))}};
+ const context=vm.createContext({crypto:require('node:crypto').webcrypto,Date,performance:require('node:perf_hooks').performance,console:{log(){},error(){}},setTimeout,clearTimeout}),cache=new Map();
+ vm.runInContext('const sdk={query(){return {ascending(){return this},limit(){return this},async find(){return {items:[],hasNext(){return false}}}}}};',context);
+ const external={'wix-storage-frontend':{local:workerStore},'wix-location-frontend':{default:{query:{},url:origin+'/stripped'}},'wix-data':{default:vm.runInContext('sdk',context)},'wix-web-module':{Permissions:{Anyone:'Anyone'},webMethod:(_,f)=>policyRead||f},'crypto':{createHash:require('node:crypto').createHash}};
  function make(s){if(cache.has(s))return cache.get(s);const e=external[s];const m=e?new vm.SyntheticModule(Object.keys(e),function(){for(const k of Object.keys(e))this.setExport(k,e[k]);},{context}):new vm.SourceTextModule(read(s+'.js'),{context});cache.set(s,m);return m;}
  const m=make('public/tracking');await m.link(make);await m.evaluate();const api=m.namespace;
  if(api.initClickAttribution)api.initClickAttribution(()=>component);else api.initTracking(()=>component);

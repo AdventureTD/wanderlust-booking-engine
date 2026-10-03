@@ -76,8 +76,8 @@ const count=f=>f.events().filter(e=>e[1]==='form_submit').length;
   ['fresh-receipt',{policyRows:[],stored:saved('granted')},1],
   ['partial-cart',{policyRows:[],book:async(_,n)=>n===2?{outcome:'UNKNOWN'}:undefined},0],
   ['malformed-policy',{policyRows:[],policyResult:v=>({...v,granted:true})},0],
-  ['old-policy',{policyRows:[],policyResult:v=>({...v,observedAt:Date.now()-2000})},0],
-  ['future-policy',{policyRows:[],policyResult:v=>({...v,observedAt:Date.now()+60000})},0]
+  ['old-challenge-policy',{policyRows:[],policyResult:v=>({...v,challenge:'0'.repeat(32)})},0],
+  ['future-server-clock-bound-policy',{policyRows:[],policyResult:v=>({...v,observedAt:Date.now()+60000})},1]
  ]) {
   const x=await fixture({automatic:true,...options});await x.submit();assert.equal(count(x),expected,name);
   assert.equal(x.p.payloads.length,2,name+' booking independence');
@@ -109,9 +109,9 @@ const count=f=>f.events().filter(e=>e[1]==='form_submit').length;
   try {
     await x.submit();assert.equal(x.p.payloads.length,2,'booking finished while optional read pending');
     assert.ok(x.p.timers.length,'redirect already scheduled');
-    await new Promise(r=>setTimeout(r,800));
+    await new Promise(r=>setTimeout(r,1600));
     release();await x.settle();assert.equal(count(x),0,'late policy cannot grant');
-    console.log('PASS actual 750ms policy timeout phase '+phase);
+    console.log('PASS actual 1500ms local lease timeout phase '+phase);
   } finally {release();clearTimeout(watchdog);}
  }
  const wire=JSON.stringify([f.messages,f.events(),f.logs]);

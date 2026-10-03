@@ -5,18 +5,18 @@ const test=require('node:test'),assert=require('node:assert/strict'),vm=require(
 let src=fs.readFileSync(__dirname+'/click-attribution-corrections.cjs','utf8').split("test('partitioned page ID")[0];
 function replaceOnce(a,b){assert.equal(src.split(a).length,2,'fixture seam '+a);src=src.replace(a,b);}
 replaceOnce('policyRead}={})','policyRead, clock=Date}={})');
-replaceOnce("crypto:require('node:crypto').webcrypto,Date,console", "crypto:require('node:crypto').webcrypto,Date:clock,console");
-replaceOnce("crypto:require('node:crypto').webcrypto,window,document", "crypto:require('node:crypto').webcrypto,Date:clock,window,document");
+replaceOnce("Date,performance:require('node:perf_hooks').performance", "Date:clock,performance:{now:()=>clock.now()}");
+replaceOnce("window,document,performance:require('node:perf_hooks').performance", "Date:clock,window,document,performance:{now:()=>clock.now()}");
 replaceOnce("const component={onMessage:f=>{onMessage=f;},postMessage:d=>iframe.window.onmessage({data:d,source:parent,origin})};", "const sent=[];const component={onMessage:f=>{onMessage=f;},postMessage(d){sent.push({op:d.op,nonce:d.nonce,at:clock.now()});iframe.window.onmessage({data:d,source:parent,origin});}};");
 replaceOnce('return {readReady,deliveries,frameNode,','return {sent,readReady,deliveries,frameNode,');
 replaceOnce('close(){for(const t of timers)','close(){api.setSuspendGoogleAds(true);for(const t of timers)');
 const box={require,__dirname,console,setTimeout,clearTimeout,URL};vm.runInNewContext(src+'\nthis.fixture=fixture;',box);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function clock(){let n=Date.now();return class extends Date{constructor(...args){super(...(args.length?args:[n]));}static now(){return n;}static advance(ms){n+=ms;}};}
-const policy=c=>({v:1,requirement:'NOT_REQUIRED',policyKey:'a'.repeat(64),observedAt:c.now()});
+const policy=(c,binding)=>({...binding,requirement:'NOT_REQUIRED',policyKey:'a'.repeat(64),observedAt:c.now()});
 for(const edge of ['read','confirm'])test('review: recovery cannot dispatch '+edge+' at original window deadline',{timeout:3000},async()=>{
  const c=clock();let policyCalls=0;
- const f=await box.fixture({clock:c,hold:d=>d.op==='open'||edge==='confirm'&&d.op==='read',policyRead:async()=>{policyCalls++;if(edge==='read')c.advance(100);return policy(c);}});
+ const f=await box.fixture({clock:c,hold:d=>d.op==='open'||edge==='confirm'&&d.op==='read',policyRead:async binding=>{policyCalls++;if(edge==='read')c.advance(100);return policy(c,binding);}});
  try{
   const start=c.now();await f.ready();assert.equal(f.sent.length,1);
   c.advance(9900);f.deliveries[0].deliver();await sleep(10);
@@ -29,7 +29,7 @@ for(const edge of ['read','confirm'])test('review: recovery cannot dispatch '+ed
  }finally{f.close();}
 });
 for(const edge of ['hint','policy'])test('review: expiry before '+edge+' dispatch remains closed',{timeout:3000},async()=>{
- const c=clock();let calls=0;const f=await box.fixture({clock:c,hold:d=>d.op==='open',policyRead:async()=>{calls++;return policy(c);}});
+ const c=clock();let calls=0;const f=await box.fixture({clock:c,hold:d=>d.op==='open',policyRead:async binding=>{calls++;return policy(c,binding);}});
  try{
   await f.ready();if(edge==='policy'){c.advance(9900);f.deliveries[0].deliver();await sleep(10);c.advance(100);f.deliveries[1].deliver();}
   else {c.advance(10000);for(let i=0;i<5;i++)f.deliveries[0].deliver();}

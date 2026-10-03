@@ -3,6 +3,7 @@
 // Dedicated attribution channel; never carries contacts or generic events.
 import { local } from 'wix-storage-frontend';
 import { getAdsFormRequirement } from 'backend/adsFormRequirement.web';
+import { localBudget, remainingBudget, closeBudget, freshPolicyNonce, policyRequest, validPolicy, withinBudget } from 'public/adsPolicyProtocol';
 const KEY = 'wl_click_attribution', CLEAR = 'wl_click_attribution_clear_pending';
 let component, sequence = 0, revision = 0, suspended = false, pending = null;
 let denied = true, nonce = '', channel = '';
@@ -25,17 +26,17 @@ function cancelReadiness() {
 // A timed-out open is transport uncertainty, never a consent choice. Its
 // authenticated late reply may wake a NEW handshake, but cannot grant access.
 function armReadiness(p, task) {
-  if (!task || task.remaining <= 0 || task.deadline <= Date.now() ||
+  if (!task || task.remaining <= 0 || !remainingBudget(task) ||
       p.revision !== revision || p.nonce !== nonce || suspended) return;
   cancelReadiness();
   const watch = { nonce, sequence: p.sequence, revision, task, timer: null };
-  watch.timer = setTimeout(() => { if (lateOpen === watch) cancelReadiness(); }, task.deadline - Date.now());
+  watch.timer = setTimeout(() => { if (lateOpen === watch) cancelReadiness(); }, remainingBudget(task));
   lateOpen = watch;
 }
 function wakeReadiness(d) {
   const watch = lateOpen;
-  if (!watch || watch.revision !== revision || suspended || Date.now() >= watch.task.deadline ||
-      !d || d.type !== 'wbe-click-attribution-result' || d.v !== 1 ||
+  if (!watch || watch.revision !== revision || suspended || !remainingBudget(watch.task) ||
+      !d || d.type !== 'wbe-click-attribution-result' || d.v !== 2 ||
       Object.keys(d).sort().join(',') !== 'allowed,channel,nonce,op,record,sequence,type,v' ||
       d.nonce !== watch.nonce || d.sequence !== watch.sequence || d.op !== 'open' ||
       !/^[a-f0-9]{32}$/.test(d.channel) || d.record !== null || typeof d.allowed !== 'boolean') return;
@@ -44,16 +45,7 @@ function wakeReadiness(d) {
   watch.task.remaining--;
   void waitAttribution(watch.task);
 }
-function freshNonce() {
-  try {
-    if (typeof globalThis === 'undefined') return '';
-    const crypto = globalThis.crypto;
-    if (!crypto || typeof crypto.getRandomValues !== 'function') return '';
-    const bytes = new Uint8Array(16);
-    if (crypto.getRandomValues(bytes) !== bytes) return '';
-    return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
-  } catch (_) { return ''; }
-}
+
 function revoke() {
   cancelReadiness();
   revision++; denied = true; channel = ''; erase();
@@ -76,11 +68,11 @@ export function initClickAttribution(w) {
     if (!c || typeof c.onMessage !== 'function' || typeof c.postMessage !== 'function') return;
     c.onMessage(event => {
       const d = event && event.data;
-      if (d && d.type === 'wbe-click-revoke' && d.v === 1 && d.nonce === nonce &&
+      if (d && d.type === 'wbe-click-revoke' && d.v === 2 && d.nonce === nonce &&
           Object.keys(d).sort().join(',') === 'channel,nonce,type,v' &&
           (!channel || d.channel === channel)) { revoke(); return; }
       if (!pending) { wakeReadiness(d); return; }
-      if (!pending || !d || d.type !== 'wbe-click-attribution-result' || d.v !== 1 ||
+      if (!pending || !d || d.type !== 'wbe-click-attribution-result' || d.v !== 2 ||
           Object.keys(d).sort().join(',') !== 'allowed,channel,nonce,op,record,sequence,type,v' ||
           d.nonce !== nonce || !/^[a-f0-9]{32}$/.test(d.channel) ||
           (pending.op !== 'open' && d.channel !== channel) ||
@@ -104,15 +96,15 @@ function request(op, policy, record, task) {
     p.finish = value => { if (pending !== p) return; pending = null; clearTimeout(timer); resolve(value); };
     pending = p;
     try {
-      if (task && Date.now() >= task.deadline) { p.finish(null); return; }
-      component.postMessage({ type: 'wbe-click-attribution', v: 1, op, sequence: p.sequence, nonce, channel, policy, record });
+      if (task && !remainingBudget(task)) { p.finish(null); return; }
+      component.postMessage({ type: 'wbe-click-attribution', v: 2, op, sequence: p.sequence, nonce, channel, policy, record });
     }
     catch (_) { diagnostic(op, 'TRANSPORT_ERROR'); p.finish(null); }
   });
 }
 async function openChannel(task) {
   const own = revision;
-  nonce = freshNonce(); channel = ''; sequence = 0;
+  nonce = freshPolicyNonce(); channel = ''; sequence = 0;
   if (!nonce) { diagnostic('open', 'CRYPTO_UNAVAILABLE'); return false; }
   const opened = await request('open', null, null, task);
   if (own !== revision || suspended || !opened || !opened.allowed) return false;
@@ -149,10 +141,11 @@ export async function clearPageAttribution(snapshot) {
   if (result && result.allowed && result.record === null) { try { local.removeItem(CLEAR); } catch (_) {} }
 }
 export async function waitForClickAttribution() {
-  return waitAttribution({ remaining: 2, deadline: Date.now() + 10000 });
+  return waitAttribution(Object.assign(localBudget(10000), { remaining: 2 }));
 }
 async function waitAttribution(task) {
   cancelReadiness();
+  let lease;
   if (pending) pending.finish(null);
   denied = true;
   let own = ++revision;
@@ -168,24 +161,32 @@ async function waitAttribution(task) {
         own = ++revision;
       } else local.removeItem(CLEAR); // The established attribution window has expired.
     }
+    if (!remainingBudget(task)) return;
+    // Worker interval starts before open; the Head independently anchors at ACK.
+    lease = localBudget(1500);
     const opened = await openChannel(task);
     if (own !== revision || suspended) return;
     if (!opened) { denied = true; erase(); return; }
-    let timer, policySettled = false;
-    const policy = await Promise.race([
-      Promise.resolve().then(() => Date.now() < task.deadline ? getAdsFormRequirement() : null).catch(() => { if (!policySettled && own === revision && !suspended) diagnostic('policy', 'REJECTED'); return null; }),
-      new Promise(resolve => { timer = setTimeout(() => { if (own === revision && !suspended) diagnostic('policy', 'TIMEOUT'); resolve(null); }, 500); })
-    ]).finally(() => { policySettled = true; clearTimeout(timer); });
+    const binding = policyRequest('attribution', 'read', nonce, channel);
+    const policy = await withinBudget(async () => {
+      if (!remainingBudget(task) || own !== revision || suspended) return null;
+      try { return await getAdsFormRequirement(binding); }
+      catch (_) {
+        if (remainingBudget(task) && remainingBudget(lease) && own === revision && !suspended) diagnostic('policy', 'REJECTED');
+        return null;
+      }
+    }, lease);
     if (own !== revision || suspended) return;
-    if (!policy || Object.keys(policy).sort().join(',') !== 'observedAt,policyKey,requirement,v' || policy.v !== 1 ||
-        !['REQUIRED', 'NOT_REQUIRED'].includes(policy.requirement) || typeof policy.policyKey !== 'string' ||
-        !/^[a-f0-9]{64}$/.test(policy.policyKey) || !Number.isSafeInteger(policy.observedAt) ||
-        Date.now() < policy.observedAt || Date.now() - policy.observedAt > 1500) { denied = true; erase(); return; }
-    let result = await request('read', policy, storedRecord(), task);
+    if (!remainingBudget(task) || !remainingBudget(lease) || !validPolicy(policy, binding)) {
+      if (!remainingBudget(lease)) diagnostic('policy', 'TIMEOUT');
+      denied = true; erase(); return;
+    }
+    let result = await request('read', policy, storedRecord(), lease);
     if (own !== revision || suspended) return;
-    if (result && result.allowed) result = await request('confirm', policy, null, task);
+    if (result && result.allowed && remainingBudget(task) && remainingBudget(lease)) result = await request('confirm', policy, null, lease);
+    else result = null;
     if (own !== revision || suspended) return;
-    denied = !result || !result.allowed;
+    denied = !remainingBudget(task) || !remainingBudget(lease) || !result || !result.allowed;
     if (denied) { erase(); return; }
     if (result.record === null) { diagnostic('worker', 'READY_EMPTY'); erase(); return; }
     if (!validRecord(result.record)) { denied = true; erase(); return; }
@@ -194,4 +195,5 @@ async function waitAttribution(task) {
     local.setItem(KEY, JSON.stringify(result.record));
     diagnostic('worker', 'READY_RECORD');
   } catch (_) { if (own === revision) { denied = true; erase(); } }
+  finally { closeBudget(lease); if (!lateOpen || lateOpen.task !== task) closeBudget(task); }
 }

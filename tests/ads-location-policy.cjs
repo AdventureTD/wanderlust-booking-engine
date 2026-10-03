@@ -27,7 +27,7 @@ async function run(rows, adapter = false) {
     if(!fs.existsSync(file)) return {result:'UNRESOLVED',calls};
     vm.runInContext('const Permissions={Anyone:"Anyone"}; function webMethod(permission, fn){if(permission!=="Anyone")throw Error("permission");return fn}',context);
     vm.runInContext('(function(){'+fs.readFileSync(file,'utf8').replace(/^import .*;\r?\n/gm,'').replace('export const','const')+'\nglobalThis.getAdsFormRequirement=getAdsFormRequirement;})();',context);
-    const result=await vm.runInContext('getAdsFormRequirement()',context);
+    const result=await vm.runInContext("getAdsFormRequirement({v:2,audience:'https://www.wanderlustcaribbean.com',purpose:'attribution',phase:'read',nonce:'a'.repeat(32),challenge:'b'.repeat(32)})",context);
     return {result:result.requirement,calls,context};
   }
   const result = await vm.runInContext(`(async()=>{const o=await readGuestConsentRequirementsObservation(); if(o.status!=='OBSERVED') return 'UNRESOLVED'; return resolveGuestConsentRequirement({v:1,location:{status:'UNKNOWN'},requirements:{status:'COMPLETE',rows:o.rules}});})()`,context);

@@ -8,10 +8,15 @@ const fixture=context.fixture, key='wbe_consent_choice_v2', ttl=15552000000;
 const count=f=>f.events().filter(e=>e[1]==='form_submit').length;
 const saved=(at,choice='granted')=>({[key]:JSON.stringify({source:'banner-click-v2',choice,at})});
 const clock=(f,t)=>vm.runInContext('Date.now=()=>'+t,f.head);
-const pair=(f,n)=>{
- f.dispatch({source:'wbe-ads-form',phase:'begin',sequence:n,policy:null});
- return ['prepare','complete'].map(phase=>({source:'wbe-ads-form',phase,sequence:n,policy:{v:1,requirement:'REQUIRED',policyKey:'a'.repeat(64),observedAt:vm.runInContext('Date.now()',f.head)}}));
+// Receiver-only synthetic REQUIRED policies; the separate full-graph suite
+// executes the real producer. Each result is bound to its actual Head ACK.
+const phaseResult=(f,n,phase)=>{
+ const nonce=require('node:crypto').randomBytes(16).toString('hex');
+ f.dispatch({source:'wbe-ads-form',v:2,op:'start',phase,sequence:n,nonce,policy:null});
+ const ack=f.messages.filter(d=>d.type==='wbe-ads-form-started'&&d.sequence===n&&d.phase===phase&&d.nonce===nonce).at(-1);
+ return {source:'wbe-ads-form',v:2,op:'result',phase,sequence:n,nonce,policy:{v:2,audience:'https://www.wanderlustcaribbean.com',purpose:'form',phase,nonce,challenge:ack?.challenge||'0'.repeat(32),requirement:'REQUIRED',policyKey:'a'.repeat(64),observedAt:vm.runInContext('Date.now()',f.head)}};
 };
+function* pair(f,n) { yield phaseResult(f,n,'prepare'); yield phaseResult(f,n,'complete'); }
 (async()=>{
   // Screenshot regression: real source with delivered flags and native empty policy.
   // Track every created node, not just final attachment, to reject hide-after-flash.
@@ -55,7 +60,8 @@ const pair=(f,n)=>{
   returning.click('Cookie settings'); returning.click('Deny'); await returning.submit(); assert.equal(count(returning),0);
   console.log('PASS R1 attached returning grant/denial settings and durable withdrawal');
   const external=await fixture({consent:'yes'});
-  const [prepare,complete]=pair(external,1); external.dispatch(prepare);
+  const prepare=phaseResult(external,1,'prepare'); external.dispatch(prepare);
+  const complete=phaseResult(external,1,'complete');
   vm.runInContext("gtag('consent','update',{ad_user_data:'denied'})",external.head);
   assert.notEqual(JSON.parse(external.store.get(key)).choice,'granted','external denial must invalidate stored grant');
   const after=await fixture({stored:Object.fromEntries(external.store)}); await after.submit(); assert.equal(count(after),0);
@@ -69,12 +75,12 @@ const pair=(f,n)=>{
     const x=await fixture({now,stored:saved(mode==='future'?now+60000:at,mode==='malformed'?'unknown':'granted')});
     const original=x.store.get(key);
     clock(x,now);
-    const [p,c]=pair(x,1);
+    const p=phaseResult(x,1,'prepare');
     if(mode==='init-expired'||mode==='exact-expiry')clock(x,at+ttl+(mode==='init-expired'?1000:0));
     p.policy.observedAt=vm.runInContext('Date.now()',x.head); x.dispatch(p);
     if(mode==='complete-expired')clock(x,now+2000);
     if(mode==='rollback')clock(x,now-1);
-    c.policy.observedAt=vm.runInContext('Date.now()',x.head); x.dispatch(c);
+    const c=phaseResult(x,1,'complete'); c.policy.observedAt=vm.runInContext('Date.now()',x.head); x.dispatch(c);
     assert.equal(count(x),mode==='before'?1:0,mode);
     assert.equal(x.store.get(key),original,'read must not renew retention');
     if(mode==='complete-expired') {

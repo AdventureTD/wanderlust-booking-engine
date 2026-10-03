@@ -11,7 +11,7 @@ async function fixture(opts = {}) {
   const logs = [], messages = [], listeners = {}, buttons = {}, store = new Map();
   if (opts.stored) for (const [k,v] of Object.entries(opts.stored)) store.set(k,v);
   const field = { value: 'fixture@example.invalid' };
-  let workerListener;
+  const workerListeners=[];
   const workerStore = new Map();
   const frame = {}, parent = {}, frameElement = { contentWindow: frame, src: 'https://fixture.invalid/bridge', isConnected: true };
   const handlers = new Map(), createdElements = [], documentListeners = {};
@@ -27,7 +27,7 @@ async function fixture(opts = {}) {
     querySelectorAll(s) { return s === 'iframe[title="WBE event bridge"]' ? [frameElement] : opts.missingField ? [] : [field]; } };
   const window = { dataLayer: opts.priorDataLayer || [], location: { href: 'https://www.wanderlustcaribbean.com'+(opts.route || '/booking-summary') }, addEventListener(t, f) { (listeners[t] ||= []).push(f); } };
   const deny = () => { throw Error('OFFLINE_NETWORK_DENIED'); };
-  const head = vm.createContext({ crypto:require('node:crypto').webcrypto, window, document, localStorage: { getItem:k=>{if(opts.storageReadFails)throw Error('inert storage read failure');return store.get(k)||null;}, removeItem:k=>store.delete(k), setItem:(k,v)=>{if(opts.storageWriteFails)throw Error('inert storage failure');store.set(k,v);} }, console:{ log:(...x)=>logs.push(x), error:(...x)=>logs.push(x) }, URL, fetch:deny, XMLHttpRequest:deny, Image:deny, WebSocket:deny });
+  const head = vm.createContext({ performance:require('node:perf_hooks').performance,setTimeout,clearTimeout,crypto:require('node:crypto').webcrypto, window, document, localStorage: { getItem:k=>{if(opts.storageReadFails)throw Error('inert storage read failure');return store.get(k)||null;}, removeItem:k=>store.delete(k), setItem:(k,v)=>{if(opts.storageWriteFails)throw Error('inert storage failure');store.set(k,v);} }, console:{ log:(...x)=>logs.push(x), error:(...x)=>logs.push(x) }, URL, fetch:deny, XMLHttpRequest:deny, Image:deny, WebSocket:deny });
   Object.defineProperty(head, 'dataLayer', { get:()=>window.dataLayer });
   let headSource = inline(opts.headFile || 'velo/custom-code/google-tag-and-consent.html');
   // Packaging removes whitespace only; retain explicit synthetic banner-ON coverage
@@ -40,11 +40,11 @@ async function fixture(opts = {}) {
   if (opts.now !== undefined) vm.runInContext('Date.now=()=>'+opts.now,head);
   vm.runInContext(headSource, head);
   const dispatch = (data, overrides={}) => { for (const f of listeners.message || []) f({data, source:frame, origin:'https://fixture.invalid',...overrides}); };
-  parent.postMessage = data => { messages.push(JSON.parse(JSON.stringify(data))); if (!opts.pause) { if(data.source) dispatch(data); else if(workerListener) workerListener({data}); } };
+  parent.postMessage = data => { messages.push(JSON.parse(JSON.stringify(data))); if (!opts.pause) { if(data.source) dispatch(data); else for(const listener of workerListeners) listener({data}); } };
   const iframe = vm.createContext({ window:{parent}, document:{referrer:'https://www.wanderlustcaribbean.com/'}, URL });
   vm.runInContext(inline('velo/custom-code/event-bridge-iframe.html'), iframe);
   frame.postMessage = data => iframe.window.onmessage({data,source:parent,origin:'https://www.wanderlustcaribbean.com'});
-  const context = vm.createContext({crypto:require('node:crypto').webcrypto,setTimeout,clearTimeout,console:{log:(...x)=>logs.push(x),warn(){},error(){}}});
+  const context = vm.createContext({performance:require('node:perf_hooks').performance,crypto:require('node:crypto').webcrypto,setTimeout,clearTimeout,console:{log:(...x)=>logs.push(x),warn(){},error(){}}});
     // Keep existing form begin/complete schedules separate from attribution
     // reads; both still execute the same actual backend policy implementation.
     const policyCalls=[], attributionPolicyCalls=[];
@@ -60,21 +60,22 @@ async function fixture(opts = {}) {
     async function load(spec, ref) {
       if(spec==='backend/adsFormRequirement.web' && ref?.identifier==='public/clickAttribution') {
         return new vm.SyntheticModule(['getAdsFormRequirement'],function(){
-          this.setExport('getAdsFormRequirement',()=>policyContext.run('attribution',()=>cache.get(spec).namespace.getAdsFormRequirement()));
+          this.setExport('getAdsFormRequirement',(...args)=>policyContext.run('attribution',()=>cache.get(spec).namespace.getAdsFormRequirement(...args)));
         },{context});
       }
       if(cache.has(spec))return cache.get(spec);
       let m;
-      if(spec.startsWith('backend/') || spec === 'public/clickAttribution') {
+      if(spec.startsWith('backend/') || ['public/clickAttribution','public/adsPolicyProtocol'].includes(spec)) {
         m=new vm.SourceTextModule(read('velo/'+spec+'.js'),{context,identifier:spec});cache.set(spec,m);return m;
       }
       let values;
       if(spec==='wix-data') values={default:vm.runInContext('sdk',context)};
       else if(spec==='wix-web-module') values={Permissions:{Anyone:'Anyone'},webMethod:(_,fn)=>async(...args)=>{
-        assert.equal(args.length,0,'no contact or caller policy authority');
+        assert.equal(args.length,1,'v2 challenge only; no contact or caller policy authority');
+        assert.deepEqual(Object.keys(args[0]).sort(),['audience','challenge','nonce','phase','purpose','v']);
         const result=await fn(...args);
       if(opts.policyResult)return opts.policyResult(JSON.parse(JSON.stringify(result)),policyCalls.length);
-        return opts.policyRows === undefined ? {v:1,requirement:'REQUIRED',policyKey:'a'.repeat(64),observedAt:Date.now()} : JSON.parse(JSON.stringify(result));
+        return opts.policyRows === undefined ? {...JSON.parse(JSON.stringify(result)),requirement:'REQUIRED'} : JSON.parse(JSON.stringify(result));
       }};
       else if(spec==='crypto') values={createHash:require('node:crypto').createHash};
       else if(spec==='wix-storage-frontend') values={local:{getItem:k=>workerStore.get(k)||null,setItem:(k,v)=>workerStore.set(k,v),removeItem:k=>workerStore.delete(k)}};
@@ -88,7 +89,7 @@ async function fixture(opts = {}) {
   const names = read('velo/page-booking-summary.js').match(/import \{([^}]+)\} from 'public\/tracking';/)[1].split(',').map(x=>x.trim());
   for (const name of names) assert.equal(typeof tracking.namespace[name],'function','real tracking import: '+name);
   const p = await sandbox.makePage({book:opts.book});
-  p.w('#wbeEventBridge').onMessage = fn => {workerListener=fn;};
+  p.w('#wbeEventBridge').onMessage = fn => {workerListeners.push(fn);};
   p.w('#wbeEventBridge').postMessage = data => { messages.push(JSON.parse(JSON.stringify(data))); iframe.window.onmessage({data,source:parent,origin:'https://www.wanderlustcaribbean.com'}); };
   tracking.namespace.initTracking(p.w);
   for (const k of Object.getOwnPropertyNames(tracking.namespace)) p.c[k] = tracking.namespace[k];
@@ -147,13 +148,22 @@ async function fixture(opts = {}) {
   console.log('PASS persisted affirmative provenance versus old/default/expired records');
   for(const mode of ['wrong-source','wrong-origin','extra-field','complete-first','expired']) {
     const x=await fixture({consent:'yes',pause:true});await x.submit();
-    const pair=x.messages.filter(d=>d.source==='wbe-ads-form');assert.equal(pair.length,3);
-    if(mode==='wrong-source') for(const d of pair)x.dispatch(d,{source:{}});
-    if(mode==='wrong-origin') for(const d of pair)x.dispatch(d,{origin:'https://untrusted.invalid'});
-    if(mode==='extra-field') for(const d of pair)x.dispatch({...d,email:'never-forward@example.invalid'});
-    if(mode==='complete-first') x.dispatch(pair[2]);
-    if(mode==='expired') {x.dispatch(pair[0]);x.dispatch(pair[1]);vm.runInContext('Date.now = () => '+(Date.now()+700000),x.head);x.dispatch(pair[2]);}
+    // A paused v2 start has no ACK: there must be no backend read or result.
+    const starts=x.messages.filter(d=>d.source==='wbe-ads-form');assert.equal(starts.length,1);
+    assert.equal(x.policyCalls.length,0,'no native policy IO before actual start ACK');
+    const d=starts[0];
+    if(mode==='wrong-source') x.dispatch(d,{source:{}});
+    if(mode==='wrong-origin') x.dispatch(d,{origin:'https://untrusted.invalid'});
+    if(mode==='extra-field') x.dispatch({...d,email:'never-forward@example.invalid'});
+    if(mode==='complete-first') x.dispatch({...d,phase:'complete'});
+    if(mode==='expired') {
+      x.dispatch(d); // ACK exists in relay log, but remains undelivered to worker.
+      const ack=x.messages.find(a=>a.type==='wbe-ads-form-started');assert.ok(ack);
+      x.head.performance={now:()=>Number.MAX_SAFE_INTEGER};
+      x.dispatch({...d,op:'result',policy:{v:2,audience:'https://www.wanderlustcaribbean.com',purpose:'form',phase:d.phase,nonce:d.nonce,challenge:ack.challenge,requirement:'REQUIRED',policyKey:'a'.repeat(64),observedAt:Date.now()}});
+    }
     assert.equal(x.events().filter(e=>e[1]==='form_submit').length,0,mode);
+    assert.equal(x.policyCalls.length,0,'invalid/undelivered ACK cannot start RPC');
   }
   assert.match(read('velo/page-booking-summary.js'),/setTimeout\(function \(\) \{[\s\S]*?2000\)/);
   console.log('PASS exact schema, source/origin, ordering, expiry, unchanged 2000ms redirect');

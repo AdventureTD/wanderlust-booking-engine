@@ -1,4 +1,5 @@
 'use strict';
+const request = {v:2,audience:'https://www.wanderlustcaribbean.com',purpose:'attribution',phase:'read',nonce:'a'.repeat(32),challenge:'b'.repeat(32)};
 // Actual ESM backend graph. Only Wix SDK, webMethod wrapper and timer boundary inert.
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
 const root=path.resolve(__dirname,'..');
@@ -20,7 +21,7 @@ async function fixture(mode){
   m=new vm.SyntheticModule(Object.keys(values),function(){for(const [k,v]of Object.entries(values))this.setExport(k,v);},{context});cache.set(spec,m);return m;
  }
  const module=await load('backend/adsFormRequirement.web');await module.evaluate();
- return {call:module.namespace.getAdsFormRequirement,calls,timers,release:()=>release()};
+ return {call:()=>module.namespace.getAdsFormRequirement(request),calls,timers,release:()=>release()};
 }
 (async()=>{
  for(const mode of ['incomplete','duplicate','invalidDate']){
@@ -37,6 +38,6 @@ async function fixture(mode){
  const ordinary=await fixture('ordinary');const a=await ordinary.call(),b=await ordinary.call();
  assert.equal(a.requirement,'NOT_REQUIRED');assert.equal(a.policyKey,b.policyKey);assert.equal(ordinary.calls.length,2,'no server cache');
  assert.deepEqual(ordinary.calls[0],{collection:'ConsentRequirements',options:{suppressAuth:true,consistentRead:true,suppressHooks:true}});
- assert.deepEqual(Object.keys(a).sort(),['observedAt','policyKey','requirement','v']);
+ assert.deepEqual(Object.keys(a).sort(),['audience','challenge','nonce','observedAt','phase','policyKey','purpose','requirement','v']);
  console.log('PASS backend fresh native read/minimal DTO/stable content comparison, not snapshot');
 })().catch(e=>{console.error(e);process.exitCode=1;});
