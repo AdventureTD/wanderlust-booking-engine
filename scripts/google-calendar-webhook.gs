@@ -1,22 +1,14 @@
 /**
  * Wanderlust Booking Engine — Google Calendar webhook.
  *
- * Deploy this as a Google Apps Script web app:
- * 1. Go to https://script.google.com (sign in as info@wanderlustcaribbean.com)
- * 2. Click "New project" (blank project)
- * 3. Delete the default myFunction() code and paste ALL of this code
- * 4. Click "Save" (disk icon or Ctrl+S)
- * 5. Click "Deploy" → "New deployment"
- *    - Type: Web app
- *    - Description: Wanderlust Calendar Webhook
- *    - Execute as: Me
- *    - Who has access: Anyone
- * 6. Click "Deploy"
- * 7. Google will ask you to authorize — click through and "Allow"
- * 8. Copy the "Web app URL" (looks like https://script.google.com/macros/s/AKfycbz.../exec)
- * 9. Add that URL to your Render/Python service environment variable:
- *    - WBE_CALENDAR_WEB_APP_URL = <the copied URL>
- *    - WBE_CALENDAR_SECRET = <a secret passphrase you'll share with me>
+ * Update the EXISTING Calendar web-app deployment only after release approval.
+ * Preserve its URL, execute-as-owner identity, Script Properties (including
+ * WBE_CALENDAR_SECRET), booking mappings, and cancellation tombstones.
+ * Save this complete source and publish a new version of that same deployment;
+ * saving project source alone does not update the deployed receiver.
+ * Keep Render's existing WBE_CALENDAR_WEB_APP_URL and matching secret unchanged.
+ * Never put secret values in source, chat, logs, or installation bundles.
+ * See docs/calendar-booking-number-installation.md for scope and verification.
  */
 
 var CALENDAR_SECRET = PropertiesService.getScriptProperties().getProperty('WBE_CALENDAR_SECRET');
@@ -52,7 +44,7 @@ function doPost(e) {
       return jsonResponse({status: 'error', message: 'Unauthorized'});
     }
 
-    if (data.bookingNumber || data.action) return jsonResponse(bookingCalendarAction(data));
+    if (Object.prototype.hasOwnProperty.call(data, 'bookingNumber') || data.action) return jsonResponse(bookingCalendarAction(data));
     var calendar = CalendarApp.getDefaultCalendar();
 
     var startDate = parseLocalCalendarDate(data.startDate);
@@ -77,7 +69,8 @@ function doPost(e) {
 
 // Script properties retain one booking-bound event identity. Never search/delete by name.
 function bookingCalendarAction(data) {
-  if (!/^WC-[0-9]+$/.test(data.bookingNumber || '') || (data.action && data.action !== 'cancel')) return {status: 'INVALID_REQUEST'};
+  if (typeof data.bookingNumber !== 'string' || !/^WC-[0-9]+(?![\s\S])/.test(data.bookingNumber) ||
+      (data.action && data.action !== 'cancel')) return {status: 'INVALID_REQUEST'};
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(1000)) return {status: 'PENDING'};
   try {
@@ -91,7 +84,8 @@ function bookingCalendarAction(data) {
         props.setProperty(key, JSON.stringify({state: 'CANCELLED_UNBOUND'}));
         return {status: 'NEEDS_RECONCILIATION'};
       }
-      if (typeof record.eventId !== 'string' || !record.eventId || record.calendarId !== calendar.getId() ||
+      if ((Object.prototype.hasOwnProperty.call(record, 'bookingNumber') && record.bookingNumber !== data.bookingNumber) ||
+          typeof record.eventId !== 'string' || !record.eventId || record.calendarId !== calendar.getId() ||
           !calendar.isOwnedByMe()) return {status: 'NEEDS_RECONCILIATION'};
       var existing = calendar.getEventById(record.eventId);
       if (existing) {
@@ -121,20 +115,36 @@ function bookingCalendarAction(data) {
         bookingNumber: data.bookingNumber, calendarId: record.calendarId, eventId: record.eventId};
     }
     if (record) {
-      if (record.state !== 'CREATED' || record.startDate !== data.startDate || record.endDate !== data.endDate || record.title !== data.summary) return {status: 'NEEDS_RECONCILIATION'};
+      if (record.state !== 'CREATED' || record.startDate !== data.startDate || record.endDate !== data.endDate || record.title !== data.summary ||
+          typeof record.eventId !== 'string' || !record.eventId || record.calendarId !== calendar.getId() ||
+          (Object.prototype.hasOwnProperty.call(record, 'bookingNumber') && record.bookingNumber !== data.bookingNumber)) return {status: 'NEEDS_RECONCILIATION'};
       return {status: 'created', bookingNumber: data.bookingNumber, eventId: record.eventId};
     }
     var start = parseLocalCalendarDate(data.startDate), end = parseLocalCalendarDate(data.endDate);
     if (end <= start || typeof data.summary !== 'string' || data.summary.length > 500) return {status: 'INVALID_REQUEST'};
-    record = {state: 'STARTED', calendarId: calendar.getId(), title: data.summary, startDate: data.startDate, endDate: data.endDate};
-    props.setProperty(key, JSON.stringify(record));
-    var event = calendar.createAllDayEvent(data.summary, start, end, {description: data.description || ''});
+    record = {state: 'STARTED', bookingNumber: data.bookingNumber, calendarId: calendar.getId(), title: data.summary, startDate: data.startDate, endDate: data.endDate};
+    var started = JSON.stringify(record);
+    props.setProperty(key, started);
+    if (props.getProperty(key) !== started) return {status: 'UNKNOWN'};
+    // Display labels are not deletion authority. Retain the original request title
+    // above so pre-label records and identical invoice replays remain compatible.
+    var title = bookingCalendarLabel(data.summary, data.bookingNumber, data.bookingNumber + ' — ');
+    var description = bookingCalendarLabel(data.description || '', data.bookingNumber, 'Booking number: ' + data.bookingNumber + '\n');
+    var event = calendar.createAllDayEvent(title, start, end, {description: description});
     event.setTag('wbeBooking', data.bookingNumber);
     record.eventId = event.getId(); record.state = 'CREATED';
-    props.setProperty(key, JSON.stringify(record));
+    var created = JSON.stringify(record);
+    props.setProperty(key, created);
+    if (props.getProperty(key) !== created) return {status: 'UNKNOWN'};
     return {status: 'created', bookingNumber: data.bookingNumber, eventId: record.eventId};
   } catch (_) { return {status: 'UNKNOWN'}; }
   finally { lock.releaseLock(); }
+}
+
+// Exact token boundaries prevent WC-10410 from masquerading as WC-1041.
+function bookingCalendarLabel(value, bookingNumber, prefix) {
+  var pattern = new RegExp('(^|[^A-Za-z0-9_-])' + bookingNumber + '(?=$|[^A-Za-z0-9_-])');
+  return pattern.test(value) ? value : prefix + value;
 }
 
 function jsonResponse(obj) {
