@@ -13,7 +13,9 @@ function base64url(input) {
   return Buffer.from(input).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
 
-export async function getAccessToken() {
+// The fixed private status diagnostic opts into redirect denial. Existing senders
+// retain their current transport; this option never changes OAuth scope/destination.
+export async function getAccessToken(strictTransport = false) {
   if (cachedToken && cachedToken.expiresAt > Date.now() + 60000) {
     return cachedToken.token;
   }
@@ -41,11 +43,14 @@ export async function getAccessToken() {
     assertion: jwt
   });
 
-  const res = await fetch(TOKEN_URL, {
+  /** @type {{method: string, headers: Object<string, string>, body: string, redirect?: 'error'}} */
+  const request = {
     method: 'post',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString()
-  });
+  };
+  if (strictTransport === true) request.redirect = 'error';
+  const res = await fetch(TOKEN_URL, request);
 
   if (!res.ok) {
     const text = await res.text();

@@ -100,12 +100,18 @@ export async function readWC1037ProcessingStatus() {
   return readStatus(id);
 }
 
+export async function readWC1043ProcessingStatus() {
+  const id = '071b3837-db3c-4d58-be16-1a2092d9f4cf';
+  if (arguments.length) return failure(id, 'ARGUMENTS_NOT_ALLOWED');
+  return readStatus(id, true);
+}
+
 function failure(requestId, failureCode, httpStatus = null) {
   return { requestId, observedAtUtc: new Date().toISOString(), httpStatus,
     projectionComplete: false, unknownReasonPresent: false, failureCode, destinations: [] };
 }
 
-async function readStatus(requestId) {
+async function readStatus(requestId, strictTransport = false) {
   let stopped = false, httpStatus = null, timer;
   const end = Date.now() + DEADLINE_MS;
   const expired = () => stopped || Date.now() >= end;
@@ -118,16 +124,19 @@ async function readStatus(requestId) {
   async function work() {
     let token;
     try {
-      token = await getAccessToken();
+      token = await getAccessToken(strictTransport);
       if (expired()) return fail('TIMEOUT');
       if (typeof token !== 'string' || !token || token.length > 16384 || /[^\x21-\x7e]/.test(token)) return fail('AUTH_FAILED');
     } catch (_) { return fail('AUTH_FAILED'); }
     let response, text;
     try {
       if (expired()) return fail('TIMEOUT');
-      response = await fetch('https://datamanager.googleapis.com/v1/requestStatus:retrieve?requestId=' + encodeURIComponent(requestId), {
+      /** @type {{method: string, headers: Object<string, string>, redirect?: 'error'}} */
+      const request = {
         method: 'GET', headers: { Authorization: 'Bearer ' + token }
-      });
+      };
+      if (strictTransport) request.redirect = 'error';
+      response = await fetch('https://datamanager.googleapis.com/v1/requestStatus:retrieve?requestId=' + encodeURIComponent(requestId), request);
       token = null;
       if (expired()) return fail('TIMEOUT');
       if (!response || !Number.isInteger(response.status) || response.status < 100 || response.status > 599) return fail('INVALID_RESPONSE');
@@ -142,7 +151,12 @@ async function readStatus(requestId) {
     let body;
     try { body = JSON.parse(text); } catch (_) { return fail('INVALID_JSON'); }
     try {
+      // The documented response does not echo requestId: identity is bound to
+      // the fixed HTTPS GET. Reject a contradictory echo if one is supplied.
+      if (strictTransport && object(body) && 'requestId' in body && body.requestId !== requestId) return fail('REQUEST_ID_MISMATCH');
       const projection = project(body);
+      if (strictTransport && (projection.destinations.length !== 1 ||
+          !projection.destinations[0].destinationMatch)) return fail('DESTINATION_MISMATCH');
       const result = { requestId, observedAtUtc: new Date().toISOString(), httpStatus, ...projection };
       if (Buffer.byteLength(JSON.stringify(result), 'utf8') > OUTPUT_BYTES) return fail('OUTPUT_TOO_LARGE');
       return result;
