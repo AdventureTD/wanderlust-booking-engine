@@ -390,6 +390,32 @@ async function generateAndStoreInvoice(bookingId) {
 }
 
 async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optGuest, optAttribution, optPackageTitle) {
+  // Reporting only: detach allowlisted original landing bundles before any IO.
+  // Historical reporting is not subject to browser expiry. Undefined preserves;
+  // explicit null (including invalid data) clears and cannot be resurrected.
+  const reporting = {};
+  for (const key of ['firstPaidTouch', 'latestPaidTouch']) {
+    const field = optAttribution && Object.getOwnPropertyDescriptor(optAttribution, key);
+    if (!field || ('value' in field && field.value === undefined)) continue;
+    reporting[key] = null;
+    const value = field.value;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+    try {
+      if (Reflect.ownKeys(value).sort().join(',') !== 'capturedAt,gbraid,gclid,msclkid,wbraid') continue;
+      const copy = {};
+      let valid = true;
+      for (const name of ['capturedAt', 'gclid', 'gbraid', 'wbraid', 'msclkid']) {
+        const d = Object.getOwnPropertyDescriptor(value, name);
+        if (!d || !('value' in d) || typeof d.value !== 'string') { valid = false; break; }
+        copy[name] = d.value;
+      }
+      if (!valid || copy.capturedAt.length > 30 || !Number.isFinite(Date.parse(copy.capturedAt)) ||
+          Date.parse(copy.capturedAt) > Date.now() ||
+          !['gclid', 'gbraid', 'wbraid', 'msclkid'].every(k => copy[k].length <= 512 && (copy[k] === '' || /^[\x21-\x7e]+$/.test(copy[k]))) ||
+          !['gclid', 'gbraid', 'wbraid', 'msclkid'].some(k => copy[k])) continue;
+      reporting[key] = copy;
+    } catch (_) { /* Optional malformed reporting cannot block a reservation. */ }
+  }
   if (!bookingNumber) {
     console.log('>>> updateBookingSummary SKIPPED — no bookingNumber');
     return;
@@ -480,6 +506,7 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       bookingDate: todayNoonUtc,
       packageTitle: optPackageTitle || ''
     };
+    Object.assign(summary, reporting);
 
     console.log('>>> updateBookingSummary computed:', JSON.stringify(summary).substring(0, 200));
 
@@ -495,6 +522,9 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       summary.bookingDate = existingBookingDate || todayNoonUtc;
       console.log('>>> updateBookingSummary final bookingDate (update):', summary.bookingDate);
       const existingAtt = existing.items[0];
+      for (const key of ['firstPaidTouch', 'latestPaidTouch']) {
+        if (!Object.prototype.hasOwnProperty.call(reporting, key) && Object.prototype.hasOwnProperty.call(existingAtt, key)) summary[key] = existingAtt[key];
+      }
       // BookingSummary uses the CMS field key `packageTitle`.
       // Preserve it when later summary refreshes do not receive a package title,
       // and recover any value briefly written to the misspelled packageTitlle key.
@@ -853,7 +883,9 @@ async function createBookingImpl(booking) {
       gclid: booking.gclid || '',
       gbraid: booking.gbraid || '',
       wbraid: booking.wbraid || '',
-      msclkid: booking.msclkid || ''
+      msclkid: booking.msclkid || '',
+      firstPaidTouch: booking.firstPaidTouch,
+      latestPaidTouch: booking.latestPaidTouch
     }, packageTitle);
   } catch (e) {
     console.log('>>> SERVER updateBookingSummary ERROR:', e.message);

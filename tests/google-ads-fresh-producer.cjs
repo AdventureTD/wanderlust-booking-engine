@@ -21,13 +21,14 @@ async function producer(){
  const settings={googleAdsPrivateJournalEnabled:'1',suspendGoogleAds:'0'};
  const external={
   'crypto':{default:{...crypto,randomBytes:n=>Buffer.alloc(n,++entropy),createSign:()=>({update(){return this;},sign:()=>Buffer.from('INERT_SIGNATURE')})}},
+  '@wix/data':{items:{patch:deny}}, // Imported legacy cancellation surface; forbidden in these fresh-booking cases.
   'wix-data':{default:sdk},'wix-web-module':{Permissions:{Anyone:0,Admin:1},webMethod:(_,fn)=>fn},
   'backend/settings.web':{getAllSettings:async()=>({...settings}),incrementSetting:async name=>{assert.equal(name,'bookingNumber');return ++bookingSequence===1?'INERT_FRESH':'INERT_FRESH_'+bookingSequence;}},
   'libphonenumber-js/max':{parsePhoneNumberFromString:(s,o)=>require('libphonenumber-js/max').parsePhoneNumberFromString(s,JSON.parse(JSON.stringify(o)))},
   'wix-secrets-backend':{getSecret:async name=>{const secrets={WBE_PRICING_QUOTE_SECRET:'INERT_PRICING_SECRET_NOT_LIVE_0123456789',GOOGLE_ADS_CUSTOMER_ID:'1234567890',GOOGLE_ADS_CONVERSION_ACTION_ID:'123456',GOOGLE_SA_CLIENT_EMAIL:'offline@example.invalid',GOOGLE_SA_PRIVATE_KEY:'INERT_NOT_A_KEY'};assert.ok(name in secrets,name);return secrets[name];}},
   'wix-fetch':{fetch:async(url,options)=>{trace.push(['fetch',url]);if(url==='https://oauth2.googleapis.com/token')return {ok:true,json:async()=>({access_token:'INERT_NOT_A_TOKEN',expires_in:3600})};assert.equal(url,'https://datamanager.googleapis.com/v1/events:ingest');assert.equal(options.method,'post');wires.push(JSON.parse(options.body));return {ok:true,status:200,text:async()=>JSON.stringify({requestId:'inert-fresh-receipt'}),json:async()=>({requestId:'inert-fresh-receipt'})};}}
  };
- const allowed=new Set(['backend/availability.web','backend/googleAdsConversions.web','backend/googleAdsAttemptJournal','backend/dataManagerClient.web','backend/googleAdsHttpDiagnostics','backend/hashUtils.web','backend/rateResolver','backend/pricingQuote','public/phoneNormalization']);
+ const allowed=new Set(['backend/bookingCancellation','backend/availability.web','backend/googleAdsConversions.web','backend/googleAdsAttemptJournal','backend/dataManagerClient.web','backend/googleAdsHttpDiagnostics','backend/hashUtils.web','backend/rateResolver','backend/pricingQuote','public/phoneNormalization']);
  const cache=new Map();function make(s){if(cache.has(s))return cache.get(s);let m;if(external[s]){const e=external[s];m=new vm.SyntheticModule(Object.keys(e),function(){for(const k of Object.keys(e))this.setExport(k,e[k]);},{context,identifier:s});}else{assert.ok(allowed.has(s),'unadmitted '+s);m=new vm.SourceTextModule(fs.readFileSync(path.join(root,s+'.js'),'utf8'),{context,identifier:s});}cache.set(s,m);return m;}
  const availability=make('backend/availability.web');await availability.link(make);await availability.evaluate();
  const quote=await cache.get('backend/pricingQuote').namespace.createLockedPricingQuote('INERT_PACKAGE','2027-01-01','2027-01-02');
@@ -81,9 +82,13 @@ test('fresh Summary consumption fence: '+schedule,{timeout:8000},async()=>{
   assert.equal(bridge.api.getStoredClickIds(original),null,'original snapshot must lose authority');
   if(schedule.includes('reaccept')){
    if(!schedule.startsWith('clear')){bridge.click('Cookie settings');bridge.click('Accept All');}
-   const fresh=schedule==='same-record-reaccept'?original:{gclid:'INERT_NEW',gbraid:'',wbraid:'',msclkid:'',capturedAt:new Date().toISOString()};
-   bridge.pageStore.setItem('wl_click_attribution',JSON.stringify(fresh));
-   await bridge.ready();assert.equal(bridge.api.getStoredClickIds().gclid,fresh.gclid);
+   if(schedule==='same-record-reaccept') {
+    bridge.pageStore.setItem('wl_click_attribution',JSON.stringify(original.paidTouches));
+    await bridge.ready();assert.equal(bridge.api.getStoredClickIds(),null,'same denied record cannot regain cache authority');
+   }
+   const freshId=schedule==='same-record-reaccept'?original.gclid:'INERT_NEW';
+   bridge.visit('gclid='+freshId);
+   await bridge.ready();assert.equal(bridge.api.getStoredClickIds().gclid,freshId);
    assert.equal(bridge.api.getStoredClickIds(original),null,'reaccept must not revive original work');
   }
  }

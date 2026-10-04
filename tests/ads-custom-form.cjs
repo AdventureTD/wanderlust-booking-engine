@@ -65,7 +65,7 @@ async function fixture(opts = {}) {
       }
       if(cache.has(spec))return cache.get(spec);
       let m;
-      if(spec.startsWith('backend/') || ['public/clickAttribution','public/adsPolicyProtocol'].includes(spec)) {
+      if(spec.startsWith('backend/') || ['public/clickAttribution','public/adsPolicyProtocol','public/paidTouchState'].includes(spec)) {
         m=new vm.SourceTextModule(read('velo/'+spec+'.js'),{context,identifier:spec});cache.set(spec,m);return m;
       }
       let values;

@@ -4,7 +4,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),vm=require(
 const root=path.resolve(__dirname,'../velo'),origin='https://www.wanderlustcaribbean.com',frameOrigin='https://inert.filesusr.com';
 const read=p=>fs.readFileSync(path.join(root,p),'utf8'),inline=p=>read(p).match(/<script>([\s\S]*?)<\/script>/)[1];
 async function fixture(o={}) {
- const timers=new Set(),trace=[],storage=new Map(),workerStorage=new Map(),listeners=[],receivers=[];
+ const timers=new Set(),trace=[],storage=new Map(o.pageStorage||[]),workerStorage=new Map(o.workerStorage||[]),listeners=[],receivers=[];
  let externalCalls=0;const deny=()=>{externalCalls++;throw Error('OFFLINE_NETWORK_DENIED');};
  const network={fetch:deny,XMLHttpRequest:deny,WebSocket:deny,Image:deny};
  const clocks={head:100,worker:200,server:Date.now()+(o.serverOffset||0)};
@@ -23,7 +23,7 @@ async function fixture(o={}) {
  const iframe=vm.createContext({window:{parent},document:{referrer:origin+'/'},URL});
  vm.runInContext(inline('custom-code/event-bridge-iframe.html'),iframe);
  parent.postMessage=(d,target)=>{assert.equal(target,origin);trace.push({edge:'relay',d:structuredClone(d)});if(d.source)dispatch(d);else receivers.forEach(f=>f({data:d}));};
- frame.postMessage=(d,target)=>{assert.equal(target,frameOrigin);trace.push({edge:'ack',d:structuredClone(d)});const deliver=()=>iframe.window.onmessage({data:d,source:parent,origin});if(o.ackDelay)timer(deliver,o.ackDelay);else deliver();};
+ frame.postMessage=(d,target)=>{assert.equal(target,frameOrigin);trace.push({edge:'ack',d:structuredClone(d)});const deliver=()=>{if(o.beforeAck)o.beforeAck(d);iframe.window.onmessage({data:d,source:parent,origin});if(o.afterAck)o.afterAck(d);};if(o.ackDelay)timer(deliver,o.ackDelay);else deliver();};
  const component={onMessage:f=>receivers.push(f),postMessage:d=>{trace.push({edge:'worker',d:structuredClone(d)});const deliver=()=>iframe.window.onmessage({data:d,source:parent,origin});if(o.beforeRelay)o.beforeRelay(d,clocks);const delay=o.requestDelay?o.requestDelay(d):0;if(delay)timer(deliver,delay);else deliver();}};
  let nativeReads=0,rpcs=0;
  const server=vm.createContext({...network,Date:class extends Date {static now(){return clocks.server;}},setTimeout:timer,clearTimeout,console});
@@ -38,7 +38,7 @@ async function fixture(o={}) {
  server.call=endpoint.namespace.getAdsFormRequirement;
  function load(s){if(cache.has(s))return cache.get(s);let m;if(s==='backend/adsFormRequirement.web')m=synthetic(worker,{getAdsFormRequirement:rpc});else if(s==='wix-storage-frontend')m=synthetic(worker,{local:{getItem:k=>workerStorage.get(k)??null,setItem:(k,v)=>workerStorage.set(k,v),removeItem:k=>workerStorage.delete(k)}});else if(s==='wix-location-frontend')m=synthetic(worker,{default:{url:origin,query:{}}});else {assert.ok(s.startsWith('public/'));m=new vm.SourceTextModule(read(s+'.js'),{context:worker});}cache.set(s,m);return m;}
  const tracking=load('public/tracking');await tracking.link(load);await tracking.evaluate();const api=tracking.namespace;api.initTracking(()=>component);api.initClickAttribution(()=>component);
- return {api,head,worker,server,trace,clocks,storage,endpoint:request=>{server.arg=JSON.stringify(request);return vm.runInContext('call(JSON.parse(arg))',server);},counts:()=>({nativeReads,rpcs,externalCalls}),forms:()=>window.dataLayer.filter(x=>x[0]==='event'&&x[1]==='form_submit'),async settle(){for(let i=0;i<150;i++)await Promise.resolve();},close(){api.setSuspendGoogleAds(true);for(const t of timers)clearTimeout(t);}};
+ return {api,head,worker,server,trace,clocks,storage,workerStorage,endpoint:request=>{server.arg=JSON.stringify(request);return vm.runInContext('call(JSON.parse(arg))',server);},counts:()=>({nativeReads,rpcs,externalCalls}),forms:()=>window.dataLayer.filter(x=>x[0]==='event'&&x[1]==='form_submit'),async settle(){for(let i=0;i<150;i++)await Promise.resolve();},close(){api.setSuspendGoogleAds(true);for(const t of timers)clearTimeout(t);}};
 }
 module.exports={fixture};
 if(require.main===module){

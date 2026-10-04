@@ -2,9 +2,21 @@
 // ESLint global declaration only; optional runtime Web Crypto is checked below.
 // Dedicated attribution channel; never carries contacts or generic events.
 import { local } from 'wix-storage-frontend';
+import { normalizePaidTouches } from 'public/paidTouchState';
 import { getAdsFormRequirement } from 'backend/adsFormRequirement.web';
 import { localBudget, remainingBudget, closeBudget, freshPolicyNonce, policyRequest, validPolicy, withinBudget } from 'public/adsPolicyProtocol';
 const KEY = 'wl_click_attribution', CLEAR = 'wl_click_attribution_clear_pending';
+const REVOKED = 'wl_click_attribution_revoked';
+// Storage carries data, never a grant. Undefined admits startup reconciliation
+// only; null is an explicit empty admission. Only a bound Head confirm sets bytes.
+let admittedRaw;
+let partitionClosed = false;
+try { partitionClosed = !!local.getItem(REVOKED); } catch (_) { partitionClosed = true; }
+export function attributionStorageAdmitted(raw) { return admittedRaw !== undefined && raw === admittedRaw; }
+function closePartition() {
+  partitionClosed = true; admittedRaw = null;
+  try { local.setItem(REVOKED, '1'); } catch (_) {}
+}
 let component, sequence = 0, revision = 0, suspended = false, pending = null;
 let denied = true, nonce = '', channel = '';
 let lateOpen = null;
@@ -36,8 +48,8 @@ function armReadiness(p, task) {
 function wakeReadiness(d) {
   const watch = lateOpen;
   if (!watch || watch.revision !== revision || suspended || !remainingBudget(watch.task) ||
-      !d || d.type !== 'wbe-click-attribution-result' || d.v !== 2 ||
-      Object.keys(d).sort().join(',') !== 'allowed,channel,nonce,op,record,sequence,type,v' ||
+      !d || d.type !== 'wbe-click-attribution-result' || d.v !== 2 || d.schema !== 1 ||
+      Object.keys(d).sort().join(',') !== 'allowed,channel,nonce,op,record,schema,sequence,type,v' ||
       d.nonce !== watch.nonce || d.sequence !== watch.sequence || d.op !== 'open' ||
       !/^[a-f0-9]{32}$/.test(d.channel) || d.record !== null || typeof d.allowed !== 'boolean') return;
   cancelReadiness();
@@ -48,7 +60,7 @@ function wakeReadiness(d) {
 
 function revoke() {
   cancelReadiness();
-  revision++; denied = true; channel = ''; erase();
+  revision++; denied = true; channel = ''; closePartition(); erase();
   try { local.removeItem(CLEAR); } catch (_) {}
   if (pending) pending.finish(null);
 }
@@ -59,7 +71,13 @@ export function attributionRevision() { return revision; }
 export function suspendAttribution(value) {
   cancelReadiness();
   suspended = !!value; revision++;
-  if (suspended) revoke();
+  if (suspended) {
+    // Clear the currently bound page copy before revoke retires the channel.
+    // Never open a new channel to perform a suspended cleanup.
+    const record = storedRecord();
+    if (channel && record) void request('clear', null, record);
+    revoke();
+  }
 }
 export function initClickAttribution(w) {
   if (component) return;
@@ -68,17 +86,21 @@ export function initClickAttribution(w) {
     if (!c || typeof c.onMessage !== 'function' || typeof c.postMessage !== 'function') return;
     c.onMessage(event => {
       const d = event && event.data;
-      if (d && d.type === 'wbe-click-revoke' && d.v === 2 && d.nonce === nonce &&
-          Object.keys(d).sort().join(',') === 'channel,nonce,type,v' &&
+      if (d && d.type === 'wbe-click-revoke' && d.v === 2 && d.schema === 1 && d.nonce === nonce &&
+          Object.keys(d).sort().join(',') === 'channel,nonce,schema,type,v' &&
           (!channel || d.channel === channel)) { revoke(); return; }
       if (!pending) { wakeReadiness(d); return; }
-      if (!pending || !d || d.type !== 'wbe-click-attribution-result' || d.v !== 2 ||
-          Object.keys(d).sort().join(',') !== 'allowed,channel,nonce,op,record,sequence,type,v' ||
+      if (!pending || !d || d.type !== 'wbe-click-attribution-result' || d.v !== 2 || d.schema !== 1 ||
+          Object.keys(d).sort().join(',') !== 'allowed,channel,nonce,op,record,schema,sequence,type,v' ||
           d.nonce !== nonce || !/^[a-f0-9]{32}$/.test(d.channel) ||
           (pending.op !== 'open' && d.channel !== channel) ||
           d.sequence !== pending.sequence || d.op !== pending.op || typeof d.allowed !== 'boolean') return;
       if (!d.allowed) diagnostic(pending.op, 'REJECTED');
-      pending.finish(d);
+      // Detach synchronously before promise continuation; caller cannot mutate
+      // a nested record after envelope validation.
+      const record = d.record === null ? null : (validRecord(d.record) ? normalizePaidTouches(d.record, Date.now()) : undefined);
+      if (record === undefined || (!d.allowed && record !== null)) { pending.finish(null); return; }
+      pending.finish({ ...d, record });
     });
     component = c; // Listener is installed before the first request.
   } catch (_) {}
@@ -97,7 +119,7 @@ function request(op, policy, record, task) {
     pending = p;
     try {
       if (task && !remainingBudget(task)) { p.finish(null); return; }
-      component.postMessage({ type: 'wbe-click-attribution', v: 2, op, sequence: p.sequence, nonce, channel, policy, record });
+      component.postMessage({ type: 'wbe-click-attribution', v: 2, schema: 1, op, sequence: p.sequence, nonce, channel, policy, record });
     }
     catch (_) { diagnostic(op, 'TRANSPORT_ERROR'); p.finish(null); }
   });
@@ -112,29 +134,35 @@ async function openChannel(task) {
   return true;
 }
 function validRecord(record) {
-  if (!record || Object.keys(record).sort().join(',') !== 'capturedAt,gbraid,gclid,msclkid,wbraid') return false;
-  if (!['gclid', 'gbraid', 'wbraid', 'msclkid'].every(k => typeof record[k] === 'string' && record[k].length <= 512 && (record[k] === '' || /^[\x21-\x7e]+$/.test(record[k])))) return false;
-  const at = typeof record.capturedAt === 'string' ? Date.parse(record.capturedAt) : NaN;
-  return Number.isFinite(at) && Date.now() >= at && Date.now() - at <= 90 * 86400000;
+  if (!record || typeof record !== 'object') return false;
+  const version = Object.getOwnPropertyDescriptor(record, 'v');
+  if (!version || version.value !== 1) return false;
+  for (const key of ['first', 'latest']) {
+    const field = Object.getOwnPropertyDescriptor(record, key);
+    if (!field || !('value' in field)) return false;
+    if (key === 'first' && field.value === null) continue;
+    if (!field.value || Object.keys(field.value).sort().join(',') !== 'capturedAt,gbraid,gclid,msclkid,wbraid') return false;
+  }
+  return !!normalizePaidTouches(record, Date.now());
 }
 function storedRecord() {
   try {
-    const raw = JSON.parse(local.getItem(KEY));
-    const record = { capturedAt: raw.capturedAt };
-    ['gclid', 'gbraid', 'wbraid', 'msclkid'].forEach(k => { record[k] = raw[k] || ''; });
-    return validRecord(record) ? record : null;
-  } catch (_) { return null; }
+    const raw = local.getItem(KEY);
+    if ((partitionClosed || admittedRaw !== undefined) && raw !== admittedRaw) return null;
+    return normalizePaidTouches(JSON.parse(raw), Date.now());
+  }
+  catch (_) { return null; }
 }
 function sameRecord(a, b) {
-  return a && b && ['capturedAt', 'gclid', 'gbraid', 'wbraid', 'msclkid'].every(k => a[k] === b[k]);
+  return !!a && !!b && JSON.stringify(a) === JSON.stringify(b);
 }
 export async function clearPageAttribution(snapshot) {
   cancelReadiness();
   revision++;
-  let record = snapshot || storedRecord();
+  let record = snapshot ? normalizePaidTouches(snapshot.paidTouches || snapshot, Date.now()) : storedRecord();
   try { if (!record) record = JSON.parse(local.getItem(CLEAR)); } catch (_) {}
   if (!validRecord(record)) return;
-  if (sameRecord(storedRecord(), record)) erase();
+  if (sameRecord(storedRecord(), record)) { closePartition(); erase(); }
   try { local.setItem(CLEAR, JSON.stringify(record)); } catch (_) {}
   if (!channel && !await openChannel()) return;
   const result = await request('clear', null, record);
@@ -188,11 +216,14 @@ async function waitAttribution(task) {
     if (own !== revision || suspended) return;
     denied = !remainingBudget(task) || !remainingBudget(lease) || !result || !result.allowed;
     if (denied) { erase(); return; }
-    if (result.record === null) { diagnostic('worker', 'READY_EMPTY'); erase(); return; }
+    if (result.record === null) { admittedRaw = null; partitionClosed = true; diagnostic('worker', 'READY_EMPTY'); erase(); return; }
     if (!validRecord(result.record)) { denied = true; erase(); return; }
     // Head has reconciled first touch in this revocation epoch. An older local
     // copy cannot override its answer after a missed/delayed withdrawal notice.
-    local.setItem(KEY, JSON.stringify(result.record));
+    const raw = JSON.stringify(result.record);
+    local.setItem(KEY, raw);
+    admittedRaw = raw; partitionClosed = true;
+    try { local.removeItem(REVOKED); } catch (_) {}
     diagnostic('worker', 'READY_RECORD');
   } catch (_) { if (own === revision) { denied = true; erase(); } }
   finally { closeBudget(lease); if (!lateOpen || lateOpen.task !== task) closeBudget(task); }

@@ -1019,6 +1019,8 @@ function wireContinueButton() {
           gbraid: clickIds.gbraid,
           wbraid: clickIds.wbraid,
           msclkid: clickIds.msclkid,
+          firstPaidTouch: clickIds.paidTouches ? clickIds.paidTouches.first : null,
+          latestPaidTouch: clickIds.paidTouches ? clickIds.paidTouches.latest : null,
           packageId: packageId,
           packageTitle: packageTitle,
           pricingQuoteToken: pricingQuoteToken
@@ -1051,6 +1053,8 @@ function wireContinueButton() {
               s.gbraid = clickIds.gbraid || '';
               s.wbraid = clickIds.wbraid || '';
               s.msclkid = clickIds.msclkid || '';
+              s.firstPaidTouch = clickIds.paidTouches ? clickIds.paidTouches.first : null;
+              s.latestPaidTouch = clickIds.paidTouches ? clickIds.paidTouches.latest : null;
               if (s.checkIn) s.checkIn = normalizeDate(s.checkIn);
               if (s.checkOut) s.checkOut = normalizeDate(s.checkOut);
               if (s.bookingDate) s.bookingDate = normalizeDate(s.bookingDate);
@@ -1059,7 +1063,7 @@ function wireContinueButton() {
             }
           }
         } catch (noteErr) {
-          console.log('[WBE-FRONTEND] update BookingSummary.notes error:', noteErr.message);
+          console.log('ATTR_SUMMARY_REPORTING_WRITE_FAILED');
         }
       }
 
@@ -1089,6 +1093,8 @@ function wireContinueButton() {
             gbraid: clickIds.gbraid,
             wbraid: clickIds.wbraid,
             msclkid: clickIds.msclkid,
+            firstPaidTouch: clickIds.paidTouches ? clickIds.paidTouches.first : null,
+            latestPaidTouch: clickIds.paidTouches ? clickIds.paidTouches.latest : null,
             packageId: packageId,
             packageTitle: packageTitle,
             pricingQuoteToken: pricingQuoteToken
@@ -1140,7 +1146,7 @@ function wireContinueButton() {
         if (financialSnapshot) {
         const grandTotal = financialSnapshot.value;
 
-        console.log('[WBE-FRONTEND] stored click attribution:', JSON.stringify(clickIds));
+
 
         trackPurchase({
           transactionId: sharedBookingNumber,
@@ -1177,7 +1183,7 @@ function wireContinueButton() {
           googleConversionPromise = recordBookingConversion(googlePayload);
         } catch (conversionError) {
           googleConversionPromise = Promise.reject(conversionError);
-          throw conversionError; // Preserve the existing analytics error logger.
+          throw conversionError; // The enclosing catch emits only a fixed code.
         }
         googleConversionPromise
           .then(function (convResult) {
@@ -1200,10 +1206,10 @@ function wireContinueButton() {
             lastName: name.split(' ').slice(1).join(' '),
             conversionTime: new Date().toISOString()
           };
-          console.log('[WBE-FRONTEND] calling recordMicrosoftBookingConversion with:', JSON.stringify(microsoftPayload));
+
           recordMicrosoftBookingConversion(microsoftPayload)
             .then(function (msResult) {
-              console.log('[WBE-MICROSOFT] conversion upload result:', JSON.stringify(msResult));
+
               if (msResult && msResult.ok) {
                 try {
                   wixData.query('BookingSummary')
@@ -1222,9 +1228,9 @@ function wireContinueButton() {
                       return null;
                     })
                     .then(function () { console.log('[WBE-MICROSOFT] marked BookingSummary.microsoftConversionUploaded=true'); })
-                    .catch(function (markErr) { console.error('[WBE-MICROSOFT] failed to mark conversion uploaded:', markErr && markErr.message || markErr); });
+                    .catch(function () { console.error('MS_CONVERSION_MARK_FAILED'); });
                 } catch (markErr) {
-                  console.error('[WBE-MICROSOFT] failed to mark conversion uploaded:', markErr && markErr.message || markErr);
+                  console.error('MS_CONVERSION_MARK_FAILED');
                 }
                 // The purchase signal was already sent through trackPurchase()
                 // above. The Master Page bridge relays it to both Google and the
@@ -1233,7 +1239,7 @@ function wireContinueButton() {
               }
             })
             .catch(function (msErr) {
-              console.error('[WBE-MICROSOFT] conversion upload error:', msErr && msErr.message || msErr);
+              console.error('MS_CONVERSION_UPLOAD_FAILED');
             });
         }
 
@@ -1242,7 +1248,7 @@ function wireContinueButton() {
           console.warn('[WBE-FRONTEND] Analytics skipped: no valid numeric financial snapshot.');
         }
         } catch (analyticsError) {
-          console.error('[WBE-FRONTEND] Analytics failed after confirmation:', analyticsError.message);
+          console.error('ANALYTICS_AFTER_CONFIRMATION_FAILED');
         }
 
         // Start invoice creation without blocking the confirmed-booking redirect.
