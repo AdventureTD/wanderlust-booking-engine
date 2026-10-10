@@ -9,6 +9,8 @@ import wixLocation from 'wix-location';
 import wixWindow from 'wix-window-frontend';
 
 let _selections = [];
+let _selectionInputsValid = true;
+let _selectionRoomCount = 0;
 let _roomFeeMap = {};
 let _summaryNights = 0;
 let _cachedPerPersonStayTotal = 0;
@@ -22,6 +24,8 @@ let _activeSearch = null;
 let _summaryNavigating = false;
 let _packageRepeaterReady = false;
 const _packageRowBindings = new Map();
+const _roomRowBindings = new WeakMap();
+const _activeRoomBindings = new Map();
 
 function isCurrentSearch(search) {
   return !!search && search === _activeSearch && search.generation === _searchGeneration &&
@@ -32,6 +36,7 @@ function invalidateSearch() {
   _searchGeneration++;
   _activeSearch = null;
   _packageRowBindings.clear();
+  _activeRoomBindings.clear();
   _selectedPackage = null;
   _availablePackages = [];
   _cachedPerPersonStayTotal = 0;
@@ -75,34 +80,46 @@ function pickerDay(value) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
+// Calendar-day arithmetic is independent of DST offsets and picker times.
+function stayNights(checkIn, checkOut) {
+  const ci = pickerDay(checkIn), co = pickerDay(checkOut);
+  if (!ci || !co || ci >= co) return 0;
+  return (Date.parse(co + 'T00:00:00Z') - Date.parse(ci + 'T00:00:00Z')) / 86400000;
+}
+
 function clearSelections(silent) {
   _selections = [];
   if (!silent) updateSelectionPanel();
 }
 
-function setRoomSelection(roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut, roomFee) {
-  let next = [], found = false;
-  for (let i = 0; i < _selections.length; i++) {
-    if (_selections[i].roomCode === roomCode) {
-      found = true;
-      if (qty > 0) next.push({ roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut, roomFee: roomFee || 0 });
-    } else next.push(_selections[i]);
-  }
-  if (!found && qty > 0) next.push({ roomCode, roomName, qty, numGuests, availableCheckIn, availableCheckOut, roomFee: roomFee || 0 });
-  _selections = next;
-  updateSelectionPanel();
+function dropdownInteger(raw, options, minimum, maximum) {
+  // Native Dropdown values are decimal strings, not parseInt prefixes.
+  if (typeof raw !== 'string' || !/^(0|[1-9]\d*)$/.test(raw)) return null;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < minimum || value > maximum ||
+      !Array.isArray(options) || !options.some(option => option.value === raw)) return null;
+  return value;
 }
 
-function removeRoomSelection(roomCode) {
-  const next = [];
-  for (let i = 0; i < _selections.length; i++) {
-    if (_selections[i].roomCode !== roomCode) next.push(_selections[i]);
+function readRoomSelections() {
+  const selections = [];
+  let valid = true, rooms = 0;
+  for (const binding of _activeRoomBindings.values()) {
+    try {
+      const row = binding.read && binding.read();
+      if (!row) continue; // Removed or obsolete physical row.
+      if (!row.valid) valid = false;
+      rooms += row.qty || 0;
+      if (row.selection) selections.push(row.selection);
+    } catch (e) { valid = false; }
   }
-  _selections = next;
-  updateSelectionPanel();
+  _selections = selections;
+  _selectionInputsValid = valid;
+  _selectionRoomCount = rooms;
 }
 
 function showElement(el, name) {
+  if (SELECTION_IDS.includes(name)) return !!el; // Owned by refreshSelectionSummary.
   if (!el) {
     console.log('>>> showElement skipped:', name, 'element not found');
     return false;
@@ -119,6 +136,7 @@ function showElement(el, name) {
 }
 
 function hideElement(el, name) {
+  if (SELECTION_IDS.includes(name)) return !!el; // Owned by refreshSelectionSummary.
   if (!el) return false;
   try {
     if (typeof el.hide === 'function') { el.hide(); }
@@ -141,16 +159,109 @@ function roomSelectionRequiredMessage(selections) {
     : 'Please select one or more rooms to continue booking.';
 }
 
-function syncSummaryButtonWithResults(resultCount) {
-  const btnSummary = tryFind('btnSummary');
-  if (hasSearchResultRows(resultCount)) {
-    showElement(btnSummary, 'btnSummary');
-  } else {
-    hideElement(btnSummary, 'btnSummary');
+const SELECTION_IDS = ['selection', 'vacationDates', 'nightsDominica', 'roomsSelected',
+  'selectedRoomsContainer', 'yourSelection', 'selectedRooms', 'totalGuests', 'priceSummary',
+  'packageText', 'subTotalBooking', 'penthouseText', 'penthouseFee', 'totalText', 'finalTotal',
+  'selectionBox', 'line102', 'line103', 'line106', 'packageTitle', 'packageAmenities', 'btnSummary'];
+
+// Each visibility axis owns its latest intent. Native completion can occur after
+// a newer opposite operation; reconcile that completion, not just its dispatch.
+const _summaryControlStates = new WeakMap();
+let _summaryRevision = 0;
+function setSummaryControl(el, axis, desired) {
+  if (!el) return;
+  let states = _summaryControlStates.get(el);
+  if (!states) { states = {}; _summaryControlStates.set(el, states); }
+  let state = states[axis];
+  if (!state) state = states[axis] = {
+    desired: null, applied: null, revision: 0, failures: 0, failClosed: false
+  };
+  if (state.desired === desired) return;
+  state.desired = desired;
+  state.revision++;
+  state.failures = 0;
+  state.failClosed = false;
+  const target = () => state.failClosed || state.desired;
+  const apply = () => {
+    // Two failed transitions per intent at most. SDK refusal leaves applied
+    // unknown, not successfully disabled/hidden. Navigation guards are separate.
+    if (state.failures >= 2) return;
+    const revision = state.revision, intended = target();
+    const method = axis === 'hidden' ? (intended ? 'hide' : 'show')
+      : axis === 'collapsed' ? (intended ? 'collapse' : 'expand')
+      : (intended ? 'disable' : 'enable');
+    const succeeded = () => {
+      state.applied = intended;
+      if (target() !== intended) apply();
+    };
+    const failed = () => {
+      state.applied = null; // A rejection may follow an applied side effect.
+      if (revision === state.revision) {
+        state.failures++;
+        // Never retry a rejected enable until a new selection intent arrives.
+        if (axis === 'disabled' && !intended) state.failClosed = true;
+        if (state.failures === 2) {
+          try { console.warn('Booking Search summary UI transition failed; state unknown.'); } catch (e) {}
+        }
+      }
+      apply();
+    };
+    try {
+      if (typeof el[method] !== 'function') { failed(); return; }
+      const result = el[method]();
+      if (result && typeof result.then === 'function') {
+        Promise.resolve(result).then(succeeded, failed);
+        // Synchronous reentry can finish an old side effect before settlement.
+        if (target() !== intended) apply();
+      } else succeeded();
+    } catch (e) { failed(); }
+  };
+  apply();
+}
+
+function refreshSelectionSummary() {
+  const revision = ++_summaryRevision;
+  readRoomSelections();
+  const ci = tryFind('datePickerCheckIn'), co = tryFind('datePickerCheckOut');
+  _summaryNights = stayNights(ci && ci.value, co && co.value);
+  const current = isCurrentSearch(_activeSearch);
+  const selected = current ? _selections.filter(s => s.qty > 0) : [];
+  const rooms = current ? _selectionRoomCount : 0;
+  const guests = selected.reduce((sum, s) => sum + s.qty * s.numGuests, 0);
+  const values = { nightsDominica: String(_summaryNights) + ' nights in Dominica',
+    selectedRooms: String(rooms) + ' rooms', totalGuests: _selectionInputsValid ? String(guests) + ' guests total' : 'Choose valid room and guest quantities' };
+  Object.keys(values).forEach(id => { const el = tryFind(id); if (el) el.text = values[id]; });
+  const title = tryFind('packageTitle');
+  if (title) title.text = _selectedPackage && _selectedPackage.title || '';
+  if (!_selectedPackage) {
+    const amenities = tryFind('packageAmenities');
+    if (amenities) amenities.text = '';
   }
+  const priced = current && _selectionInputsValid && !_activeSearch.pending && _hasCachedStayPricing &&
+    _selectedPackage && _selectedPackage.pricingQuoteToken;
+  if (!rooms || !priced) {
+    ['subTotalBooking', 'penthouseFee', 'finalTotal'].forEach(id => {
+      const el = tryFind(id); if (el) el.text = '';
+    });
+  }
+  for (const id of SELECTION_IDS) {
+    if (revision !== _summaryRevision) return;
+    const el = tryFind(id);
+    setSummaryControl(el, 'hidden', !rooms);
+    if (revision !== _summaryRevision) return;
+    setSummaryControl(el, 'collapsed', !rooms);
+  }
+  if (revision !== _summaryRevision) return;
+  setSummaryControl(tryFind('btnSummary'), 'disabled', !(rooms && priced));
+}
+
+function syncSummaryButtonWithResults(resultCount) {
+  // Result presence is not selection. Navigation keeps its independent guards.
+  refreshSelectionSummary();
 }
 
 function updateSelectionPanel() {
+  readRoomSelections();
   const panel = tryFind('selectionPanel');
   const container = tryFind('selectedRoomsContainer');
   const box3 = tryFind('box3');
@@ -169,7 +280,7 @@ function updateSelectionPanel() {
     selections: _selections.length
   });
 
-  if (_selections.length === 0) {
+  if (_selectionRoomCount === 0) {
     hideElement(panel, 'selectionPanel');
     if (container) { container.text = ''; }
     hideElement(container, 'selectedRoomsContainer');
@@ -178,6 +289,7 @@ function updateSelectionPanel() {
     hideElement(selection, 'selection');
     hideElement(transSummary, 'transSummary');
     hideElement(jpegBackground, 'jpegBackground');
+    refreshSelectionSummary();
     return;
   }
 
@@ -243,21 +355,12 @@ function updateSelectionPanel() {
         if (_summaryNights > 0 && hasPenthouseSelected) {
       const totalPenthouseFee = penthouseTotal * _summaryNights;
       penthouseFeeEl.text = '$' + totalPenthouseFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      try { penthouseFeeEl.show(); } catch (e) {}
     } else {
-      try { penthouseFeeEl.hide(); } catch (e) {}
+      penthouseFeeEl.text = '$0.00';
     }
   }
 
-  // Show/hide Penthouse label text based on selection.
-  const penthouseTextEl = tryFind('penthouseText');
-  if (penthouseTextEl) {
-    if (hasPenthouseSelected) {
-      try { penthouseTextEl.show(); } catch (e) {}
-    } else {
-      try { penthouseTextEl.hide(); } catch (e) {}
-    }
-  }
+  // Selection visibility is owned solely by refreshSelectionSummary.
 
   // Calculate and display the seasonal-first, modifier-adjusted per-person stay
   // total for every guest. Penthouse roomFee remains a per-room/night surcharge.
@@ -286,10 +389,11 @@ function updateSelectionPanel() {
 
       if (typeof summaryContainer.show === 'function') { try { summaryContainer.show(); } catch (e) {} }
       if (typeof summaryContainer.expand === 'function') { try { summaryContainer.expand(); } catch (e) {} }
-    } else {
-      if (typeof summaryContainer.collapse === 'function') { try { summaryContainer.collapse(); } catch (e) {} } else if (typeof summaryContainer.hide === 'function') { try { summaryContainer.hide(); } catch (e) {} }
     }
   }
+  // Keep the selection visible even if pricing failed; the central refresh
+  // clears financial values and disables Continue until a valid quote exists.
+  refreshSelectionSummary();
 }
 
 function safeItem($item, selector, action, val) {
@@ -337,6 +441,7 @@ function formatVacationDate(d) {
 
 
 $w.onReady(async function () {
+  refreshSelectionSummary();
   safeText('');
   try {
     let settings = {};
@@ -404,7 +509,7 @@ $w.onReady(async function () {
       const co = coEl && coEl.value ? new Date(coEl.value) : null;
       let nights = 0;
       if (ci && co && co > ci) {
-        nights = Math.round((co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24));
+        nights = stayNights(ci, co);
       }
       _summaryNights = nights;
 
@@ -436,6 +541,7 @@ $w.onReady(async function () {
       if (!coDate || ciDate > coDate) {
         coPicker.value = new Date(ciDate.getFullYear(), ciDate.getMonth(), ciDate.getDate(), 12, 0, 0);
       }
+      refreshSelectionSummary();
     });
   }
 
@@ -449,6 +555,13 @@ $w.onReady(async function () {
       if (_summaryNavigating) return;
       if (!isCurrentSearch(_activeSearch) || _activeSearch.pending) {
         safeText('Please wait for this search and pricing to finish, or search again after changing dates.');
+        return;
+      }
+      // Re-read the live controls here too: programmatic changes need not emit
+      // onChange, and a previous valid snapshot is not navigation authority.
+      updateSelectionPanel();
+      if (!_selectionInputsValid) {
+        safeText('Please choose valid room and guest quantities before continuing.');
         return;
       }
       console.log('>>> btnSummary clicked');
@@ -511,7 +624,19 @@ $w.onReady(async function () {
   if (rep && typeof rep.onItemReady === 'function') {
     rep.onItemReady(($item, itemData) => {
       const rowSearch = _activeSearch;
-      const currentRow = () => isCurrentSearch(rowSearch) && itemData.searchGeneration === rowSearch.generation && isFullStayResult(itemData, rowSearch);
+      const quantityControl = safeItem($item, '#roomQtyDropdown', null, null);
+      const existingBinding = quantityControl && _roomRowBindings.get(quantityControl);
+      // Wix readiness/listeners are additive: never reset or rebind a live row.
+      if (existingBinding && existingBinding.search === rowSearch) return;
+      const binding = { search: rowSearch, read: null };
+      const currentRow = () => {
+        if (_activeRoomBindings.get(itemData._id) !== binding) return false;
+        if (!isCurrentSearch(rowSearch) || itemData.searchGeneration !== rowSearch.generation) return false;
+        const live = rep.data.find(row => row._id === itemData._id && row.roomCode === itemData.roomCode && row.searchGeneration === rowSearch.generation);
+        if (!live || !isFullStayResult(live, rowSearch)) return false;
+        itemData = live;
+        return true;
+      };
       // Repeater item debug log disabled to reduce console noise
       if (!isFullStayResult(itemData, rowSearch)) {
         safeItem($item, '#roomName', 'text', (itemData.roomName || itemData.roomCode || '') + ' — Not available for these dates');
@@ -523,10 +648,14 @@ $w.onReady(async function () {
         safeItem($item, '#defaultOccupancy', 'text', '');
         const dd = safeItem($item, '#roomQtyDropdown', null, null);
         if (dd) { dd.options = [{ label: '0', value: '0' }]; dd.value = '0'; try { dd.disable(); } catch (e) {} }
-        const guestDdUnavail = safeItem($item, '#numberOfGuests', null, null);
+        const guestDdUnavail = safeItem($item, '#numberofGuests', null, null);
         if (guestDdUnavail) { guestDdUnavail.options = []; try { guestDdUnavail.disable(); } catch (e) {} }
         return;
       }
+      if (!isCurrentSearch(rowSearch) || itemData.searchGeneration !== rowSearch.generation ||
+          !rep.data.some(row => row._id === itemData._id && row.roomCode === itemData.roomCode && row.searchGeneration === rowSearch.generation)) return;
+      _activeRoomBindings.set(itemData._id, binding);
+      if (quantityControl) _roomRowBindings.set(quantityControl, binding);
       safeItem($item, '#roomName', 'text', itemData.roomName || itemData.roomCode || '');
       safeItem($item, '#roomname2', 'text', itemData.name || itemData.roomName || itemData.roomCode || '');
       safeItem($item, '#description', 'text', plainTextFromHtml(itemData.description));
@@ -575,20 +704,33 @@ $w.onReady(async function () {
       const maxOcc = Number(itemData.occupancy || baseOcc);
       const guestOpts = [];
       for (let g = baseOcc; g <= maxOcc; g++) guestOpts.push({ label: String(g), value: String(g) });
-      let selectedGuests = baseOcc;
-      const guestDd = safeItem($item, '#numberOfGuests', null, null);
+      const guestDd = safeItem($item, '#numberofGuests', null, null);
+      binding.read = () => {
+        if (!currentRow()) return null;
+        const qtyDd = safeItem($item, '#roomQtyDropdown', null, null);
+        const limit = Number(itemData.maxQty || 0);
+        const qty = qtyDd ? dropdownInteger(qtyDd.value, qtyDd.options, 0, limit) : 0;
+        if (qty === null) return { valid: false, qty: 0, selection: null };
+        // Inactive guest choices never poison another selected room.
+        if (qty === 0) return { valid: true, qty: 0, selection: null };
+        const numGuests = dropdownInteger(guestDd ? guestDd.value : String(baseOcc),
+          guestOpts, baseOcc, maxOcc);
+        if (numGuests === null || (guestDd && !guestDd.options.some(o => o.value === guestDd.value))) {
+          return { valid: false, qty, selection: null };
+        }
+        return { valid: true, qty, selection: {
+          roomCode: itemData.roomCode, roomName: itemData.roomName || itemData.roomCode,
+          qty, numGuests, availableCheckIn: itemData.availableCheckIn,
+          availableCheckOut: itemData.availableCheckOut, roomFee: itemData.roomFee || 0
+        } };
+      };
       if (guestDd) {
         guestDd.options = guestOpts;
         guestDd.value = String(baseOcc);
         if (typeof guestDd.onChange === 'function') {
           guestDd.onChange((event) => {
             if (!currentRow()) return;
-            selectedGuests = parseInt(event.target.value || String(baseOcc), 10);
-            const qtyDd = safeItem($item, '#roomQtyDropdown', null, null);
-            const qty = qtyDd ? parseInt(qtyDd.value || '0', 10) : 0;
-            if (qty > 0) {
-              setRoomSelection(itemData.roomCode, itemData.roomName || itemData.roomCode, qty, selectedGuests, itemData.availableCheckIn, itemData.availableCheckOut, itemData.roomFee || 0);
-            }
+            updateSelectionPanel();
           });
         }
       }
@@ -609,19 +751,19 @@ $w.onReady(async function () {
         }
         dd.onChange((event) => {
           if (!currentRow()) return;
-          const qty = parseInt(event.target.value || '1', 10);
-          const numGuests = typeof selectedGuests === 'number' ? selectedGuests : baseOcc;
+          const row = binding.read();
+          const qty = row && row.valid ? row.qty : 0;
+          updateSelectionPanel();
+          if (!currentRow()) return;
           const rowVector = safeItem($item, '#vectorImage2', null, null);
           const badgeEl = safeItem($item, '#selectedBadge', null, null);
           if (qty > 0) {
-            setRoomSelection(itemData.roomCode, itemData.roomName || itemData.roomCode, qty, numGuests, itemData.availableCheckIn, itemData.availableCheckOut, itemData.roomFee || 0);
             if (rowVector) {
               try { rowVector.show(); } catch (e) {}
               try { rowVector.expand(); } catch (e) {}
             }
             if (badgeEl) { try { badgeEl.show(); } catch (e) {} try { badgeEl.expand(); } catch (e) {} }
           } else {
-            removeRoomSelection(itemData.roomCode);
             if (rowVector) {
               try { rowVector.hide(); } catch (e) {}
               try { rowVector.collapse(); } catch (e) {}
@@ -636,6 +778,7 @@ $w.onReady(async function () {
   }
 
   function hideIfFound(id) {
+    if (SELECTION_IDS.includes(id)) return;
     const el = tryFind(id);
     if (!el) return;
     if (typeof el.collapse === 'function') {
@@ -701,7 +844,7 @@ async function searchHandler() {
   if (!ciDate || !coDate) { hideSearchHeader(); safeText('Please select check-in and check-out dates.'); return; }
   if (ciDate >= coDate) { hideSearchHeader(); safeText('Check-in date must be before the Check-out date.'); return; }
 
-  const computedNights = Math.round((coDate.getTime() - ciDate.getTime()) / 86400000);
+  const computedNights = stayNights(ciDate, coDate);
   _summaryNights = computedNights;
   _searchCheckIn = ciDate;
   _searchCheckOut = coDate;
@@ -725,7 +868,7 @@ async function searchHandler() {
     const panel = tryFind('selectionPanel');
     if (panel) { try { panel.collapse(); } catch (e) {} }
     const container = tryFind('selectedRoomsContainer');
-    if (container) { try { container.hide(); } catch (e) {} }
+    setSummaryControl(container, 'hidden', true);
     safeText('No adventure packages exist for that number of nights. Please choose a lower number of nights.');
     return;
   }
@@ -749,7 +892,7 @@ async function searchHandler() {
       const panel = tryFind('selectionPanel');
       if (panel) { try { panel.collapse(); } catch (e) {} }
       const container = tryFind('selectedRoomsContainer');
-      if (container) { try { container.hide(); } catch (e) {} }
+      setSummaryControl(container, 'hidden', true);
         safeText('No rooms are available for the dates entered. Checking nearby dates...');
       trackSearchNoResults({ nights: res.requestedNights, checkIn: ciDate ? ciDate.toISOString().slice(0, 10) : undefined });
       showAlternateDates(ciDate, coDate);
@@ -780,7 +923,7 @@ async function searchHandler() {
       const selPanel = tryFind('selectionPanel');
       if (selPanel) { try { selPanel.collapse(); } catch (e) {} }
       const container = tryFind('selectedRoomsContainer');
-      if (container) { try { container.hide(); } catch (e) {} }
+      setSummaryControl(container, 'hidden', true);
         safeText('No rooms are available for the dates entered. Checking nearby dates...');
       trackSearchNoResults({ nights: res.requestedNights, checkIn: ciDate ? ciDate.toISOString().slice(0, 10) : undefined });
       showAlternateDates(ciDate, coDate);
@@ -794,7 +937,7 @@ async function searchHandler() {
     syncSummaryButtonWithResults(availableData.length);
 
     // Show package column labels above the repeater.
-    ['packageText', 'nightsLabel', 'specialtyText', 'priceText'].forEach(function (id) {
+    ['nightsLabel', 'specialtyText', 'priceText'].forEach(function (id) {
       const el = tryFind(id);
       if (el) {
         if (typeof el.show === 'function') { try { el.show(); } catch (e) {} }
@@ -808,7 +951,7 @@ async function searchHandler() {
 
 function hidePackageInfo() {
   try { $w('#packageName').collapse(); } catch (e) {}
-  try { $w('#packageAmenities').collapse(); } catch (e) {}
+  setSummaryControl(tryFind('packageAmenities'), 'collapsed', true);
 }
 
 function loadPackageOptions(nights, search) {
@@ -925,7 +1068,7 @@ function loadPackageOptions(nights, search) {
     if (typeof pkgContainer.expand === 'function') { try { pkgContainer.expand(); } catch (e) {} }
 
     // Ensure column header labels above the repeater are visible.
-    ['packageText', 'nightsLabel', 'specialtyText', 'priceText'].forEach(function (id) {
+    ['nightsLabel', 'specialtyText', 'priceText'].forEach(function (id) {
       const el = tryFind(id);
       if (el) {
         if (typeof el.show === 'function') { try { el.show(); } catch (e) {} }
@@ -1027,12 +1170,11 @@ function updatePackageAmenitiesField() {
   if (!packageAmenitiesEl) return;
   if (_selectedPackage && _selectedPackage.includedAmenities) {
     packageAmenitiesEl.text = _selectedPackage.includedAmenities;
-    if (typeof packageAmenitiesEl.show === 'function') { try { packageAmenitiesEl.show(); } catch (e) {} }
-    if (typeof packageAmenitiesEl.expand === 'function') { try { packageAmenitiesEl.expand(); } catch (e) {} }
+
   } else {
     packageAmenitiesEl.text = '';
-    if (typeof packageAmenitiesEl.collapse === 'function') { try { packageAmenitiesEl.collapse(); } catch (e) {} }
   }
+  refreshSelectionSummary();
 }
 
 function getPackageSelectionIndicator($item) {
@@ -1100,8 +1242,7 @@ function showSearchHeader(ciDate, coDate, nights, search) {
     const coFmt = formatVacationDate(coDate);
     if (ciFmt && coFmt) {
       vacationDatesEl.text = (ciFmt + ' - ' + coFmt).trim();
-      if (typeof vacationDatesEl.show === 'function') { try { vacationDatesEl.show(); } catch (e) {} }
-      if (typeof vacationDatesEl.expand === 'function') { try { vacationDatesEl.expand(); } catch (e) {} }
+
     }
   }
 

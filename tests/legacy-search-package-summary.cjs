@@ -62,7 +62,7 @@ async function handoff(s,id,qty=1){
  });
  await test('selecting package without amenities clears previous package amenities',async()=>{
   const saved=list[1].includedAmenities;list[1].includedAmenities='';
-  try {const x=await setup();x.tick();x.s.select(undefined,'1');x.m.rows.get('scuba').radio.change();assert.equal(x.s.w('#packageAmenities').text,'Diving included');x.m.rows.get('explorer').radio.change();assert.equal(x.s.w('#packageName').text,list[1].title);assert.equal(x.s.w('#packageAmenities').text,'');assert.equal(x.s.w('#packageAmenities').collapsed,true);await x.release();await handoff(x.s,'explorer');}finally{list[1].includedAmenities=saved;}
+  try {const x=await setup();x.tick();x.s.select(undefined,'1');x.m.rows.get('scuba').radio.change();assert.equal(x.s.w('#packageAmenities').text,'Diving included');x.m.rows.get('explorer').radio.change();assert.equal(x.s.w('#packageName').text,list[1].title);assert.equal(x.s.w('#packageAmenities').text,'');assert.equal(x.s.w('#packageAmenities').collapsed,false);await x.release();await handoff(x.s,'explorer');}finally{list[1].includedAmenities=saved;}
  });
  console.log(JSON.stringify({cases},null,2));assert.equal(cases.length,6);assert.equal(cases.filter(x=>!x.pass).length,0);
 })().catch(e=>{console.error(e.stack);process.exitCode=1;}).finally(()=>clearTimeout(watchdog));

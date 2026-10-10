@@ -50,7 +50,7 @@ function silent(s) {
    for(const k of ['_wbe_rc','_wbe_ci','_wbe_co','_wbe_pkg','_wbe_quote'])s.stored.set(k,'old');
    edit(s,id,day(id.endsWith('In')?12:18));silent(s);
    oldRoom.w('#roomQtyDropdown').change({target:{value:'2'}});
-   oldRoom.w('#numberOfGuests').change({target:{value:'2'}});
+   oldRoom.w('#numberofGuests').change({target:{value:'2'}});
    oldPackage.w('#packageContainer').click();silent(s);
    assert.equal(vm.runInContext('_selections.length',s.c),0);
    assert.equal(vm.runInContext('_selectedPackage',s.c),null);
