@@ -27,13 +27,13 @@ const tests=String.raw`
  const s=await setup();qty(s,1);change(room(s).w('#numberOfGuests'),value);await s.w('#btnSummary').click();assert.equal(s.nav.length,0,'invalid guests navigated');assert.equal(s.w('#btnSummary').enabled,false);
  });
  await test('independent async show expand late completion cannot revive zero selection',async()=>{
- const s=await setup(),el=s.w('#selectionBox'),pending=[];
+ const s=await setup(),el=s.w('#selectionbox'),pending=[];
  el.show=function(){return new Promise(resolve=>pending.push(()=>{this.hidden=false;resolve();}));};
  el.expand=function(){return new Promise(resolve=>pending.push(()=>{this.collapsed=false;resolve();}));};
  qty(s,1);assert.equal(pending.length,2);qty(s,0);assert.equal(el.collapsed,true);pending.forEach(f=>f());await flush();assert.equal(el.hidden,true,'late show revived zero selection');assert.equal(el.collapsed,true,'late expand revived zero selection');
  });
  await test('independent reentrant zero selection during show leaves all hidden',async()=>{
- const s=await setup(),el=s.w('#selectionBox'),show=el.show;let once=false;el.show=function(){show.call(this);if(!once){once=true;qty(s,0);}};qty(s,1);visibility(s,false);assert.equal(s.w('#btnSummary').enabled,false);
+ const s=await setup(),el=s.w('#selectionbox'),show=el.show;let once=false;el.show=function(){show.call(this);if(!once){once=true;qty(s,0);}};qty(s,1);visibility(s,false);assert.equal(s.w('#btnSummary').enabled,false);
  });
  await test('independent failed replacement denies detached callbacks and clears prices',async()=>{
  let fail=false;const s=await setup({searchAvailability:async()=>{if(fail)throw Error('inert');return {ok:true,requestedNights:6,results:[row()]};}});const old=room(s);qty(s,2);fail=true;await s.run();change(old.w('#roomQtyDropdown'),'3');visibility(s,false);assert.equal(s.w('#finalTotal').text,'');await s.w('#btnSummary').click();assert.equal(s.nav.length,0);
@@ -75,7 +75,7 @@ const tests=String.raw`
   const s=await setup(),b=s.w('#btnSummary');let release;b.enable=function(){return new Promise(r=>release=()=>{this.enabled=true;r();});};qty(s,1);qty(s,0);release();await flush();visibility(s,false);assert.equal(b.enabled,false);await b.click();assert.equal(s.nav.length,0);
  });
  await test('nested invalid guest edit cancels outer enable intent',async()=>{
-  const s=await setup(),el=s.w('#selectionBox');el.show=function(){this.hidden=false;change(room(s).w('#numberOfGuests'),'NaN');};qty(s,1);await flush();assert.equal(s.w('#btnSummary').enabled,false);assert.equal(s.w('#finalTotal').text,'');await s.w('#btnSummary').click();assert.equal(s.nav.length,0);
+  const s=await setup(),el=s.w('#selectionbox');el.show=function(){this.hidden=false;change(room(s).w('#numberOfGuests'),'NaN');};qty(s,1);await flush();assert.equal(s.w('#btnSummary').enabled,false);assert.equal(s.w('#finalTotal').text,'');await s.w('#btnSummary').click();assert.equal(s.nav.length,0);
  });
  await test('unchanged valid refresh does not repeat visibility transitions',async()=>{
   const s=await setup();qty(s,1);const before=s.trace.filter(x=>selectionIds.includes(x[1].slice(1))).length;qty(s,2);assert.equal(s.trace.filter(x=>selectionIds.includes(x[1].slice(1))).length,before);visibility(s,true);
@@ -85,7 +85,7 @@ const tests=String.raw`
   for(const id of selectionIds){const el=s.w('#'+id);el.hide=function(){return new Promise(r=>pending.push(()=>{this.hidden=true;r();}));};el.collapse=function(){return new Promise(r=>pending.push(()=>{this.collapsed=true;r();}));};}
   await s.run();qty(s,2);for(const finish of pending.splice(0))finish();await flush();visibility(s,true);assert.equal(s.w('#btnSummary').enabled,true);
  });
- console.log(JSON.stringify({timezone:process.env.TZ,cases},null,2));assert.equal(cases.length,86);assert.equal(cases.filter(x=>!x.pass).length,0);
+ console.log(JSON.stringify({timezone:process.env.TZ,cases},null,2));assert.equal(cases.length,88);assert.equal(cases.filter(x=>!x.pass).length,0);
 })().catch(e=>{console.error(e.stack);process.exitCode=1;}).finally(()=>clearTimeout(watchdog));
 `;
 vm.runInThisContext('(function(require,__dirname){'+original.slice(0,original.indexOf('(async()=>{'))+helpers+tests+'})',{filename:__filename})(require,repo+'/tests');

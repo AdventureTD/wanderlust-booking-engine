@@ -19,7 +19,7 @@ Plural wording is retained even for one. Room quantities come from each row's `#
 
 Keep these elements initially collapsed in Editor (Tom reports this is already configured):
 
-`#selection`, `#vacationDates`, `#nightsDominica`, `#roomsSelected`, `#selectedRoomsContainer`, `#yourSelection`, `#selectedRooms`, `#totalGuests`, `#priceSummary`, `#packageText`, `#subTotalBooking`, `#penthouseText`, `#penthouseFee`, `#totalText`, `#finalTotal`, `#selectionBox`, `#line102`, `#line103`, `#line106`, `#packageTitle`, `#packageAmenities`, `#btnSummary`.
+`#selection`, `#vacationDates`, `#nightsDominica`, `#roomsSelected`, `#selectedRoomsContainer`, `#yourSelection`, `#selectedRooms`, `#totalGuests`, `#priceSummary`, `#packageText`, `#subTotalBooking`, `#penthouseText`, `#penthouseFee`, `#totalText`, `#finalTotal`, `#selectionbox`, `#line102`, `#line103`, `#line104`, `#line106`, `#packageTitle`, `#packageName3`, `#packageAmenities`, `#bookingHelp`, `#btnSummary`.
 
 `#roomsSelected` and `#selectedRooms` are intentionally distinct. Do not rename either. No new styles, radio options, collection fields, packages or site permissions are introduced.
 
@@ -32,6 +32,16 @@ Based on `78876cfe8531a3fc7a5af8a9ba440ef3225f5f95`, the page now includes exact
 Local TDD evidence: the original page failed the line visibility assertion after room selection; after the line fix, the package-name test failed with `EDITOR` instead of the selected title. Each narrow fix then passed. The new nine-case suite covers initial state, single/multiple room selection, package switches, clearing dates, detached callbacks, quote failure, delayed package/quote responses and captured highlight timers. Existing selection suites now include both new IDs in late-completion, reentry, missing-control and rejection tests. All 12 existing relevant suites plus the new suite passed with `TZ=America/New_York`; syntax and whitespace checks passed. Raw stdout/stderr/native exits are in `C:/Users/TomDe/AppData/Local/hermes/cache/scratch/booking-search-summary-additions/`. The existing Python missing-module baseline was not repaired or rerun.
 
 This candidate is not committed, pushed, installed or published. Different-author review is required. After separately approved installation, verify native Wix rendering from initially collapsed state, the selected row's exact title, switching packages, and hiding both controls after the last room is deselected or dates cleared. No live Wix actions were performed.
+
+## Published parent-ID and help repair (local candidate)
+
+Published component evidence identifies the actual Container as **`#selectionbox`** (lowercase `b`, component `comp-mv2qt78p`), initially collapsed. There is no published `#selectionBox` match. The source phrase `selectionBox` was therefore a code/fixture typo, not an instruction to rename the Editor element. **No Editor renaming is required.** Its actual children `#yourSelection`, `#selectedRooms` and `#totalGuests` cannot appear while that parent remains collapsed, even if their own show/expand operations succeed. `#selectedRoomsContainer` is a separate Text outside this parent, not a substitute container.
+
+The candidate corrects only this parent ID in the central visibility list and preserves the pending `#bookingHelp` addition. Published `#bookingHelp` is hidden on load (not collapsed); the controller now hides/collapses it before initialization awaits, reveals it with a room selection, and hides/collapses it on last deselection or invalidation. No Editor redesign is needed. The previously added `#line104` and `#packageName3`, guest dropdown/defaults, totals, dates, pricing and navigation guards remain unchanged.
+
+`tests/booking-search-parent-container.cjs` executes actual Search callbacks against a fixed inventory rejecting unknown selectors and published parent ancestry. The original pending-help source fails effective child visibility while child text and own visibility flags already pass. The corrected source must pass the same test, including a control proving that collapsed or hidden ancestors suppress otherwise-visible children. Existing late-operation/rejection fixtures migrate only the parent spelling, retaining assertions. These are local topology/behavior checks, not native Wix paint evidence.
+
+Evidence is saved separately at `C:/Users/TomDe/AppData/Local/hermes/cache/scratch/booking-search-parent-container/`; previous published evidence and help-repair records are not overwritten. No commit, push, Wix action, backend edit or CMS change is part of this candidate. Independent review and separately authorized GitHub delivery/installation/publication remain required. After installation, verify the three child texts and help from initially collapsed state, then deselect the final room and clear dates without submitting a booking.
 
 ## Empty guest-dropdown correction
 

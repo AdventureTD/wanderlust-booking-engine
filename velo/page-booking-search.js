@@ -162,7 +162,7 @@ function roomSelectionRequiredMessage(selections) {
 const SELECTION_IDS = ['selection', 'vacationDates', 'nightsDominica', 'roomsSelected',
   'selectedRoomsContainer', 'yourSelection', 'selectedRooms', 'totalGuests', 'priceSummary',
   'packageText', 'subTotalBooking', 'penthouseText', 'penthouseFee', 'totalText', 'finalTotal',
-  'selectionBox', 'line102', 'line103', 'line104', 'line106', 'packageTitle', 'packageName3', 'packageAmenities', 'btnSummary'];
+  'selectionbox', 'line102', 'line103', 'line104', 'line106', 'packageTitle', 'packageName3', 'packageAmenities', 'bookingHelp', 'btnSummary'];
 
 // Each visibility axis owns its latest intent. Native completion can occur after
 // a newer opposite operation; reconcile that completion, not just its dispatch.

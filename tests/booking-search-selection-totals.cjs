@@ -4,7 +4,7 @@ const original = fs.readFileSync(path.join(__dirname, 'legacy-date-handoff.cjs')
 const marker = original.indexOf('(async()=>{');
 if (marker < 0) throw Error('Missing actual-page fixture seam');
 const tests = String.raw`
-const selectionIds = 'selection vacationDates nightsDominica roomsSelected selectedRoomsContainer yourSelection selectedRooms totalGuests priceSummary packageText subTotalBooking penthouseText penthouseFee totalText finalTotal selectionBox line102 line103 line104 line106 packageTitle packageName3 packageAmenities btnSummary'.split(' ');
+const selectionIds = 'selection vacationDates nightsDominica roomsSelected selectedRoomsContainer yourSelection selectedRooms totalGuests priceSummary packageText subTotalBooking penthouseText penthouseFee totalText finalTotal selectionbox line102 line103 line104 line106 packageTitle packageName3 packageAmenities bookingHelp btnSummary'.split(' ');
 function elements() {
  const all=new Map(), trace=[]; let ready;
  function w(id) {
@@ -36,6 +36,15 @@ async function setup(overrides={}){const s=await search(overrides);await s.run()
   const s=await search();visibility(s,false);await s.run();visibility(s,false);
   assert.equal(s.trace.filter(([op,id])=>selectionIds.includes(id.slice(1))).length,0);
   await s.w('#btnSummary').click();assert.equal(s.nav.length,0);
+ });
+ await test('bookingHelp starts hidden/collapsed, reveals on selection and hides after last deselection',async()=>{
+  const s=await search(),help=s.w('#bookingHelp');
+  assert.equal(help.hidden,true);assert.equal(help.collapsed,true);
+  await s.run();assert.equal(help.hidden,true);assert.equal(help.collapsed,true);
+  qty(s,1);assert.equal(help.hidden,false);assert.equal(help.collapsed,false);
+  assert.ok(s.trace.some(([op,id])=>op==='show'&&id==='#bookingHelp'));
+  assert.ok(s.trace.some(([op,id])=>op==='expand'&&id==='#bookingHelp'));
+  qty(s,0);assert.equal(help.hidden,true);assert.equal(help.collapsed,true);
  });
  await test('one room and two rooms multiply guests; zero collapses every ID',async()=>{
   const s=await setup();qty(s,1);visibility(s,true);assert.equal(s.w('#selectedRooms').text,'1 rooms');assert.equal(s.w('#totalGuests').text,'2 guests total');
@@ -99,7 +108,7 @@ async function setup(overrides={}){const s=await search(overrides);await s.run()
   const s=await setup(),rep=s.w('#searchResultsRepeater'),old=room(s),data=rep.data;
   rep.data=[];rep.data=data;change(old.w('#roomQtyDropdown'),'2');visibility(s,false);qty(s,1);assert.equal(s.w('#selectedRooms').text,'1 rooms');
  });
- console.log(JSON.stringify({timezone:process.env.TZ,cases},null,2));assert.equal(cases.length,16);assert.equal(cases.filter(x=>!x.pass).length,0);
+ console.log(JSON.stringify({timezone:process.env.TZ,cases},null,2));assert.equal(cases.length,17);assert.equal(cases.filter(x=>!x.pass).length,0);
 })().catch(e=>{console.error(e.stack);process.exitCode=1;}).finally(()=>clearTimeout(watchdog));
 `;
 vm.runInThisContext('(function(require,__dirname){'+original.slice(0,marker)+tests+'})',{filename:__filename})(require,__dirname);

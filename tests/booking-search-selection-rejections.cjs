@@ -37,7 +37,7 @@ const tests=String.raw`
   qty(s,1);await flush();assert.equal(el[axis],false);assert.equal(calls,2);visibility(s,true);
  });
  for(const [method,axis,opposite] of [['hide','hidden','show'],['collapse','collapsed','expand']])await test('stale rejected '+method+' cannot conceal latest selection',async()=>{
-  const s=await setup(),el=s.w('#selectionBox');qty(s,1);let release;
+  const s=await setup(),el=s.w('#selectionbox');qty(s,1);let release;
   el[method]=function(){return new Promise((resolve,reject)=>release=()=>{this[axis]=true;reject(Error('old'));});};
   qty(s,0);qty(s,1);release();await flush();assert.equal(el[axis],false);visibility(s,true);
  });
@@ -66,12 +66,12 @@ const tests=String.raw`
   b.enable=enable;b.disable=disable;qty(s,0);qty(s,1);await flush();assert.equal(b.enabled,true);
  });
  for(const [method,axis] of [['show','hidden'],['expand','collapsed']])await test('persistent '+method+' refusal stops and new intent recovers',async()=>{
-  const s=await setup(),el=s.w('#selectionBox'),native=el[method],warnings=[];let calls=0;
+  const s=await setup(),el=s.w('#selectionbox'),native=el[method],warnings=[];let calls=0;
   s.c.console={...s.c.console,warn:(...args)=>warnings.push(args)};
   el[method]=()=>{calls++;return Promise.reject(Error('inert'));};qty(s,1);await flush();qty(s,2);await flush();assert.equal(calls,2);assert.equal(el[axis],true);assert.equal(warnings.length,1);
   el[method]=native;qty(s,0);qty(s,1);await flush();visibility(s,true);
  });
- console.log(JSON.stringify({timezone:process.env.TZ,cases},null,2));assert.equal(cases.length,80);assert.equal(cases.filter(c=>!c.pass).length,0);
+ console.log(JSON.stringify({timezone:process.env.TZ,cases},null,2));assert.equal(cases.length,82);assert.equal(cases.filter(c=>!c.pass).length,0);
 })().catch(e=>{console.error(e.stack);process.exitCode=1;}).finally(()=>clearTimeout(watchdog));
 `;
 vm.runInThisContext('(function(require,__dirname){'+base.slice(0,base.indexOf('(async()=>{'))+helpers+tests+'})',{filename:__filename})(require,repo+'/tests');
