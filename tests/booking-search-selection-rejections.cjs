@@ -7,13 +7,13 @@ const tests=String.raw`
 (async()=>{
  for(const n of [0,1,2,3])for(const g of [2,3,4,5,6])await test('fresh valid existing option quantity '+n+' guests '+g,async()=>{
   const s=await setup({searchAvailability:async()=>({ok:true,requestedNights:6,results:[{...row(),roomCode:'two_bedroom',occupancy:6}]})});
-  const r=room(s);assert.deepEqual(Array.from(r.w('#roomQtyDropdown').options,o=>o.value),['0','1','2','3']);assert.deepEqual(Array.from(r.w('#numberofGuests').options,o=>o.value),['2','3','4','5','6']);assert.equal(r.w('#numberofGuests').value,'2');
-  change(r.w('#numberofGuests'),String(g));qty(s,n);assert.equal(s.w('#selectedRooms').text,n+' rooms');assert.equal(s.w('#totalGuests').text,(n*g)+' guests total');visibility(s,n>0);
+  const r=room(s);assert.deepEqual(Array.from(r.w('#roomQtyDropdown').options,o=>o.value),['0','1','2','3']);assert.deepEqual(Array.from(r.w('#numberOfGuests').options,o=>o.value),['2','3','4','5','6']);assert.equal(r.w('#numberOfGuests').value,'2');
+  change(r.w('#numberOfGuests'),String(g));qty(s,n);assert.equal(s.w('#selectedRooms').text,n+' rooms');assert.equal(s.w('#totalGuests').text,(n*g)+' guests total');visibility(s,n>0);
   await s.w('#btnSummary').click();assert.equal(s.nav.length,n?1:0);
   if(n){const q=new URL(s.nav[0],'https://inert.invalid').searchParams;assert.equal(q.get('rc'),'two_bedroom:'+n+':'+g+':0');await quote.verifyLockedPricingQuote(q.get('quote'),{packageId:pkg._id,checkIn:q.get('ci'),checkOut:q.get('co')});}
  });
  await test('fresh mixed totals and unused invalid guest isolation',async()=>{
-  const s=await setup({searchAvailability:async()=>({ok:true,requestedNights:6,results:[row(),{...row(),roomCode:'two_bedroom',occupancy:6}]})});qty(s,2);assert.equal(s.w('#totalGuests').text,'4 guests total');change(room(s,1).w('#numberofGuests'),'NaN');assert.equal(s.w('#totalGuests').text,'4 guests total');assert.equal(s.w('#btnSummary').enabled,true);change(room(s,1).w('#numberofGuests'),'4');qty(s,1,1);assert.equal(s.w('#totalGuests').text,'8 guests total');qty(s,0,1);room(s,1).w('#numberofGuests').value='invalid';await s.w('#btnSummary').click();assert.equal(s.nav.length,1);
+  const s=await setup({searchAvailability:async()=>({ok:true,requestedNights:6,results:[row(),{...row(),roomCode:'two_bedroom',occupancy:6}]})});qty(s,2);assert.equal(s.w('#totalGuests').text,'4 guests total');change(room(s,1).w('#numberOfGuests'),'NaN');assert.equal(s.w('#totalGuests').text,'4 guests total');assert.equal(s.w('#btnSummary').enabled,true);change(room(s,1).w('#numberOfGuests'),'4');qty(s,1,1);assert.equal(s.w('#totalGuests').text,'8 guests total');qty(s,0,1);room(s,1).w('#numberOfGuests').value='invalid';await s.w('#btnSummary').click();assert.equal(s.nav.length,1);
  });
  await test('fresh every missing optional control is individually isolated',async()=>{
   for(const missing of selectionIds.filter(id=>id!=='btnSummary')){const s=await setup(),real=s.c.$w;s.c.$w=id=>{if(id==='#'+missing)throw Error('absent');return real(id);};qty(s,1);for(const id of selectionIds.filter(id=>id!==missing)){assert.equal(s.w('#'+id).hidden,false,id+' after missing '+missing);assert.equal(s.w('#'+id).collapsed,false);}assert.equal(s.w('#btnSummary').enabled,true);qty(s,0);assert.equal(s.w('#btnSummary').enabled,false);}

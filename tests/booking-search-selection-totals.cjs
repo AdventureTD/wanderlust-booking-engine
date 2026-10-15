@@ -42,13 +42,13 @@ async function setup(overrides={}){const s=await search(overrides);await s.run()
   qty(s,2);assert.equal(s.w('#selectedRooms').text,'2 rooms');assert.equal(s.w('#totalGuests').text,'4 guests total');
   qty(s,0);visibility(s,false);assert.equal(s.w('#btnSummary').enabled,false);await s.w('#btnSummary').click();assert.equal(s.nav.length,0);
  });
- await test('mixed quantities and higher Two Bedroom guests use scoped lowercase ID',async()=>{
+ await test('mixed quantities and higher Two Bedroom guests use scoped exact ID',async()=>{
   const s=await setup({searchAvailability:async()=>({ok:true,requestedNights:6,results:[row(),{...row(),roomCode:'two_bedroom',roomName:'Two Bedroom',occupancy:6,baseOccupancy:2}]})});
-  qty(s,2);change(room(s,1).w('#numberofGuests'),'4');qty(s,1,1);
+  qty(s,2);change(room(s,1).w('#numberOfGuests'),'4');qty(s,1,1);
   assert.equal(s.w('#selectedRooms').text,'3 rooms');assert.equal(s.w('#totalGuests').text,'8 guests total');
-  change(room(s,1).w('#numberofGuests'),'6');assert.equal(s.w('#totalGuests').text,'10 guests total');
-  qty(s,0,1);assert.equal(s.w('#totalGuests').text,'4 guests total');change(room(s,1).w('#numberofGuests'),'5');assert.equal(s.w('#totalGuests').text,'4 guests total');
-  assert.deepEqual(Array.from(room(s,1).w('#numberofGuests').options,o=>o.value),['2','3','4','5','6']);
+  change(room(s,1).w('#numberOfGuests'),'6');assert.equal(s.w('#totalGuests').text,'10 guests total');
+  qty(s,0,1);assert.equal(s.w('#totalGuests').text,'4 guests total');change(room(s,1).w('#numberOfGuests'),'5');assert.equal(s.w('#totalGuests').text,'4 guests total');
+  assert.deepEqual(Array.from(room(s,1).w('#numberOfGuests').options,o=>o.value),['2','3','4','5','6']);
  });
  await test('Penthouse removal clears displayed fee instead of retaining stale money',async()=>{
   const s=await setup({searchAvailability:async()=>({ok:true,requestedNights:6,results:[row(),{...row(),roomCode:'penthouse_apartment',roomFee:75}]})});
@@ -63,7 +63,7 @@ async function setup(overrides={}){const s=await search(overrides);await s.run()
  await test('repeated readiness preserves choices and binds room listeners once',async()=>{
   const s=await setup(),rep=s.w('#searchResultsRepeater'),r=room(s);qty(s,2);
   rep.itemReady(r.w,rep.data[0]);
-  assert.equal(r.w('#roomQtyDropdown').listeners.change.length,1);assert.equal(r.w('#numberofGuests').listeners.change.length,1);
+  assert.equal(r.w('#roomQtyDropdown').listeners.change.length,1);assert.equal(r.w('#numberOfGuests').listeners.change.length,1);
   assert.equal(r.w('#roomQtyDropdown').value,'2');assert.equal(s.w('#selectedRooms').text,'2 rooms');
  });
  await test('removed same-ID room callbacks cannot revive selection',async()=>{

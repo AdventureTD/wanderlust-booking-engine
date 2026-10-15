@@ -648,7 +648,7 @@ $w.onReady(async function () {
         safeItem($item, '#defaultOccupancy', 'text', '');
         const dd = safeItem($item, '#roomQtyDropdown', null, null);
         if (dd) { dd.options = [{ label: '0', value: '0' }]; dd.value = '0'; try { dd.disable(); } catch (e) {} }
-        const guestDdUnavail = safeItem($item, '#numberofGuests', null, null);
+        const guestDdUnavail = safeItem($item, '#numberOfGuests', null, null);
         if (guestDdUnavail) { guestDdUnavail.options = []; try { guestDdUnavail.disable(); } catch (e) {} }
         return;
       }
@@ -700,11 +700,15 @@ $w.onReady(async function () {
         if (rowVectorInit) { try { rowVectorInit.hide(); } catch (e) {} if (typeof rowVectorInit.collapse === 'function') { try { rowVectorInit.collapse(); } catch (e) {} } }
       } catch (e) {}
 
-      const baseOcc = Number(itemData.baseOccupancy || itemData.occupancy || 2);
-      const maxOcc = Number(itemData.occupancy || baseOcc);
+      const configuredBaseOcc = Number(itemData.baseOccupancy || itemData.occupancy || 2);
+      const maxOcc = Number(itemData.occupancy ?? configuredBaseOcc);
+      // Room defaults are presentation policy, not the CMS pricing base.
+      const roomDefault = { adventure_suite: 2, penthouse_apartment: 2, two_bedroom_apartment: 3 }[itemData.roomCode];
+      const defaultOcc = Math.min(roomDefault || configuredBaseOcc, maxOcc);
+      const baseOcc = Math.max(1, Math.min(configuredBaseOcc, defaultOcc));
       const guestOpts = [];
       for (let g = baseOcc; g <= maxOcc; g++) guestOpts.push({ label: String(g), value: String(g) });
-      const guestDd = safeItem($item, '#numberofGuests', null, null);
+      const guestDd = safeItem($item, '#numberOfGuests', null, null);
       binding.read = () => {
         if (!currentRow()) return null;
         const qtyDd = safeItem($item, '#roomQtyDropdown', null, null);
@@ -726,7 +730,7 @@ $w.onReady(async function () {
       };
       if (guestDd) {
         guestDd.options = guestOpts;
-        guestDd.value = String(baseOcc);
+        guestDd.value = guestOpts.some(o => o.value === String(defaultOcc)) ? String(defaultOcc) : '';
         if (typeof guestDd.onChange === 'function') {
           guestDd.onChange((event) => {
             if (!currentRow()) return;

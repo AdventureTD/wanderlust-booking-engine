@@ -8,7 +8,7 @@ const tests=String.raw`
  await test('independent mixed three room types exact totals and options',async()=>{
  const s=await setup({searchAvailability:async()=>({ok:true,requestedNights:6,results:[row(),{...row(),roomCode:'two_bedroom',occupancy:6},{...row(),roomCode:'penthouse_apartment',roomFee:75}]})});
  qty(s,1);qty(s,1,1);qty(s,1,2);assert.equal(s.w('#selectedRooms').text,'3 rooms');assert.equal(s.w('#totalGuests').text,'6 guests total');
- change(room(s,1).w('#numberofGuests'),'5');assert.equal(s.w('#totalGuests').text,'9 guests total');qty(s,0,1);assert.equal(s.w('#totalGuests').text,'4 guests total');
+ change(room(s,1).w('#numberOfGuests'),'5');assert.equal(s.w('#totalGuests').text,'9 guests total');qty(s,0,1);assert.equal(s.w('#totalGuests').text,'4 guests total');
  await s.w('#btnSummary').click();assert.equal(s.nav.length,1);const q=new URL(s.nav[0],'https://inert.invalid').searchParams;await quote.verifyLockedPricingQuote(q.get('quote'),{packageId:pkg._id,checkIn:q.get('ci'),checkOut:q.get('co')});
  });
  await test('independent retained data identity preserves one live handler',async()=>{
@@ -24,7 +24,7 @@ const tests=String.raw`
  const s=await setup();qty(s,value);await s.w('#btnSummary').click();assert.equal(s.nav.length,0,'invalid raw quantity navigated');assert.equal(vm.runInContext('_selections.length',s.c),0);
  });
  for(const value of ['2.5','-1','NaN','7'])await test('independent invalid guests '+value+' are not admitted',async()=>{
- const s=await setup();qty(s,1);change(room(s).w('#numberofGuests'),value);await s.w('#btnSummary').click();assert.equal(s.nav.length,0,'invalid guests navigated');assert.equal(s.w('#btnSummary').enabled,false);
+ const s=await setup();qty(s,1);change(room(s).w('#numberOfGuests'),value);await s.w('#btnSummary').click();assert.equal(s.nav.length,0,'invalid guests navigated');assert.equal(s.w('#btnSummary').enabled,false);
  });
  await test('independent async show expand late completion cannot revive zero selection',async()=>{
  const s=await setup(),el=s.w('#selectionBox'),pending=[];
@@ -62,10 +62,10 @@ const tests=String.raw`
   const s=await setup();qty(s,1);room(s).w('#roomQtyDropdown').value=value;await s.w('#btnSummary').click();assert.equal(s.nav.length,0);assert.equal(s.w('#btnSummary').enabled,false);
  });
  for(const value of ['2.5','2junk','-1','NaN','7','','1']) await test('navigation rereads raw guests '+JSON.stringify(value),async()=>{
-  const s=await setup();qty(s,1);room(s).w('#numberofGuests').value=value;await s.w('#btnSummary').click();assert.equal(s.nav.length,0);assert.equal(s.w('#btnSummary').enabled,false);assert.ok(!s.w('#totalGuests').text.includes('NaN'));
+  const s=await setup();qty(s,1);room(s).w('#numberOfGuests').value=value;await s.w('#btnSummary').click();assert.equal(s.nav.length,0);assert.equal(s.w('#btnSummary').enabled,false);assert.ok(!s.w('#totalGuests').text.includes('NaN'));
  });
  await test('invalid selected row denies mixed cart rather than partial navigation',async()=>{
-  const s=await setup({searchAvailability:async()=>({ok:true,requestedNights:6,results:[row(),{...row(),roomCode:'two_bedroom',occupancy:6}]})});qty(s,1);qty(s,1,1);change(room(s,1).w('#numberofGuests'),'7');await s.w('#btnSummary').click();assert.equal(s.nav.length,0);assert.equal(s.w('#btnSummary').enabled,false);assert.equal(s.w('#finalTotal').text,'');
+  const s=await setup({searchAvailability:async()=>({ok:true,requestedNights:6,results:[row(),{...row(),roomCode:'two_bedroom',occupancy:6}]})});qty(s,1);qty(s,1,1);change(room(s,1).w('#numberOfGuests'),'7');await s.w('#btnSummary').click();assert.equal(s.nav.length,0);assert.equal(s.w('#btnSummary').enabled,false);assert.equal(s.w('#finalTotal').text,'');
   qty(s,0,1);assert.equal(s.w('#totalGuests').text,'2 guests total');await s.w('#btnSummary').click();assert.equal(s.nav.length,1);
  });
  await test('navigation rereads valid programmatic values and retains current quote',async()=>{
@@ -75,7 +75,7 @@ const tests=String.raw`
   const s=await setup(),b=s.w('#btnSummary');let release;b.enable=function(){return new Promise(r=>release=()=>{this.enabled=true;r();});};qty(s,1);qty(s,0);release();await flush();visibility(s,false);assert.equal(b.enabled,false);await b.click();assert.equal(s.nav.length,0);
  });
  await test('nested invalid guest edit cancels outer enable intent',async()=>{
-  const s=await setup(),el=s.w('#selectionBox');el.show=function(){this.hidden=false;change(room(s).w('#numberofGuests'),'NaN');};qty(s,1);await flush();assert.equal(s.w('#btnSummary').enabled,false);assert.equal(s.w('#finalTotal').text,'');await s.w('#btnSummary').click();assert.equal(s.nav.length,0);
+  const s=await setup(),el=s.w('#selectionBox');el.show=function(){this.hidden=false;change(room(s).w('#numberOfGuests'),'NaN');};qty(s,1);await flush();assert.equal(s.w('#btnSummary').enabled,false);assert.equal(s.w('#finalTotal').text,'');await s.w('#btnSummary').click();assert.equal(s.nav.length,0);
  });
  await test('unchanged valid refresh does not repeat visibility transitions',async()=>{
   const s=await setup();qty(s,1);const before=s.trace.filter(x=>selectionIds.includes(x[1].slice(1))).length;qty(s,2);assert.equal(s.trace.filter(x=>selectionIds.includes(x[1].slice(1))).length,before);visibility(s,true);

@@ -5,7 +5,7 @@ const prefix = original.slice(0, original.indexOf('(async()=>{'));
 const tests = `
 function mount(s,r) {const item=elements();s.w('#searchResultsRepeater').itemReady(item.w,r);return item;}
 function denySelection(s,item) {
- const dd=item.w('#roomQtyDropdown'), guests=item.w('#numberofGuests');
+ const dd=item.w('#roomQtyDropdown'), guests=item.w('#numberOfGuests');
  assert.equal(dd.enabled,false,'non-full row quantity must be disabled');
  assert.deepEqual(Array.from(dd.options,x=>x.value),['0']);assert.equal(dd.value,'0');
  assert.equal(guests.enabled,false);
@@ -50,7 +50,7 @@ function denySelection(s,item) {
  await test('partial replacement invalidates old room and package callbacks',async()=>{
   let n=0;const s=await search({searchAvailability:async()=>({ok:true,requestedNights:6,results:[++n===1?row():{...row(12,17),status:'partial'}]})});
   await s.run();const oldRoom=s.select(),oldPackage=elements(),rep=s.w('#packageRepeater');rep.itemReady(oldPackage.w,rep.data[0]);
-  await s.run();assert.equal(s.w('#searchResultsRepeater').data.length,0);oldRoom.w('#roomQtyDropdown').change({target:{value:'2'}});oldRoom.w('#numberofGuests').change({target:{value:'2'}});oldPackage.w('#packageContainer').click();
+  await s.run();assert.equal(s.w('#searchResultsRepeater').data.length,0);oldRoom.w('#roomQtyDropdown').change({target:{value:'2'}});oldRoom.w('#numberOfGuests').change({target:{value:'2'}});oldPackage.w('#packageContainer').click();
   assert.equal(vm.runInContext('_selections.length',s.c),0);assert.equal(vm.runInContext('_selectedPackage',s.c),null);
   assert.equal(s.w('#packageRepeater').data.length,0);assert.equal(s.w('#btnSummary').hidden,true);
   await s.w('#btnSummary').click();assert.equal(s.nav.length,0);assert.equal(s.stored.size,0);
