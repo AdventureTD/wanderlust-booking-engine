@@ -71,7 +71,7 @@ const tests=String.raw`
   el[method]=()=>{calls++;return Promise.reject(Error('inert'));};qty(s,1);await flush();qty(s,2);await flush();assert.equal(calls,2);assert.equal(el[axis],true);assert.equal(warnings.length,1);
   el[method]=native;qty(s,0);qty(s,1);await flush();visibility(s,true);
  });
- console.log(JSON.stringify({timezone:process.env.TZ,cases},null,2));assert.equal(cases.length,76);assert.equal(cases.filter(c=>!c.pass).length,0);
+ console.log(JSON.stringify({timezone:process.env.TZ,cases},null,2));assert.equal(cases.length,80);assert.equal(cases.filter(c=>!c.pass).length,0);
 })().catch(e=>{console.error(e.stack);process.exitCode=1;}).finally(()=>clearTimeout(watchdog));
 `;
 vm.runInThisContext('(function(require,__dirname){'+base.slice(0,base.indexOf('(async()=>{'))+helpers+tests+'})',{filename:__filename})(require,repo+'/tests');

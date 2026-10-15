@@ -162,7 +162,7 @@ function roomSelectionRequiredMessage(selections) {
 const SELECTION_IDS = ['selection', 'vacationDates', 'nightsDominica', 'roomsSelected',
   'selectedRoomsContainer', 'yourSelection', 'selectedRooms', 'totalGuests', 'priceSummary',
   'packageText', 'subTotalBooking', 'penthouseText', 'penthouseFee', 'totalText', 'finalTotal',
-  'selectionBox', 'line102', 'line103', 'line106', 'packageTitle', 'packageAmenities', 'btnSummary'];
+  'selectionBox', 'line102', 'line103', 'line104', 'line106', 'packageTitle', 'packageName3', 'packageAmenities', 'btnSummary'];
 
 // Each visibility axis owns its latest intent. Native completion can occur after
 // a newer opposite operation; reconcile that completion, not just its dispatch.
@@ -231,8 +231,10 @@ function refreshSelectionSummary() {
   const values = { nightsDominica: String(_summaryNights) + ' nights in Dominica',
     selectedRooms: String(rooms) + ' rooms', totalGuests: _selectionInputsValid ? String(guests) + ' guests total' : 'Choose valid room and guest quantities' };
   Object.keys(values).forEach(id => { const el = tryFind(id); if (el) el.text = values[id]; });
-  const title = tryFind('packageTitle');
-  if (title) title.text = _selectedPackage && _selectedPackage.title || '';
+  ['packageTitle', 'packageName3'].forEach(id => {
+    const title = tryFind(id);
+    if (title) title.text = _selectedPackage && _selectedPackage.title || '';
+  });
   if (!_selectedPackage) {
     const amenities = tryFind('packageAmenities');
     if (amenities) amenities.text = '';

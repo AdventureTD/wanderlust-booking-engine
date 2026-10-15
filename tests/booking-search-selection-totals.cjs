@@ -4,7 +4,7 @@ const original = fs.readFileSync(path.join(__dirname, 'legacy-date-handoff.cjs')
 const marker = original.indexOf('(async()=>{');
 if (marker < 0) throw Error('Missing actual-page fixture seam');
 const tests = String.raw`
-const selectionIds = 'selection vacationDates nightsDominica roomsSelected selectedRoomsContainer yourSelection selectedRooms totalGuests priceSummary packageText subTotalBooking penthouseText penthouseFee totalText finalTotal selectionBox line102 line103 line106 packageTitle packageAmenities btnSummary'.split(' ');
+const selectionIds = 'selection vacationDates nightsDominica roomsSelected selectedRoomsContainer yourSelection selectedRooms totalGuests priceSummary packageText subTotalBooking penthouseText penthouseFee totalText finalTotal selectionBox line102 line103 line104 line106 packageTitle packageName3 packageAmenities btnSummary'.split(' ');
 function elements() {
  const all=new Map(), trace=[]; let ready;
  function w(id) {

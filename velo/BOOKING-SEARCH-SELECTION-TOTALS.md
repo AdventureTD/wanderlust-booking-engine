@@ -23,6 +23,16 @@ Keep these elements initially collapsed in Editor (Tom reports this is already c
 
 `#roomsSelected` and `#selectedRooms` are intentionally distinct. Do not rename either. No new styles, radio options, collection fields, packages or site permissions are introduced.
 
+## Additional summary line and package text (local candidate)
+
+Based on `78876cfe8531a3fc7a5af8a9ba440ef3225f5f95`, the page now includes exact IDs `#line104` and external Text `#packageName3` in the existing selection-summary visibility controller. Both show/expand when rooms are selected and hide/collapse when none are selected. Keep both initially collapsed in Editor; no style changes are required.
+
+`#packageName3` uses the same selected quoted package title as the selected row's scoped `#packageName2` in `#packageRepeater`, not a global lookup of the first repeater row. It follows package changes, clears on search invalidation or unavailable pricing, and retains the existing summary visibility policy. Backend, CMS, financial calculations, dates, dropdown defaults and navigation guards are unchanged.
+
+Local TDD evidence: the original page failed the line visibility assertion after room selection; after the line fix, the package-name test failed with `EDITOR` instead of the selected title. Each narrow fix then passed. The new nine-case suite covers initial state, single/multiple room selection, package switches, clearing dates, detached callbacks, quote failure, delayed package/quote responses and captured highlight timers. Existing selection suites now include both new IDs in late-completion, reentry, missing-control and rejection tests. All 12 existing relevant suites plus the new suite passed with `TZ=America/New_York`; syntax and whitespace checks passed. Raw stdout/stderr/native exits are in `C:/Users/TomDe/AppData/Local/hermes/cache/scratch/booking-search-summary-additions/`. The existing Python missing-module baseline was not repaired or rerun.
+
+This candidate is not committed, pushed, installed or published. Different-author review is required. After separately approved installation, verify native Wix rendering from initially collapsed state, the selected row's exact title, switching packages, and hiding both controls after the last room is deselected or dates cleared. No live Wix actions were performed.
+
 ## Empty guest-dropdown correction
 
 The recent selection-summary commit changed both scoped guest selectors from `#numberOfGuests` to `#numberofGuests`. `safeItem` catches the missing-element lookup, so the actual dropdown receives neither options, a selected value, nor its change listener. Quantity selection can still proceed using the existing internal base-occupancy fallback, masking the unwired control. Earlier test doubles created any requested selector, so matching the same typo in tests concealed this regression.

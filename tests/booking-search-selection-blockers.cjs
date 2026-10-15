@@ -85,7 +85,7 @@ const tests=String.raw`
   for(const id of selectionIds){const el=s.w('#'+id);el.hide=function(){return new Promise(r=>pending.push(()=>{this.hidden=true;r();}));};el.collapse=function(){return new Promise(r=>pending.push(()=>{this.collapsed=true;r();}));};}
   await s.run();qty(s,2);for(const finish of pending.splice(0))finish();await flush();visibility(s,true);assert.equal(s.w('#btnSummary').enabled,true);
  });
- console.log(JSON.stringify({timezone:process.env.TZ,cases},null,2));assert.equal(cases.length,82);assert.equal(cases.filter(x=>!x.pass).length,0);
+ console.log(JSON.stringify({timezone:process.env.TZ,cases},null,2));assert.equal(cases.length,86);assert.equal(cases.filter(x=>!x.pass).length,0);
 })().catch(e=>{console.error(e.stack);process.exitCode=1;}).finally(()=>clearTimeout(watchdog));
 `;
 vm.runInThisContext('(function(require,__dirname){'+original.slice(0,original.indexOf('(async()=>{'))+helpers+tests+'})',{filename:__filename})(require,repo+'/tests');
