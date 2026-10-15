@@ -37,7 +37,7 @@ function assertChildren(s,expected) { for(const id of children)assert.equal(visi
   const s=await setup();assert.throws(()=>s.w('#selectionBox'),/Unknown element/);
   assert.throws(()=>s.w('#inventedControl'),/Unknown element/);
   assertChildren(s,false);qty(s,1);
-  assert.equal(s.w('#selectedRooms').text,'1 rooms');assert.equal(s.w('#totalGuests').text,'2 guests total');
+  assert.equal(s.w('#selectedRooms').text,'1 room(s)');assert.equal(s.w('#totalGuests').text,'2 guests total');
   for(const id of children){assert.equal(s.w('#'+id).hidden,false);assert.equal(s.w('#'+id).collapsed,false);}
   // These own flags already passed with the typo; only ancestor-aware visibility exposes it.
   assertChildren(s,true);assert.equal(s.w('#selectionbox').collapsed,false);

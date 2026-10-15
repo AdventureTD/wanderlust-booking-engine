@@ -7,15 +7,15 @@ const tests=String.raw`
 (async()=>{
  await test('independent mixed three room types exact totals and options',async()=>{
  const s=await setup({searchAvailability:async()=>({ok:true,requestedNights:6,results:[row(),{...row(),roomCode:'two_bedroom',occupancy:6},{...row(),roomCode:'penthouse_apartment',roomFee:75}]})});
- qty(s,1);qty(s,1,1);qty(s,1,2);assert.equal(s.w('#selectedRooms').text,'3 rooms');assert.equal(s.w('#totalGuests').text,'6 guests total');
+ qty(s,1);qty(s,1,1);qty(s,1,2);assert.equal(s.w('#selectedRooms').text,'3 room(s)');assert.equal(s.w('#totalGuests').text,'6 guests total');
  change(room(s,1).w('#numberOfGuests'),'5');assert.equal(s.w('#totalGuests').text,'9 guests total');qty(s,0,1);assert.equal(s.w('#totalGuests').text,'4 guests total');
  await s.w('#btnSummary').click();assert.equal(s.nav.length,1);const q=new URL(s.nav[0],'https://inert.invalid').searchParams;await quote.verifyLockedPricingQuote(q.get('quote'),{packageId:pkg._id,checkIn:q.get('ci'),checkOut:q.get('co')});
  });
  await test('independent retained data identity preserves one live handler',async()=>{
- const s=await setup(),rep=s.w('#searchResultsRepeater'),r=room(s),handler=r.w('#roomQtyDropdown').listeners.change[0];qty(s,1);rep.data=rep.data.map(x=>({...x}));qty(s,2);assert.equal(s.w('#selectedRooms').text,'2 rooms');assert.equal(r.w('#roomQtyDropdown').listeners.change.length,1);assert.equal(r.w('#roomQtyDropdown').listeners.change[0],handler);
+ const s=await setup(),rep=s.w('#searchResultsRepeater'),r=room(s),handler=r.w('#roomQtyDropdown').listeners.change[0];qty(s,1);rep.data=rep.data.map(x=>({...x}));qty(s,2);assert.equal(s.w('#selectedRooms').text,'2 room(s)');assert.equal(r.w('#roomQtyDropdown').listeners.change.length,1);assert.equal(r.w('#roomQtyDropdown').listeners.change[0],handler);
  });
  await test('independent optional missing selectors do not block essential controls',async()=>{
- const s=await setup(),real=s.c.$w;s.c.$w=id=>{if(['#line102','#packageTitle','#packageAmenities'].includes(id))throw Error('missing optional');return real(id);};qty(s,2);assert.equal(s.w('#selectedRooms').text,'2 rooms');assert.equal(s.w('#btnSummary').enabled,true);qty(s,0);assert.equal(s.w('#btnSummary').collapsed,true);
+ const s=await setup(),real=s.c.$w;s.c.$w=id=>{if(['#line102','#packageTitle','#packageAmenities'].includes(id))throw Error('missing optional');return real(id);};qty(s,2);assert.equal(s.w('#selectedRooms').text,'2 room(s)');assert.equal(s.w('#btnSummary').enabled,true);qty(s,0);assert.equal(s.w('#btnSummary').collapsed,true);
  });
  await test('independent readonly flags use methods not flag setters',async()=>{
  const s=await setup(),el=s.w('#btnSummary');let enabled=el.enabled;Object.defineProperty(el,'enabled',{get:()=>enabled,set(){throw Error('readonly');}});el.enable=()=>enabled=true;el.disable=()=>enabled=false;qty(s,1);assert.equal(enabled,true);qty(s,0);assert.equal(enabled,false);

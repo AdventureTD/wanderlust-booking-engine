@@ -8,7 +8,7 @@ const tests=String.raw`
  for(const n of [0,1,2,3])for(const g of [2,3,4,5,6])await test('fresh valid existing option quantity '+n+' guests '+g,async()=>{
   const s=await setup({searchAvailability:async()=>({ok:true,requestedNights:6,results:[{...row(),roomCode:'two_bedroom',occupancy:6}]})});
   const r=room(s);assert.deepEqual(Array.from(r.w('#roomQtyDropdown').options,o=>o.value),['0','1','2','3']);assert.deepEqual(Array.from(r.w('#numberOfGuests').options,o=>o.value),['2','3','4','5','6']);assert.equal(r.w('#numberOfGuests').value,'2');
-  change(r.w('#numberOfGuests'),String(g));qty(s,n);assert.equal(s.w('#selectedRooms').text,n+' rooms');assert.equal(s.w('#totalGuests').text,(n*g)+' guests total');visibility(s,n>0);
+  change(r.w('#numberOfGuests'),String(g));qty(s,n);assert.equal(s.w('#selectedRooms').text,n+' room(s)');assert.equal(s.w('#totalGuests').text,(n*g)+' guests total');visibility(s,n>0);
   await s.w('#btnSummary').click();assert.equal(s.nav.length,n?1:0);
   if(n){const q=new URL(s.nav[0],'https://inert.invalid').searchParams;assert.equal(q.get('rc'),'two_bedroom:'+n+':'+g+':0');await quote.verifyLockedPricingQuote(q.get('quote'),{packageId:pkg._id,checkIn:q.get('ci'),checkOut:q.get('co')});}
  });

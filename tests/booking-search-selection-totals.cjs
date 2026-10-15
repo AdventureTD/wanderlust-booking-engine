@@ -47,14 +47,14 @@ async function setup(overrides={}){const s=await search(overrides);await s.run()
   qty(s,0);assert.equal(help.hidden,true);assert.equal(help.collapsed,true);
  });
  await test('one room and two rooms multiply guests; zero collapses every ID',async()=>{
-  const s=await setup();qty(s,1);visibility(s,true);assert.equal(s.w('#selectedRooms').text,'1 rooms');assert.equal(s.w('#totalGuests').text,'2 guests total');
-  qty(s,2);assert.equal(s.w('#selectedRooms').text,'2 rooms');assert.equal(s.w('#totalGuests').text,'4 guests total');
+  const s=await setup();qty(s,1);visibility(s,true);assert.equal(s.w('#selectedRooms').text,'1 room(s)');assert.equal(s.w('#totalGuests').text,'2 guests total');
+  qty(s,2);assert.equal(s.w('#selectedRooms').text,'2 room(s)');assert.equal(s.w('#totalGuests').text,'4 guests total');
   qty(s,0);visibility(s,false);assert.equal(s.w('#btnSummary').enabled,false);await s.w('#btnSummary').click();assert.equal(s.nav.length,0);
  });
  await test('mixed quantities and higher Two Bedroom guests use scoped exact ID',async()=>{
   const s=await setup({searchAvailability:async()=>({ok:true,requestedNights:6,results:[row(),{...row(),roomCode:'two_bedroom',roomName:'Two Bedroom',occupancy:6,baseOccupancy:2}]})});
   qty(s,2);change(room(s,1).w('#numberOfGuests'),'4');qty(s,1,1);
-  assert.equal(s.w('#selectedRooms').text,'3 rooms');assert.equal(s.w('#totalGuests').text,'8 guests total');
+  assert.equal(s.w('#selectedRooms').text,'3 room(s)');assert.equal(s.w('#totalGuests').text,'8 guests total');
   change(room(s,1).w('#numberOfGuests'),'6');assert.equal(s.w('#totalGuests').text,'10 guests total');
   qty(s,0,1);assert.equal(s.w('#totalGuests').text,'4 guests total');change(room(s,1).w('#numberOfGuests'),'5');assert.equal(s.w('#totalGuests').text,'4 guests total');
   assert.deepEqual(Array.from(room(s,1).w('#numberOfGuests').options,o=>o.value),['2','3','4','5','6']);
@@ -73,11 +73,11 @@ async function setup(overrides={}){const s=await search(overrides);await s.run()
   const s=await setup(),rep=s.w('#searchResultsRepeater'),r=room(s);qty(s,2);
   rep.itemReady(r.w,rep.data[0]);
   assert.equal(r.w('#roomQtyDropdown').listeners.change.length,1);assert.equal(r.w('#numberOfGuests').listeners.change.length,1);
-  assert.equal(r.w('#roomQtyDropdown').value,'2');assert.equal(s.w('#selectedRooms').text,'2 rooms');
+  assert.equal(r.w('#roomQtyDropdown').value,'2');assert.equal(s.w('#selectedRooms').text,'2 room(s)');
  });
  await test('removed same-ID room callbacks cannot revive selection',async()=>{
   const s=await setup(),old=room(s);qty(s,1);await s.run();visibility(s,false);
-  change(old.w('#roomQtyDropdown'),'2');visibility(s,false);qty(s,1);assert.equal(s.w('#selectedRooms').text,'1 rooms');
+  change(old.w('#roomQtyDropdown'),'2');visibility(s,false);qty(s,1);assert.equal(s.w('#selectedRooms').text,'1 room(s)');
  });
  for(const [ci,co] of [[new Date(2027,2,10,0),new Date(2027,2,17,23)],[new Date(2026,9,28,0),new Date(2026,10,4,23)]]) await test('seven civil nights across DST '+ci.getMonth(),async()=>{
   const s=await search({getPackagesByNights:async()=>[{...pkg,numberOfNights:7}],createPricingQuote:async(id,a,b)=>({quote:{packageId:id,checkIn:a,checkOut:b,nights:7},pricing:{totalPerPerson:100},token:'INERT'}),searchAvailability:async(a,b)=>({ok:true,requestedNights:7,results:[{...row(),availableNights:7,availableCheckIn:a.toISOString(),availableCheckOut:b.toISOString()}]})});
@@ -106,7 +106,7 @@ async function setup(overrides={}){const s=await search(overrides);await s.run()
  });
  await test('removed physical room cannot act on same-ID replacement within current search',async()=>{
   const s=await setup(),rep=s.w('#searchResultsRepeater'),old=room(s),data=rep.data;
-  rep.data=[];rep.data=data;change(old.w('#roomQtyDropdown'),'2');visibility(s,false);qty(s,1);assert.equal(s.w('#selectedRooms').text,'1 rooms');
+  rep.data=[];rep.data=data;change(old.w('#roomQtyDropdown'),'2');visibility(s,false);qty(s,1);assert.equal(s.w('#selectedRooms').text,'1 room(s)');
  });
  console.log(JSON.stringify({timezone:process.env.TZ,cases},null,2));assert.equal(cases.length,17);assert.equal(cases.filter(x=>!x.pass).length,0);
 })().catch(e=>{console.error(e.stack);process.exitCode=1;}).finally(()=>clearTimeout(watchdog));

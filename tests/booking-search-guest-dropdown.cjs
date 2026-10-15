@@ -66,7 +66,7 @@ function change(el,value){el.value=value;el.change({target:{value}});}
  });
  await test('mixed default guests feed totals without revealing unrelated hidden elements',async()=>{
   const s=await setup();for(let i=0;i<rooms.length;i++)change(item(s,i).w('#roomQtyDropdown'),'1');
-  assert.equal(s.w('#totalGuests').text,'7 guests total');assert.equal(s.w('#selectedRooms').text,'3 rooms');
+  assert.equal(s.w('#totalGuests').text,'7 guests total');assert.equal(s.w('#selectedRooms').text,'3 room(s)');
   assert.equal(s.w('#finalTotal').text,'$16,170.00');
   for(let i=0;i<rooms.length;i++)assert.equal(item(s,i).w('#roomPrice').hidden,true);
  });

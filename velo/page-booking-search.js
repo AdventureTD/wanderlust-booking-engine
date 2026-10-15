@@ -229,7 +229,7 @@ function refreshSelectionSummary() {
   const rooms = current ? _selectionRoomCount : 0;
   const guests = selected.reduce((sum, s) => sum + s.qty * s.numGuests, 0);
   const values = { nightsDominica: String(_summaryNights) + ' nights in Dominica',
-    selectedRooms: String(rooms) + ' rooms', totalGuests: _selectionInputsValid ? String(guests) + ' guests total' : 'Choose valid room and guest quantities' };
+    selectedRooms: String(rooms) + ' room(s)', totalGuests: _selectionInputsValid ? String(guests) + ' guests total' : 'Choose valid room and guest quantities' };
   Object.keys(values).forEach(id => { const el = tryFind(id); if (el) el.text = values[id]; });
   ['packageTitle', 'packageName3'].forEach(id => {
     const title = tryFind(id);
