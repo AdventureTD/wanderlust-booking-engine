@@ -1,6 +1,12 @@
 # Google Ads attribution — current owner report
 
-## Status: attribution-only code saved to GitHub; Wix unchanged
+## Current status: saved as an unpublished Wix draft; Head and reporting schema pending
+
+After editor-preparation approval, eight Velo files and the iframe bridge were saved and verified after editor reload. **Do not publish this draft alone.** The matching Head snippet is still unchanged, and the two first/latest reporting fields were absent from the inspected CMS schema. No publication, field/permission changes, or real conversion sends occurred. See [verified Wix draft status](wix-attribution-draft-status.md) for the exact installed inventory, backups, and next gates.
+
+The following sections describe the earlier GitHub verification milestone; their “Wix unchanged” statements apply to that earlier milestone, not the current draft. The claim about unchanged baseline backend files is repository-relative; fresh editor inspection required the additional attribution-reporting update described in the draft-status report.
+
+## Prior milestone: attribution-only code saved to GitHub
 
 The smaller Google attribution update is implemented, tested and saved on **`ric/attribution-only`**. Its verified code commit is **`48519ac79aad688817a3f0bbea60f1941f098d79`**. GitHub's remote branch matched that exact commit before this report was written. No changes were merged to main. No Wix editor, publication, collection permissions, Ads account configuration or real provider sends were changed in this work.
 
