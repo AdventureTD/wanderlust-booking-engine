@@ -1,0 +1,781 @@
+{
+  "checkedAt": "2026-10-17T12:20:33.545264+00:00",
+  "scope": "Two Object fields plus read-only Wix Preview; no publication/Head Apply/booking submission/import invocation",
+  "fields": [
+    {
+      "field": "firstPaidTouch",
+      "type": "Object",
+      "name": "First Paid Touch",
+      "readBack": "reopened saved field settings"
+    },
+    {
+      "field": "latestPaidTouch",
+      "type": "Object",
+      "name": "Latest Paid Touch",
+      "readBack": "reopened saved field settings"
+    }
+  ],
+  "fieldsSurvivedFullEditorReload": true,
+  "previewChecks": [
+    {
+      "page": "Home",
+      "result": {
+        "bar": "You\u2019re now in Preview mode\nBack to Editor\nPublish",
+        "console": "You\u2019re now in Preview mode\nBack to Editor\nPublish\nDeveloper Console\nLogging tools\nLog levels (4)\nClear\nRunning the code for the site. To debug this code in your browser's dev tools, open masterPage.js.\n[WBE-CONSENT] current policy: \n{...}\nSome Wix features are only partially functional when using Preview. View instead on a test site or your live site for full functionality. Learn more\nDismiss\nImprove loading time by turning on manual caching for the Home page. Learn more\nDismiss\n[WBE-MASTER] tracking flags: enabled\nATTR_DIAG {\"event\":\"ATTR_DIAG\",\"v\":1,\"stage\":\"open\",\"reason\":\"TIMEOUT\"}\n[WBE-MASTER] captureClickIds started"
+      }
+    },
+    {
+      "page": "Home after BOOK NOW navigation attempt (did not leave Home)",
+      "result": {
+        "bar": "You\u2019re now in Preview mode\nBack to Editor\nPublish",
+        "console": "You\u2019re now in Preview mode\nBack to Editor\nPublish\nDeveloper Console\nLogging tools\nLog levels (4)\nClear\nRunning the code for the site. To debug this code in your browser's dev tools, open masterPage.js.\n[WBE-CONSENT] current policy: \n{...}\nSome Wix features are only partially functional when using Preview. View instead on a test site or your live site for full functionality. Learn more\nDismiss\nImprove loading time by turning on manual caching for the Home page. Learn more\nDismiss\n[WBE-MASTER] tracking flags: enabled\nATTR_DIAG {\"event\":\"ATTR_DIAG\",\"v\":1,\"stage\":\"open\",\"reason\":\"TIMEOUT\"}\n[WBE-MASTER] captureClickIds started"
+      }
+    },
+    {
+      "page": "Booking Search (confirmed loaded)",
+      "result": {
+        "bar": "You\u2019re now in Preview mode\nBack to Editor\nPublish",
+        "console": "You\u2019re now in Preview mode\nBack to Editor\nPublish\nDeveloper Console\nLogging tools\nLog levels (4)\nClear\nRunning the code for the site. To debug this code in your browser's dev tools, open masterPage.js.\nRunning the code for the Booking Search page. To debug this code in your browser's dev tools, open z6bea.js.\n>>> safeText: \n[WBE-CONSENT] current policy: \n{...}\n[WBE-MASTER] tracking flags: enabled\n[WBE-SEARCH] tracking flags: enabled\nTRACKING_EVENT_SENT\n>>> scrollToTop attempt\n>>> scrollToTop via wixWindow.scrollTo executed\n>>> btnSummary handler registered\nSome Wix features are only partially functional when using Preview. View instead on a test site or your live site for full functionality. Learn more\nDismiss\nATTR_DIAG {\"event\":\"ATTR_DIAG\",\"v\":1,\"stage\":\"open\",\"reason\":\"TIMEOUT\"}\n[WBE-MASTER] captureClickIds started\nImprove loading time by turning on manual caching for the Booking Search page. Learn more\nDismiss"
+      }
+    },
+    {
+      "page": "Booking Summary without booking submission",
+      "result": {
+        "bar": "You\u2019re now in Preview mode\nBack to Editor\nPublish",
+        "console": "You\u2019re now in Preview mode\nBack to Editor\nPublish\nDeveloper Console\nLogging tools\nLog levels (4)\nClear\nRunning the code for the site. To debug this code in your browser's dev tools, open masterPage.js.\nRunning the code for the Booking Summary page. To debug this code in your browser's dev tools, open f04do.js.\n[WBE-CONSENT] current policy: \n{...}\nSome Wix features are only partially functional when using Preview. View instead on a test site or your live site for full functionality. Learn more\nDismiss\nImprove loading time by turning on manual caching for the Booking Summary page. Learn more\nDismiss\n[WBE-MASTER] tracking flags: hold\n[WBE] roomFee map from Rooms collection: \n{...}\n[WBE-SUMMARY] package resolution error: The locked pricing quote is missing. Please return to the booking search."
+      }
+    },
+    {
+      "page": "Booking Summary repeated read-only initialization",
+      "result": "You\u2019re now in Preview mode\nBack to Editor\nPublish\nDeveloper Console\nLogging tools\nLog levels (4)\nClear\nRunning the code for the site. To debug this code in your browser's dev tools, open masterPage.js.\nRunning the code for the Booking Summary page. To debug this code in your browser's dev tools, open f04do.js.\n[WBE-CONSENT] current policy: \n{...}\nSome Wix features are only partially functional when using Preview. View instead on a test site or your live site for full functionality. Learn more\nDismiss\nImprove loading time by turning on manual caching for the Booking Summary page. Learn more\nDismiss\n[WBE-MASTER] tracking flags: enabled\n[WBE] roomFee map from Rooms collection: \n{...}\nATTR_DIAG {\"event\":\"ATTR_DIAG\",\"v\":1,\"stage\":\"open\",\"reason\":\"TIMEOUT\"}\n[WBE-MASTER] captureClickIds started\n[WBE-SUMMARY] package resolution error: The locked pricing quote is missing. Please return to the booking search."
+    }
+  ],
+  "postCheckModelVerification": [
+    {
+      "uri": "file:///public/paidTouchState.js",
+      "sha256LF": "7795c566cac91eef49c9fb69bb4e49d335d528fe4e1a505292821707afeff1f4",
+      "matchesExpected": true
+    },
+    {
+      "uri": "file:///backend/publicFlags.web.js",
+      "sha256LF": "d4af65df28db8bd069717fd42e634c66e0f4f47e5f2b7d5989ea85ec750a97ec",
+      "matchesExpected": true
+    },
+    {
+      "uri": "file:///public/clickAttribution.js",
+      "sha256LF": "1fd51490c2fd38614fabe4cb457fe1d22ea2fbad8d3a61e2e4375ecf9bcda57d",
+      "matchesExpected": true
+    },
+    {
+      "uri": "file:///public/tracking.js",
+      "sha256LF": "5821444709c23afc822913471a8a78f9c882963edcf589c826543f80a375d867",
+      "matchesExpected": true
+    },
+    {
+      "uri": "file:///public/pages/masterPage.js",
+      "sha256LF": "8ed514276a19adc92e35250b52d43d0f913c2bb0823942b9060f231e0436c1c3",
+      "matchesExpected": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "sha256LF": "edb058c8dd68e9cfcd9ad5c64dc28745fe794b54156c30ca78bff21114234805",
+      "matchesExpected": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "sha256LF": "4f2c98f4b075a23c929a1dd62aedbfe74823a24d19e0dfd8f803d560156a1907",
+      "matchesExpected": true
+    },
+    {
+      "uri": "file:///backend/availability.web.js",
+      "sha256LF": "8279ffb8777ba9d30ef38b24de8cc0175d7e21e1524b7cf5d75c20057018c682",
+      "matchesExpected": true
+    }
+  ],
+  "editorDiagnosticSnapshot": [
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 55,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 204,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 392,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 393,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 645,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 647,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 670,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 683,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 684,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 686,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 687,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 691,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 695,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 695,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 696,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 761,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 762,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 764,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 764,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 767,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 768,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 770,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 770,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 784,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 786,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 806,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 808,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 811,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 823,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 833,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 837,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 838,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 864,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 866,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 866,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 868,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 890,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 890,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 892,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 919,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 921,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 921,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 923,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 934,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 934,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 942,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 943,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 952,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1028,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1029,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1066,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1067,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1073,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1074,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1082,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1083,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1091,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1092,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1148,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1153,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1162,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1163,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1226,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1227,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1235,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 4,
+      "line": 1235,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 153,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 159,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 160,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 161,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 164,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 165,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 168,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 169,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 178,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 228,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 237,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": false
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 271,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 284,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 287,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 321,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 323,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 473,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 477,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 709,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 710,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 757,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 772,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 824,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 825,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 826,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 827,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 841,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 846,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "severity": 4,
+      "line": 933,
+      "message": "Empty block statement. eslint(no-empty)",
+      "matchingLineInBackup": true
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "severity": 8,
+      "line": 9,
+      "message": "\n             <div>Cannot find module 'wix-window-frontend' or its corresponding type declaration.</div>\n        <div>&nbsp;</div>\n        You can search for alternatives in the <a href=\"#\" data-action-type=\"package-manager\" class=\"smart-import-highlighted-link\">Package Manager.</a></div>",
+      "matchingLineInBackup": true
+    }
+  ],
+  "pageErrorsCaptured": [],
+  "blockedBrowserAnalyticsHosts": [
+    "ade.googlesyndication.com",
+    "pagead2.googlesyndication.com"
+  ],
+  "headHandshake": "ATTR_DIAG open TIMEOUT in Preview; not a live verification",
+  "notes": [
+    "Initial Summary tracking flags hold; repeated initialization enabled.",
+    "Summary reached missing locked pricing quote guard; no Continue submitted.",
+    "CMS management UI opened; guest rows were not extracted or edited.",
+    "Browser guard is supplementary; not evidence of server-side provider blocking. No booking/import method was invoked."
+  ]
+}

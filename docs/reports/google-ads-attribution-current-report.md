@@ -1,8 +1,8 @@
 # Google Ads attribution — current owner report
 
-## Current status: saved as an unpublished Wix draft; Head and reporting schema pending
+## Current status: reporting fields saved; read-only Preview checked; live release pending
 
-After editor-preparation approval, eight Velo files and the iframe bridge were saved and verified after editor reload. **Do not publish this draft alone.** The matching Head snippet is still unchanged, and the two first/latest reporting fields were absent from the inspected CMS schema. No publication, field/permission changes, or real conversion sends occurred. See [verified Wix draft status](wix-attribution-draft-status.md) for the exact installed inventory, backups, and next gates.
+Eight Velo files and the iframe bridge are saved as an unpublished draft. With subsequent approval, `firstPaidTouch` and `latestPaidTouch` were added as Object fields and verified after editor reload. Read-only Wix Preview reached Home, Search and Summary initialization; Summary correctly lacked a prepared quote, and the Head handshake remained unverified. Opening the pages populated editor diagnostics, superseding the earlier idle-model zero-marker snapshot. **Do not publish the draft alone.** Head activation, publication, real booking/import tests and permission changes have not occurred. See [schema and Preview findings](wix-attribution-schema-preview-status.md) and the earlier [draft inventory](wix-attribution-draft-status.md).
 
 The following sections describe the earlier GitHub verification milestone; their “Wix unchanged” statements apply to that earlier milestone, not the current draft. The claim about unchanged baseline backend files is repository-relative; fresh editor inspection required the additional attribution-reporting update described in the draft-status report.
 

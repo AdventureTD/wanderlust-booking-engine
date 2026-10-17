@@ -1,5 +1,7 @@
 # Wix attribution draft preparation — verified status
 
+> Historical preparation checkpoint. Subsequent approval added and verified the two Object fields and enabled read-only Preview checks. The earlier missing-schema and zero-marker observations below are superseded by [schema and Preview findings](wix-attribution-schema-preview-status.md). Head activation and publication remain pending.
+
 ## Saved in the editor, NOT published
 
 Site: `14f74eb6-ba7d-4c80-aa74-7886cb2babfb` (Wanderlust Caribbean).
