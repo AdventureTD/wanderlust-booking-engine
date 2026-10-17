@@ -3,7 +3,36 @@
 
 **Prepared for Tom · 16 October 2026 · Frozen candidate: baseline-remediation r2, `clickAttribution.js` SHA-256 prefix `3a65c799`.** This prefix identifies a file, not a Git commit. The candidate is an uncommitted isolated working tree based on `2b946df`.
 
-## Executive conclusion
+## GitHub handoff update — supersedes earlier delivery-status statements
+
+The accepted offline candidate and conditional M0 r4 model are now saved on the **review branch**, not merged to main:
+
+- Branch: `ric/attribution-booking-access-review`
+- Verified code commit: `49b5dc0b755b0ff38d7bd1e24e47d0a27f8b0c99`
+- GitHub: https://github.com/AdventureTD/wanderlust-booking-engine/tree/ric/attribution-booking-access-review
+- Remote branch readback matched the local commit exactly before this report update.
+
+### What was saved and rechecked
+
+The attribution/BookingSummary baseline-remediation r2 candidate is in `velo/` with its tests. The separately accepted conditional checkout model is under `research/m0-checkout-contract/` and is **not connected to Velo**. The original reviewed trees were preserved.
+
+Ric personally reran the accepted candidate (88/88 test files), then the assembled GitHub tree. The first assembled run exposed a test referencing a sibling local folder. A repository-contained historical fee/tax fixture replaced that dependency, retaining the original assertion. Its targeted suite passed 24/24; an in-memory fee mutation failed as intended. The corrected assembled suite passed **88/88**. Build verification passed at **14,874 characters**. The copied M0 suite passed **52/52**; one trailing-whitespace-only cleanup was made for Git's check. Historical independent M0 verification and its limitations are in `m0-r4-independent-review.md` alongside this report. No paid agent calls were used for this GitHub preparation.
+
+### Later owner decisions and model work
+
+Guest online reservations are limited to **four physical rooms**, with occupancy per room (one cart entry's occupancy applies to each room in its quantity). The admitted original price is honored. Failed or uncertain room saves require owner review without a guest invoice; reserved rooms remain held, with no automatic retry or release. Later owner additions remain direct Wix CMS edits. No production checkout duration was selected.
+
+M0 progressed through rejected revisions before r4 received conditional offline acceptance. It models single-checkout authority, uncertainty, irreversible guest closure, cancellation fencing, and review obligations. It does **not** implement Wix storage capabilities, physical-room continuity, real owner authentication, invoice sending or CMS synchronization. Invoice-identity uncertainty after confirmed reservation success has no separate durable reconciliation obligation in this model.
+
+### This is a verified preservation milestone, not completion of all implementation
+
+The review branch remains **NOT READY FOR WIX INSTALLATION**. Read `../RELEASE-BLOCKERS.md` first. The sibling intake gate remains unintegrated; the actual Velo guest cap still needs reconciliation from 5 to the owner-approved 4. The additional original-checkout authorization, admin-save, invoice/Microsoft access, logging, collision and containment findings are not fixed by saving this branch. Unaccepted historical experiments and raw local logs were not indiscriminately uploaded.
+
+Current Wix documentation confirms primary-instance `consistentRead` and single-item patch operations; that evidence does not establish the model's atomic cross-record claim/deadline or complete snapshot requirements. Therefore no unsupported Wix adapter was invented. A reproducible fresh-clone dependency bootstrap also remains to be added; verification used the existing pinned external toolchain. Main, Wix editor, published code and collection permissions are unchanged. **Explicit approval is required before any Wix editor update.**
+
+The sections below retain their earlier milestone evidence; statements that nothing is committed/pushed are historical and superseded by this handoff update. Live-fix and permission-change limitations remain in force.
+
+## Executive conclusion (earlier offline milestone)
 
 - **The offline remediation milestone is accepted; a production release is not.** The latest recorded full run has **88 test files with exit code 0 out of 88**. This report independently parsed that result file; it did not rerun the tests. No current candidate changes have been committed, pushed, installed on production or published. [R2 §§6–8]
 - **One earlier live repair was observed:** replacing the broken `/ubv1` Google loader with the standard loader restored library loading and some Google hits. That is not proof that Enhanced Conversions or imports work. The same Head restore left the Head incompatible with the older bridge/frontend; the last captured live state, on 15 October, still dropped attribution messages. The coordinated repair exists only in the isolated candidate. [A §0, F0–F2, E3]
