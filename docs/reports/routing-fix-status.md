@@ -1,5 +1,7 @@
 # Backward-compatible test-site room routing
 
+> Historical pre-publication checkpoint. Subsequent authorized Head activation and live publication are recorded in [attribution-live-release-status.md](attribution-live-release-status.md). No real booking/import test has been performed.
+
 ## Approved scope
 
 Fix only the Search-to-Summary query-key collision; retain the attribution release, backend behavior, pricing rules, booking creation and collection permissions unchanged. Live publication and Head activation are not authorized.

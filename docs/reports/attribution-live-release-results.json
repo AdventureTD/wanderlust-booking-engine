@@ -1,0 +1,1439 @@
+{
+  "verifiedAt": "2026-10-17T15:19:10.426280+00:00",
+  "releaseSourceCommit": "573c995ca67380ee4f478937983456c00e5abd24",
+  "preflightModels": [
+    {
+      "uri": "file:///public/paidTouchState.js",
+      "sha256LF": "7795c566cac91eef49c9fb69bb4e49d335d528fe4e1a505292821707afeff1f4"
+    },
+    {
+      "uri": "file:///backend/publicFlags.web.js",
+      "sha256LF": "d4af65df28db8bd069717fd42e634c66e0f4f47e5f2b7d5989ea85ec750a97ec"
+    },
+    {
+      "uri": "file:///public/clickAttribution.js",
+      "sha256LF": "1fd51490c2fd38614fabe4cb457fe1d22ea2fbad8d3a61e2e4375ecf9bcda57d"
+    },
+    {
+      "uri": "file:///public/tracking.js",
+      "sha256LF": "5821444709c23afc822913471a8a78f9c882963edcf589c826543f80a375d867"
+    },
+    {
+      "uri": "file:///public/pages/masterPage.js",
+      "sha256LF": "8ed514276a19adc92e35250b52d43d0f913c2bb0823942b9060f231e0436c1c3"
+    },
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "sha256LF": "b780a6500a85fb43cbc25c6b0b201c5b607f55562afe97ee2fd752b9bee23d56"
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "sha256LF": "c077b36da81a0fe9bccdc2039b7e1da07c0a50fbaca18fd0ec1c7bfdaf29f9c3"
+    },
+    {
+      "uri": "file:///backend/availability.web.js",
+      "sha256LF": "8279ffb8777ba9d30ef38b24de8cc0175d7e21e1524b7cf5d75c20057018c682"
+    }
+  ],
+  "head": {
+    "entryId": "5ec13bc1-cc22-4fd2-a9c0-6a9d65917cbb",
+    "name": "google-tag-and-consent",
+    "savedReadbackExact": true,
+    "verifiedAt": "2026-10-17T15:15:35.556667+00:00",
+    "utf16Units": 14874,
+    "sha256LF": "9d7dde1860ee5a7073619aa01942c7dd5c8caae02e78c5d5dc1786107e5e6a5a",
+    "oldSha256LF": "f523385aeabd4664b54966800d83baa3e8a6fd1687701309c9a68c8c2f41bfa6",
+    "inlineBodyMatches": [
+      1
+    ],
+    "backupDirectory": "C:\\Users\\TomDe\\AppData\\Local\\hermes\\profiles\\ric\\marketing-reference\\google-ads\\editor-backups\\live-release-20261017T151501Z"
+  },
+  "publishClickedAt": "2026-10-17T15:15:39.428083+00:00",
+  "liveRevision": 27118,
+  "releaseManagerReadback": "Versions\nLive Site\nVersion not found\n\tExposure: 100%\tVersion 27118\t\nTest Site\nVersion not found\n\tExposure: 0%\tVersion 27117\t\nSite History\n\nView and restore a previous version of your site.\nRestore Version\nLogs\n\nView your site versions' logs using professional tools.\nGet Started",
+  "matchingBridgeUrls": [
+    "https://www-wanderlustcaribbean-com.filesusr.com/html/9977d0_636f3a5716e87a24193fad5a1bd80744.html"
+  ],
+  "googleLibraryRuntime": {
+    "loadedGoogleContainers": [
+      "G-MKGG3X1WP9",
+      "AW-788746633"
+    ],
+    "scripts": [
+      "https://www.googletagmanager.com/gtag/js?id=AW-788746633&cx=c&gtm=4e6ae1",
+      "https://www.googletagmanager.com/gtag/js?id=G-MKGG3X1WP9"
+    ]
+  },
+  "directLoaderChecks": [
+    {
+      "url": "https://www.googletagmanager.com/gtag/js?id=AW-788746633&cx=c&gtm=4e6ae1",
+      "httpStatus": 200,
+      "contentType": "application/javascript; charset=UTF-8",
+      "bytes": 511326
+    },
+    {
+      "url": "https://www.googletagmanager.com/gtag/js?id=G-MKGG3X1WP9",
+      "httpStatus": 200,
+      "contentType": "application/javascript; charset=UTF-8",
+      "bytes": 573096
+    }
+  ],
+  "livePreconfirmationSmoke": {
+    "revision": 27118,
+    "path": "/booking-summary",
+    "rc": null,
+    "rooms": "adventure_suite:1:2:0",
+    "text": "Skip to Main Content\nFAQ\nPolicies\n\n1-980-934-1813\n\nCONTACT US\nBOOK NOW\nHome\nAbout\nAdventures\nPackages\nHotel\nDominica\nReviews\nOffers\nBlogs\nBooking Summary\nReview your package and accommodations before continuing\n\n8-day Explorer Package\n\n$5,443.90\n\nYOUR SELECTED VACATION\n\nBASE PACKAGE\u00a0\n\nFebruary 14th, 2027 to February 21st, 2027 * 7 nights * 2 guests\n\n$2,721.95\n\n$5,443.90\n\n2\n\nGUEST/ROOM\nPENTHOUSE FEE\n\nAdventure Suite\n\n1\n\n2\n\nPER GUEST\nGUESTS\n\nTOTAL\n\nPACKAGE CHARGES\nPACKAGE\n\n8-day Explorer Package\n\nSELECTED ACCOMMODATIONS\nACCOMMODATION\nROOMS\nHave a promo code?\nEnter it here to apply your discount\n\nRESORT FEE - 5% of Adjusted Package\n\n$272.20\nDOMINICA VAT COMPUTATION\nALLOCATION (50% EACH)\nTAX AMOUNT\nCATEGORY\nTAX RATE\nHotel VAT\nServices VAT\n10%\n15%\n$2,721.95\n$2,721.95\n$272.20\n$408.29\n$680.49\n\u200b\nName:\nEmail\nINVOICE SUMMARY\nBase Package\u00a0\n$5,443.90\nPenthouse Upgrade\n\n$0.00\n\nPromotion Discount\nAdjusted Package\u00a0\n$5,443.90\nResort Fee\n$272.20\nDominica VAT\n$680.49\nTOTAL DUE\n$6,396.59\nHow did you find us?\nPhone Number:\nBooking Information\nPayment Terms and Schedule\n\nA payment link for the 50% deposit will be emailed within approximately two business days after the reservation is confirmed. The remaining balance is due 30 days before arrival\u2014or 90 days before arrival for Private Group Reservations.\n\nCancellation Policy\n\nIndividual Reservations: A full refund will be provided for cancellations received 31 or more days before arrival.\n\n\u200b\n\nPrivate Group Reservations: A full refund will be provided for cancellations received 91 or more days before arrival.\n\n\u200b\n\nAfter these deadlines, all payments become non-refundable. However, the full amount paid will be honored toward the same vacation package, with the same inclusions and booking terms, for travel within two years of the cancellation date, with no price differences applied.\n\nStart Over\nConfirm Booking\nContact Us\nBOOK NOW\n\nHome\n\nAbout\n\nHotel\u00a0 Adventures\u00a0\n\nPackages\u00a0 Dominica\u00a0 Reviews & Press\n\nFAQ \u00a0\n\nHotel Policy\n\nBooking Policy\u00a0 Cancellation Policy\n\n1- (980) 934-1813\n\ninfo@wanderlustcaribbean.com\n\nRecommended by",
+    "inputs": [
+      {
+        "type": "text",
+        "value": ""
+      },
+      {
+        "type": "text",
+        "value": ""
+      },
+      {
+        "type": "email",
+        "value": ""
+      },
+      {
+        "type": "tel",
+        "value": ""
+      }
+    ]
+  },
+  "networkEvidence": {
+    "blocked": [
+      {
+        "host": "bat.bing.com",
+        "path": "/bat.js",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google-analytics.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "analytics.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "stats.g.doubleclick.net",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "ad.doubleclick.net",
+        "path": "/ccm/s/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "ad.doubleclick.net",
+        "path": "/ccm/s/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "bat.bing.com",
+        "path": "/bat.js",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google-analytics.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "analytics.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "stats.g.doubleclick.net",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "bat.bing.com",
+        "path": "/bat.js",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google-analytics.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "analytics.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "stats.g.doubleclick.net",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.googleadservices.com",
+        "path": "/pagead/conversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "ad.doubleclick.net",
+        "path": "/ccm/s/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.googleadservices.com",
+        "path": "/ccm/conversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/pagead/1p-conversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "ad.doubleclick.net",
+        "path": "/ccm/s/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/measurement/conversion",
+        "reason": "measurement"
+      },
+      {
+        "host": "analytics.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "analytics.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "analytics.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "bat.bing.com",
+        "path": "/bat.js",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google-analytics.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "analytics.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "stats.g.doubleclick.net",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/g/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.googleadservices.com",
+        "path": "/pagead/conversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.googleadservices.com",
+        "path": "/ccm/conversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/rmkt/collect/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/pagead/1p-conversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.google.com",
+        "path": "/ccm/collect",
+        "reason": "measurement"
+      },
+      {
+        "host": "googleads.g.doubleclick.net",
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "reason": "measurement"
+      },
+      {
+        "host": "www.facebook.com",
+        "path": "/tr/",
+        "reason": "measurement"
+      }
+    ],
+    "errors": [
+      "Unexpected token '<', \"<?xml vers\"... is not valid JSON"
+    ],
+    "failed": [
+      {
+        "path": "/bat.js",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rp",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/s/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/s/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/wce",
+        "failure": "net::ERR_NAME_NOT_RESOLVED"
+      },
+      {
+        "path": "/_serverless/analytics-reporter/facebook/event",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/video/9977d0_802eb3e7dadd4a56b9b351767cba4598/1080p/mp4/file.mp4",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/bat.js",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rp",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/wce",
+        "failure": "net::ERR_NAME_NOT_RESOLVED"
+      },
+      {
+        "path": "/_serverless/analytics-reporter/facebook/event",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/video/9977d0_802eb3e7dadd4a56b9b351767cba4598/1080p/mp4/file.mp4",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/bat.js",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rp",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/conversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/s/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/conversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/1p-conversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/s/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/wce",
+        "failure": "net::ERR_NAME_NOT_RESOLVED"
+      },
+      {
+        "path": "/_serverless/analytics-reporter/facebook/event",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/measurement/conversion",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/bat.js",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rp",
+        "failure": "net::ERR_ABORTED"
+      },
+      {
+        "path": "/g/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/conversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/conversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/rmkt/collect/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/1p-conversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/ccm/collect",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/pagead/viewthroughconversion/788746633/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/tr/",
+        "failure": "net::ERR_FAILED"
+      },
+      {
+        "path": "/wce",
+        "failure": "net::ERR_NAME_NOT_RESOLVED"
+      },
+      {
+        "path": "/_serverless/analytics-reporter/facebook/event",
+        "failure": "net::ERR_ABORTED"
+      }
+    ],
+    "console": [
+      {
+        "type": "log",
+        "text": "[WBE-CONSENT] Google consent updated: {\"analytics_storage\":\"granted\",\"ad_storage\":\"granted\",\"ad_user_data\":\"granted\",\"ad_personalization\":\"granted\"}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-CONSENT] current policy: {\"essential\":true,\"functional\":true,\"analytics\":true,\"advertising\":true,\"dataToThirdParty\":true}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-MASTER] tracking flags: enabled"
+      },
+      {
+        "type": "log",
+        "text": "ATTR_DIAG {\"event\":\"ATTR_DIAG\",\"v\":1,\"stage\":\"worker\",\"reason\":\"READY_EMPTY\"}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-MASTER] captureClickIds started"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-CONSENT] Google consent updated: {\"analytics_storage\":\"granted\",\"ad_storage\":\"granted\",\"ad_user_data\":\"granted\",\"ad_personalization\":\"granted\"}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-CONSENT] current policy: {\"essential\":true,\"functional\":true,\"analytics\":true,\"advertising\":true,\"dataToThirdParty\":true}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-MASTER] tracking flags: enabled"
+      },
+      {
+        "type": "log",
+        "text": "ATTR_DIAG {\"event\":\"ATTR_DIAG\",\"v\":1,\"stage\":\"worker\",\"reason\":\"READY_EMPTY\"}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-MASTER] captureClickIds started"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-CONSENT] Google consent updated: {\"analytics_storage\":\"granted\",\"ad_storage\":\"granted\",\"ad_user_data\":\"granted\",\"ad_personalization\":\"granted\"}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-CONSENT] current policy: {\"essential\":true,\"functional\":true,\"analytics\":true,\"advertising\":true,\"dataToThirdParty\":true}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-SEARCH] tracking flags: enabled"
+      },
+      {
+        "type": "log",
+        "text": ">>> btnSummary handler registered"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-MASTER] tracking flags: enabled"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-GTAG] gtag event sent: view_booking_search {}"
+      },
+      {
+        "type": "log",
+        "text": "ATTR_DIAG {\"event\":\"ATTR_DIAG\",\"v\":1,\"stage\":\"worker\",\"reason\":\"READY_EMPTY\"}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-MASTER] captureClickIds started"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-GTAG] gtag event sent: begin_booking {\"currency\":\"USD\",\"check_in\":\"2/14/2027\",\"check_out\":\"2/21/2027\",\"nights\":7}"
+      },
+      {
+        "type": "log",
+        "text": ">>> [WBE-SEARCH] raw results: {\"ok\":true,\"error\":null,\"requestedNights\":7,\"results\":[{\"roomCode\":\"adventure_suite\",\"roomName\":\"Adventure Suite\",\"units\":3,\"occupancy\":2,\"baseOccupancy\":2,\"maxQty\":2,\"status\":\"full\",\"availableCheckIn\":\"2027-02-14T00:00:00.000Z\",\"availableCheckOut\":\"2027-02-21T00:00:00.000Z\",\"availableNights\":7,\"roomFee\":0,\"mainPhoto\":\"https://static.wixstatic.com/media/9977d0_1e3a4f450ad6474986384fdfe1939581~mv2.jpg\",\"name\":\"Adventure Suite\",\"description\":\"Open-plan oceanfront livi"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-GTAG] gtag event sent: room_view {\"room_code\":\"adventure_suite\",\"nights\":7}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-GTAG] gtag event sent: room_view {\"room_code\":\"penthouse_apartment\",\"nights\":7}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-GTAG] gtag event sent: room_view {\"room_code\":\"two_bedroom_apartment\",\"nights\":7}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-CONSENT] Google consent updated: {\"analytics_storage\":\"granted\",\"ad_storage\":\"granted\",\"ad_user_data\":\"granted\",\"ad_personalization\":\"granted\"}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-CONSENT] current policy: {\"essential\":true,\"functional\":true,\"analytics\":true,\"advertising\":true,\"dataToThirdParty\":true}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE] roomFee map from Rooms collection: {adventure_suite: 0}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-MASTER] tracking flags: enabled"
+      },
+      {
+        "type": "log",
+        "text": "ATTR_DIAG {\"event\":\"ATTR_DIAG\",\"v\":1,\"stage\":\"worker\",\"reason\":\"READY_EMPTY\"}"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-MASTER] captureClickIds started"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-PROMO] hiding row; discount= 0 code= "
+      },
+      {
+        "type": "log",
+        "text": "[WBE-SUMMARY] grandTotal set to: $6,396.59"
+      },
+      {
+        "type": "log",
+        "text": "[WBE] _selectedPackageTitle=8-day Explorer Package pkgTitle=8-day Explorer Package summaryNights=7"
+      },
+      {
+        "type": "log",
+        "text": "[WBE] SET packageName/packageLarge to: 8-day Explorer Package"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-FRONTEND] wireContinueButton starting"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-FRONTEND] btnContinue found. link:  onClick type: function"
+      },
+      {
+        "type": "error",
+        "text": "Wix code SDK error: The target parameter that is passed to the target method cannot be set to the value . It must be of type from (_blank,_self)."
+      },
+      {
+        "type": "log",
+        "text": "[WBE-PROMO] wirePromoCode found input: true button: true"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-PROMO] bound onKeyPress"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-PROMO] bound onKeyDown"
+      },
+      {
+        "type": "log",
+        "text": "[WBE-SUMMARY] set #numberOfGuests: 2 for adventure_suite"
+      }
+    ],
+    "rpc": [
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/publicFlags.web.js/getPublicTrackingFlags.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/adsFormRequirement.web.js/getAdsFormRequirement.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/publicFlags.web.js/getPublicTrackingFlags.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/adsFormRequirement.web.js/getAdsFormRequirement.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/publicFlags.web.js/getPublicTrackingFlags.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/publicFlags.web.js/getPublicTrackingFlags.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/rooms.web.js/getRoomNames.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/messages.web.js/getActiveMessages.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/adsFormRequirement.web.js/getAdsFormRequirement.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/packages.web.js/packageExistsForNights.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/search.web.js/searchAvailability.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/packages.web.js/getPackagesByNights.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/pricingQuotes.web.js/createPricingQuote.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/pricingQuotes.web.js/createPricingQuote.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/publicFlags.web.js/getPublicTrackingFlags.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/publicFlags.web.js/getPublicTrackingFlags.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/rooms.web.js/getRoomNames.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/packages.web.js/getPackagesByNights.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/adsFormRequirement.web.js/getAdsFormRequirement.ajax",
+        "blocked": false
+      },
+      {
+        "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/pricingQuotes.web.js/readPricingQuote.ajax",
+        "blocked": false
+      }
+    ]
+  },
+  "limitations": [
+    "READY_EMPTY verifies no-click-ID handshake only; no paid identifiers or contacts supplied.",
+    "No Confirm Booking click or booking/invoice/conversion-import RPC.",
+    "One initial XML-as-JSON parse exception was not reproduced on reload or subsequent navigation; source not established.",
+    "Measurement requests were intentionally guarded; no claim of successful provider matching.",
+    "Deferred BookingSummary security remediation unchanged."
+  ]
+}

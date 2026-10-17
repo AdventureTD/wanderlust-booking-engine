@@ -1,10 +1,14 @@
 # Google Ads attribution — current owner report
 
-## Current status: routing fixed; test-site Summary checks passed; live activation pending
+## Current status: live version 27118 published; empty-attribution handshake verified
 
-The backward-compatible routing fix is saved in code commit **573c995ca67380ee4f478937983456c00e5abd24**. The 24-case routing/handler suite and fresh-clone **87/87 executable scripts** passed. Both editor pages were saved and verified after reload. Test version **27117**, at **0% exposure**, retained its revision through valid single-room and mixed-two-room Summary checks. Live version **27108** remains unchanged. No Confirm Booking, invoice or conversion-import action was invoked. See [verified routing-fix report](routing-fix-status.md).
+The tested Head snippet is activated and the coordinated Wix release is live at **100% exposure, version 27118**. The saved Head readback was exact; live inspection found one matching Head script and one matching iframe bridge. Home load and reload reported **READY_EMPTY** rather than the previous timeout. A normal-live-URL Search-to-Summary check retained version 27118, accepted a signed quote and displayed the expected total without confirming a booking. See [live release results](attribution-live-release-status.md).
 
-**Head activation and live publication remain pending.** The pre-confirmation tests are not evidence that Google's conversion-matching warnings are resolved. Broader Booking Summary access remediation remains deferred.
+**No booking, invoice or conversion-import test was performed.** Paid-click/contact matching and Google's diagnostics remain unverified. One initial XML-as-JSON parsing exception did not recur; its source remains unknown and is recorded for follow-up. Collection-security remediation remains deferred.
+
+### Prior routing/test-site checkpoint
+
+The routing correction is in code commit **573c995ca67380ee4f478937983456c00e5abd24**. The 24-case handler suite and fresh-clone **87/87 executable scripts** passed. Test version 27117 passed single-room and mixed-two-room pre-confirmation Summary checks; see [routing report](routing-fix-status.md).
 
 ### Earlier schema/Preview checkpoint
 
