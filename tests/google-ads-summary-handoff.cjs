@@ -44,7 +44,7 @@ for(const mode of ['skip','revoke','trackThrow','syncThrow','noFinancial'])test(
  const f=await fixture(mode==='noFinancial'?{setup:'_financialSnapshot=null;',noRender:true}:{[mode]:true});await f.p.click();
  assert.match(f.p.w('#bookingStatus').text,/Booking confirmed!/);assert.equal(f.p.invoices.length,1);assert.equal(f.rpcs,mode==='syncThrow'?1:0);
  await f.advance(1999);assert.equal(f.redirects.length,0);await f.advance(2000);assert.equal(f.redirects.length,1);await f.advance(9000);assert.equal(f.redirects.length,1);
- if(mode==='syncThrow'||mode==='trackThrow')assert.ok(f.errors.some(v=>v[0]==='[WBE-FRONTEND] Analytics failed after confirmation:'),'retain prior analytics logging');
+ if(mode==='syncThrow'||mode==='trackThrow')assert.ok(f.errors.some(v=>v.length===1&&v[0]==='ANALYTICS_AFTER_CONFIRMATION_FAILED'),'retain value-free analytics failure logging');
  assert.equal(diagnostics(f).length,mode==='syncThrow'?1:0);
 });
 test('actual Summary partial cart does not invoke purchase RPC invoice or redirect',async()=>{

@@ -1,0 +1,14 @@
+{
+  "source": "Frozen sec-bs2/velo/page-booking-summary.js; extracted before portable test adaptation",
+  "sourceRawSha256": "1030b736bd0dd04320ee0bf93fb4b27860e5513e7556e6571ea417908146aafb",
+  "selection": "Lines matching propertyFeeRate|taxRate_|getAllSettings\\(\\)",
+  "lines": [
+    "  try { settings = await getAllSettings(); } catch (e) {}",
+    "  const propertyFeeRate = parseFloat(settings.propertyFeeRate) || 0.05;",
+    "  const taxRateAccommodation = parseFloat(settings.taxRate_accommodation) || 0.10;",
+    "  const taxRateAdventure = parseFloat(settings.taxRate_standard) || 0.15;",
+    "    propertyFee += roomTotal * propertyFeeRate;",
+    "    r.propertyFee = roomTotal * propertyFeeRate;",
+    "  const discountedPropertyFee = Math.round(discountedSubtotal * propertyFeeRate * 100) / 100;"
+  ]
+}

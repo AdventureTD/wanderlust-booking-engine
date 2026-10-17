@@ -6,24 +6,33 @@ const repo=path.resolve(__dirname,'..'), tests=path.join(repo,'tests');
 const read=p=>fs.readFileSync(repo+'/'+p,'utf8');
 const tick=ms=>new Promise(r=>setTimeout(r,ms));
 const slice=(s,a,b)=>s.split(/\r?\n/).slice(a-1,b).join('\n');
+// Content-anchored source extraction (line numbers drift): exactly one start, end after it, inclusive.
+const between=(s,a,b)=>{s=s.replace(/\r\n/g,'\n');const i=s.indexOf(a);assert.ok(i>=0&&s.indexOf(a,i+1)<0,'unique anchor: '+a);const j=s.indexOf(b,i);assert.ok(j>i,'end anchor: '+b);return s.slice(i,j+b.length);};
+// Every fixture seam must match exactly (a silent no-op replace hid harness drift).
+const seam=(s,a,b,all)=>{const n=s.split(a).length-1;assert.ok(all?n>=1:n===1,'fixture seam '+n+': '+a.slice(0,70));return all?s.replaceAll(a,b):s.replace(a,b);};
 let support=read('tests/click-attribution-corrections.cjs').split("test('partitioned page ID")[0];
 // Preserve real async postMessage ordering, unlike historical synchronous fixture ingress.
-support=support.replace("if(drop)return;for(const f of listeners.message||[])f({data:d,source:frame,origin:frameOrigin});if(onMessage)onMessage({data:d});", "if(drop)return;setTimeout(()=>{for(const f of listeners.message||[])f({data:d,source:frame,origin:frameOrigin});if(onMessage)onMessage({data:d});},0);");
-support=support.replaceAll('console:{log(){},error(){}}','console:{log:(x)=>diagnosticLogs.push(x),error(){}}');
+support=seam(support,"if(drop)return;for(const f of listeners.message||[])f({data:d,source:frame,origin:frameOrigin});if(onMessage)onMessage({data:d});", "if(drop)return;setTimeout(()=>{for(const f of listeners.message||[])f({data:d,source:frame,origin:frameOrigin});for(const h of handlers.slice())h({data:d});},0);");
+support=seam(support,'console:{log(){},error(){}}','console:{log:(x)=>diagnosticLogs.push(x),error(){}}',true);
 const diagnosticLogs=[];
-support=support.replace("const iframe=vm.createContext", "let iframe=vm.createContext");
-support=support.replace("const component={onMessage:f=>{onMessage=f;},postMessage:d=>iframe.window.onmessage({data:d,source:parent,origin})};", "const component={onMessage:f=>{onMessage=f;},postMessage:d=>setTimeout(()=>iframe.window.onmessage({data:d,source:parent,origin}),0)};");
-support=support.replace('return {readReady,deliveries,frameNode,','return {component,remount(){iframe=vm.createContext({window:{parent},document:{referrer:origin+\'/\'},URL});vm.runInContext(read(\'custom-code/event-bridge-iframe.html\').match(/<script>([\\s\\S]*?)<\\/script>/)[1],iframe);},readReady,deliveries,frameNode,');
+// Wix HtmlComponent.onMessage ADDS a handler (tracking.js and clickAttribution.js each register one);
+// the historical single-slot fixture let the later registration silently replace the earlier one.
+support=seam(support,"let onMessage,readIssued;","let onMessage,readIssued;const handlers=[];");
+// A reconstructed worker is a new Velo realm: the previous realm's handlers no longer run.
+support=seam(support,"async reconstruct(){const before=api;api=await worker();","async reconstruct(){const before=api;handlers.length=0;api=await worker();");
+support=seam(support,"const iframe=vm.createContext", "let iframe=vm.createContext");
+support=seam(support,"const component={onMessage:f=>{onMessage=f;},postMessage:d=>iframe.window.onmessage({data:d,source:parent,origin})};", "const component={onMessage:f=>{handlers.push(f);},postMessage:d=>setTimeout(()=>iframe.window.onmessage({data:d,source:parent,origin}),0)};");
+support=seam(support,'return {visit,readReady,deliveries,frameNode,','return {component,remount(){iframe=vm.createContext({window:{parent},document:{referrer:origin+\'/\'},URL});vm.runInContext(read(\'custom-code/event-bridge-iframe.html\').match(/<script>([\\s\\S]*?)<\\/script>/)[1],iframe);},visit,readReady,deliveries,frameNode,');
 const box={require,__dirname:tests,console,setTimeout,clearTimeout,URL,diagnosticLogs};vm.runInNewContext(support+'\nthis.fixture=fixture;',box);
 const pagebox={require:require('module').createRequire(tests+'/attribution-hotfix.cjs'),__dirname:tests,console};
 vm.runInNewContext(read('tests/attribution-hotfix.cjs').split('function bookingBackend')[0]+'\nthis.page=page;',pagebox);
 const master=read('velo/masterPage.js').replace(/^import .*;\r?$/gm,'');
 const summary=read('velo/page-booking-summary.js'), search=read('velo/page-booking-search.js');
-function lifecycle(f,logs,settings){const w=()=>f.component;w.onReady=()=>{};const c=vm.createContext({$w:w,...f.api,getAllSettings:settings|| (async()=>({suspendGoogleAds:0})),wixWindowFrontend:{rendering:{env:'browser'}},consentPolicy:{getCurrentConsentPolicy:async()=>({policy:{analytics:true,advertising:true}})},console:{log:(...x)=>logs.push(x),error:(...x)=>logs.push(x)}});vm.runInContext(master+'\nthis.start=initBrowserTracking;',c);return c;}
+function lifecycle(f,logs,settings){const w=()=>f.component;w.onReady=()=>{};const c=vm.createContext({$w:w,...f.api,getPublicTrackingFlags:settings|| (async()=>({ok:true,suspendGoogleAds:false})),wixWindowFrontend:{rendering:{env:'browser'}},consentPolicy:{getCurrentConsentPolicy:async()=>({policy:{analytics:true,advertising:true}})},console:{log:(...x)=>logs.push(x),error:(...x)=>logs.push(x)}});vm.runInContext(master+'\nthis.start=initBrowserTracking;',c);return c;}
 async function idle(f){await tick(220);}
 async function scenario(mode){
  const logs=[];diagnosticLogs.length=0;let slow=false,policyCalls=0;
- const f=await box.fixture({query:'',policyRead:async()=>{policyCalls++;if(slow)await tick(650);return {v:1,requirement:'NOT_REQUIRED',policyKey:'a'.repeat(64),observedAt:Date.now()};}});
+ const f=await box.fixture({query:'',policyRead:async binding=>{policyCalls++;if(slow)await tick(1700);/* > 1500 ms v2 policy lease (82187d3); a 500 ms race when this test was written */return {...binding,requirement:'NOT_REQUIRED',policyKey:'a'.repeat(64),observedAt:Date.now()};}});
  let result;
  try {
   // Home, Search and Summary navigation each use real master initialization.
@@ -32,7 +41,7 @@ async function scenario(mode){
   if(mode.includes('remount'))f.remount();
   l=lifecycle(f,logs);await l.start();
   // Exact Search settings/tracking/capture slice, independent Settings await.
-  vm.runInContext('(async()=>{'+slice(search,341,355)+'})()',l);await idle(f);
+  vm.runInContext('(async()=>{'+between(search,'  initTracking($w);\n  try {\n    // Bounded; tracking stays','\n  captureClickIds();')+'})()',l);await idle(f);
   if(mode.includes('fresh-worker'))await f.reconstruct();
   if(mode.includes('remount'))f.remount();
   if(mode==='policy-timeout')slow=true;
@@ -40,8 +49,8 @@ async function scenario(mode){
   if(mode==='withdrawal')f.head.window.dataLayer.push(['consent','update',{ad_user_data:'denied'}]);
   l=lifecycle(f,logs);await l.start();
   // Summary's Settings false comes after awaits in its initializer, before enabled Continue.
-  vm.runInContext('{const settings={suspendGoogleAds:0};'+slice(summary,384,389)+'}',l);
-  await tick(mode==='policy-timeout'||mode==='wrong-title'?550:45);
+  vm.runInContext('{let _trackingFlags;'+between(summary,'  initTracking($w);\n  // Privacy-only binding at load','.catch(function () { return \'hold\'; });')+'}',l);
+  await tick(mode==='policy-timeout'?1750:mode==='wrong-title'?550:45);
   const preClickDenied=f.api.getStoredClickIds(undefined,true)===null;
   // Entire actual Summary source + real registered Continue callback from existing fixture.
   const p=await pagebox.page({setup:"_summaryRooms=[{roomCode:'adventure_suite',qty:1,numGuests:2}];",book:async()=>({bookingNumber:'OFFLINE-HANDSHAKE',conversionCapability:'inert-not-a-real-capability'})});

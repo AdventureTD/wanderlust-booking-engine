@@ -3,16 +3,19 @@
 // this models the observed ordering, not undocumented Wix queue internals.
 const test=require('node:test'), assert=require('node:assert/strict'), vm=require('node:vm'), fs=require('node:fs');
 let support=fs.readFileSync(__dirname+'/click-attribution-corrections.cjs','utf8').split("test('partitioned page ID")[0];
-support=support.replace('policyRead}={})','policyRead, loadDelay=0}={})');
-support=support.replace("const component={onMessage:f=>{onMessage=f;},postMessage:d=>iframe.window.onmessage({data:d,source:parent,origin})};", `
- const sent=[], queued=[];let loaded=loadDelay===0;
+// Each fixture seam must match exactly once; a silent miss hides protocol drift.
+function seam(a,b){assert.equal(support.split(a).length,2,'fixture seam '+a);return support.replace(a,b);}
+support=seam('policyRead}={})','policyRead, loadDelay=0}={})');
+support=seam("const component={onMessage:f=>{onMessage=f;},postMessage:d=>iframe.window.onmessage({data:d,source:parent,origin})};", `
+ const allSent=[], queued=[];let loaded=loadDelay===0;
  const deliverRequest=d=>iframe.window.onmessage({data:d,source:parent,origin});
- const component={onMessage:f=>{onMessage=f;},postMessage(d){sent.push(d);if(loaded)deliverRequest(d);else queued.push(d);}};
+ const component={onMessage:f=>{onMessage=f;},postMessage(d){allSent.push(d);if(loaded)deliverRequest(d);else queued.push(d);}};
  if(loadDelay>0){const t=setTimeout(()=>{timers.delete(t);loaded=true;for(const d of queued.splice(0))deliverRequest(d);},loadDelay);timers.add(t);}
  `);
-support=support.replace('return {readReady,deliveries,frameNode,','return {sent,component,receive:d=>onMessage({data:d}),readReady,deliveries,frameNode,');
-support=support.replace('close(){for(const t of timers)', 'close(){api.setSuspendGoogleAds(true);for(const t of timers)');
-const box={require,__dirname,console,setTimeout,clearTimeout,URL};vm.runInNewContext(support+'\nthis.fixture=fixture;',box);
+// O3 P2: raw allSent retained; f.sent is the attribution projection excluding ONLY validated privacy-only binds.
+support=seam('return {visit,readReady,deliveries,frameNode,','return {visit,allSent,get sent(){return attributionOnly(allSent);},component,receive:d=>onMessage({data:d}),readReady,deliveries,frameNode,');
+support=seam('close(){for(const t of timers)', 'close(){api.setSuspendGoogleAds(true);for(const t of timers)');
+const box={require,__dirname,console,setTimeout,clearTimeout,URL,attributionOnly:require(__dirname + '/support/privacy-bind-projection.cjs').attributionOnly};vm.runInNewContext(support+'\nthis.fixture=fixture;',box);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 test('late initial iframe at five seconds recovers via fresh open/read/confirm, not stale acceptance',{timeout:8000},async()=>{
  const f=await box.fixture({loadDelay:5000});try{
@@ -35,7 +38,12 @@ test('explicit saved denial survives delayed transport; no optional contact snap
  const f=await box.fixture({deny:true,loadDelay:700});try{
   await f.ready();await sleep(400);assert.equal(f.pageStore.getItem('wbe_consent_choice'),'denied');
   assert.equal(f.api.getStoredClickIds(undefined,true),null);
-  assert.equal(f.sent.filter(d=>d.op==='open').length,2);assert.equal(f.sent.filter(d=>d.op==='confirm').length,0);
+  // O3 S1 (approved): the Head is already denied, so the bind-time privacy revoke (authenticated: this copy's bound nonce + copy id)
+  // fences readiness; exactly one open, no recovery retry, no confirm, no IDs, partition closed by the revoke.
+  const binds=f.allSent.filter(d=>d.op==='bind'),revokes=f.posts.filter(d=>d.type==='wbe-click-revoke');
+  assert.equal(f.sent.filter(d=>d.op==='open').length,1,'exactly one open: no recovery retry');assert.equal(f.sent.filter(d=>d.op==='confirm').length,0);
+  assert.ok(revokes.some(v=>binds.some(b=>b.nonce===v.nonce&&b.channel===v.channel)),'authenticated privacy revoke matching a bound nonce + copy id');
+  assert.equal(f.workerStore.getItem('wl_click_attribution_revoked'),'1','worker accepted the authenticated revoke');
  }finally{f.close();}
 });
 test('suspension during iframe wait cancels wake and does not resurrect after resume',{timeout:3000},async()=>{

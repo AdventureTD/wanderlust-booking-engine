@@ -11,5 +11,5 @@ for(const group of ['protected','candidate','support'])for(const [name,pin] of O
  assert.equal(crypto.createHash('sha256').update(normalized).digest('hex'),pin.canonical_lf_sha256,name);count++;
 }
 const artifact=fs.readFileSync(path.join(root,'velo/custom-code/google-tag-and-consent.html'),'utf8');
-assert.equal(artifact.length,14877);assert.ok(artifact.length<=14900);
+assert.equal(artifact.length,14874);assert.ok(artifact.length<=14900);
 console.log('PASS static v2 source custody '+count+' entries; protected booking/Summary/invoice graph unchanged');

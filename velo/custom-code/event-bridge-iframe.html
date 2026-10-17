@@ -38,9 +38,10 @@
       if (event.source === window.parent && event.origin === canonical && new URL(document.referrer).origin === canonical) {
         if (d && d.type === 'wbe-click-attribution' && d.v === 2 && d.schema === 1 &&
             Object.keys(d).sort().join(',') === 'channel,nonce,op,policy,record,schema,sequence,type,v' &&
-            /^[a-f0-9]{32}$/.test(d.nonce) && (d.op === 'open' ? d.channel === '' : /^[a-f0-9]{32}$/.test(d.channel)) &&
-            ['open', 'read', 'confirm', 'clear'].indexOf(d.op) !== -1 && Number.isSafeInteger(d.sequence) && d.sequence > 0 &&
-            validRecord(d.record) && (['open', 'clear'].indexOf(d.op) !== -1 ? d.policy === null : validPolicy(d.policy, 'attribution', 'read', d.nonce, d.channel))) {
+            /^[a-f0-9]{32}$/.test(d.nonce) && /^[a-f0-9]{32}$/.test(d.channel) && // O3: open carries the copy id
+            ['open', 'read', 'confirm', 'clear', 'bind'].indexOf(d.op) !== -1 && Number.isSafeInteger(d.sequence) && d.sequence > 0 &&
+            (d.op !== 'bind' || d.record === null) &&
+            validRecord(d.record) && (['open', 'clear', 'bind'].indexOf(d.op) !== -1 ? d.policy === null : validPolicy(d.policy, 'attribution', 'read', d.nonce, d.channel))) {
           window.parent.postMessage({ source: 'wbe-click-attribution', v: 2, schema: 1, op: d.op, sequence: d.sequence, nonce: d.nonce, channel: d.channel, policy: d.policy, record: d.record }, canonical);
           return;
         }

@@ -14,6 +14,7 @@ async function page(options={}) {
  const c=realm({$w:w,setTimeout:f=>{timers.push(f);return timers.length;},clearTimeout(){},getPackageBaseRate:async()=>100,initClickAttribution:()=>{},waitForClickAttribution:async()=>{},parsePhoneNumberFromString:require('./phone-library-fixture.cjs').parsePhoneNumberFromString,getStoredClickIds:()=>({}),getPackageAmenities:async()=>({title:'Offline'}),validatePromoCode:options.promo|| (async()=>({valid:true,discount:0.5,description:'Offline'})),
  wixData:{query:()=>({eq(){return this;},limit(){return this;},find:async()=>({items:[]})})},
  createBooking:async p=>{payloads.push(JSON.parse(JSON.stringify(p)));if(options.book){const result=await options.book(p,payloads.length);if(result!==undefined)return result;}return {bookingNumber:'OFFLINE-SNAPSHOT'};},
+ resolveTrackingFlags:async g=>{await g();return 'enabled';},getPublicTrackingFlags:async()=>({ok:true,suspendGoogleAds:false}),
  trackPurchase:p=>{purchases.push({...p});if(options.track)options.track();},recordBookingConversion:async p=>{ads.push({...p});return {ok:false};},issueBookingInvoice:async()=>{invoices.push('invoice');if(options.invoice) return options.invoice();return {emailed:false};},wixLocation:{to(){}}});
  run(c,read('velo/public/phoneNormalization.js').replace(/^import .*;\r?\n/gm,'').replace(/export /g,''));
  run(c,read('velo/page-booking-summary.js').replace(/^import .*;\r?\n/gm,''));

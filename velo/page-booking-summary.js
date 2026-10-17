@@ -21,9 +21,13 @@ import { getRoomNames } from 'backend/rooms';
 import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights, getPackagesByNights } from 'backend/packages';
 import { readPricingQuote } from 'backend/pricingQuotes';
 import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
-import { initClickAttribution, waitForClickAttribution, trackPurchase, getStoredClickIds, clearClickIds, initTracking, setSuspendGoogleAds, prepareAdsFormSubmission, completeAdsFormSubmission } from 'public/tracking';
+import { initClickAttribution, waitForClickAttribution, trackPurchase, getStoredClickIds, clearClickIds, initTracking, resolveTrackingFlags, prepareAdsFormSubmission, completeAdsFormSubmission } from 'public/tracking';
+import { getPublicTrackingFlags } from 'backend/publicFlags.web';
+// Bounded tracking-flag resolution; tracking stays held unless enabled.
+let _trackingFlags = Promise.resolve('hold');
 import { recordBookingConversion } from 'backend/googleAdsConversions.web';
 import { recordMicrosoftBookingConversion } from 'backend/microsoftAdsConversions.web';
+import { clearBookingSummaryReporting } from 'backend/bookingSummaryReporting.web';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
 
 const ROOM_DISPLAY_NAMES = {
@@ -230,6 +234,9 @@ $w.onReady(function () {
     showInitializationStatus('Loading is taking too long. Please return to the booking search and search again.');
   }, 20000);
   initTracking($w);
+  // Privacy-only binding at load (independent of flags/readiness): withdrawal reaches this copy.
+  try { initClickAttribution($w); } catch (_) {}
+  _trackingFlags = resolveTrackingFlags(getPublicTrackingFlags).catch(function () { return 'hold'; });
   initSummary(load).then(function () {
     clearTimeout(timer);
     if (load.stopped) return;
@@ -379,13 +386,6 @@ async function initSummary(load) {
       if (load.stopped) return;
       throw e;
     }
-  }
-
-  const suspend = String(settings.suspendGoogleAds).trim() === '1' || Number(settings.suspendGoogleAds) === 1;
-  if (typeof setSuspendGoogleAds === 'function') {
-    setSuspendGoogleAds(suspend);
-  } else {
-    console.log('[WBE-SUMMARY] setSuspendGoogleAds import not ready, suspend defaults to false');
   }
 
   initRoomRepeater();
@@ -969,6 +969,7 @@ function wireContinueButton() {
     let dispatched = false;
     let sharedBookingNumber = '';
     let conversionCapability = ''; // Function-local only; never store or log.
+    let summaryCapability = ''; // Function-local only; never store or log.
     try {
     const financialSnapshot = _financialSnapshot;
     const rooms = Object.freeze(_summaryRooms.map(r => Object.freeze({ ...r })));
@@ -988,6 +989,7 @@ function wireContinueButton() {
     let att = null;
     try {
       initClickAttribution($w);
+      await _trackingFlags;
       await waitForClickAttribution();
       att = getStoredClickIds(undefined, true);
     } catch (_) { /* Optional capture failure cannot abort or unlock booking. */ }
@@ -1038,29 +1040,19 @@ function wireContinueButton() {
         }
         console.log('[WBE-FRONTEND] createBooking returned:', JSON.stringify({ ok: !!b0, bookingNumber: b0 && b0.bookingNumber }));
         conversionCapability = typeof b0.conversionCapability === 'string' ? b0.conversionCapability : '';
+        summaryCapability = typeof b0.summaryCapability === 'string' ? b0.summaryCapability : '';
         bookings.push(b0);
         if (b0.bookingNumber) sharedBookingNumber = b0.bookingNumber;
 
-        // Persist notes to BookingSummary separately.
+        // Notes and booking-time reporting persist server-side through the
+        // first-room createBooking write; this page never reads or writes the
+        // BookingSummary collection. A snapshot-scoped read returns the same
+        // snapshot or null, so the only post-creation refresh is a clear after
+        // withdrawal/clear, through the booking-bound capability.
         try {
-          if (sharedBookingNumber) {
-            const summaryRes = await wixData.query('BookingSummary').eq('bookingNumber', sharedBookingNumber).limit(1).find();
-            if (summaryRes.items.length > 0) {
-              const s = summaryRes.items[0];
-              s.notes = note || '';
-              clickIds = currentAttribution() || {};
-              s.gclid = clickIds.gclid || '';
-              s.gbraid = clickIds.gbraid || '';
-              s.wbraid = clickIds.wbraid || '';
-              s.msclkid = clickIds.msclkid || '';
-              s.firstPaidTouch = clickIds.paidTouches ? clickIds.paidTouches.first : null;
-              s.latestPaidTouch = clickIds.paidTouches ? clickIds.paidTouches.latest : null;
-              if (s.checkIn) s.checkIn = normalizeDate(s.checkIn);
-              if (s.checkOut) s.checkOut = normalizeDate(s.checkOut);
-              if (s.bookingDate) s.bookingDate = normalizeDate(s.bookingDate);
-              await wixData.update('BookingSummary', s);
-              console.log('[WBE-FRONTEND] updated BookingSummary.notes');
-            }
+          if (sharedBookingNumber && att && !currentAttribution()) {
+            const cleared = summaryCapability ? await clearBookingSummaryReporting(sharedBookingNumber, summaryCapability) : null;
+            if (!cleared || !cleared.ok) console.log('ATTR_SUMMARY_REPORTING_WRITE_FAILED');
           }
         } catch (noteErr) {
           console.log('ATTR_SUMMARY_REPORTING_WRITE_FAILED');
@@ -1196,6 +1188,7 @@ function wireContinueButton() {
         clickIds = currentAttribution();
         if (clickIds && clickIds.msclkid) {
           const microsoftPayload = {
+            summaryCapability,
             transactionId: sharedBookingNumber,
             value: grandTotal,
             currency: 'USD',
@@ -1207,31 +1200,12 @@ function wireContinueButton() {
             conversionTime: new Date().toISOString()
           };
 
+          // The backend sets microsoftConversionUploaded itself after a confirmed
+          // upload for the capability-bound row; this page never writes it.
           recordMicrosoftBookingConversion(microsoftPayload)
             .then(function (msResult) {
 
               if (msResult && msResult.ok) {
-                try {
-                  wixData.query('BookingSummary')
-                    .eq('bookingNumber', sharedBookingNumber)
-                    .limit(1)
-                    .find()
-                    .then(function (summaryRes) {
-                      if (summaryRes.items.length > 0) {
-                        const summary = summaryRes.items[0];
-                        summary.microsoftConversionUploaded = true;
-                        if (summary.checkIn) summary.checkIn = normalizeDate(summary.checkIn);
-                        if (summary.checkOut) summary.checkOut = normalizeDate(summary.checkOut);
-                        if (summary.bookingDate) summary.bookingDate = normalizeDate(summary.bookingDate);
-                        return wixData.update('BookingSummary', summary);
-                      }
-                      return null;
-                    })
-                    .then(function () { console.log('[WBE-MICROSOFT] marked BookingSummary.microsoftConversionUploaded=true'); })
-                    .catch(function () { console.error('MS_CONVERSION_MARK_FAILED'); });
-                } catch (markErr) {
-                  console.error('MS_CONVERSION_MARK_FAILED');
-                }
                 // The purchase signal was already sent through trackPurchase()
                 // above. The Master Page bridge relays it to both Google and the
                 // parent-page UET tag; Velo's sandbox must not access window.uetq

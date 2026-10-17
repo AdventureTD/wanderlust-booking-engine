@@ -11,15 +11,20 @@ async function booking(f,b,book){const p=await page({setup:"_summaryRooms=[{room
 function completed(p){assert.equal(p.payloads.length,2);assert.equal(p.invoices.length,1);assert.equal(p.timers.length,1);}
 test('review limit: issued confirm precedes unseen revoke; first delivered revoke invalidates exact snapshot',{timeout:4000},async()=>{
  const b=await bridge({hold:d=>d.op==='confirm'||d.type==='wbe-click-revoke'});
- try{const ready=b.ready();await held(b);const answer=b.deliveries[0];assert.equal(answer.d.allowed,true);b.head.window.dataLayer.push(['consent','update',{ad_user_data:'denied'}]);await held(b,2);assert.equal(b.pageStore.getItem(key),null);
+ try{const ready=b.ready();await held(b);const answer=b.deliveries[0];assert.equal(answer.d.allowed,true);b.head.window.dataLayer.push(['consent','update',{ad_user_data:'denied'}]);await held(b,3);assert.equal(b.pageStore.getItem(key),null);
+ // O3 S2 (approved): withdrawal posts the C-channel revoke, then one per-binding revoke (copy-id channel). Classified exactly.
+ const copies=b.posts.filter(d=>d.op==='bind').map(d=>d.channel),rv=b.deliveries.slice(1).map(x=>x.d);
+ assert.ok(rv.every(d=>d.type==='wbe-click-revoke'&&d.nonce===answer.d.nonce));assert.equal(rv[0].channel,answer.d.channel,'first: C-channel revoke');
+ assert.equal(rv.filter(d=>d.channel===answer.d.channel).length,1,'exactly one C revoke');assert.equal(rv.filter(d=>copies.includes(d.channel)).length,1,'exactly one per-binding revoke');
  answer.deliver();await ready;const snapshot=b.api.getStoredClickIds(undefined,true);assert.equal(snapshot.gclid,'INERT_EXACT_FIRST','documented undelivered-state limit, not atomic consent');assert.equal(b.api.getStoredClickIds(snapshot),snapshot);
  b.deliveries[1].deliver();assert.equal(b.api.getStoredClickIds(snapshot),null);assert.equal(b.api.getStoredClickIds(undefined,true),null);assert.equal(b.workerStore.getItem(key),null);
+ b.deliveries[2].deliver();assert.equal(b.api.getStoredClickIds(snapshot),null);assert.equal(b.api.getStoredClickIds(undefined,true),null);assert.equal(b.workerStore.getItem(key),null);
  }finally{b.close();}
 });
 for(const contactOnly of [false,true])test('review: actual purchase transport withdraws then throws; contacts and IDs denied, booking intact '+contactOnly,{timeout:6000},async()=>{
  const f=await producer(),b=await bridge({query:contactOnly?'':'gclid=INERT_CALLBACK&msclkid=INERT_MS',hold:d=>d.type==='wbe-click-revoke'});
  try{await b.ready();const p=await booking(f,b);let google=0,ms=0,callbacks=0;
- b.api.initTracking(()=>({postMessage(){callbacks++;b.head.window.dataLayer.push(['consent','update',{ad_user_data:'denied'}]);assert.equal(b.deliveries.length,1);b.deliveries[0].deliver();throw Error('INERT_AFTER_DELIVERY');}}));
+ b.api.initTracking(()=>({postMessage(){callbacks++;b.head.window.dataLayer.push(['consent','update',{ad_user_data:'denied'}]);const copies=b.posts.filter(d=>d.op==='bind').map(d=>d.channel),rv=b.deliveries.map(x=>x.d);assert.equal(rv.length,2,'O3 S2: C revoke + one per-binding revoke');assert.equal(rv.filter(d=>copies.includes(d.channel)).length,1,'exactly one per-binding revoke');assert.equal(rv.filter(d=>!copies.includes(d.channel)).length,1,'exactly one C revoke');for(const x of b.deliveries)x.deliver();throw Error('INERT_AFTER_DELIVERY');}}));
  p.c.trackPurchase=b.api.trackPurchase;p.c.recordBookingConversion=q=>{google++;return f.sender.recordBookingConversion(q);};p.c.recordMicrosoftBookingConversion=async()=>{ms++;return {ok:false};};await p.click();completed(p);assert.equal(callbacks,1);assert.equal(google,0);assert.equal(ms,0);assert.equal(f.wires.length,0);assert.deepEqual([...f.rows.values()].filter(r=>r.kind).map(r=>r.kind),['AUTH']);
  }finally{b.close();}
 });
@@ -27,10 +32,15 @@ test('review: synchronous optional sender throw never removes invoice callback o
  const f=await producer(),b=await bridge();try{await b.ready();const p=await booking(f,b);let calls=0;p.c.recordBookingConversion=()=>{calls++;throw Error('INERT_RPC_THROW');};await p.click();completed(p);assert.equal(calls,1);assert.equal(f.wires.length,0);}finally{b.close();}
 });
 test('review: reaccept identical record creates new handle but never revives prior invocation',{timeout:6000},async()=>{
- const b=await bridge({banner:true});try{b.click('Accept All');await b.ready();const first=b.api.getStoredClickIds(undefined,true),bytes=b.workerStore.getItem(key);b.head.window.dataLayer.push(['consent','update',{ad_user_data:'denied'}]);await tick();assert.equal(b.api.getStoredClickIds(first),null);b.click('Cookie settings');b.click('Accept All');b.pageStore.setItem(key,bytes);await b.ready();const next=b.api.getStoredClickIds(undefined,true);assert.equal(next.gclid,first.gclid);assert.equal(b.api.getStoredClickIds(next),next);assert.equal(b.api.getStoredClickIds(first),null);assert.equal(b.api.getStoredClickIds(JSON.parse(JSON.stringify(next))),null);}finally{b.close();}
+ const b=await bridge({banner:true});try{b.click('Accept All');await b.ready();const first=b.api.getStoredClickIds(undefined,true),bytes=b.workerStore.getItem(key);b.head.window.dataLayer.push(['consent','update',{ad_user_data:'denied'}]);await tick();assert.equal(b.api.getStoredClickIds(first),null);b.click('Cookie settings');b.click('Accept All');b.pageStore.setItem(key,bytes);await b.ready();
+ /* Approved paid-touch revocation: reintroduced pre-denial bytes are never re-admitted after regrant. */
+ assert.equal(b.api.getStoredClickIds(undefined,true).gclid,undefined,'pre-denial bytes not revived');assert.equal(b.api.getStoredClickIds(first),null);
+ /* Identical identifier re-acquired only by a fresh landing capture: new handle, prior invocation never revived. */
+ b.visit('gclid='+encodeURIComponent(first.gclid));await b.ready();const next=b.api.getStoredClickIds(undefined,true);assert.equal(next.gclid,first.gclid);assert.equal(b.api.getStoredClickIds(next),next);assert.equal(b.api.getStoredClickIds(first),null);assert.equal(b.api.getStoredClickIds(JSON.parse(JSON.stringify(next))),null);}finally{b.close();}
 });
-test('review: old clear preserves later record but conservatively invalidates outstanding epoch handles',{timeout:6000},async()=>{
- const b=await bridge();try{await b.ready();const old=b.api.getStoredClickIds(undefined,true);await b.api.clearClickIds(old);const fresh={...old,gclid:'INERT_NEW_TOUCH',capturedAt:new Date().toISOString()};b.pageStore.setItem(key,JSON.stringify(fresh));await b.ready();const next=b.api.getStoredClickIds(undefined,true);await b.api.clearClickIds(old);assert.equal(JSON.parse(b.pageStore.getItem(key)).gclid,'INERT_NEW_TOUCH');assert.equal(b.api.getStoredClickIds().gclid,'INERT_NEW_TOUCH');assert.equal(b.api.getStoredClickIds(next),null);assert.equal(b.api.getStoredClickIds(old),null);}finally{b.close();}
+test('review: old clear preserves later record; stale-epoch clear is a no-op for later handles (B4)',{timeout:6000},async()=>{
+ const b=await bridge();try{await b.ready();const old=b.api.getStoredClickIds(undefined,true);await b.api.clearClickIds(old);/* A later record arrives by a fresh landing capture (direct page-storage writes of API snapshots are not a capture path). */
+ b.visit('gclid=INERT_NEW_TOUCH');await b.ready();const next=b.api.getStoredClickIds(undefined,true);await b.api.clearClickIds(old);/* v1 paid-touch page record (1f82359): {v,first,latest}. */assert.equal(JSON.parse(b.pageStore.getItem(key)).latest.gclid,'INERT_NEW_TOUCH');assert.equal(b.api.getStoredClickIds().gclid,'INERT_NEW_TOUCH');/* 1f82359 B4 rule (public-tracking-flags B4 test): a stale-epoch snapshot clear is a no-op, so it neither erases nor re-fences the later handle. */assert.equal(b.api.getStoredClickIds(next),next);assert.equal(b.api.getStoredClickIds(old),null);}finally{b.close();}
 });
 test('review: concurrent native bookings, one withdrawn at room await, one positive original capability',{timeout:8000},async()=>{
  const f=await producer(),a=await bridge({query:'gclid=INERT_A'}),b=await bridge({query:'gclid=INERT_B'});let release;

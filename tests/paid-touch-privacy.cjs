@@ -32,18 +32,31 @@ const fs=require('node:fs'),vm=require('node:vm'),test=require('node:test'),asse
 const root=require('node:path').resolve(__dirname,'..'),file=root+'/tests/attribution-hotfix.cjs',req=createRequire(file),src=fs.readFileSync(file,'utf8');
 const c={require:req,__dirname:root+'/tests',console};vm.runInNewContext(src.slice(0,src.indexOf('function bookingBackend'))+'\nthis.pageFactory=page;',c);
 const {fixture}=req('./attribution-clock-v2.cjs');
-for(const throws of [false,true])test('independent Summary attribution reporting write exception privacy '+throws,async()=>{
+// Migrated (security remediation): the page no longer reads/writes BookingSummary.
+// Booking-time reporting travels in the createBooking payload; a withdrawal after
+// first-room creation uses only the capability-gated clear RPC. Its rejection
+// must not expose identifiers at any console level, and no client BookingSummary
+// access may occur.
+for(const throws of [false,true])test('independent Summary attribution reporting clear exception privacy '+throws,async()=>{
  const first={capturedAt:new Date(Date.now()-86400000).toISOString(),gclid:'PRIVATE_NOTES_FIRST',gbraid:'',wbraid:'',msclkid:''};
  const f=await fixture({query:'msclkid=PRIVATE_NOTES_LATEST',pageStorage:[['wl_click_attribution',JSON.stringify(first)]]});
  try{
-  const p=await c.pageFactory(),logs=[];let writes=0;
+  let count=0,clears=0,client=0;
+  const p=await c.pageFactory({book:async()=>{if(++count===1){f.head.window.dataLayer.push(['consent','update',{ad_user_data:'denied'}]);await new Promise(r=>setTimeout(r,20));}return {bookingNumber:'OFFLINE-SNAPSHOT',summaryCapability:'bsc1.INERT_CAPABILITY'};}}),logs=[];
   p.c.console=Object.fromEntries(['log','warn','error','info','debug'].map(k=>[k,(...args)=>logs.push({level:k,args})]));
   p.c.waitForClickAttribution=f.api.waitForClickAttribution;p.c.getStoredClickIds=f.api.getStoredClickIds;
-  p.c.wixData.query=()=>({eq(){return this},limit(){return this},async find(){return {items:[{_id:'INERT'}]}}});
-  p.c.wixData.update=(collection,row)=>{writes++;assert.equal(collection,'BookingSummary');assert.equal(row.firstPaidTouch.gclid,'PRIVATE_NOTES_FIRST');assert.equal(row.latestPaidTouch.msclkid,'PRIVATE_NOTES_LATEST');if(throws)return Promise.reject(Error('rejected '+row.latestPaidTouch.msclkid));return Promise.resolve(row)};
-  await p.click();for(let i=0;i<30;i++)await Promise.resolve();assert.equal(writes,1);assert.equal(p.payloads.length,2);assert.equal(p.invoices.length,1);assert.equal(p.ads.length,1);
-  console.log(JSON.stringify({mode:throws?'reject':'success',leaked:logs.filter(x=>JSON.stringify(x).includes('PRIVATE_NOTES_'))}));
-  assert.equal(JSON.stringify(logs).includes('PRIVATE_NOTES_'),false,'reporting-write exceptions must not expose first/latest IDs through Summary console');
+  p.c.wixData.query=collection=>{client++;throw Error('CLIENT_DATA_FORBIDDEN '+collection);};
+  p.c.wixData.update=()=>{client++;throw Error('CLIENT_DATA_FORBIDDEN');};
+  p.c.clearBookingSummaryReporting=(bookingNumber,capability)=>{clears++;assert.equal(bookingNumber,'OFFLINE-SNAPSHOT');assert.equal(capability,'bsc1.INERT_CAPABILITY');
+   if(throws)return Promise.reject(Error('rejected PRIVATE_NOTES_LATEST'));return Promise.resolve({ok:true});};
+  await p.click();for(let i=0;i<30;i++)await Promise.resolve();
+  assert.equal(client,0,'no client BookingSummary access');assert.equal(clears,1);
+  assert.equal(p.payloads.length,2);assert.equal(p.invoices.length,1);
+  assert.equal(p.payloads[0].firstPaidTouch.gclid,'PRIVATE_NOTES_FIRST');assert.equal(p.payloads[0].latestPaidTouch.msclkid,'PRIVATE_NOTES_LATEST');
+  assert.ok(!p.payloads[1].gclid&&!p.payloads[1].msclkid&&p.payloads[1].firstPaidTouch===null,'later room omits withdrawn IDs');
+  assert.equal(p.ads.length,0,'withdrawn snapshot never uploads');
+  assert.equal(JSON.stringify(logs).includes('PRIVATE_NOTES_'),false,'reporting-clear exceptions must not expose first/latest IDs through Summary console');
+  assert.equal(JSON.stringify(logs).includes('INERT_CAPABILITY'),false,'capability never logged');
  }finally{f.close()}
 });
 
@@ -71,7 +84,9 @@ for(const mode of ['result-echo-positive','reject-message','reject-object','sync
   let markCalls=0;
   p.c.recordMicrosoftBookingConversion=payload=>{calls++;assert.equal(payload.msclkid,'PRIVATE_FIRST_MS');
    if(mode.startsWith('mark-')) {
+    // Migrated: the backend marks the flag; the page must not touch BookingSummary.
     p.c.wixData.query=()=>{markCalls++;if(mode==='mark-sync-throw')throw Error('PRIVATE_FIRST_MS');return {eq(){return this},limit(){return this},find(){return Promise.reject({private:'PRIVATE_FIRST_MS'})}}};
+    assert.ok(Object.prototype.hasOwnProperty.call(payload,'summaryCapability'),'capability travels only to the backend');
     return Promise.resolve({ok:true});
    }
    if(mode==='reject-message')return Promise.reject(new Error('provider rejected '+payload.msclkid));
@@ -80,7 +95,7 @@ for(const mode of ['result-echo-positive','reject-message','reject-object','sync
    return Promise.resolve({ok:false,payload,detail:'PRIVATE_LATEST_GOOGLE'});
   };
   await p.click();for(let i=0;i<30;i++)await Promise.resolve();
-  if(mode.startsWith('mark-'))assert.equal(markCalls,1);
+  if(mode.startsWith('mark-'))assert.equal(markCalls,0,'no client BookingSummary read/update after Microsoft success');
   assert.equal(calls,1);assert.equal(p.invoices.length,1);assert.equal(p.payloads[0].latestPaidTouch.gclid,'PRIVATE_LATEST_GOOGLE');
   assert.equal(JSON.stringify(logs).includes('PRIVATE_FIRST_MS'),false,'Microsoft error path must not emit raw first identifier at any console level');
   assert.equal(JSON.stringify(logs).includes('PRIVATE_LATEST_GOOGLE'),false);

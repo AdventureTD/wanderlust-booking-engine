@@ -5,6 +5,7 @@ import { getAllSettings } from 'backend/settings.web';
 import { getSecret } from 'wix-secrets-backend';
 import { ingestEvent } from 'backend/dataManagerClient.web';
 import { sanitizeHttpErrorDiagnostics } from 'backend/googleAdsHttpDiagnostics';
+import { setSummaryFlag } from 'backend/bookingSummaryWriter';
 
 const COLLECTION = 'GoogleAdsAttemptJournal';
 const OPTIONS = { suppressAuth: true, suppressHooks: true };
@@ -215,8 +216,8 @@ export async function recordPrivateGoogleAdsAttempt(booking, buildPayload) {
     try {
       const summary = await wixData.get('BookingSummary', auth.summaryId, READ_OPTIONS);
       if (summary && summary.bookingNumber === subject) {
-        // Keep native dates, financials and both legacy retraction flags intact.
-        await wixData.update('BookingSummary', { ...summary, googleConversionUploaded: true }, OPTIONS);
+        // Field-scoped patch of this one flag; every other field stays untouched.
+        await setSummaryFlag(summary._id, subject, 'googleConversionUploaded', { suppressHooks: true });
         legacyFlagUpdated = true;
       }
     } catch (_) { /* Durable RESULT survives; never resend to repair this flag. */ }

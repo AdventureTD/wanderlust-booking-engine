@@ -9,7 +9,8 @@ test('late actual invoice date mirror preserves cancelled Summary',async()=>{
  const source=fs.readFileSync(path.join(__dirname,'../velo/backend/availability.web.js'),'utf8');
  const code=source.slice(source.indexOf('export const issueBookingInvoice ='),source.indexOf('export const cancelBooking =')).replace('export const','const');
  const helper=fs.readFileSync(path.join(__dirname,'../velo/backend/bookingCancellation.js'),'utf8').replace(/^import.*;$/gm,'').replace(/export /g,'');
- const ctx=vm.createContext({wixData:f.sdk,items:f.patchItems,BOOKINGS:'Bookings',BOOKING_SUMMARIES:'BookingSummary',Date,Permissions:{Anyone:0},webMethod:(p,f)=>f,console:{log(){}},getActiveInvoice:async()=>null,nightsBetween:()=>0,buildQuoteBreakdown:async()=>({}),getNextInvoiceNumber:async()=>'INERT',callIssueInvoice:async()=>({invoice_number:'INERT'}),recordBookingInvoice:async()=>{},toDate:x=>x?new Date(x):null});
+ const writer=await require('./summary-patch-fake.cjs').loadWriterWith({'@wix/data':{items:f.patchItems},'@wix/essentials':{auth:{elevate:fn=>fn}}});
+ const ctx=vm.createContext({mirrorSummaryDates:writer.mirrorSummaryDates,setSummaryCancellation:writer.setSummaryCancellation,wixData:f.sdk,items:f.patchItems,BOOKINGS:'Bookings',BOOKING_SUMMARIES:'BookingSummary',Date,Permissions:{Anyone:0},webMethod:(p,f)=>f,console:{log(){}},getActiveInvoice:async()=>null,nightsBetween:()=>0,buildQuoteBreakdown:async()=>({}),getNextInvoiceNumber:async()=>'INERT',callIssueInvoice:async()=>({invoice_number:'INERT'}),recordBookingInvoice:async()=>{},toDate:x=>x?new Date(x):null});
  vm.runInContext(helper+'\n'+code+'\nglobalThis.invoke=issueBookingInvoice;',ctx);
  const invoice=ctx.invoke('WC-1038');const watchdog=setTimeout(()=>{release();throw Error('mirror watchdog');},5000);
  try{await reached;assert.equal((await f.api.adminCancelBooking('WC-1038','')).coreComplete,true);release();await invoice;

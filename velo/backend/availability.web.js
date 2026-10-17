@@ -1,6 +1,5 @@
 
 import wixData from 'wix-data';
-import { items } from '@wix/data';
 import { assertCancellationWriteAllowed } from 'backend/bookingCancellation';
 import { Permissions, webMethod } from 'wix-web-module';
 import { fetch } from 'wix-fetch';
@@ -10,6 +9,8 @@ import { adjustBookingConversion, isGoogleAdsSuspended } from 'backend/googleAds
 import { normalizePriceModifier, roundMoney } from 'backend/rateResolver';
 import { verifyLockedPricingQuote } from 'backend/pricingQuote';
 import { mintGoogleAdsCapability } from 'backend/googleAdsAttemptJournal';
+import { mintSummaryCapability } from 'backend/bookingSummaryCapability';
+import { patchSummaryRefresh, mirrorSummaryDates } from 'backend/bookingSummaryWriter';
 
 const BOOKINGS = 'Bookings';
 const BOOKING_SUMMARIES = 'BookingSummary';
@@ -516,33 +517,24 @@ async function updateBookingSummary(bookingNumber, checkInArg, checkOutArg, optG
       .find({ suppressAuth: true });
 
     if (existing.items.length > 0) {
-      summary._id = existing.items[0]._id;
-      const existingBookingDate = toDate(existing.items[0].bookingDate);
-      console.log('>>> updateBookingSummary existing bookingDate:', existingBookingDate, 'raw:', existing.items[0].bookingDate);
-      summary.bookingDate = existingBookingDate || todayNoonUtc;
-      console.log('>>> updateBookingSummary final bookingDate (update):', summary.bookingDate);
       const existingAtt = existing.items[0];
-      for (const key of ['firstPaidTouch', 'latestPaidTouch']) {
-        if (!Object.prototype.hasOwnProperty.call(reporting, key) && Object.prototype.hasOwnProperty.call(existingAtt, key)) summary[key] = existingAtt[key];
-      }
-      // BookingSummary uses the CMS field key `packageTitle`.
-      // Preserve it when later summary refreshes do not receive a package title,
-      // and recover any value briefly written to the misspelled packageTitlle key.
-      if (!summary.packageTitle) {
-        summary.packageTitle = existingAtt.packageTitle || existingAtt.packageTitlle || '';
-      }
-      if (!summary.marketSource && existingAtt.marketSource) summary.marketSource = existingAtt.marketSource;
-      if (!summary.gclid && existingAtt.gclid) summary.gclid = existingAtt.gclid;
-      if (!summary.gbraid && existingAtt.gbraid) summary.gbraid = existingAtt.gbraid;
-      if (!summary.wbraid && existingAtt.wbraid) summary.wbraid = existingAtt.wbraid;
-      if (!summary.msclkid && existingAtt.msclkid) summary.msclkid = existingAtt.msclkid;
-      if (existingAtt.googleConversionUploaded) summary.googleConversionUploaded = existingAtt.googleConversionUploaded;
-      if (existingAtt.googleConversionRetracted) summary.googleConversionRetracted = existingAtt.googleConversionRetracted;
-      if (existingAtt.microsoftConversionUploaded) summary.microsoftConversionUploaded = existingAtt.microsoftConversionUploaded;
-      if (existingAtt.microsoftConversionRetracted) summary.microsoftConversionRetracted = existingAtt.microsoftConversionRetracted;
-      console.log('>>> updateBookingSummary UPDATING row', existing.items[0]._id);
-      const saved = await wixData.update(BOOKING_SUMMARIES, summary, { suppressAuth: true });
-      console.log('>>> updateBookingSummary UPDATE complete');
+      // Field-scoped patch (bookingSummaryWriter): never re-writes the row read
+      // above, so flags, cancellation and unlisted fields cannot be reverted or
+      // dropped. Reporting on existing rows only moves toward cleared: explicit
+      // null paid touches clear; identifiers are never (re)written after creation.
+      // BookingSummary uses the CMS field key `packageTitle`; recover a value
+      // briefly written to the misspelled packageTitlle key when none is supplied.
+      const aggregate = {
+        checkIn: summary.checkIn, checkOut: summary.checkOut, roomCount: summary.roomCount,
+        status: summary.status, notes: summary.notes,
+        guestName: summary.guestName, guestEmail: summary.guestEmail, guestPhone: summary.guestPhone,
+        marketSource: summary.marketSource,
+        packageTitle: summary.packageTitle || (!existingAtt.packageTitle && existingAtt.packageTitlle) || undefined,
+        bookingDate: toDate(existingAtt.bookingDate) ? undefined : todayNoonUtc
+      };
+      console.log('>>> updateBookingSummary PATCHING row', existingAtt._id);
+      const saved = await patchSummaryRefresh(existingAtt._id, bookingNumber, aggregate, reporting);
+      console.log('>>> updateBookingSummary PATCH complete');
       return { item: saved, created: false };
     } else {
       console.log('>>> updateBookingSummary INSERTING new row with bookingDate:', summary.bookingDate);
@@ -899,6 +891,12 @@ async function createBookingImpl(booking) {
       const capability = await mintGoogleAdsCapability(inserted, savedSummary.item);
       if (capability) inserted.conversionCapability = capability;
     } catch (_) { /* Booking confirmation is independent of conversion setup. */ }
+    // Same fresh-allocation gate: booking-bound Summary capability for the
+    // capability-gated reporting clear and Microsoft status flag. Never logged.
+    try {
+      const summaryCapability = await mintSummaryCapability(inserted.bookingNumber, savedSummary.item && savedSummary.item._id);
+      if (summaryCapability) inserted.summaryCapability = summaryCapability;
+    } catch (_) { /* Optional; booking confirmation is independent. */ }
   }
   console.log('>>> SERVER createBooking complete. bookingNumber:', inserted.bookingNumber);
   return inserted;
@@ -1075,9 +1073,8 @@ export const issueBookingInvoice = webMethod(
         sItem.checkOut = toDate(checkOutDate);
         sItem.bookingDate = toDate(sItem.bookingDate) || toDate(new Date().toISOString());
         await assertCancellationWriteAllowed(bookingNumber);
-        await items.patch(BOOKING_SUMMARIES, sItem._id)
-          .setField('checkIn',sItem.checkIn).setField('checkOut',sItem.checkOut)
-          .setField('bookingDate',sItem.bookingDate).run();
+        // Elevated field patch of server-derived dates only (bookingSummaryWriter).
+        await mirrorSummaryDates(sItem._id, bookingNumber, sItem.checkIn, sItem.checkOut, sItem.bookingDate);
         console.log('>>> issueBookingInvoice mirrored dates to BookingSummary');
       }
     } catch (e) {

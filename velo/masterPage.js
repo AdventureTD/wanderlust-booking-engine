@@ -6,8 +6,8 @@
 // 'wbeConsentGranted' DOM event that custom-code/google-tag-and-consent.html
 // listens for, upgrading consent from denied → granted (enables remarketing).
 
-import { captureClickIds, initTracking, setSuspendGoogleAds, initClickAttribution, waitForClickAttribution } from 'public/tracking';
-import { getAllSettings } from 'backend/settings';
+import { captureClickIds, initTracking, initClickAttribution, waitForClickAttribution, resolveTrackingFlags } from 'public/tracking';
+import { getPublicTrackingFlags } from 'backend/publicFlags.web';
 import wixWindowFrontend, { consentPolicy } from 'wix-window-frontend';
 
 // Velo's worker sandbox blocks every bridge to the page context (DOM events,
@@ -52,17 +52,14 @@ $w.onReady(function () {
 
 async function initBrowserTracking() {
   try {
-    let settings = {};
-    try { settings = await getAllSettings(); } catch (e) {}
-    const suspend = String(settings.suspendGoogleAds).trim() === '1' || Number(settings.suspendGoogleAds) === 1;
-    if (typeof setSuspendGoogleAds === 'function') {
-      setSuspendGoogleAds(suspend);
-    } else {
-      console.log('[WBE-MASTER] setSuspendGoogleAds import not ready, suspend defaults to false');
-    }
-
+    // Bind listeners before any await: a withdrawal on a bound channel still
+    // revokes while flags are held. Tracking starts in a non-destructive hold.
     initTracking($w);
     initClickAttribution($w);
+    initConsentBridge();
+    const flags = await resolveTrackingFlags(getPublicTrackingFlags);
+    console.log('[WBE-MASTER] tracking flags:', flags);
+    if (flags !== 'enabled') return; // Held or suspended: no readiness or capture.
     // Do not hold onReady (or the consent observer) for the iframe handshake.
     // Capture still follows settlement; contain both wait and capture failures.
     Promise.resolve().then(() => waitForClickAttribution()).then(() => {
@@ -71,8 +68,6 @@ async function initBrowserTracking() {
     }).catch(err => {
       console.error('[WBE-MASTER] error:', err && err.message || err);
     });
-
-    initConsentBridge();
   } catch (err) {
     console.error('[WBE-MASTER] error:', err && err.message || err);
   }

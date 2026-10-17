@@ -4,6 +4,8 @@ import { fetch } from 'wix-fetch';
 import wixData from 'wix-data';
 import { getAllSettings } from 'backend/settings.web';
 import { buildUserIdentifiers } from 'backend/hashUtils.web';
+import { markMicrosoftConversionUploaded } from 'backend/bookingSummaryCapability';
+import { setSummaryFlag } from 'backend/bookingSummaryWriter';
 
 const MICROSOFT_AUTH_URL = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
 let cachedToken = null;
@@ -42,8 +44,10 @@ function toMicrosoftTimestamp(iso) {
 
 export const recordMicrosoftBookingConversion = webMethod(
   Permissions.Anyone,
-  async (booking) => {
+  async (input) => {
     try {
+      // Detach the booking-bound capability: it is never uploaded, logged or returned.
+      const { summaryCapability, ...booking } = input && typeof input === 'object' ? input : {};
       if (await isMicrosoftAdsSuspended()) {
         console.log('[WBE-MICROSOFT] recordMicrosoftBookingConversion skipped — suspendMicrosoftAds is enabled');
         return { ok: false, suspended: true };
@@ -53,6 +57,12 @@ export const recordMicrosoftBookingConversion = webMethod(
       console.log('[WBE-MICROSOFT] built payload for transaction:', booking.transactionId);
       const response = await callMicrosoftOfflineConversions(payload);
       console.log('[WBE-MICROSOFT] Microsoft offline conversions raw response:', JSON.stringify(response));
+      // Status flag only after a server-observed HTTP success without partial
+      // errors, and only for the Summary row bound to the presented capability.
+      if (typeof summaryCapability === 'string' && summaryCapability && microsoftAccepted(response)) {
+        try { await markMicrosoftConversionUploaded(booking.transactionId, summaryCapability); }
+        catch (_) { console.error('MS_CONVERSION_MARK_FAILED'); }
+      }
       return { ok: true, transactionId: booking.transactionId, response };
     } catch (err) {
       console.error('[WBE-MICROSOFT] recordMicrosoftBookingConversion error:', err);
@@ -90,8 +100,8 @@ export const retryMicrosoftBookingConversion = webMethod(
       const payload = await buildIngestPayload(booking);
       console.log('[WBE-MICROSOFT] retry payload for', bookingNumber, JSON.stringify(payload));
       const response = await callMicrosoftOfflineConversions(payload);
-      summary.microsoftConversionUploaded = true;
-      await wixData.update('BookingSummary', summary);
+      // Admin path: field-scoped patch with the admin caller's own permissions.
+      await setSummaryFlag(summary._id, bookingNumber, 'microsoftConversionUploaded', { elevated: false });
       return { ok: true, transactionId: bookingNumber, response };
     } catch (err) {
       console.error('[WBE-MICROSOFT] retryMicrosoftBookingConversion error:', err);
@@ -236,6 +246,13 @@ async function getMicrosoftAccessToken() {
 
   console.log('[WBE-MICROSOFT] access token refreshed, expires in', json.expires_in || 3600, 'seconds');
   return cachedToken.token;
+}
+
+function microsoftAccepted(response) {
+  if (!response || typeof response !== 'object' || Array.isArray(response)) return false;
+  if (Object.prototype.hasOwnProperty.call(response, 'raw')) return false; // Non-JSON body is not confirmation.
+  const errors = response.PartialErrors;
+  return errors === undefined || errors === null || (Array.isArray(errors) && errors.length === 0);
 }
 
 function validateBooking(b) {

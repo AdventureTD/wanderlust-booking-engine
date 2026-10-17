@@ -1,4 +1,5 @@
 import wixData from 'wix-data';
+import { setSummaryCancellation } from 'backend/bookingSummaryWriter';
 
 const OPS = 'BookingCancellationOperations';
 const READ = { suppressAuth: true, consistentRead: true };
@@ -75,8 +76,8 @@ export async function cancelReservation(bookingNumber, reason) {
     if (!isCancelled(row.status)) await wixData.update('Bookings', { ...row, status: 'Cancelled' }, WRITE);
   }
   if (!isCancelled(summary.status) || summary.cancellationSettlement !== operation.settlement) {
-    await wixData.update('BookingSummary', { ...summary, status: 'Cancelled', cancellationSettlement: operation.settlement,
-      cancellationReason: operation.reason }, WRITE);
+    // Field-scoped patch of cancellation-owned fields only (never a stale full row).
+    await setSummaryCancellation(summary._id, bookingNumber, operation.settlement, operation.reason);
   }
   const after = await cancellationRows('Bookings', bookingNumber);
   const parent = await wixData.get('BookingSummary', summary._id, READ);

@@ -145,7 +145,7 @@ function Y(f) {
   } catch (_) { return null; }
 }
 function o(f) { return Date.parse(f.capturedAt); }
-function C(f, g, allowExpired = false) {
+function C(f, g, allowExpired = !1) {
   f = Y(f);
   if (!f ||
       Object.keys(f).some(k => !['capturedAt', ...J].includes(k)) ||
@@ -154,7 +154,7 @@ function C(f, g, allowExpired = false) {
   if (!Number.isFinite(at) || at > g || (!allowExpired && g - at > aR)) return null;
   const B = { capturedAt: f.capturedAt };
   for (const m of J) {
-    const id = f[m] === undefined ? '' : f[m];
+    const id = f[m] === void 0 ? '' : f[m];
     if (typeof id !== 'string' || id.length > 512 || (id !== '' && !/^[\x21-\x7e]+$/.test(id))) return null;
     B[m] = id;
   }
@@ -165,8 +165,8 @@ function K(f, g) {
   f = Y(f);
   if (f && f.v === 1) {
     if (Object.keys(f).sort().join(',') !== 'first,latest,v') return null;
-    const R = f.first === null ? null : C(f.first, g, true);
-    const aa = C(f.latest, g, true);
+    const R = f.first === null ? null : C(f.first, g, !0);
+    const aa = C(f.latest, g, !0);
     if ((f.first !== null && !R) || !aa ||
         (R && o(R) > o(aa))) return null;
     const u = C(R, g), am = C(aa, g);
@@ -180,7 +180,8 @@ function aS(f, aT, g) {
   const c = K(f, g), r = C(aT, g);
   if (!r || (c && (ab(c.first, r) || ab(c.latest, r) ||
       o(r) < o(c.latest)))) return c;
-  return { v: 1, first: c ? c.first : { ...r }, latest: r };
+  // Live first preserved; a distinct newer paid landing after expiry starts a new lifetime.
+  return { v: 1, first: c && c.first ? c.first : { ...r }, latest: r };
 }
 // Call only after permission has authorized both partitions in the same epoch.
 // This pure merge is data handling, never proof that a copy may be restored.
@@ -208,14 +209,14 @@ function aU(aV, aW, g) {
     function L() {
       try {
         var br = localStorage.getItem(m);
-        if (bq !== undefined && br !== bq) return null;
+        if (bq !== void 0 && br !== bq) return null;
         var M = K(JSON.parse(br), Date.now());
         if (!M && br) l();
         return M;
       } catch (_) { l(); return null; }
     }
     function ao(M) {
-      if (M) try { var br = JSON.stringify(M); localStorage.setItem(m, br); if (bq !== undefined) bq = br; } catch (_) {}
+      if (M) try { var br = JSON.stringify(M); localStorage.setItem(m, br); if (bq !== void 0) bq = br; } catch (_) {}
       else l();
     }
     function aX() {
@@ -260,19 +261,19 @@ function aU(aV, aW, g) {
   // map to their matching Google Consent Mode signals. A blanket grant would
   // unlock ad cookies for analytics-only visitors — this keeps it precise.
   // grantConsent() with no args = full grant (legacy callers).
-  var _granted = { analytics: false, advertising: false };
+  var _granted = { analytics: !1, advertising: !1 };
   function grantConsent(O, T) {
-    if (O === undefined) { O = true; T = true; }
+    if (O === void 0) { O = !0; T = !0; }
     var z = {};
     if (O && !_granted.analytics) {
       z.analytics_storage = 'granted';
-      _granted.analytics = true;
+      _granted.analytics = !0;
     }
     if (T && !_granted.advertising) {
       z.ad_storage = 'granted';
       z.ad_user_data = 'granted';
       z.ad_personalization = 'granted';
-      _granted.advertising = true;
+      _granted.advertising = !0;
     }
     if (Object.keys(z).length > 0) {
       gtag('consent', 'update', z);
@@ -286,51 +287,55 @@ function aU(aV, aW, g) {
   // Private policy/choice consumer; the global is an install sentinel, not a setter.
   (function () {
   if (window.__wbeAdsFormGate) return;
-  window.__wbeAdsFormGate = true;
+  window.__wbeAdsFormGate = !0;
   // Shared storage names are literals, not new public or wire contracts.
-  var ck = 'wbe_consent_choice_v2', lk = 'wbe_consent_choice';
+  var ck = 'wbe_consent_choice_v2', lk = 'wbe_consent_choice', az = 'https://www.wanderlustcaribbean.com';
   var fg = (function () {
+      // Call-time wrappers (size only): resolve the global on every call, exactly as before.
+      function bsi(n) { return Number.isSafeInteger(n); }
+      function bwl(t, f) { window.addEventListener(t, f); }
+      function bqs(q) { return document.querySelectorAll(q); }
       var a = clickAttribution;
-      var A = false, t = 0, K = 0, E = false, L;
-      var l = false, B = false, C, U = true;
+      var A = !1, t = 0, K = 0, E = !1, L;
+      var l = !1, B = !1, C, U = !0, bw = {}; // bw: privacy-only bindings by copy id (declared before any init-time P())
       // Diagnostic v1 stays in this Head realm; no new wire fields or authority.
       var M = [];
       function D(n) {
         if (M[n]) return;
         M[n] = 1;
-        try { console.log('ATTR_DIAG ' + JSON.stringify({ event: 'ATTR_DIAG', v: 1, stage: 'head', reason: ['FRAME_BINDING', 'CONSENT_DENIED', 'WITHDRAWAL'][n] })); } catch (_) { /* Diagnostics cannot affect consent. */ }
+        try { console.log('ATTR_DIAG ' + JSON.stringify({ event: 'ATTR_DIAG', v: 1, stage: 'head', reason: ['FRAME_BINDING', 'CONSENT_DENIED', 'WITHDRAWAL', 'BINDING_LIMIT'][n] })); } catch (_) { /* Diagnostics cannot affect consent. */ }
       }
       var N = new WeakMap();
       var O = '#comp-mqo6cvon input[type="email"][name="email"]';
       function ah(j) {
-        E = j !== true;
+        E = j !== !0;
         if (E) { D(2); a.clear(); P(); }
         t++;
-        L = undefined;
+        L = void 0;
       }
       function F() {
         var g = Date.now();
-        A = false; l = false;
-        if (!Number.isSafeInteger(g) || g < K) { E = true; t++; }
+        A = !1; l = !1;
+        if (!bsi(g) || g < K) { E = !0; t++; }
         K = g;
         try {
           var V = localStorage.getItem(ck);
           var bc = localStorage.getItem(lk);
-          if (L !== undefined && V !== L) { t++; P(); }
+          if (L !== void 0 && V !== L) { t++; P(); }
           L = V;
-          if (bc === 'denied') { D(1); return false; }
-          if (V === null) { l = !E; return false; }
+          if (bc === 'denied') { D(1); return !1; }
+          if (V === null) { l = !E; return !1; }
           var v = JSON.parse(V);
           if (!v || Object.keys(v).sort().join(',') !== 'at,choice,source' ||
-              ['banner-click-v2', 'google-denial-v1'].indexOf(v.source) === -1 ||
-              !Number.isSafeInteger(v.at) || v.at < 0) return false;
+              ['banner-click-v2', 'google-denial-v1'].indexOf(v.source) < 0 ||
+              !bsi(v.at) || v.at < 0) return !1;
           // Denials have no TTL. Invalid/expired grants never revive participation.
-          if (v.choice === 'denied') { D(1); E = true; return false; }
+          if (v.choice === 'denied') { D(1); E = !0; return !1; }
           if (E || v.source !== 'banner-click-v2' || v.choice !== 'granted' ||
-              g < v.at || g - v.at >= 15552000000) return false;
-          l = true; A = true;
-          return true;
-        } catch (_) { return false; }
+              g < v.at || g - v.at >= 15552000000) return !1;
+          l = !0; A = !0;
+          return !0;
+        } catch (_) { return !1; }
       }
       function au(p) {
         F();
@@ -343,15 +348,15 @@ function aU(aV, aW, g) {
           var G = aw[i];
           if (G && G[0] === 'consent' && G[1] === 'update' &&
               G[2] && G[2].ad_user_data === 'denied') {
-            ah(false);
-            _granted.advertising = false;
-            if (G[2].analytics_storage === 'denied') _granted.analytics = false;
+            ah(!1);
+            _granted.advertising = !1;
+            if (G[2].analytics_storage === 'denied') _granted.analytics = !1;
             // No gtag call here: avoid recursive observation. Initial defaults are not choices.
             // Stable denial tombstone avoids cross-tab write ping-pong. Legacy
             // negative key is a second small fallback, never affirmative provenance.
             if (!B) {
               try { localStorage.setItem(lk, 'denied'); } catch (_) {}
-              var ax = false;
+              var ax = !1;
               try {
                 var ay = JSON.parse(localStorage.getItem(ck));
                 ax = ay && ay.choice === 'denied';
@@ -371,21 +376,21 @@ function aU(aV, aW, g) {
         return bd.apply(this, arguments);
       };
       av(window.dataLayer); // Prior explicit updates count; defaults do not.
-      window.addEventListener('storage', function (e) {
+      bwl('storage', function (e) {
         if (!e.key || e.key === ck || e.key === lk) {
-          ah(false);
-          B = true;
+          ah(!1);
+          B = !0;
           try { gtag('consent', 'update', { ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' }); }
-          finally { B = false; }
+          finally { B = !1; }
         }
       });
       // V2 retains the trusted worker boundary: challenge echoes are not signatures.
       // Every lease starts here BEFORE the worker's fresh backend read.
-      var az = 'https://www.wanderlustcaribbean.com', I = -1;
+      var I = -1;
       function aA(j, w) { return j && Object.keys(j).sort().join(',') === w; }
       function aB(d, w, be) {
         return aA(d, w) && d.source === be && d.v === 2 &&
-          aC(d.nonce, 32) && Number.isSafeInteger(d.sequence) && !(d.sequence < 1);
+          aC(d.nonce, 32) && bsi(d.sequence) && !(d.sequence < 1);
       }
       function aC(j, bf) { return typeof j === 'string' && j.length === bf && /^[a-f0-9]+$/.test(j); }
       function H() {
@@ -404,33 +409,33 @@ function aU(aV, aW, g) {
       function aE() {
         var at = H();
         if (!Number.isFinite(at)) return null;
-        var j = { at: at, dead: false };
-        setTimeout(function () { j.dead = true; }, 1500);
+        var j = { at: at, dead: !1 };
+        setTimeout(function () { j.dead = !0; }, 1500);
         return j;
       }
       function aF(j) {
         var g = H();
-        if (!j || j.dead || !Number.isFinite(g) || g - j.at >= 1500) return false;
-        return true;
+        if (!j || j.dead || !Number.isFinite(g) || g - j.at >= 1500) return !1;
+        return !0;
       }
       function aG(p, bg, bh, bi, bj) {
         return aA(p, 'audience,challenge,nonce,observedAt,phase,policyKey,purpose,requirement,v') &&
           p.v === 2 && p.audience === az && p.purpose === bg && p.phase === bh &&
           p.nonce === bi && p.challenge === bj &&
-          ['REQUIRED', 'NOT_REQUIRED'].indexOf(p.requirement) !== -1 && aC(p.policyKey, 64) &&
-          Number.isSafeInteger(p.observedAt) && p.observedAt >= 0;
+          ['REQUIRED', 'NOT_REQUIRED'].indexOf(p.requirement) >= 0 && aC(p.policyKey, 64) &&
+          bsi(p.observedAt) && p.observedAt >= 0;
       }
       function aH(h) {
-        var W = document.querySelectorAll('iframe[title="WBE event bridge"]');
+        var W = bqs('iframe[title="WBE event bridge"]');
         return new URL(window.location.href).origin === az && W.length === 1 &&
-          W[0].isConnected !== false && W[0].contentWindow === h.source &&
+          W[0].isConnected !== !1 && W[0].contentWindow === h.source &&
           new URL(W[0].src).origin === h.origin && h.origin !== 'null';
       }
-      window.addEventListener('message', function (h) {
+      bwl('message', function (h) {
         try {
           var d = h.data;
           if (!aB(d, 'nonce,op,phase,policy,sequence,source,v', 'wbe-ads-form') ||
-              ['prepare', 'complete'].indexOf(d.phase) === -1 || !aH(h)) return;
+              ['prepare', 'complete'].indexOf(d.phase) < 0 || !aH(h)) return;
           F();
           var c = N.get(h.source);
           if (d.op === 'start' && d.policy === null) {
@@ -456,7 +461,7 @@ function aU(aV, aW, g) {
               d.nonce !== c.nonce || c.revision !== t || !c.clear) return;
           var o = au(d.policy);
           if (d.phase === 'prepare') {
-            var aI = o ? document.querySelectorAll(O) : [];
+            var aI = o ? bqs(O) : [];
             c.email = aI.length === 1 ? aI[0].value.trim() : '';
             c.eligible = o && c.email.indexOf('@') > 0;
             c.at = H();
@@ -468,38 +473,58 @@ function aU(aV, aW, g) {
           if (!o || !c.eligible || t !== c.revision ||
               c.policyKey !== d.policy.policyKey || c.requirement !== d.policy.requirement ||
               !Number.isFinite(H()) || H() - c.at >= 600000) return;
-          var aJ = document.querySelectorAll(O);
+          var aJ = bqs(O);
           if (aJ.length !== 1 || aJ[0].value.trim() !== c.email) return;
           gtag('event', 'form_submit', { send_to: 'AW-788746633' });
         } catch (_) { /* Optional, fail closed, no contact/error logging. */ }
       });
+      // Privacy-only bindings: every bound worker copy hears a revoke, even unbound/held ones.
+      function bx(c) { try { c.frame.postMessage({ type: 'wbe-click-revoke', v: 2, schema: 1, nonce: c.nonce, channel: c.channel }, c.origin); } catch (_) {} }
       function P() {
-        U = false;
+        U = !1;
         var c = C; C = null;
-        if (c) try { c.frame.postMessage({ type: 'wbe-click-revoke', v: 2, schema: 1, nonce: c.nonce, channel: c.channel }, c.origin); } catch (_) {}
+        if (c) bx(c);
+        for (var k in bw) bx(bw[k]);
       }
-      window.addEventListener('message', function (h) {
+      bwl('message', function (h) {
         try {
           var d = h.data;
-          if (!aB(d, 'channel,nonce,op,policy,record,schema,sequence,source,v', 'wbe-click-attribution') || d.schema !== 1 || ['open', 'read', 'confirm', 'clear'].indexOf(d.op) === -1) return;
+          if (!aB(d, 'channel,nonce,op,policy,record,schema,sequence,source,v', 'wbe-click-attribution') || d.schema !== 1 || ['open', 'read', 'confirm', 'clear', 'bind'].indexOf(d.op) < 0) return;
           if (!aH(h)) { D(0); return; }
+          // bind: exact fields re-validated here (not relay-only); channel = stable copy id.
+          if (d.op === 'bind') {
+            if (d.policy !== null || d.record !== null || !aC(d.channel, 32)) return; // nonce: aB already requires aC(d.nonce, 32)
+            for (var k in bw) if (bw[k].frame !== h.source) delete bw[k]; // lifecycle: drop bindings of replaced relay frames
+            var y = bw[d.channel];
+            if (y && d.sequence <= y.sequence) return; // monotonic per copy: a delayed older bind never replaces a newer one
+            if (!y && Object.keys(bw).length >= 16) { D(3); return; } // hard cap, no eviction of live recipients
+            bw[d.channel] = { frame: h.source, origin: h.origin, nonce: d.nonce, channel: d.channel, sequence: d.sequence };
+            if (!F() && !l) bx(bw[d.channel]); // Denied now: same rule as the Head's own copy clear.
+            return;
+          }
           F();
           var s = C;
           if (d.op === 'open') {
-            if (d.channel !== '' || d.sequence !== 1 || d.policy !== null || d.record !== null) return;
-            s = C = { nonce: d.nonce, channel: aD(), lease: aE(),
-              frame: h.source, origin: h.origin, sequence: 0, revision: t, stage: 'open' };
-            if (!s.channel || !s.lease) { C = null; return; }
+            if (!aC(d.channel, 32) || d.sequence !== 1 || d.policy !== null || d.record !== null) return;
+            var y = bw[d.channel];
+            // O3: open must prove this copy's CURRENT authenticated privacy binding (copy id + rotated nonce, same frame).
+            // Otherwise: non-destructive refusal (allowed:false), no channel slot, no clear, no consent change.
+            if (!y || y.nonce !== d.nonce || y.frame !== h.source) s = { nonce: d.nonce, channel: d.channel, x: 1 };
+            else {
+              s = C = { nonce: d.nonce, channel: aD(), lease: aE(),
+                frame: h.source, origin: h.origin, sequence: 0, revision: t, stage: 'open' };
+              if (!s.channel || !s.lease) { C = null; return; }
+            }
           } else if (!s || s.frame !== h.source || s.origin !== h.origin || s.nonce !== d.nonce ||
               s.channel !== d.channel || s.revision !== t || d.sequence <= s.sequence) return;
           s.sequence = d.sequence;
-          var p = d.policy, o = false, bk = s.read;
+          var p = d.policy, o = !1, bk = s.read;
           if (d.op === 'confirm') { s.read = null; s.stage = 'consumed'; }
-          if (['open', 'clear'].indexOf(d.op) !== -1 && p !== null) return;
-          if (['read', 'confirm'].indexOf(d.op) !== -1 &&
+          if (d.op === 'clear' && p !== null) return; // open: policy null already enforced above
+          if (['read', 'confirm'].indexOf(d.op) >= 0 &&
               (!aF(s.lease) || !aG(p, 'attribution', 'read', s.nonce, s.channel))) return;
           if (d.record !== null && !a.clean(d.record)) return;
-          o = d.op === 'open' || d.op === 'clear' || au(p);
+          o = d.op === 'open' ? !s.x : d.op === 'clear' || au(p);
           if (d.op === 'read') {
             o = o && s.stage === 'open';
             s.stage = 'read';
@@ -510,7 +535,7 @@ function aU(aV, aW, g) {
             if (o && U) a.reconcile(s.record);
             s.record = null;
           }
-          if (!o) { a.clear(); U = false; }
+          if (!o && !s.x) { a.clear(); U = !1; }
           else if (d.op === 'clear') a.clearSnapshot(d.record);
           h.source.postMessage({ type: 'wbe-click-attribution-result', v: 2, schema: 1, op: d.op, nonce: s.nonce, channel: s.channel,
             sequence: d.sequence, allowed: !!o, record: d.op === 'confirm' && o ? a.read() : null }, h.origin);
@@ -519,7 +544,7 @@ function aU(aV, aW, g) {
       // Repeated Wix entry execution reuses this private consent fence.
       var bl = a.capture;
       a.capture = function () {
-        if (!F() && !l) { a.clear(); U = false; }
+        if (!F() && !l) { a.clear(); U = !1; }
         else bl();
       };
       return { choice: ah, current: F, clear: function () { F(); return l; } };
@@ -536,35 +561,38 @@ function aU(aV, aW, g) {
     // These legacy Google-mode flags do not supply affirmative provenance.
     var BANNER_ENABLED = false;
     var GRANT_ALL_WITHOUT_BANNER = true;
-    var bn = 'https://www.wanderlustcaribbean.com/policies';
+    var bn = az + '/policies';
+    // Call-time wrappers (size only): resolve document.* on every call, exactly as before.
+    function bce(n) { return document.createElement(n); }
+    function bgi(i) { return document.getElementById(i); }
 
     // Load negative state even with the banner OFF. No automatic prompt.
     fg.current();
     if (!BANNER_ENABLED && GRANT_ALL_WITHOUT_BANNER && fg.clear()) grantConsent();
 
     function aL(v, at) {
-      try { localStorage.setItem(ck, JSON.stringify({ source: 'banner-click-v2', choice: v, at: at === undefined ? Date.now() : at })); } catch (e) {}
+      try { localStorage.setItem(ck, JSON.stringify({ source: 'banner-click-v2', choice: v, at: at === void 0 ? Date.now() : at })); } catch (e) {}
     }
 
     function aM() {
-      var el = document.getElementById('wbe-consent-banner');
+      var el = bgi('wbe-consent-banner');
       if (el && el.parentNode) { el.parentNode.removeChild(el); }
     }
 
     function bo(h) {
-      if (!h || h.isTrusted !== true) return;
+      if (!h || h.isTrusted !== !0) return;
       var at = Date.now();
       try { localStorage.removeItem(lk); } catch (_) { return; }
       aL('granted', at);
-      fg.choice(true, at);
+      fg.choice(!0, at);
       grantConsent();
       aM();
       console.log('[WBE-CONSENT] visitor accepted all');
     }
 
     function bp() {
-      fg.choice(false);
-      _granted = { analytics: false, advertising: false };
+      fg.choice(!1);
+      _granted = { analytics: !1, advertising: !1 };
       gtag('consent', 'update', { analytics_storage: 'denied', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' });
       aL('denied');
       aM();
@@ -572,31 +600,30 @@ function aU(aV, aW, g) {
     }
 
     function aN() {
-      if (document.getElementById('wbe-consent-banner')) { return; }
-      var A = document.createElement('div');
+      if (bgi('wbe-consent-banner')) { return; }
+      var A = bce('div');
       A.id = 'wbe-consent-banner';
       A.setAttribute('role', 'dialog');
       A.setAttribute('aria-label', 'Cookie consent');
       A.style.cssText =
-        'position:fixed;left:0;right:0;bottom:0;z-index:2147483000;' +
-        'background:#12312a;color:#f3ede0;font-family:inherit;font-size:14px;' +
-        'padding:14px 18px;display:flex;flex-wrap:wrap;align-items:center;' +
-        'gap:12px;box-shadow:0 -2px 12px rgba(0,0,0,.35);';
+        'position:fixed;left:0;right:0;bottom:0;z-index:2147483000;\
+background:#12312a;color:#f3ede0;font-family:inherit;font-size:14px;\
+padding:14px 18px;display:flex;flex-wrap:wrap;align-items:center;\
+gap:12px;box-shadow:0 -2px 12px rgba(0,0,0,.35);';
 
-      var ak = document.createElement('div');
+      var ak = bce('div');
       ak.style.cssText = 'flex:1 1 320px;min-width:260px;line-height:1.45;';
       ak.innerHTML =
-        'We use cookies to improve your experience and to show you relevant ' +
-        'ads about Wanderlust Caribbean. Accept All also allows use of your booking email ' +
-        'to measure advertising through Google. ' +
-        '<a href="' + bn + '" style="color:#d9b95c;text-decoration:underline;">Privacy Policy</a>';
+        'We use cookies to improve your experience and to show you relevant \
+ads about Wanderlust Caribbean. Accept All also allows use of your booking email \
+to measure advertising through Google. <a href="' + bn + '" style="color:#d9b95c;text-decoration:underline;">Privacy Policy</a>';
       A.appendChild(ak);
 
-      var X = document.createElement('div');
+      var X = bce('div');
       X.style.cssText = 'display:flex;gap:10px;flex:0 0 auto;';
 
       var aO = 'padding:9px 18px;cursor:pointer;border-radius:4px;font-size:14px;';
-      var P = document.createElement('button');
+      var P = bce('button');
       P.type = 'button';
       P.textContent = 'Deny';
       P.style.cssText = aO +
@@ -604,7 +631,7 @@ function aU(aV, aW, g) {
       P.addEventListener('click', bp);
       X.appendChild(P);
 
-      var Q = document.createElement('button');
+      var Q = bce('button');
       Q.type = 'button';
       Q.textContent = 'Accept All';
       Q.style.cssText = aO +
@@ -623,8 +650,8 @@ function aU(aV, aW, g) {
       var aQ = fg.current();
       if (aQ) grantConsent(); // Preserve the original receipt timestamp.
       if (!BANNER_ENABLED) return;
-      if (!document.getElementById('wbe-consent-settings')) {
-        var I = document.createElement('button');
+      if (!bgi('wbe-consent-settings')) {
+        var I = bce('button');
         I.id = 'wbe-consent-settings';
         I.type = 'button';
         I.textContent = 'Cookie settings';
@@ -654,7 +681,7 @@ function aU(aV, aW, g) {
   // real gtag('event', ...) calls so GA4 actually receives the hits.
   // One consumer per parent-page realm, even if Wix executes this entry again.
   if (!window.__wbeGoogleEventListenerInstalled) {
-  window.__wbeGoogleEventListenerInstalled = true;
+  window.__wbeGoogleEventListenerInstalled = !0;
   window.addEventListener('message', function (h) {
     var d = h && h.data;
     if (d && d.source === 'wbe-event-bridge' && d.payload) {
@@ -672,7 +699,3 @@ function aU(aV, aW, g) {
   });
   }
 </script>
-
-<!-- Microsoft UET is intentionally installed as a separate Wix Custom Code
-     entry using custom-code/microsoft-uet-and-events.html. Keeping one UET
-     owner avoids duplicate tags and ensures it runs on every funnel page. -->

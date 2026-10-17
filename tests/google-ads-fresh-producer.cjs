@@ -3,7 +3,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto');
 const root=path.resolve(__dirname,'../velo');
 async function producer(){
- const rows=new Map(),trace=[],wires=[];let id=0,entropy=0,bookingSequence=0;
+ const rows=new Map(),trace=[],wires=[],patchHooks={};let id=0,entropy=0,bookingSequence=0;
  const key=(c,id)=>c+':'+id,copy=structuredClone;
  const cols=new Set(['Packages','SeasonalRates','Rooms','Bookings','BookingSummary','BookingInvoices','GoogleAdsAttemptJournal']);
  const sdk={
@@ -21,19 +21,21 @@ async function producer(){
  const settings={googleAdsPrivateJournalEnabled:'1',suspendGoogleAds:'0'};
  const external={
   'crypto':{default:{...crypto,randomBytes:n=>Buffer.alloc(n,++entropy),createSign:()=>({update(){return this;},sign:()=>Buffer.from('INERT_SIGNATURE')})}},
-  '@wix/data':{items:{patch:deny}}, // Imported legacy cancellation surface; forbidden in these fresh-booking cases.
+  // Documented direct-form field patch fake (algorithm only; not runtime elevation proof).
+  ...require('./summary-patch-fake.cjs').makeDataItemsFake(require('./summary-patch-fake.cjs').mapStore(rows),{beforePatch:async(x)=>{assert.ok(['BookingSummary'].includes(x.collection));trace.push(['patch',x.collection]);if(patchHooks.before)await patchHooks.before(x);}}).externals,
   'wix-data':{default:sdk},'wix-web-module':{Permissions:{Anyone:0,Admin:1},webMethod:(_,fn)=>fn},
   'backend/settings.web':{getAllSettings:async()=>({...settings}),incrementSetting:async name=>{assert.equal(name,'bookingNumber');return ++bookingSequence===1?'INERT_FRESH':'INERT_FRESH_'+bookingSequence;}},
   'libphonenumber-js/max':{parsePhoneNumberFromString:(s,o)=>require('libphonenumber-js/max').parsePhoneNumberFromString(s,JSON.parse(JSON.stringify(o)))},
   'wix-secrets-backend':{getSecret:async name=>{const secrets={WBE_PRICING_QUOTE_SECRET:'INERT_PRICING_SECRET_NOT_LIVE_0123456789',GOOGLE_ADS_CUSTOMER_ID:'1234567890',GOOGLE_ADS_CONVERSION_ACTION_ID:'123456',GOOGLE_SA_CLIENT_EMAIL:'offline@example.invalid',GOOGLE_SA_PRIVATE_KEY:'INERT_NOT_A_KEY'};assert.ok(name in secrets,name);return secrets[name];}},
   'wix-fetch':{fetch:async(url,options)=>{trace.push(['fetch',url]);if(url==='https://oauth2.googleapis.com/token')return {ok:true,json:async()=>({access_token:'INERT_NOT_A_TOKEN',expires_in:3600})};assert.equal(url,'https://datamanager.googleapis.com/v1/events:ingest');assert.equal(options.method,'post');wires.push(JSON.parse(options.body));return {ok:true,status:200,text:async()=>JSON.stringify({requestId:'inert-fresh-receipt'}),json:async()=>({requestId:'inert-fresh-receipt'})};}}
  };
- const allowed=new Set(['backend/bookingCancellation','backend/availability.web','backend/googleAdsConversions.web','backend/googleAdsAttemptJournal','backend/dataManagerClient.web','backend/googleAdsHttpDiagnostics','backend/hashUtils.web','backend/rateResolver','backend/pricingQuote','public/phoneNormalization']);
+ const allowed=new Set(['backend/bookingCancellation','backend/availability.web','backend/googleAdsConversions.web','backend/googleAdsAttemptJournal','backend/dataManagerClient.web','backend/googleAdsHttpDiagnostics','backend/hashUtils.web','backend/rateResolver','backend/pricingQuote','public/phoneNormalization','backend/bookingSummaryCapability','backend/bookingSummaryReporting.web','backend/bookingSummaryWriter']);
  const cache=new Map();function make(s){if(cache.has(s))return cache.get(s);let m;if(external[s]){const e=external[s];m=new vm.SyntheticModule(Object.keys(e),function(){for(const k of Object.keys(e))this.setExport(k,e[k]);},{context,identifier:s});}else{assert.ok(allowed.has(s),'unadmitted '+s);m=new vm.SourceTextModule(fs.readFileSync(path.join(root,s+'.js'),'utf8'),{context,identifier:s});}cache.set(s,m);return m;}
  const availability=make('backend/availability.web');await availability.link(make);await availability.evaluate();
  const quote=await cache.get('backend/pricingQuote').namespace.createLockedPricingQuote('INERT_PACKAGE','2027-01-01','2027-01-02');
  assert.equal([...rows].filter(([k])=>!k.startsWith('Packages:')).length,0,'quote cannot seed authority');
- return {rows,trace,wires,sdk,quote,availability:availability.namespace,sender:cache.get('backend/googleAdsConversions.web').namespace,cache};
+ const reporting=make('backend/bookingSummaryReporting.web');await reporting.link(make);await reporting.evaluate();
+ return {rows,trace,wires,sdk,quote,availability:availability.namespace,sender:cache.get('backend/googleAdsConversions.web').namespace,reporting:reporting.namespace,cache,patchHooks};
 }
 function support(file,boundary,name){const text=fs.readFileSync(path.join(__dirname,file),'utf8');const pos=text.indexOf(boundary);assert.ok(pos>0);const box={require,__dirname,console,structuredClone,Buffer,URL,URLSearchParams,Date,setTimeout,clearTimeout};vm.runInNewContext(text.slice(0,pos)+'\nthis.factory='+name+';',box);return box.factory;}
 for(const phone of [{label:'valid NANP',raw:'2025550100',dial:'1'},{label:'unrecognized optional marketing phone',raw:'7700900123',dial:'44'}])
@@ -64,7 +66,7 @@ test('fresh actual allocation to Summary journal wire: '+phone.label,{timeout:50
 });
 
 // Actual consumer lifecycle, actual fresh producer AUTH; no seeded admission.
-for (const schedule of ['first','additional','final','after-final-await','query','reaccept','same-record-reaccept','clear','clear-reaccept','contact-only','contact-denial','contact-reaccept','capture-throw','wait-reject','microsoft-denial'])
+for (const schedule of ['first','additional','final','after-final-await','summary-clear','reaccept','same-record-reaccept','clear','clear-reaccept','contact-only','contact-denial','contact-reaccept','capture-throw','wait-reject','microsoft-denial'])
 test('fresh Summary consumption fence: '+schedule,{timeout:8000},async()=>{
  const f=await producer();
  const bridge=await support('click-attribution-corrections.cjs',"test('partitioned",'fixture')({query:schedule.startsWith('contact')?'':'gclid=INERT_OLD&msclkid=INERT_MS',banner:schedule.includes('reaccept'),hold:d=>schedule==='after-final-await'&&d.type==='wbe-click-revoke'});
@@ -96,13 +98,15 @@ test('fresh Summary consumption fence: '+schedule,{timeout:8000},async()=>{
  const page=await support('attribution-hotfix.cjs','function bookingBackend','page')({setup:"_summaryRooms=[1,2,3].map(()=>({roomCode:'adventure_suite',qty:1,numGuests:2}));_selectedPackageId='INERT_PACKAGE';_pricingQuoteToken="+JSON.stringify(f.quote.token)+';',book:async p=>{
   const r=await f.availability.createBooking(p);count++;
   const at=schedule==='additional'?2:schedule==='final'?3:1;
-  if(!['contact-only','query','capture-throw','wait-reject','after-final-await'].includes(schedule)&&count===at)await change();
+  if(!['contact-only','capture-throw','wait-reject','after-final-await'].includes(schedule)&&count===at)await change();
   return r;
  }});
  page.c.waitForClickAttribution=async()=>{if(schedule==='wait-reject')throw Error('INERT_READINESS');};
  page.c.getStoredClickIds=schedule==='capture-throw'?()=>{throw Error('INERT_CAPTURE');}:bridge.api.getStoredClickIds;
  page.c.clearClickIds=bridge.api.clearClickIds;
- page.c.wixData={...f.sdk,query(c){const q=f.sdk.query(c);const find=q.find;q.find=async()=>{const result=await find();if(c==='BookingSummary'&&schedule==='query')await change();return result;};return q;}};
+ // Migrated: the page must never access BookingSummary; reporting clear is the capability-gated RPC.
+ let clientSummary=0,clears=[];page.c.wixData={...f.sdk,query(c){if(c==='BookingSummary'){clientSummary++;throw Error('CLIENT_BOOKINGSUMMARY_FORBIDDEN');}return f.sdk.query(c);},update(c,r){if(c==='BookingSummary'){clientSummary++;throw Error('CLIENT_BOOKINGSUMMARY_FORBIDDEN');}return f.sdk.update(c,r);}};
+ page.c.clearBookingSummaryReporting=async(bn,cap)=>{const r=await f.reporting.clearBookingSummaryReporting(bn,cap);clears.push(r);return r;};
  page.c.recordBookingConversion=p=>{upload=f.sender.recordBookingConversion(p);return upload;};
  page.c.recordMicrosoftBookingConversion=async()=>{ms++;return {ok:false};};
  if(schedule==='after-final-await'){
@@ -118,6 +122,10 @@ test('fresh Summary consumption fence: '+schedule,{timeout:8000},async()=>{
  else {assert.equal(upload,undefined);assert.deepEqual([...f.rows.values()].filter(r=>r.kind).map(r=>r.kind),['AUTH']);}
  const boundary=schedule==='additional'?2:schedule==='final'?3:1;
  if(changed)for(const p of page.payloads.slice(boundary))assert.ok(!p.gclid&&!p.msclkid,'later room must omit revoked IDs');
+ assert.equal(clientSummary,0,'no client BookingSummary access');
+ const summaryRow=[...f.rows].find(([k])=>k.startsWith('BookingSummary:'))[1];
+ if(changed&&boundary===1){assert.equal(JSON.stringify(clears),'[{"ok":true}]','post-first-room withdrawal clears reporting via capability');assert.equal(summaryRow.gclid,'');assert.equal(summaryRow.msclkid,'');assert.equal(summaryRow.firstPaidTouch,null);assert.equal(summaryRow.latestPaidTouch,null);}
+ if(!changed)assert.equal(clears.length,0,'no clear without invalidation');
  }finally{bridge.close();}
 });
 
@@ -141,11 +149,11 @@ test('two concurrent fresh bookings keep original capabilities and click snapsho
 test('actual Microsoft importer remains compatible with shared contact helper; wire contains only its legacy click fields',async()=>{
  for(const phone of ['+12025550100','not-a-phone']){
   const wires=[],context=vm.createContext({Date,URLSearchParams,console:{log(){},error(){}}}),cache=new Map();
-  const external={'crypto':{default:crypto},'wix-web-module':{Permissions:{Anyone:0,Admin:1},webMethod:(_,f)=>f},'wix-data':{default:{}},'backend/settings.web':{getAllSettings:async()=>({})},'wix-secrets-backend':{getSecret:async()=> 'INERT_ONLY'},'libphonenumber-js/max':{parsePhoneNumberFromString:(s,o)=>require('libphonenumber-js/max').parsePhoneNumberFromString(s,JSON.parse(JSON.stringify(o)))},'wix-fetch':{fetch:async(url,o)=>{
+  const external={...require('./summary-patch-fake.cjs').makeDataItemsFake({get(){return null;},set(){}}).externals,'crypto':{default:crypto},'wix-web-module':{Permissions:{Anyone:0,Admin:1},webMethod:(_,f)=>f},'wix-data':{default:{}},'backend/settings.web':{getAllSettings:async()=>({})},'wix-secrets-backend':{getSecret:async()=> 'INERT_ONLY'},'libphonenumber-js/max':{parsePhoneNumberFromString:(s,o)=>require('libphonenumber-js/max').parsePhoneNumberFromString(s,JSON.parse(JSON.stringify(o)))},'wix-fetch':{fetch:async(url,o)=>{
    if(url==='https://login.microsoftonline.com/common/oauth2/v2.0/token')return {ok:true,text:async()=>JSON.stringify({access_token:'INERT_TOKEN',expires_in:3600})};
    assert.equal(url,'https://bingads.microsoft.com/Api/Advertiser/CampaignManagement/v13/OfflineConversion/ApplyOfflineConversions');wires.push(JSON.parse(o.body));return {ok:true,text:async()=> '{}'};
   }}};
-  const allowed=new Set(['backend/microsoftAdsConversions.web','backend/hashUtils.web','public/phoneNormalization']);
+  const allowed=new Set(['backend/microsoftAdsConversions.web','backend/hashUtils.web','public/phoneNormalization','backend/bookingSummaryCapability','backend/bookingSummaryWriter']);
   function load(s){if(cache.has(s))return cache.get(s);const e=external[s];let m;if(e)m=new vm.SyntheticModule(Object.keys(e),function(){for(const k of Object.keys(e))this.setExport(k,e[k]);},{context});else{assert.ok(allowed.has(s),s);m=new vm.SourceTextModule(fs.readFileSync(path.join(root,s+'.js'),'utf8'),{context});}cache.set(s,m);return m;}
   const m=load('backend/microsoftAdsConversions.web');await m.link(load);await m.evaluate();
   assert.equal((await m.namespace.recordMicrosoftBookingConversion({transactionId:'INERT',msclkid:'INERT_MS',value:0,currency:'USD',conversionTime:'2027-01-01T00:00:00Z',email:'fixture@example.invalid',phone})).ok,true);
