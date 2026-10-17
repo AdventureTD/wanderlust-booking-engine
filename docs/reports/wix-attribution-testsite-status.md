@@ -1,5 +1,7 @@
 # Wix test-site deployment and pre-confirmation check
 
+> Historical blocker report. The subsequently approved routing correction and successful candidate Summary checks are documented in [routing-fix-status.md](routing-fix-status.md). Live publication remains blocked.
+
 ## Status: test deployment verified; candidate Summary test BLOCKED
 
 Wix Release Manager shows **Test Site 27114 at 0% exposure**, while **Live Site 27108 remains at 100%**. A fresh isolated browser loaded test revision 27114. An unauthenticated static fetch independently confirmed default live revision 27108 after testing. Release Manager also displayed “Version not found” labels; those labels are retained as an observation, not silently translated into build success/failure. The served test revision and its running Search are the deployment evidence. An earlier tab initially loaded revision 27113 before the new test revision became available; it is not used as the candidate acceptance run.

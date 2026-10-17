@@ -1,0 +1,33 @@
+{
+  "verifiedAt": "2026-10-17T14:54:02.677116+00:00",
+  "codeCommit": "573c995ca67380ee4f478937983456c00e5abd24",
+  "editorModels": [
+    {
+      "uri": "file:///public/pages/z6bea.js",
+      "file": "velo/page-booking-search.js",
+      "beforeSha256LF": "edb058c8dd68e9cfcd9ad5c64dc28745fe794b54156c30ca78bff21114234805",
+      "afterSha256LF": "b780a6500a85fb43cbc25c6b0b201c5b607f55562afe97ee2fd752b9bee23d56",
+      "verifiedAfterReload": true
+    },
+    {
+      "uri": "file:///public/pages/f04do.js",
+      "file": "velo/page-booking-summary.js",
+      "beforeSha256LF": "4f2c98f4b075a23c929a1dd62aedbfe74823a24d19e0dfd8f803d560156a1907",
+      "afterSha256LF": "c077b36da81a0fe9bccdc2039b7e1da07c0a50fbaca18fd0ec1c7bfdaf29f9c3",
+      "verifiedAfterReload": true
+    }
+  ],
+  "testRevision": 27117,
+  "testExposurePercent": 0,
+  "liveRevision": 27108,
+  "liveExposurePercent": 100,
+  "releaseManagerReadback": "Versions\nLive Site\nVersion not found\n\tExposure: 100%\tVersion 27108\t\nTest Site\nVersion not found\n\tExposure: 0%\tVersion 27117\t\nSite History\n\nView and restore a previous version of your site.\nRestore Version\nLogs\n\nView your site versions' logs using professional tools.\nGet Started",
+  "caseCount": 2,
+  "caseRevisions": [
+    27117,
+    27117
+  ],
+  "confirmationClicked": false,
+  "headApplied": false,
+  "livePublished": false
+}

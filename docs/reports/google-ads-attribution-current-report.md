@@ -1,8 +1,10 @@
 # Google Ads attribution — current owner report
 
-## Current status: test-site deployed; Summary test blocked by URL routing collision
+## Current status: routing fixed; test-site Summary checks passed; live activation pending
 
-Test revision **27114** is deployed at **0% exposure**; live revision **27108** remains at 100%. Search, pricing and room selection ran on the test version. Summary navigation replaced Wix’s `rc=test-site` selector with the selected-room `rc` value and loaded the live version, so candidate Summary acceptance remains blocked. No reservation, invoice or conversion-import action was invoked. See [test-site findings](wix-attribution-testsite-status.md).
+The backward-compatible routing fix is saved in code commit **573c995ca67380ee4f478937983456c00e5abd24**. The 24-case routing/handler suite and fresh-clone **87/87 executable scripts** passed. Both editor pages were saved and verified after reload. Test version **27117**, at **0% exposure**, retained its revision through valid single-room and mixed-two-room Summary checks. Live version **27108** remains unchanged. No Confirm Booking, invoice or conversion-import action was invoked. See [verified routing-fix report](routing-fix-status.md).
+
+**Head activation and live publication remain pending.** The pre-confirmation tests are not evidence that Google's conversion-matching warnings are resolved. Broader Booking Summary access remediation remains deferred.
 
 ### Earlier schema/Preview checkpoint
 
