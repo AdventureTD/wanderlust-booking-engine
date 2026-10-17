@@ -4,7 +4,7 @@
 
 The tested Head snippet is activated and the coordinated Wix release is live at **100% exposure, version 27118**. The saved Head readback was exact; live inspection found one matching Head script and one matching iframe bridge. Home load and reload reported **READY_EMPTY** rather than the previous timeout. A normal-live-URL Search-to-Summary check retained version 27118, accepted a signed quote and displayed the expected total without confirming a booking. See [live release results](attribution-live-release-status.md).
 
-**No booking, invoice or conversion-import test was performed.** Paid-click/contact matching and Google's diagnostics remain unverified. One initial XML-as-JSON parsing exception did not recur; its source remains unknown and is recorded for follow-up. Collection-security remediation remains deferred.
+**No booking, invoice or conversion-import test was performed.** Paid-click/contact matching and Google's diagnostics remain unverified. Follow-up testing reproduced the XML-as-JSON exception in fresh Home contexts and traced the failing response/parse path to Bannersnack (403 XML returned to its JSON loader). The integration was left unchanged. Six guarded browser checkpoints reached READY_EMPTY, and the full 87-script regression rerun passed. Fresh Ads diagnostics still report no attempted imports with user-provided data; see [continued validation](continued-validation-status.md). Collection-security remediation remains deferred.
 
 ### Prior routing/test-site checkpoint
 

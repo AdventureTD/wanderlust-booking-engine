@@ -19,6 +19,8 @@ Code source: `573c995ca67380ee4f478937983456c00e5abd24`, branch `ric/attribution
 
 ## One unresolved observation
 
+> Follow-up: [continued validation](continued-validation-status.md) reproduced this error on fresh Home visits and documented Bannersnack's 403 XML response and JSON parse path. The original limited observation below is retained as release-time evidence.
+
 The initial fresh Home load produced one uncaught exception: `Unexpected token '<', "<?xml vers"... is not valid JSON`. It did not recur on reload, Search navigation or Summary initialization. The observation was captured without a source stack, so its origin is **not established**. Do not label it harmless or claim a completely error-free release. The handshake and pre-confirmation checks above succeeded despite it; retain it for follow-up if it recurs.
 
 ## Explicit limits

@@ -1,0 +1,77 @@
+{
+  "capturedAt": "2026-10-17T15:41:16.953763+00:00",
+  "customerId": "9426928570",
+  "conversionAction": {
+    "id": "7690532327",
+    "name": "Booking - API Import",
+    "status": "ENABLED",
+    "type": "UPLOAD_CLICKS",
+    "primaryForGoal": true,
+    "includedInConversions": true,
+    "category": "PURCHASE",
+    "defaultCurrency": "USD",
+    "clickThroughWindowDays": 90
+  },
+  "apiUploadSummary": {
+    "client": "UNKNOWN",
+    "status": "EXCELLENT",
+    "alerts": [],
+    "lastUploadDateTime": "2026-10-08 16:30:55.941423",
+    "totalEventCount": 1,
+    "successfulEventCount": 1,
+    "pendingEventCount": 0
+  },
+  "freshUiText": "search\nSearch\nresponsive_layout\nAppearance\nrefresh\nRefresh\nhelp_outline\nHelp\nNotifications\nCreate\ncampaign\nCampaigns\nrewarded_ads\nGoals\nconstruction\nTools\ncredit_card\nBilling\nsettings\nAdmin\nchevron_right\nCollapse\nConversions\nexpand_more\nSummary\nValue rules\nCustom variables\nSettings\nUploads\nMeasurement\nexpand_more\nGoals\nchevron_right\nBooking - API Import\nLast 7 days\nOct 10 \u2013 16, 2026\narrow_drop_down\nchevron_left\nchevron_right\nShow last 30 days\nDetails\nSettings\nDiagnostics\nStore diagnostics\nWebpages\nConversion action status\nMisconfigured\nConversions haven\u2019t been recorded within the last 7 days. Take action to restore conversion measurement.\nLast recorded conversion\nJul 20, 2026 at 8:00\u202fAM\ncheck\nAll\nerror_outline\nEnhanced conversions\ncheck_circle\nOffline conversions import\nerror_outline\nNo attempted imports with user-provided data\n\nexpand_less\nSettings\nConversion name\n\t\nBooking - API Import\n\n\nConversion type ID\nhelp_outline\n\nNot editable\n\n\t\n7690532327\n\n\nDate created\n\nNot editable\n\n\t\n7/19/2026\n\n\nAction optimization\n\t\nPurchases, Primary action\n\n\nValue\n\t\nUse different values. If there's no value, use $5000.\n\n\nSource\n\nNot editable\n\n\t\nImport from clicks\n\n\nCount\n\t\nOne conversion\n\n\nClick-through conversion window\n\t\n90 days\n\n\nEngaged-view conversion window\n\t\n30 days\n\n\nAttribution\n\t\nData-driven Recommended\nGoogle paid channels\nEdit settings\n\nMeasure conversions by connecting a new data source\n\nMeasure conversions by connecting a new data source through Data Manager. Upgrade from a file upload set up or connect a data source to begin recording conversions.\n\nConnect data source\n\u00a9 Google, 2026.\nTurn off ad blockers\n\nGoogle Ads can't work when you're using an ad blocker.\nTo use Google Ads, please turn off any ad blockers for now.\n\ninfo_outline\nApply best practices automatically\nGet started\ninfo_outline\nSearch campaigns upgraded to AI Max\nView\nclear",
+  "browserChecks": [
+    {
+      "case": "desktop-fresh-1",
+      "revision": 27118,
+      "readyEmpty": true,
+      "pageErrors": 1,
+      "bannersnack403": true
+    },
+    {
+      "case": "desktop-reload-1",
+      "revision": 27118,
+      "readyEmpty": true,
+      "pageErrors": 0,
+      "bannersnack403": false
+    },
+    {
+      "case": "narrow-viewport-fresh",
+      "revision": 27118,
+      "readyEmpty": true,
+      "pageErrors": 1,
+      "bannersnack403": true
+    },
+    {
+      "case": "narrow-viewport-reload",
+      "revision": 27118,
+      "readyEmpty": true,
+      "pageErrors": 0,
+      "bannersnack403": false
+    },
+    {
+      "case": "direct-live-search",
+      "revision": 27118,
+      "readyEmpty": true,
+      "pageErrors": 0,
+      "bannersnack403": false
+    },
+    {
+      "case": "live-mixed-room-summary",
+      "revision": 27118,
+      "readyEmpty": true,
+      "pageErrors": 0,
+      "bannersnack403": false
+    }
+  ],
+  "validationOnlyDocumentation": [
+    "https://developers.google.com/data-manager/api/reference/rest/v1/events/ingest",
+    "https://developers.google.com/data-manager/api/devguides/concepts/best-practices"
+  ],
+  "providerValidationExecuted": false,
+  "newWebsitePublication": false,
+  "productSourceEdits": false,
+  "bannersnackSourceSha256": "1c363691656bb6303cfb3c71fbbcc8c9e95e9219ed736d16fc06efaeb016530e"
+}
