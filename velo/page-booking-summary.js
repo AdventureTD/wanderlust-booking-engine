@@ -250,7 +250,8 @@ $w.onReady(function () {
 });
 
 async function initSummary(load) {
-  let rcParam = getParam('rc');
+  const legacyRoomParam = getParam('rc');
+  let rcParam = getParam('rooms') || (legacyRoomParam === 'test-site' ? '' : legacyRoomParam);
   let cis = getParam('ci');
   let cos = getParam('co');
   let guestsParam = getParam('guests');

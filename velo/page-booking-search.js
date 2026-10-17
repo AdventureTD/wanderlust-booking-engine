@@ -609,7 +609,8 @@ $w.onReady(async function () {
       }
       const pkgParam = _selectedPackage && _selectedPackage._id ? '&pkg=' + encodeURIComponent(_selectedPackage._id) : '';
       const quoteParam = '&quote=' + encodeURIComponent(_selectedPackage.pricingQuoteToken);
-      wixLocation.to(summaryUrl + '?rc=' + encodeURIComponent(parts.join(',')) +
+      const testSiteParam = wixLocation.query && wixLocation.query.rc === 'test-site' ? '&rc=test-site' : '';
+      wixLocation.to(summaryUrl + '?rooms=' + encodeURIComponent(parts.join(',')) + testSiteParam +
         '&ci=' + encodeURIComponent(ciOnly) +
         '&co=' + encodeURIComponent(coOnly) + pkgParam + quoteParam);
     });

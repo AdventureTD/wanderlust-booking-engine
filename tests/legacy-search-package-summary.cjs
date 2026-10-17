@@ -38,7 +38,7 @@ function identity(s,m,id,qty=1){
 async function handoff(s,id,qty=1){
  await s.w('#btnSummary').click();assert.equal(s.nav.length,1);
  const q=new URL(s.nav[0],'https://inert.invalid').searchParams;
- assert.equal(q.get('pkg'),id);assert.equal(q.get('ci'),'2026-11-07');assert.equal(q.get('co'),'2026-11-14');assert.equal(q.get('rc'),'adventure_suite:'+qty+':2:0');
+ assert.equal(q.get('pkg'),id);assert.equal(q.get('ci'),'2026-11-07');assert.equal(q.get('co'),'2026-11-14');assert.equal(q.get('rooms'),'adventure_suite:'+qty+':2:0');
  assert.equal(q.get('quote'),vm.runInContext('_selectedPackage.pricingQuoteToken',s.c));assert.equal(s.stored.get('_wbe_pkg'),id);assert.equal(s.stored.get('_wbe_quote'),q.get('quote'));
  const verified=await quote.verifyLockedPricingQuote(q.get('quote'),{packageId:id,checkIn:q.get('ci'),checkOut:q.get('co')});assert.equal(verified.totalPerPerson,list.find(p=>p._id===id).baseRate);
 }

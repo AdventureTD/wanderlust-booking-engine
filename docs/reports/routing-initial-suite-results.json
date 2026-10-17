@@ -1,0 +1,439 @@
+{
+  "results": {
+    "ads-consent-lifecycle.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "ads-custom-form.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "ads-location-integration.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "ads-location-policy-boundaries.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "ads-location-policy.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "ads-requirement-sdk-result.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "ads-review-network-deny.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "attribution-clock-v2-pins.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "attribution-clock-v2-security.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "attribution-clock-v2.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "attribution-diagnostic-console.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "attribution-diagnostic-review-probes.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "attribution-diagnostic-serialization.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "attribution-diagnostics-lifecycle.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "attribution-diagnostics.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "attribution-hotfix.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "attribution-multi-touch.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "attribution-only-scope.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "attribution-supersession-race.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "booking-search-guest-dropdown.cjs": {
+      "rc": 1,
+      "signal": null,
+      "error": null
+    },
+    "booking-search-parent-container.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "booking-search-selection-blockers.cjs": {
+      "rc": 1,
+      "signal": null,
+      "error": null
+    },
+    "booking-search-selection-rejections.cjs": {
+      "rc": 1,
+      "signal": null,
+      "error": null
+    },
+    "booking-search-selection-totals.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "booking-search-summary-additions.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "calendar-booking-number.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "calendar-deletion-contract.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "cancellation-all.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "cancellation-blockers.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "cancellation-calendar.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "cancellation-completion.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "cancellation-editor-diagnostics.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "cancellation-fetch-typing.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "cancellation-google-expiry.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "cancellation-google.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "cancellation-invoice.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "cancellation-page.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "cancellation-recovery.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "cancellation-transport.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "click-attribution-corrections.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "click-attribution-globalthis-compat.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "click-attribution-readiness-review.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "click-attribution-readiness.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "complete-cancellation.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-adjustment-unsupported.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-admission-logging.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-attribution-wc1038.test.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-contact-validation.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-diagnostic-client-fallback.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-diagnostic-runtime.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-final-review.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-fresh-producer.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-http-diagnostics.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-identifier-async.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-private-journal.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-processing-bounds.test.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-processing-diagnostic.test.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-processing-native.test.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-processing-test-helper.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-processing-wc1034.test.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-processing-wc1037.test.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-processing-wc1043.test.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-summary-handoff.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-ads-upload-reliability.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-tag-build-parity.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "google-tag-size.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "legacy-date-handoff.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "legacy-search-eligible-rows.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "legacy-search-package-first.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "legacy-search-package-radio.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "legacy-search-package-summary.cjs": {
+      "rc": 1,
+      "signal": null,
+      "error": null
+    },
+    "legacy-search-partial.cjs": {
+      "rc": 1,
+      "signal": null,
+      "error": null
+    },
+    "legacy-search-scuba-order.cjs": {
+      "rc": 1,
+      "signal": null,
+      "error": null
+    },
+    "legacy-search-silent-dates.cjs": {
+      "rc": 1,
+      "signal": null,
+      "error": null
+    },
+    "legacy-summary-review-fix.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "master-page-ssr.test.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "paid-touch-booking-graph.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "paid-touch-new-lifetime.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "paid-touch-persistence.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "paid-touch-privacy.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "paid-touch-revocation.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "paid-touch-state.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "phone-library-fixture.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "public-tracking-flags.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "revoked-lazy-init.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "summary-patch-fake.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    },
+    "withdrawal-binding.cjs": {
+      "rc": 0,
+      "signal": null,
+      "error": null
+    }
+  }
+}

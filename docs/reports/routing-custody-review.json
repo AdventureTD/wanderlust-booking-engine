@@ -1,0 +1,115 @@
+{
+  "base": "88d62052e1707f4a581ad69b466e0d142842f2f2",
+  "scope": "Approved two-page rooms query migration, legacy rc fallback and test-site marker preservation. No backend changes. Self-reviewed, not independent.",
+  "repins": [
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "group": "protected",
+      "file": "velo/page-booking-search.js",
+      "before": {
+        "raw_sha256": "655b70395cc61d121f3c545fae0be0607720d04c8c014a7cc113ef646f89713a",
+        "canonical_lf_sha256": "edb058c8dd68e9cfcd9ad5c64dc28745fe794b54156c30ca78bff21114234805"
+      },
+      "after": {
+        "raw_sha256": "6df4ca1a04cc2efd4e15cb7a7ab3140b41bb1bfc43c67d8d45dcdbf6c4e4378a",
+        "canonical_lf_sha256": "b780a6500a85fb43cbc25c6b0b201c5b607f55562afe97ee2fd752b9bee23d56"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "group": "protected",
+      "file": "velo/page-booking-summary.js",
+      "before": {
+        "raw_sha256": "022316a0a7f69de30259af2512de7476d5f16f8000e2b6cd8381ab5f62925f6f",
+        "canonical_lf_sha256": "4f2c98f4b075a23c929a1dd62aedbfe74823a24d19e0dfd8f803d560156a1907"
+      },
+      "after": {
+        "raw_sha256": "441cad8cf8685ff6fcc824f2fb6469bf1452da849d9b82d6ce23ebde9196f1ff",
+        "canonical_lf_sha256": "c077b36da81a0fe9bccdc2039b7e1da07c0a50fbaca18fd0ec1c7bfdaf29f9c3"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "group": "support",
+      "file": "tests/legacy-date-handoff.cjs",
+      "before": {
+        "raw_sha256": "ab381098e2cd6d0d2926848255bbe00655d7927d1567c5d1c74713a5613391a9",
+        "canonical_lf_sha256": "422cb855e785c0f22e7f673e6ba19e3b84087c79482152a24de6feff153d0700"
+      },
+      "after": {
+        "raw_sha256": "b4f5963b2c506372390fc4347d642d6b1fe94f14870d7f457bbd5675839bd772",
+        "canonical_lf_sha256": "e10c84bb06d523fb8221959cef5bdee8a1f65bdc486349582d0e3ae17f7de1cd"
+      }
+    },
+    {
+      "manifest": "tests/attribution-hotfix-sources.json",
+      "file": "velo/page-booking-summary.js",
+      "before": "4f2c98f4b075a23c929a1dd62aedbfe74823a24d19e0dfd8f803d560156a1907",
+      "after": "c077b36da81a0fe9bccdc2039b7e1da07c0a50fbaca18fd0ec1c7bfdaf29f9c3"
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "group": "support",
+      "file": "tests/legacy-search-package-summary.cjs",
+      "before": {
+        "raw_sha256": "ed9e9d9827a1883c25f825cc48a36abf0e178c55ba069ceff9cbaf84f8630bd3",
+        "canonical_lf_sha256": "d19e15d08265f9621414e1b88115e01e7074f96bf1fc7ffb292f527f9ddf0d2c"
+      },
+      "after": {
+        "raw_sha256": "a4ff02888922e0b017f7b4292ae28c3195d704b1e8a29e6170e0973f8d3b679f",
+        "canonical_lf_sha256": "56d64e549abb5baedc24c430755bfc3f895f8bb248de730c86b7b9388de044e3"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "group": "support",
+      "file": "tests/legacy-search-partial.cjs",
+      "before": {
+        "raw_sha256": "f7ffc94ffe8d8567d662fb6819de28c6f1c49f4e123545cbf52fd96cb8efcbd5",
+        "canonical_lf_sha256": "a5172969b433a925eecd3873c5c41d6d32bec988245f7ee408640d26d7e1cd4e"
+      },
+      "after": {
+        "raw_sha256": "253ac1eb5b26fefeed04a6e21565b1cb5824bf8212780bb7ba4214da920caac9",
+        "canonical_lf_sha256": "e54280d287a2356ccfb370e6355e4c1e03baa34364bfec27b699c743b34349cb"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "group": "support",
+      "file": "tests/legacy-search-scuba-order.cjs",
+      "before": {
+        "raw_sha256": "c0729facac0279e97ed6172f27da9d201419d72d6a33602f14d8dbdf03087d36",
+        "canonical_lf_sha256": "f34dce7ccf4038486bb4203ec452f36dfd1e9dc140abb03cf782edf1f5f00ac9"
+      },
+      "after": {
+        "raw_sha256": "7e1c99c78561ed67a5985314233f670e6f8067bf57c9d4227dee800b223c3f45",
+        "canonical_lf_sha256": "3a79d35b0f4d385181dc2d517b12cf6c94ba353c4d24f9795225faf8a3b5d536"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "group": "support",
+      "file": "tests/legacy-search-silent-dates.cjs",
+      "before": {
+        "raw_sha256": "a741501b4a7d893cf3143249fa8e3b89c280b13a395d6911cd42f3461449b11a",
+        "canonical_lf_sha256": "0632539c13a90561cff594869caf6b92eb1d59f4774e6dfa1ff5d032a3b31fbd"
+      },
+      "after": {
+        "raw_sha256": "63d6e53f119f7e526937b14339da2e94a16122b3bbc3c54df7a50de3a663c416",
+        "canonical_lf_sha256": "7b5bdab69528e46884653424ade071272448980c4a51ae447b0bbfbad9ab222b"
+      }
+    }
+  ],
+  "adaptedAssertions": {
+    "files": [
+      "booking-search-guest-dropdown.cjs",
+      "booking-search-selection-blockers.cjs",
+      "booking-search-selection-rejections.cjs",
+      "legacy-search-package-summary.cjs",
+      "legacy-search-partial.cjs",
+      "legacy-search-scuba-order.cjs",
+      "legacy-search-silent-dates.cjs"
+    ],
+    "change": "Only URLSearchParams.get('rc') became get('rooms'); all expected cart quantities, guest counts, dates, prices and signed-quote verification remain unchanged."
+  }
+}

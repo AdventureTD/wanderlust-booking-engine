@@ -72,7 +72,7 @@ function silent(s) {
   await s.w('#btnSummary').click();assert.equal(s.nav.length,1);
   const q=new URL(s.nav[0],'https://inert.invalid').searchParams;
   assert.equal(q.get('ci'),'2027-04-11');assert.equal(q.get('co'),'2027-04-17');
-  assert.equal(q.get('rc'),'adventure_suite:2:2:0');assert.equal(q.get('pkg'),pkg._id);
+  assert.equal(q.get('rooms'),'adventure_suite:2:2:0');assert.equal(q.get('pkg'),pkg._id);
   const verified=await quote.verifyLockedPricingQuote(q.get('quote'),{packageId:pkg._id,checkIn:q.get('ci'),checkOut:q.get('co')});
   assert.equal(verified.totalPerPerson,2310);
  });

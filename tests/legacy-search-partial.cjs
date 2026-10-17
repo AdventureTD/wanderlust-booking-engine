@@ -45,7 +45,7 @@ function denySelection(s,item) {
   assert.equal(s.w('#finalTotal').text,'$9,240.00');
   await s.w('#btnSummary').click();assert.equal(s.nav.length,1);
   const q=new URL(s.nav[0],'https://inert.invalid').searchParams;
-  assert.equal(q.get('rc'),'adventure_suite:2:2:0');assert.equal(q.get('ci'),'2027-04-11');assert.equal(q.get('co'),'2027-04-17');
+  assert.equal(q.get('rooms'),'adventure_suite:2:2:0');assert.equal(q.get('ci'),'2027-04-11');assert.equal(q.get('co'),'2027-04-17');
  });
  await test('partial replacement invalidates old room and package callbacks',async()=>{
   let n=0;const s=await search({searchAvailability:async()=>({ok:true,requestedNights:6,results:[++n===1?row():{...row(12,17),status:'partial'}]})});

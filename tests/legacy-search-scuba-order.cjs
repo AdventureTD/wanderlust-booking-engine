@@ -55,7 +55,7 @@ async function ordered(list, expected, invalid=[]) {
   const q=new URL(s.nav[0],'https://inert.invalid').searchParams;
   assert.equal(q.get('pkg'),'offer-2');assert.equal(q.get('quote'),made.get('offer-2').token);
   assert.equal(s.stored.get('_wbe_pkg'),'offer-2');assert.equal(s.stored.get('_wbe_quote'),made.get('offer-2').token);
-  assert.equal(q.get('rc'),'adventure_suite:2:2:0');assert.equal(q.get('ci'),'2027-04-11');assert.equal(q.get('co'),'2027-04-17');
+  assert.equal(q.get('rooms'),'adventure_suite:2:2:0');assert.equal(q.get('ci'),'2027-04-11');assert.equal(q.get('co'),'2027-04-17');
   const verified=await quote.verifyLockedPricingQuote(q.get('quote'),{packageId:'offer-2',checkIn:q.get('ci'),checkOut:q.get('co')});
   assert.equal(verified.totalPerPerson,612);assert.equal(verified.packageTitle,'SCUBA night');
  });

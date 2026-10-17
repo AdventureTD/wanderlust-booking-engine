@@ -1,0 +1,100 @@
+{
+  "cases": [
+    {
+      "name": "Apr11-Apr17 request cannot hand off Apr18 row",
+      "pass": true
+    },
+    {
+      "name": "valid exact handoff preserves package and per-guest quantity",
+      "pass": true
+    },
+    {
+      "name": "partial interval requires explicit new search",
+      "pass": true
+    },
+    {
+      "name": "date edit invalidates selections and quote #datePickerCheckIn",
+      "pass": true
+    },
+    {
+      "name": "date edit invalidates selections and quote #datePickerCheckOut",
+      "pass": true
+    },
+    {
+      "name": "older availability cannot overwrite newer results",
+      "pass": true
+    },
+    {
+      "name": "older package lookup cannot create a quote with newer mutable dates",
+      "pass": true
+    },
+    {
+      "name": "older pending quote cannot publish or restore stale package callbacks",
+      "pass": true
+    },
+    {
+      "name": "detached same-ID package row callback cannot restore old quote",
+      "pass": true
+    },
+    {
+      "name": "double Summary click produces only one navigation",
+      "pass": true
+    },
+    {
+      "name": "late quote after date edit cannot restore pricing",
+      "pass": true
+    },
+    {
+      "name": "pending search rejects old package click and Summary",
+      "pass": true
+    },
+    {
+      "name": "valid Summary executes real rendering and wires Continue only after validation",
+      "pass": true
+    },
+    {
+      "name": "Summary mismatched dates sets recovery without revealing parents, hidden totals, no Continue",
+      "pass": true
+    },
+    {
+      "name": "Summary bad signature sets recovery without revealing parents, hidden totals, no Continue",
+      "pass": true
+    },
+    {
+      "name": "Summary missing quote sets recovery without revealing parents, hidden totals, no Continue",
+      "pass": true
+    },
+    {
+      "name": "Summary pending load sets timeout status and late result cannot wire Continue",
+      "pass": true
+    },
+    {
+      "name": "Summary timeout during render fallback cannot reveal late financial values",
+      "pass": true
+    },
+    {
+      "name": "test-site Search preserves selector and room quantity 1",
+      "pass": true
+    },
+    {
+      "name": "test-site Search preserves selector and room quantity 2",
+      "pass": true
+    },
+    {
+      "name": "test-site Summary consumes rooms without treating rc as rooms 1",
+      "pass": true
+    },
+    {
+      "name": "test-site Summary consumes rooms without treating rc as rooms 2",
+      "pass": true
+    },
+    {
+      "name": "new room selection wins over legacy rc",
+      "pass": true
+    },
+    {
+      "name": "test-site selector alone is not a room",
+      "pass": true
+    }
+  ]
+}

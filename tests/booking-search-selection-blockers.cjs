@@ -69,7 +69,7 @@ const tests=String.raw`
   qty(s,0,1);assert.equal(s.w('#totalGuests').text,'2 guests total');await s.w('#btnSummary').click();assert.equal(s.nav.length,1);
  });
  await test('navigation rereads valid programmatic values and retains current quote',async()=>{
-  const s=await setup();qty(s,1);room(s).w('#roomQtyDropdown').value='2';await s.w('#btnSummary').click();assert.equal(s.nav.length,1);const q=new URL(s.nav[0],'https://inert.invalid').searchParams;assert.ok(q.get('rc').includes(':2:2:'));assert.equal(s.w('#totalGuests').text,'4 guests total');await quote.verifyLockedPricingQuote(q.get('quote'),{packageId:pkg._id,checkIn:q.get('ci'),checkOut:q.get('co')});
+  const s=await setup();qty(s,1);room(s).w('#roomQtyDropdown').value='2';await s.w('#btnSummary').click();assert.equal(s.nav.length,1);const q=new URL(s.nav[0],'https://inert.invalid').searchParams;assert.ok(q.get('rooms').includes(':2:2:'));assert.equal(s.w('#totalGuests').text,'4 guests total');await quote.verifyLockedPricingQuote(q.get('quote'),{packageId:pkg._id,checkIn:q.get('ci'),checkOut:q.get('co')});
  });
  await test('late native enable completion cannot authorize deselected cart',async()=>{
   const s=await setup(),b=s.w('#btnSummary');let release;b.enable=function(){return new Promise(r=>release=()=>{this.enabled=true;r();});};qty(s,1);qty(s,0);release();await flush();visibility(s,false);assert.equal(b.enabled,false);await b.click();assert.equal(s.nav.length,0);

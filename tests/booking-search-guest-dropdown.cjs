@@ -62,7 +62,7 @@ function change(el,value){el.value=value;el.change({target:{value}});}
   assert.equal(r.w('#roomQtyDropdown').listeners.change.length,1);assert.equal(s.w('#totalGuests').text,'4 guests total');
   assert.equal(s.w('#finalTotal').text,'$9,240.00');
   await s.w('#btnSummary').click();assert.equal(s.nav.length,1);
-  assert.equal(new URL(s.nav[0],'https://inert.invalid').searchParams.get('rc'),'two_bedroom_apartment:1:4:0');
+  assert.equal(new URL(s.nav[0],'https://inert.invalid').searchParams.get('rooms'),'two_bedroom_apartment:1:4:0');
  });
  await test('mixed default guests feed totals without revealing unrelated hidden elements',async()=>{
   const s=await setup();for(let i=0;i<rooms.length;i++)change(item(s,i).w('#roomQtyDropdown'),'1');
@@ -120,7 +120,7 @@ function change(el,value){el.value=value;el.change({target:{value}});}
     assert.equal(dd.value,value);assert.equal(s.w('#totalGuests').text,value+' guests total');
    }
    await s.w('#btnSummary').click();assert.equal(s.nav.length,1);
-   assert.equal(new URL(s.nav[0],'https://inert.invalid').searchParams.get('rc'),'two_bedroom_apartment:1:4:0');
+   assert.equal(new URL(s.nav[0],'https://inert.invalid').searchParams.get('rooms'),'two_bedroom_apartment:1:4:0');
   }
  });
  console.log(JSON.stringify({cases},null,2));assert.equal(cases.length,9);assert.equal(cases.filter(x=>!x.pass).length,0);
