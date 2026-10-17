@@ -1,0 +1,113 @@
+{
+  "checkedAt": "2026-10-17T12:38:26.766767+00:00",
+  "testUrl": "https://www.wanderlustcaribbean.com/?rc=test-site",
+  "liveRevision": 27108,
+  "testRevision": 27114,
+  "releaseManager": {
+    "liveExposure": "100%",
+    "testExposure": "0%",
+    "liveVersion": 27108,
+    "testVersion": 27114,
+    "note": "UI also displayed Version not found labels; runtime revisions independently confirmed"
+  },
+  "dates": {
+    "checkIn": "2027-02-14",
+    "checkOut": "2027-02-21"
+  },
+  "checks": [
+    {
+      "stage": "single-room search selection",
+      "observed": {
+        "revision": 27114,
+        "path": "/wanderlust-booking",
+        "text": "Skip to Main Content\nFAQ\nPolicies\n\n1-980-934-1813\n\nCONTACT US\nBOOK NOW\nHome\nAbout\nAdventures\nPackages\nHotel\nDominica\nReviews\nOffers\nBlogs\nStart Booking\n\nCheck Availability\n\nChoose Your Dates, Package and Accommodations\n\n1 - Check Availability\nCheck Availability\nFound 3 results for 7 nights.\n2 - Choose your adventure package\n8-day Explorer Package\n7 nights\n1\nSpecialty Tour(s)\n$2,721.95\nper guest\n8-day Scuba Multi-Sport\n7 nights\n1\nSpecialty Tour(s)\n$2,910.60\nper guest\n3 - Select Accommodations - Choose Room(s) & Number of Guests Below:\nAdventure Suite\nOpen-plan oceanfront living with a private terrace. Panoramic views and integrated living and sleeping space.\n2\nSUITE(S)\n2 GUESTS\nNO ADDITIONAL FEE\nAdventure Suite\nRoom(s)\n0\n1\n2\nGuests/Room\n2\nChoose number of rooms\nPenthouse Apartment\nOur largest apartment, with a king bedroom, full kitchen, separate living areas and a large private terrace.\n1\nPENTHOUSE\n2 GUESTS\n+ 130 PER NIGHT\nPenthouse Apartment\nRoom(s)\n0\n1\nGuests/Room\n2\nChoose number of rooms\nTwo Bedroom Apartment\nA spacious apartment with a full kitchen, ocean-opening living room and a flexible second bedroom.\n1\nAPARTMENT\nMIN. 3 - MAX. 4 GUESTS\nNO ADDITIONAL FEE\nTwo Bedroom Apartment\nRoom(s)\n0\n1\nGuests/Room\n3\n4\nChoose number of rooms\nClick here for help\u00a0\nYOUR TRIP\n8-day Explorer Package\nFebruary 14th, 2027 - February 21st, 2027\n7 nights in Dominica\nACCOMMODATIONS\nAdventure Suite (Qty: 1, Guests: 2)\nYOUR SELECTION\n1 room(s)\n2 guests total\nPRICE SUMMARY\nPackage charges\n$5,443.90\nUPGRADES\n$0.00\nCURRENT TOTAL\n$5,443.90\nContinue with Booking\n8-day Explorer Package\nPre-trip planning\nSeven (7) nights of accommodations in an Adventure Suite\nFive (5) days of Island-wide Expeditions\nChoice of one (1) Specialty Tour\nSeven (7) house breakfasts\nThree (3) picnic lunches\nThree (3) house dinners\nFoodie tour\nDaily house drink\nTransportation during tour days and within Calibishie\nContact Us\nBOOK NOW\n\nHome\n\nAbout\n\nHotel\u00a0 Adventures\u00a0\n\nPackages\u00a0 Dominica\u00a0 Reviews & Press\n\nFAQ \u00a0\n\nHotel Policy\n\nBooking Policy\u00a0 Cancellation Policy\n\n1- (980) 934-1813\n\ninfo@wanderlustcaribbean.com\n\nRecommended by"
+      }
+    },
+    {
+      "stage": "single-room Summary, no submit",
+      "observed": {
+        "revision": 27108,
+        "path": "/booking-summary",
+        "queryKeys": [
+          "rc",
+          "ci",
+          "co",
+          "pkg",
+          "quote"
+        ],
+        "text": "Skip to Main Content\nFAQ\nPolicies\n\n1-980-934-1813\n\nCONTACT US\nBOOK NOW\nHome\nAbout\nAdventures\nPackages\nHotel\nDominica\nReviews\nOffers\nBlogs\nBooking Summary\nReview your package and accommodations before continuing\n\n8-day Explorer Package\n\n$5,443.90\n\nYOUR SELECTED VACATION\n\nBASE PACKAGE\u00a0\n\nFebruary 14th, 2027 to February 21st, 2027 * 7 nights * 2 guests\n\n$2,721.95\n\n$5,443.90\n\n2\n\nGUEST/ROOM\nPENTHOUSE FEE\n\nAdventure Suite\n\n1\n\n2\n\nPER GUEST\nGUESTS\n\nTOTAL\n\nPACKAGE CHARGES\nPACKAGE\n\n8-day Explorer Package\n\nSELECTED ACCOMMODATIONS\nACCOMMODATION\nROOMS\nHave a promo code?\nEnter it here to apply your discount\n\nRESORT FEE - 5% of Adjusted Package\n\n$272.20\nDOMINICA VAT COMPUTATION\nALLOCATION (50% EACH)\nTAX AMOUNT\nCATEGORY\nTAX RATE\nHotel VAT\nServices VAT\n10%\n15%\n$2,721.95\n$2,721.95\n$272.20\n$408.29\n$680.49\n\u200b\nName:\nEmail\nINVOICE SUMMARY\nBase Package\u00a0\n$5,443.90\nPenthouse Upgrade\n\n$0.00\n\nPromotion Discount\nAdjusted Package\u00a0\n$5,443.90\nResort Fee\n$272.20\nDominica VAT\n$680.49\nTOTAL DUE\n$6,396.59\nHow did you find us?\nPhone Number:\nBooking Information\nPayment Terms and Schedule\n\nA payment link for the 50% deposit will be emailed within approximately two business days after the reservation is confirmed. The remaining balance is due 30 days before arrival\u2014or 90 days before arrival for Private Group Reservations.\n\nCancellation Policy\n\nIndividual Reservations: A full refund will be provided for cancellations received 31 or more days before arrival.\n\n\u200b\n\nPrivate Group Reservations: A full refund will be provided for cancellations received 91 or more days before arrival.\n\n\u200b\n\nAfter these deadlines, all payments become non-refundable. However, the full amount paid will be honored toward the same vacation package, with the same inclusions and booking terms, for travel within two years of the cancellation date, with no price differences applied.\n\nStart Over\nConfirm Booking\nContact Us\nBOOK NOW\n\nHome\n\nAbout\n\nHotel\u00a0 Adventures\u00a0\n\nPackages\u00a0 Dominica\u00a0 Reviews & Press\n\nFAQ \u00a0\n\nHotel Policy\n\nBooking Policy\u00a0 Cancellation Policy\n\n1- (980) 934-1813\n\ninfo@wanderlustcaribbean.com\n\nRecommended by",
+        "buttons": [
+          {
+            "text": "Confirm Booking",
+            "disabled": false
+          }
+        ]
+      }
+    }
+  ],
+  "rpc": [
+    {
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/publicFlags.web.js/getPublicTrackingFlags.ajax",
+      "blocked": false
+    },
+    {
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/publicFlags.web.js/getPublicTrackingFlags.ajax",
+      "blocked": false
+    },
+    {
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/publicFlags.web.js/getPublicTrackingFlags.ajax",
+      "blocked": false
+    },
+    {
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/rooms.web.js/getRoomNames.ajax",
+      "blocked": false
+    },
+    {
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/messages.web.js/getActiveMessages.ajax",
+      "blocked": false
+    },
+    {
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/packages.web.js/packageExistsForNights.ajax",
+      "blocked": false
+    },
+    {
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/search.web.js/searchAvailability.ajax",
+      "blocked": false
+    },
+    {
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/packages.web.js/getPackagesByNights.ajax",
+      "blocked": false
+    },
+    {
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/pricingQuotes.web.js/createPricingQuote.ajax",
+      "blocked": false
+    },
+    {
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/pricingQuotes.web.js/createPricingQuote.ajax",
+      "blocked": false
+    },
+    {
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/rooms.web.js/getRoomNames.ajax",
+      "blocked": false
+    },
+    {
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/packages.web.js/getPackagesByNights.ajax",
+      "blocked": false
+    },
+    {
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/pricingQuotes.web.js/readPricingQuote.ajax",
+      "blocked": false
+    }
+  ],
+  "pageErrors": [],
+  "measurementBlockedCount": 101,
+  "businessWriteAttemptsBlocked": [],
+  "blocker": {
+    "searchUsesRcForRooms": true,
+    "summaryConsumesRc": true,
+    "summaryRevision": 27108,
+    "candidateSummaryPass": false
+  },
+  "safety": "No contact data entered; Confirm Booking not clicked; no booking/invoice/conversion RPC observed. Head not applied and live not published. Quote creation/read methods exercised.",
+  "harnessNote": "Initial isolated run discarded after UTF-8 decode error on gzipped telemetry body; guard corrected to decode buffer/gzip and fresh context used."
+}

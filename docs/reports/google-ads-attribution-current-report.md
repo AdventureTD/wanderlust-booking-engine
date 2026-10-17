@@ -1,6 +1,10 @@
 # Google Ads attribution — current owner report
 
-## Current status: reporting fields saved; read-only Preview checked; live release pending
+## Current status: test-site deployed; Summary test blocked by URL routing collision
+
+Test revision **27114** is deployed at **0% exposure**; live revision **27108** remains at 100%. Search, pricing and room selection ran on the test version. Summary navigation replaced Wix’s `rc=test-site` selector with the selected-room `rc` value and loaded the live version, so candidate Summary acceptance remains blocked. No reservation, invoice or conversion-import action was invoked. See [test-site findings](wix-attribution-testsite-status.md).
+
+### Earlier schema/Preview checkpoint
 
 Eight Velo files and the iframe bridge are saved as an unpublished draft. With subsequent approval, `firstPaidTouch` and `latestPaidTouch` were added as Object fields and verified after editor reload. Read-only Wix Preview reached Home, Search and Summary initialization; Summary correctly lacked a prepared quote, and the Head handshake remained unverified. Opening the pages populated editor diagnostics, superseding the earlier idle-model zero-marker snapshot. **Do not publish the draft alone.** Head activation, publication, real booking/import tests and permission changes have not occurred. See [schema and Preview findings](wix-attribution-schema-preview-status.md) and the earlier [draft inventory](wix-attribution-draft-status.md).
 
