@@ -26,6 +26,7 @@ async function fixture(mode) {
     'libphonenumber-js/max':{parsePhoneNumberFromString:(s,o)=>require('libphonenumber-js/max').parsePhoneNumberFromString(s,JSON.parse(JSON.stringify(o)))},
     'crypto':{default:{...crypto, randomBytes:n=>Buffer.alloc(n, ++entropy), createSign:()=>({update(){return this;},sign:()=>Buffer.from('INERT_SIGNATURE')})}},
     'wix-data':{default:sdk},
+    ...require('./summary-patch-fake.cjs').makeDataItemsFake(require('./summary-patch-fake.cjs').mapStore(rows,key),{beforePatch(){throw Error('fixed HTTP400 must not update Summary');}}).externals,
     'wix-web-module':{Permissions:{Anyone:'Anyone',Admin:'Admin'},webMethod:(_,fn)=>async(...args)=>fn(...args)},
     'backend/settings.web':{getAllSettings:async()=>({googleAdsPrivateJournalEnabled:'1',suspendGoogleAds:'0'})},
     'wix-secrets-backend':{getSecret:async n=>({GOOGLE_ADS_CUSTOMER_ID:'1234567890',GOOGLE_ADS_CONVERSION_ACTION_ID:'123456',GOOGLE_SA_CLIENT_EMAIL:'offline@example.invalid',GOOGLE_SA_PRIVATE_KEY:'INERT_NOT_A_KEY'})[n]},
@@ -51,7 +52,7 @@ async function fixture(mode) {
       const body=mode==='promise' ? 'return actual(pii);' : "throw Error('INERT_HASH_REJECTION');";
       mod=new vm.SourceTextModule("import { buildUserIdentifiers as actual } from 'actual/hashUtils.web'; export async function buildUserIdentifiers(pii) { "+body+' }',{context,identifier:spec});
     } else {
-      assert.ok(['backend/googleAdsConversions.web','backend/googleAdsAttemptJournal','backend/dataManagerClient.web','backend/googleAdsHttpDiagnostics','backend/hashUtils.web','actual/hashUtils.web','public/phoneNormalization'].includes(spec),'unexpected import '+spec);
+      assert.ok(['backend/googleAdsConversions.web','backend/googleAdsAttemptJournal','backend/dataManagerClient.web','backend/googleAdsHttpDiagnostics','backend/hashUtils.web','actual/hashUtils.web','public/phoneNormalization','backend/bookingSummaryWriter'].includes(spec),'unexpected import '+spec);
       mod=new vm.SourceTextModule(fs.readFileSync(path.join(root,spec==='public/phoneNormalization'?'../public/phoneNormalization.js':spec.split('/')[1]+'.js'),'utf8'),{context,identifier:spec});
     }
     cache.set(spec,mod);return mod;

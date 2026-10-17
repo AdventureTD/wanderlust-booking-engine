@@ -1,0 +1,251 @@
+{
+  "basis": "Original combined candidate 49b5dc0; attribution-only based on 2b946df. Restored baseline backend and its four fixture adaptations; Summary retains only tracking-flag/binding/wait changes. New dev dependencies are pinned. No behavior assertions removed from baseline. Deferred security-only tests preserved on combined branch.",
+  "changes": [
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "velo/page-booking-summary.js",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": {
+        "raw_sha256": "d9eef23a9f3da361e7bd8bb4e8bcc959b4490e9d06abef756ccac43c89c28139",
+        "canonical_lf_sha256": "d9d252db85cdcc81f709b62319599c6958bfe16bdc58abf3622ad4b0868be29f"
+      },
+      "current": {
+        "raw_sha256": "022316a0a7f69de30259af2512de7476d5f16f8000e2b6cd8381ab5f62925f6f",
+        "canonical_lf_sha256": "4f2c98f4b075a23c929a1dd62aedbfe74823a24d19e0dfd8f803d560156a1907"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "velo/backend/availability.web.js",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": {
+        "raw_sha256": "b652ccacea4ceeced2e072cc6c4e9a8056046e4d77e2534fdf553ce6fcfca507",
+        "canonical_lf_sha256": "16f0470e89d10f7722b2f345fab14c45e78968ce98e8befeb202a406e1fe5e62"
+      },
+      "current": {
+        "raw_sha256": "87d135a414273e7f94940345023ceb849280a9a27b10083a24becbba45fbdb72",
+        "canonical_lf_sha256": "8279ffb8777ba9d30ef38b24de8cc0175d7e21e1524b7cf5d75c20057018c682"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "velo/backend/bookingCancellation.js",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": {
+        "raw_sha256": "b83b95c61d954086070c6e7518db2f08f0c05024b758a1285f611d9ff7dd2761",
+        "canonical_lf_sha256": "a18bde33c81e65be856067008e73198a46c4c17dc74bd4ce082fe63e3503d95f"
+      },
+      "current": {
+        "raw_sha256": "d7f8c99819c876e02781f18e40bf0b8aabc506dd3de8349866f168d18f40036f",
+        "canonical_lf_sha256": "e6bfd3689c13d0975854a89873c403e9725b76bd5d43fffb69bb43eef3b1b7ea"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "velo/backend/googleAdsAttemptJournal.js",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": {
+        "raw_sha256": "f44dcf6048f5d454601f8412610620fe9b770aa2a18e75aa0b4943dcc63f1dc9",
+        "canonical_lf_sha256": "3c18e2d59e034ab0cf8c94d8764864d88fcae7ea6b8ca8e3d8e2679d969a3258"
+      },
+      "current": {
+        "raw_sha256": "7d1db0e72967c8cb551411258634b8877663ed4568333613ec372bf58a19ebb3",
+        "canonical_lf_sha256": "0de05689c498a7fbd9d5de8052329d414925b88297b23ffc577498fc7b235d9b"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "velo/backend/microsoftAdsConversions.web.js",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": {
+        "raw_sha256": "d774b10d75a4b19dd69498a644998267871047c5fcd7c0e89ee189a84f6dd93d",
+        "canonical_lf_sha256": "1fbe9e27e3c830012a87625a38022e31a8c959036a9bbcc95df4f13df13d6e90"
+      },
+      "current": {
+        "raw_sha256": "d100c6dfdaac652737b27dda034eec17c8506916ed018289bba80ed506d62c22",
+        "canonical_lf_sha256": "b20abf4eebbec2c146a1fbd86bc73dc47f23e2ab2526fdf145c2c46c84ce41a1"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "velo/ATTRIBUTION_V2_INSTALL.md",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": {
+        "raw_sha256": "8a7d0575122b85c9a17ba69d018803d41486cb7359532502a82ce8a95e45eb9f",
+        "canonical_lf_sha256": "8a7d0575122b85c9a17ba69d018803d41486cb7359532502a82ce8a95e45eb9f"
+      },
+      "current": {
+        "raw_sha256": "e35371e06736068bb18ed72f01ae328d824b59962de7aaca5f90a7bb27fe554e",
+        "canonical_lf_sha256": "8a7d0575122b85c9a17ba69d018803d41486cb7359532502a82ce8a95e45eb9f"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "velo/public/adsPolicyProtocol.js",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": {
+        "raw_sha256": "3ef648c10f09d1246be6c8cc9c0ad413f03c127e5f3dc5f60ce57f47ad3af51c",
+        "canonical_lf_sha256": "3ef648c10f09d1246be6c8cc9c0ad413f03c127e5f3dc5f60ce57f47ad3af51c"
+      },
+      "current": {
+        "raw_sha256": "56afed4794c2d6c1d65be90111c0e681e6194266f8e9396ea664703b8d6f878b",
+        "canonical_lf_sha256": "3ef648c10f09d1246be6c8cc9c0ad413f03c127e5f3dc5f60ce57f47ad3af51c"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "velo/backend/bookingSummaryCapability.js",
+      "action": "exclude deferred security or absent documentation",
+      "previous": {
+        "raw_sha256": "1d66b72ebd591edaee48e63b9aa4ce416984c3b3675de17d78a0b9a4e16eca7b",
+        "canonical_lf_sha256": "8d450b5ed73357f61697c0feee00fa5e347a30ba2af581d348ed3086a0bff44d"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "velo/backend/bookingSummaryReporting.web.js",
+      "action": "exclude deferred security or absent documentation",
+      "previous": {
+        "raw_sha256": "907522da347fbc48ceb1d304d6e5ade07eb6dc04e1eecd4252f5f854268c906f",
+        "canonical_lf_sha256": "b0711cc4c3e078b450c46aa916f01c43c0ce4f9feba57a4c327ee0896d452248"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "velo/backend/bookingSummaryWriter.js",
+      "action": "exclude deferred security or absent documentation",
+      "previous": {
+        "raw_sha256": "a9ac8ba9d6923d39f0ca603fa241306575ddeb5e0ec2758c5f57de3af0119a32",
+        "canonical_lf_sha256": "c43fb9afa191539a3a8237f91e7597cf9969cecba7c1660426828aa15f9def8c"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "velo/backend/publicFlags.web.js",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": {
+        "raw_sha256": "d4af65df28db8bd069717fd42e634c66e0f4f47e5f2b7d5989ea85ec750a97ec",
+        "canonical_lf_sha256": "d4af65df28db8bd069717fd42e634c66e0f4f47e5f2b7d5989ea85ec750a97ec"
+      },
+      "current": {
+        "raw_sha256": "e11a4e414651b24934eb9ea68aea938509f94b8ab16031d586c663dd98a4cc04",
+        "canonical_lf_sha256": "d4af65df28db8bd069717fd42e634c66e0f4f47e5f2b7d5989ea85ec750a97ec"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "tests/attribution-clock-v2-security.cjs",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": {
+        "raw_sha256": "ed67a496776872c28116eb078f6930b7aad4113fb50dc217cd1d29b16bbd560d",
+        "canonical_lf_sha256": "ed67a496776872c28116eb078f6930b7aad4113fb50dc217cd1d29b16bbd560d"
+      },
+      "current": {
+        "raw_sha256": "8c5c06ddf8a8d80ac4a69404596a265f6cdaf0f3b4987f8d6237e4386e5e99b6",
+        "canonical_lf_sha256": "ed67a496776872c28116eb078f6930b7aad4113fb50dc217cd1d29b16bbd560d"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "tests/cancellation-blockers.cjs",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": {
+        "raw_sha256": "662a0ca0e9b1d7e7f4f89f2c91998d655003004a660170f9efababd37e072e64",
+        "canonical_lf_sha256": "6c0877d46837bb59fea3b4be78aa45061a69b831cc1877c4c9028a1c2164abe9"
+      },
+      "current": {
+        "raw_sha256": "a4adfc1cf1bad0a3b8104cec7d57d784dd5245555013fa0997de624dcfebddb1",
+        "canonical_lf_sha256": "77fe086d1fc5445a2e38c4d4c580172246a21bef8cb191525a4cd92382fc33ac"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "tests/google-ads-fresh-producer.cjs",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": {
+        "raw_sha256": "f7c321b1400871b334247889a2a0bf87f942c057c490d5ba5c621885ef39e47f",
+        "canonical_lf_sha256": "f7c321b1400871b334247889a2a0bf87f942c057c490d5ba5c621885ef39e47f"
+      },
+      "current": {
+        "raw_sha256": "f73d25666d5a06ce4a0d1a6e41f18a9939d9baac3a530fae13146c5984d28f08",
+        "canonical_lf_sha256": "837e2e0d1f351ad83dcb2afed7bfd05da1fd656e6f4fda161396f8f3992515d8"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "package.json",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": {
+        "raw_sha256": "40ada4864e3dd593504f4c6d9483a2107ae4ea42252438ebb92afa3e6de307b9",
+        "canonical_lf_sha256": "1350c7d00df11ca1a850fbd9a7718d36e520906751cdaf065fa76350e3ef48f1"
+      },
+      "current": {
+        "raw_sha256": "6a171be7c7ea60889d710e86a2cd7717ab6929129d0c01237e7acf814407eb5f",
+        "canonical_lf_sha256": "c8d692d2a23a74996352269300bf096fbe041fdc41529909af85965932f34c1c"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "package-lock.json",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": {
+        "raw_sha256": "44162ef8284e2cdb96b63eaf8cfe0af87515d027cdf674519b0710dd141d8174",
+        "canonical_lf_sha256": "93d75d6fe9045622fc8249425e63ac7e49d100296a5e80d6b6790f7e69465449"
+      },
+      "current": {
+        "raw_sha256": "63bb7841cc1ade39bddd5d521e3fdf13823fd92df23d3892a50c44e7a6ef4e16",
+        "canonical_lf_sha256": "02a83fa068f3c5798a3ec55591955798e2faa4248bc44b838a53a8b584fd263f"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "tests/booking-summary-security.cjs",
+      "action": "exclude deferred security or absent documentation",
+      "previous": {
+        "raw_sha256": "99f0e21578367e01827232de849f772d2b614f23e408ae5e2d1aeffd88e2247b",
+        "canonical_lf_sha256": "5ce4128b05be228aeda92e8c3b68cbd96ff6c7bf308244ae62e94407e5d13918"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "docs/booking-summary-security.md",
+      "action": "exclude deferred security or absent documentation",
+      "previous": {
+        "raw_sha256": "3fb4531435f3da23fb67369b2e674b589a0bbe1286107a1d40e988b9ff165677",
+        "canonical_lf_sha256": "31d246b6131cb0752a8367be4ec09882dab90a6d5f702e963e12aae974ac90b4"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "tests/booking-summary-writer-races.cjs",
+      "action": "exclude deferred security or absent documentation",
+      "previous": {
+        "raw_sha256": "0aac0a740511c4afafb1bc3d013c65c1d8c809e0fcb58adea3d3165d2e96dc16",
+        "canonical_lf_sha256": "4e7ad439b547511dee44803c8f710f3700096137091a2a9263d263756f7fc025"
+      }
+    },
+    {
+      "manifest": "tests/attribution-clock-v2-sources.json",
+      "file": "docs/public-tracking-flags.md",
+      "action": "exclude deferred security or absent documentation",
+      "previous": {
+        "raw_sha256": "52a2d3065eba0d13bd2542ac84731891682921ac4e0b0f2f243f0305cc33b17c",
+        "canonical_lf_sha256": "bec7953c8399911bb36f2a3987de314f4df7506a68cd342eb8d6c300baa8b2b5"
+      }
+    },
+    {
+      "manifest": "tests/attribution-hotfix-sources.json",
+      "file": "velo/page-booking-summary.js",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": "d9d252db85cdcc81f709b62319599c6958bfe16bdc58abf3622ad4b0868be29f",
+      "current": "4f2c98f4b075a23c929a1dd62aedbfe74823a24d19e0dfd8f803d560156a1907"
+    },
+    {
+      "manifest": "tests/attribution-hotfix-sources.json",
+      "file": "velo/backend/availability.web.js",
+      "action": "rebind reviewed attribution-only tree",
+      "previous": "16f0470e89d10f7722b2f345fab14c45e78968ce98e8befeb202a406e1fe5e62",
+      "current": "8279ffb8777ba9d30ef38b24de8cc0175d7e21e1524b7cf5d75c20057018c682"
+    }
+  ]
+}

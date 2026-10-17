@@ -24,7 +24,10 @@ test('expired first is removed without promoting valid latest into first',async(
  const a=await api(),latest=touch('INERT_LATEST',NOW-DAY);
  const state=a.normalizePaidTouches({v:1,first:touch('INERT_FIRST',NOW-91*DAY),latest},NOW);
  assert.deepEqual(plain(state),{v:1,first:null,latest});
- assert.equal(a.capturePaidTouch(state,touch('INERT_THIRD'),NOW).first,null);
+ // Approved B2 contract: no promotion on normalization/direct visit (above), but a
+ // distinct newer paid landing after first expiry begins a new lifetime.
+ const third=touch('INERT_THIRD');assert.deepEqual(plain(a.capturePaidTouch(state,third,NOW)),{v:1,first:third,latest:third});
+ assert.deepEqual(plain(a.capturePaidTouch(state,null,NOW)),{v:1,first:null,latest});
 });
 test('entire expired lifetime clears and next paid touch starts a new lifetime',async()=>{
  const a=await api(),expired={v:1,first:touch('INERT_FIRST',NOW-92*DAY),latest:touch('INERT_LAST',NOW-91*DAY)};

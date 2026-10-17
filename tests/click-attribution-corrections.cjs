@@ -27,6 +27,7 @@ async function fixture({deny=false,drop=false,delay=0,query='gclid=INERT_EXACT_F
  function make(s){if(cache.has(s))return cache.get(s);const e=external[s];const m=e?new vm.SyntheticModule(Object.keys(e),function(){for(const k of Object.keys(e))this.setExport(k,e[k]);},{context}):new vm.SourceTextModule(read(s+'.js'),{context});cache.set(s,m);return m;}
  const m=make('public/tracking');await m.link(make);await m.evaluate();const api=m.namespace;
  if(api.initClickAttribution)api.initClickAttribution(()=>component);else api.initTracking(()=>component);
+ if(api.resolveTrackingFlags)await api.resolveTrackingFlags(async()=>({ok:true,suspendGoogleAds:false})); // release initial flag hold
  return api;
  }
  let api=await worker();

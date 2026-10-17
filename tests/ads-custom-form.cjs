@@ -40,7 +40,7 @@ async function fixture(opts = {}) {
   if (opts.now !== undefined) vm.runInContext('Date.now=()=>'+opts.now,head);
   vm.runInContext(headSource, head);
   const dispatch = (data, overrides={}) => { for (const f of listeners.message || []) f({data, source:frame, origin:'https://fixture.invalid',...overrides}); };
-  parent.postMessage = data => { messages.push(JSON.parse(JSON.stringify(data))); if (!opts.pause) { if(data.source) dispatch(data); else for(const listener of workerListeners) listener({data}); } };
+  parent.postMessage = data => { messages.push(JSON.parse(JSON.stringify(data))); if (opts.dropOpenReply && data && data.type === 'wbe-click-attribution-result' && data.op === 'open') return; /* withdrawal-binding O3: lost open reply */ if (!opts.pause) { if(data.source) dispatch(data); else for(const listener of workerListeners) listener({data}); } };
   const iframe = vm.createContext({ window:{parent}, document:{referrer:'https://www.wanderlustcaribbean.com/'}, URL });
   vm.runInContext(inline('velo/custom-code/event-bridge-iframe.html'), iframe);
   frame.postMessage = data => iframe.window.onmessage({data,source:parent,origin:'https://www.wanderlustcaribbean.com'});
@@ -90,8 +90,10 @@ async function fixture(opts = {}) {
   for (const name of names) assert.equal(typeof tracking.namespace[name],'function','real tracking import: '+name);
   const p = await sandbox.makePage({book:opts.book});
   p.w('#wbeEventBridge').onMessage = fn => {workerListeners.push(fn);};
-  p.w('#wbeEventBridge').postMessage = data => { messages.push(JSON.parse(JSON.stringify(data))); iframe.window.onmessage({data,source:parent,origin:'https://www.wanderlustcaribbean.com'}); };
+  p.w('#wbeEventBridge').postMessage = data => { messages.push(JSON.parse(JSON.stringify(data))); if (opts.dropBind && data && data.op === 'bind') return; /* withdrawal-binding O3: missing binding evidence */ iframe.window.onmessage({data,source:parent,origin:'https://www.wanderlustcaribbean.com'}); };
   tracking.namespace.initTracking(p.w);
+  p.c.getPublicTrackingFlags = async()=>({ok:true,suspendGoogleAds:false}); // page adapter getter (enabled)
+  if(!opts.flagsHeld) await tracking.namespace.resolveTrackingFlags(p.c.getPublicTrackingFlags);
   for (const k of Object.getOwnPropertyNames(tracking.namespace)) p.c[k] = tracking.namespace[k];
   if(opts.suspended) tracking.namespace.setSuspendGoogleAds(true);
   if(opts.invalid) p.w('#inputGuestEmail').value = 'invalid';

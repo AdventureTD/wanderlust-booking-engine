@@ -7,10 +7,11 @@ function replaceOnce(a,b){assert.equal(src.split(a).length,2,'fixture seam '+a);
 replaceOnce('policyRead}={})','policyRead, clock=Date}={})');
 replaceOnce("Date,performance:require('node:perf_hooks').performance", "Date:clock,performance:{now:()=>clock.now()}");
 replaceOnce("window,document,performance:require('node:perf_hooks').performance", "Date:clock,window,document,performance:{now:()=>clock.now()}");
-replaceOnce("const component={onMessage:f=>{onMessage=f;},postMessage:d=>iframe.window.onmessage({data:d,source:parent,origin})};", "const sent=[];const component={onMessage:f=>{onMessage=f;},postMessage(d){sent.push({op:d.op,nonce:d.nonce,at:clock.now()});iframe.window.onmessage({data:d,source:parent,origin});}};");
-replaceOnce('return {readReady,deliveries,frameNode,','return {sent,readReady,deliveries,frameNode,');
+replaceOnce("const component={onMessage:f=>{onMessage=f;},postMessage:d=>iframe.window.onmessage({data:d,source:parent,origin})};", "const allSent=[];const component={onMessage:f=>{onMessage=f;},postMessage(d){allSent.push({d:JSON.parse(JSON.stringify(d)),at:clock.now()});iframe.window.onmessage({data:d,source:parent,origin});}};");
+// O3 P2: raw allSent retained; f.sent projects out ONLY validated privacy-only binds.
+replaceOnce('return {visit,readReady,deliveries,frameNode,','return {visit,allSent,get sent(){const p=projector();return allSent.filter(x=>p.take(x.d)).map(x=>({op:x.d.op,nonce:x.d.nonce,at:x.at}));},readReady,deliveries,frameNode,');
 replaceOnce('close(){for(const t of timers)','close(){api.setSuspendGoogleAds(true);for(const t of timers)');
-const box={require,__dirname,console,setTimeout,clearTimeout,URL};vm.runInNewContext(src+'\nthis.fixture=fixture;',box);
+const box={require,__dirname,console,setTimeout,clearTimeout,URL,projector:require(__dirname + '/support/privacy-bind-projection.cjs').projector};vm.runInNewContext(src+'\nthis.fixture=fixture;',box);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function clock(){let n=Date.now();return class extends Date{constructor(...args){super(...(args.length?args:[n]));}static now(){return n;}static advance(ms){n+=ms;}};}
 const policy=(c,binding)=>({...binding,requirement:'NOT_REQUIRED',policyKey:'a'.repeat(64),observedAt:c.now()});

@@ -21,7 +21,10 @@ import { getRoomNames } from 'backend/rooms';
 import { getPackageAmenities, getPackageBaseRate, getPackageDetailsByNights, getPackagesByNights } from 'backend/packages';
 import { readPricingQuote } from 'backend/pricingQuotes';
 import { createBooking, issueBookingInvoice, validatePromoCode } from 'backend/availability';
-import { initClickAttribution, waitForClickAttribution, trackPurchase, getStoredClickIds, clearClickIds, initTracking, setSuspendGoogleAds, prepareAdsFormSubmission, completeAdsFormSubmission } from 'public/tracking';
+import { initClickAttribution, waitForClickAttribution, trackPurchase, getStoredClickIds, clearClickIds, initTracking, resolveTrackingFlags, prepareAdsFormSubmission, completeAdsFormSubmission } from 'public/tracking';
+import { getPublicTrackingFlags } from 'backend/publicFlags.web';
+// Bounded tracking-flag resolution; tracking stays held unless enabled.
+let _trackingFlags = Promise.resolve('hold');
 import { recordBookingConversion } from 'backend/googleAdsConversions.web';
 import { recordMicrosoftBookingConversion } from 'backend/microsoftAdsConversions.web';
 function fmtCurrency(n) { return Number(n || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
@@ -230,6 +233,9 @@ $w.onReady(function () {
     showInitializationStatus('Loading is taking too long. Please return to the booking search and search again.');
   }, 20000);
   initTracking($w);
+  // Privacy-only binding at load (independent of flags/readiness): withdrawal reaches this copy.
+  try { initClickAttribution($w); } catch (_) {}
+  _trackingFlags = resolveTrackingFlags(getPublicTrackingFlags).catch(function () { return 'hold'; });
   initSummary(load).then(function () {
     clearTimeout(timer);
     if (load.stopped) return;
@@ -381,12 +387,6 @@ async function initSummary(load) {
     }
   }
 
-  const suspend = String(settings.suspendGoogleAds).trim() === '1' || Number(settings.suspendGoogleAds) === 1;
-  if (typeof setSuspendGoogleAds === 'function') {
-    setSuspendGoogleAds(suspend);
-  } else {
-    console.log('[WBE-SUMMARY] setSuspendGoogleAds import not ready, suspend defaults to false');
-  }
 
   initRoomRepeater();
   safeCollapse('promoAmount');
@@ -988,6 +988,7 @@ function wireContinueButton() {
     let att = null;
     try {
       initClickAttribution($w);
+      await _trackingFlags;
       await waitForClickAttribution();
       att = getStoredClickIds(undefined, true);
     } catch (_) { /* Optional capture failure cannot abort or unlock booking. */ }

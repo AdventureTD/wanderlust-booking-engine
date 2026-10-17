@@ -35,11 +35,18 @@ async function fixture(options = {}) {
     getCurrentConsentPolicy: invoke('consent', () => Promise.resolve({ policy: {} })),
     onConsentPolicyChanged: invoke('watch')
   };
+  const getPublicTrackingFlags = () => { throw new Error('getter must only be passed, not called by master'); };
   const rendering = Object.hasOwn(options, 'rendering') ? options.rendering : { env: options.env ?? 'browser' };
   const modules = {
     'wix-window-frontend': { default: { rendering }, consentPolicy },
-    'backend/settings': { getAllSettings: invoke('settings', () => Promise.resolve({})) },
+    // public-tracking-flags: master resolves the flag through tracking's
+    // non-destructive hold; it never imports backend/settings or calls the setter.
+    'backend/publicFlags.web': { getPublicTrackingFlags },
     'public/tracking': {
+      resolveTrackingFlags: invoke('flags', getter => {
+        assert.equal(getter, getPublicTrackingFlags, 'master passes the public flag getter');
+        return Promise.resolve('enabled');
+      }),
       setSuspendGoogleAds: invoke('suspend', value => { calls.push(value); }),
       initTracking: invoke('tracking'), initClickAttribution: invoke('attribution'),
       waitForClickAttribution: invoke('wait', () => Promise.resolve()),
@@ -60,10 +67,10 @@ async function fixture(options = {}) {
   return { ready, calls, errors };
 }
 
-test('server onReady returns before settings, tracking or consent', async () => {
+test('server onReady returns before flags, tracking or consent', async () => {
   const f = await fixture({ env: 'backend' });
   await bounded(f.ready());
-  assert.deepEqual(f.calls, [], 'SSR must not query settings or initialize tracking/consent');
+  assert.deepEqual(f.calls, [], 'SSR must not resolve flags or initialize tracking/consent');
 });
 
 test('pending handshake does not hold onReady or consent; capture waits for resolution', async () => {
@@ -85,7 +92,7 @@ test('pending handshake does not hold onReady or consent; capture waits for reso
 
 for (const env of ['unknown', '', undefined, null]) {
   test(`non-browser environment ${String(env)} fails closed`, async () => {
-    const f = await fixture({ rendering: { env }, settings: () => { throw new Error('must not call'); } });
+    const f = await fixture({ rendering: { env }, flags: () => { throw new Error('must not call'); } });
     await bounded(f.ready());
     assert.deepEqual(f.calls, []);
   });
@@ -96,49 +103,60 @@ test('missing rendering fails closed inside outer catch', async () => {
   assert.deepEqual(f.calls, []);
   assert.equal(f.errors.length, 1);
 });
-test('server skips even a synchronously throwing imported settings function', async () => {
-  const f = await fixture({ env: 'backend', settings: () => { throw new Error('SDK unavailable'); } });
+test('server skips even a synchronously throwing flag resolver', async () => {
+  const f = await fixture({ env: 'backend', flags: () => { throw new Error('SDK unavailable'); } });
   await bounded(f.ready());
   assert.deepEqual(f.calls, []);
   assert.deepEqual(f.errors, []);
 });
-for (const value of [1, '1']) {
-  test(`browser forwards suspended setting ${JSON.stringify(value)} before tracking`, async () => {
-    const f = await fixture({ settings: async () => ({ suspendGoogleAds: value }) });
+for (const state of ['suspended', 'hold']) {
+  test(`browser binds listeners before flags; ${state} skips readiness and capture`, async () => {
+    const f = await fixture({ flags: async () => state });
     await bounded(f.ready()); await turn();
-    assert.deepEqual(f.calls.slice(0, 5), ['settings', 'suspend', true, 'tracking', 'attribution']);
-    assert.equal(f.calls.filter(x => x === 'capture').length, 1);
+    assert.deepEqual(f.calls.slice(0, 4), ['tracking', 'attribution', 'consent', 'flags']);
+    assert.ok(!f.calls.includes('wait'));
+    assert.ok(!f.calls.includes('capture'));
+    assert.ok(!f.calls.includes('suspend'), 'master never calls the legacy setter');
     assert.deepEqual(f.errors, []);
   });
 }
+test('browser enabled flags: listeners, consent, then readiness and capture', async () => {
+  const f = await fixture();
+  await bounded(f.ready()); await turn();
+  assert.deepEqual(f.calls.slice(0, 4), ['tracking', 'attribution', 'consent', 'flags']);
+  assert.ok(f.calls.indexOf('flags') < f.calls.indexOf('wait'));
+  assert.equal(f.calls.filter(x => x === 'capture').length, 1);
+  assert.ok(!f.calls.includes('suspend'));
+  assert.deepEqual(f.errors, []);
+});
 for (const sync of [false, true]) {
-  test(`settings ${sync ? 'throw' : 'rejection'} preserves existing fallback`, async () => {
-    const f = await fixture({ settings: () => {
-      if (sync) throw new Error('settings failed');
-      return Promise.reject(new Error('settings failed'));
+  test(`flag resolver ${sync ? 'throw' : 'rejection'} is contained and never captures`, async () => {
+    const f = await fixture({ flags: () => {
+      if (sync) throw new Error('flags failed');
+      return Promise.reject(new Error('flags failed'));
     } });
     await bounded(f.ready()); await turn();
-    assert.deepEqual(f.calls.slice(0, 5), ['settings', 'suspend', false, 'tracking', 'attribution']);
-    assert.ok(f.calls.includes('consent'));
-    assert.ok(f.calls.includes('capture'));
-    assert.deepEqual(f.errors, []);
+    assert.deepEqual(f.calls.slice(0, 4), ['tracking', 'attribution', 'consent', 'flags']);
+    assert.ok(!f.calls.includes('wait'));
+    assert.ok(!f.calls.includes('capture'));
+    assert.equal(f.errors.length, 1);
+    assert.equal(f.errors[0][1], 'flags failed');
   });
 }
-test('browser readiness returns immediately while initialization still waits for settings', async () => {
+test('browser readiness returns immediately while initialization still waits for flags', async () => {
   const gate = deferred();
-  const f = await fixture({ settings: () => gate.promise });
+  const f = await fixture({ flags: () => gate.promise });
   const result = f.ready();
   try {
     assert.equal(result, undefined, 'onReady must not return the optional initializer promise');
     await bounded(Promise.resolve(result));
     await turn();
-    assert.deepEqual(f.calls, ['settings'], 'no suspension, tracking or consent before Settings settles');
-    gate.resolve({ suspendGoogleAds: '1' });
+    assert.deepEqual(f.calls.filter(x => x !== 'watch'), ['tracking', 'attribution', 'consent', 'flags'], 'no readiness or capture before flags settle');
+    gate.resolve('enabled');
     await turn();
-    assert.deepEqual(f.calls.slice(0, 5), ['settings', 'suspend', true, 'tracking', 'attribution']);
-    assert.ok(f.calls.includes('consent'));
+    assert.ok(f.calls.indexOf('flags') < f.calls.indexOf('wait'));
     assert.ok(f.calls.indexOf('wait') < f.calls.indexOf('capture'));
-  } finally { gate.resolve({}); await bounded(result); await turn(); }
+  } finally { gate.resolve('enabled'); await bounded(result); await turn(); }
 });
 for (const phase of ['wait', 'capture']) for (const sync of [false, true]) {
   test(`${phase} ${sync ? 'throw' : 'rejection'} is contained without unhandled rejection`, async () => {
@@ -175,24 +193,23 @@ test('late handshake rejection does not capture and leaves consent initialized',
   } finally { gate.resolve(); }
 });
 
-for (const phase of ['suspend', 'tracking', 'attribution']) {
-  test(`${phase} initializer throw is caught after detached Settings settlement`, async () => {
-    const gate = deferred(), unhandled = [];
+for (const phase of ['tracking', 'attribution']) {
+  test(`${phase} initializer throw is caught before flags or consent`, async () => {
+    const unhandled = [];
     const listener = error => unhandled.push(error);
     process.on('unhandledRejection', listener);
     const failure = new Error(`${phase} init failed`);
     try {
-      const f = await fixture({ settings: () => gate.promise, [phase]: () => { throw failure; } });
+      const f = await fixture({ [phase]: () => { throw failure; } });
       assert.equal(f.ready(), undefined);
-      assert.deepEqual(f.calls, ['settings']);
-      gate.resolve({});
       await turn(); await turn();
       assert.equal(f.errors.length, 1);
       assert.equal(f.errors[0][1], failure.message);
       assert.equal(f.calls.at(-1), phase, 'preserve stop-on-initializer-error behavior');
       assert.ok(!f.calls.includes('consent'));
+      assert.ok(!f.calls.includes('flags'));
       assert.deepEqual(unhandled, []);
-    } finally { gate.resolve({}); await turn(); process.removeListener('unhandledRejection', listener); }
+    } finally { await turn(); process.removeListener('unhandledRejection', listener); }
   });
 }
 for (const phase of ['capture', 'consent']) {
@@ -227,7 +244,7 @@ for (const sync of [false, true]) {
 }
 test('server skips all intentionally pending optional dependencies', async () => {
   const gate = deferred();
-  const f = await fixture({ env: 'backend', settings: () => gate.promise, wait: () => gate.promise,
+  const f = await fixture({ env: 'backend', flags: () => gate.promise, wait: () => gate.promise,
     capture: () => gate.promise, consent: () => gate.promise });
   try { assert.equal(f.ready(), undefined); await turn(); assert.deepEqual(f.calls, []); }
   finally { gate.resolve(); }
@@ -247,11 +264,14 @@ test('actual public import closure has no evaluation or SSR SDK effects', async 
     'wix-storage-frontend': { local: { getItem: deny('storage'), setItem: deny('storage'), removeItem: deny('storage') } },
     'wix-location-frontend': { default: new Proxy({}, { get: deny('location') }) },
     'backend/adsFormRequirement.web': { getAdsFormRequirement: deny('policy RPC') },
-    'wix-data': { default: new Proxy({}, { get: deny('data') }) }
+    'wix-data': { default: new Proxy({}, { get: deny('data') }) },
+    'wix-web-module': { Permissions: { Anyone: 'Anyone' }, webMethod: (_, fn) => fn }
   };
   // Read the real settings source too; production frontend uses Wix's RPC boundary.
   const files = { master: 'masterPage.js', 'public/tracking': 'public/tracking.js',
-    'public/clickAttribution': 'public/clickAttribution.js', 'backend/settings': 'backend/settings.web.js' };
+    'public/clickAttribution': 'public/clickAttribution.js', 'backend/publicFlags.web': 'backend/publicFlags.web.js',
+    // Actual imports of clickAttribution since 82187d3 (policy protocol) and 1f82359 (paid touches).
+    'public/adsPolicyProtocol': 'public/adsPolicyProtocol.js', 'public/paidTouchState': 'public/paidTouchState.js' };
   const cache = new Map();
   function load(id) {
     if (cache.has(id)) return cache.get(id);
@@ -270,5 +290,6 @@ test('actual public import closure has no evaluation or SSR SDK effects', async 
   await bounded(ready());
   assert.deepEqual(calls, []);
   assert.ok(cache.has('public/clickAttribution'));
-  assert.ok(cache.has('backend/settings'));
+  assert.ok(cache.has('backend/publicFlags.web'));
+  assert.ok(!cache.has('backend/settings'));
 });

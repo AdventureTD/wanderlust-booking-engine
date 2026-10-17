@@ -7,9 +7,66 @@ import { getAdsFormRequirement } from 'backend/adsFormRequirement.web';
 import { localBudget, remainingBudget, closeBudget, monotonicNow, freshPolicyNonce, policyRequest, validPolicy, withinBudget } from 'public/adsPolicyProtocol';
 import { local } from 'wix-storage-frontend';
 import { normalizePaidTouches } from 'public/paidTouchState';
-import { initClickAttribution as initAttribution, waitForClickAttribution as waitAttribution, clearPageAttribution, attributionDenied, attributionRevision, attributionStorageAdmitted, suspendAttribution } from 'public/clickAttribution';
+import { initClickAttribution as initAttribution, waitForClickAttribution as waitAttribution, clearPageAttribution, attributionDenied, attributionRevision, attributionStorageAdmitted, suspendAttribution, fenceAttribution } from 'public/clickAttribution';
 export function initClickAttribution(w) { initAttribution(w); }
-export function waitForClickAttribution() { return waitAttribution(); }
+// Readiness never runs while flags are held or suspended: no channel, read,
+// confirm or erase on behalf of an unresolved flag (non-destructive hold).
+export function waitForClickAttribution() {
+  if (trackingHeld() || _suspendGoogleAds) return Promise.resolve();
+  return waitAttribution();
+}
+
+// Public tracking flags. Initial state is a NON-DESTRUCTIVE hold: sends, the Ads
+// form path, attribution readiness and stored-ID reads are blocked, but nothing
+// is revoked, erased or written. Only a current-generation, exactly-shaped
+// {ok:true, suspendGoogleAds:false} enables. A valid suspension from ANY
+// generation is sticky for this module instance (no re-enable this session) and
+// uses the existing destructive suspension. Anything else (ok:false, malformed,
+// rejection, timeout) keeps or returns the hold. A response after its own
+// timeout is ignored entirely. Controls only consumers wired through this module.
+export const TRACKING_FLAG_TIMEOUT_MS = 3000;
+let _flagState = 'hold', _flagGeneration = 0;
+export function trackingFlagState() { return _flagState; }
+function trackingHeld() { return _flagState !== 'enabled'; }
+// Entering (or re-entering) the hold is NON-DESTRUCTIVE but fences in-flight work:
+// fenceAttribution cancels late readiness wakes and bumps the attribution revision
+// so an already-running readiness cannot store/admit after its awaits (existing
+// B2/B4 supersession checks), and any pending Ads form continuation is dropped.
+// No revoke, erase, closePartition or consent inference; clears stay exempt.
+function enterHold() {
+  if (_flagState === 'suspended') return;
+  _flagState = 'hold';
+  _adsFormPending = null;
+  fenceAttribution();
+}
+function validTrackingFlags(r) {
+  return !!r && typeof r === 'object' && !Array.isArray(r) &&
+    Object.keys(r).sort().join(',') === 'ok,suspendGoogleAds' &&
+    r.ok === true && typeof r.suspendGoogleAds === 'boolean';
+}
+function applyTrackingFlags(r, generation) {
+  if (_flagState === 'suspended') return;
+  if (!validTrackingFlags(r)) { enterHold(); return; }
+  if (r.suspendGoogleAds) { _flagState = 'suspended'; setSuspendGoogleAds(true); return; }
+  if (generation === _flagGeneration) _flagState = 'enabled';
+}
+export function resolveTrackingFlags(getter) {
+  const generation = ++_flagGeneration;
+  enterHold(); // A new read holds consumers synchronously until it resolves.
+  return new Promise(resolve => {
+    let settled = false, timer = null;
+    const settle = () => { if (settled) return false; settled = true; clearTimeout(timer); return true; };
+    timer = setTimeout(() => { if (settle()) { enterHold(); resolve(_flagState); } }, TRACKING_FLAG_TIMEOUT_MS);
+    let call;
+    try { call = Promise.resolve(typeof getter === 'function' ? getter() : null); }
+    catch (_) { call = Promise.resolve(null); }
+    call.then(r => {
+      if (!settle()) return; // Late after its own timeout: ignored entirely.
+      applyTrackingFlags(r, generation);
+      resolve(_flagState);
+    }, () => { if (settle()) { enterHold(); resolve(_flagState); } });
+  });
+}
 
 
 const STORAGE_KEY = 'wl_click_attribution';
@@ -24,6 +81,7 @@ const attributionSnapshots = new WeakMap();
 // work too. Passing that exact snapshot revalidates its original worker epoch;
 // never substitute a later touch or reauthorize old work after reacceptance.
 export function getStoredClickIds(snapshot, includeEmpty = false) {
+  if (trackingHeld()) return null; // Held: no read-side erase or snapshot.
   try {
     const raw = local.getItem(STORAGE_KEY);
     if (snapshot !== undefined) {
@@ -63,7 +121,7 @@ export function clearClickIds(snapshot) {
   // A late upload completion after withdrawal cannot recreate a private retry
   // copy or open a fresh permission channel. Internal pending-clear recovery
   // stays in clickAttribution and does not pass this public capture boundary.
-  if (attributionDenied()) return;
+  if (attributionDenied()) { fenceAttribution(); return; }
   if (snapshot !== undefined) {
     const saved = attributionSnapshots.get(snapshot);
     if (!saved || saved.revision !== attributionRevision()) return;
@@ -114,11 +172,11 @@ async function readAdsFormPolicy(pending, phase) {
       _adsFormBridge.postMessage({ type: 'wbe-ads-form', v: 2, op: 'start',
         phase, sequence: pending.sequence, nonce, policy: null });
     }), budget);
-    if (!ack || _adsFormPending !== pending || _suspendGoogleAds) return null;
+    if (!ack || _adsFormPending !== pending || _suspendGoogleAds || trackingHeld()) return null;
     const binding = policyRequest('form', phase, nonce, ack.challenge);
-    const result = await withinBudget(() => _adsFormPending === pending && !_suspendGoogleAds ? getAdsFormRequirement(binding) : null, budget);
+    const result = await withinBudget(() => _adsFormPending === pending && !_suspendGoogleAds && !trackingHeld() ? getAdsFormRequirement(binding) : null, budget);
     if (!remainingBudget(budget) || !validPolicy(result, binding) ||
-        _adsFormPending !== pending || _suspendGoogleAds) return null;
+        _adsFormPending !== pending || _suspendGoogleAds || trackingHeld()) return null;
     if (phase === 'complete' && (!pending.policy || result.policyKey !== pending.policy.policyKey ||
         result.requirement !== pending.policy.requirement || !Number.isFinite(monotonicNow()) ||
         monotonicNow() - pending.at >= 600000)) return null;
@@ -129,7 +187,7 @@ async function readAdsFormPolicy(pending, phase) {
   finally { if (_adsFormAck === wait) _adsFormAck = null; closeBudget(budget); }
 }
 export function prepareAdsFormSubmission() {
-  if (_suspendGoogleAds || !_$w || !_adsFormBridge) return 0;
+  if (_suspendGoogleAds || trackingHeld() || !_$w || !_adsFormBridge) return 0;
   const sequence = ++_adsFormSequence;
   const pending = { sequence, completing: false, at: monotonicNow() };
   if (!Number.isFinite(pending.at)) return 0;
@@ -147,7 +205,7 @@ export function completeAdsFormSubmission(sequence) {
   void (async () => {
     try {
       const before = await pending.ready;
-      if (!before || _adsFormPending !== pending || _suspendGoogleAds ||
+      if (!before || _adsFormPending !== pending || _suspendGoogleAds || trackingHeld() ||
           !Number.isFinite(monotonicNow()) || monotonicNow() - pending.at >= 600000) return;
       await readAdsFormPolicy(pending, 'complete');
     } catch (_) { /* No reservation dependency, no retry or contact/error logging. */ }
@@ -156,6 +214,9 @@ export function completeAdsFormSubmission(sequence) {
 }
 
 export function setSuspendGoogleAds(value) {
+  // Legacy setter: false never re-enables after a flag-derived suspension (sticky)
+  // and never releases the flag hold (only resolveTrackingFlags can).
+  if (!value && _flagState === 'suspended') return;
   suspendAttribution(value);
   _suspendGoogleAds = !!value;
   if (_suspendGoogleAds) _adsFormPending = null;
@@ -166,6 +227,10 @@ export function pushDataLayer(payload) {
   try {
     if (_suspendGoogleAds) {
       console.log('TRACKING_SUSPENDED');
+      return;
+    }
+    if (trackingHeld()) {
+      console.log('TRACKING_HELD');
       return;
     }
     if (!_$w) {

@@ -4,16 +4,19 @@ const fs = require('node:fs'), path = require('node:path'), vm = require('node:v
 async function fixture({ suspended = false, result, retracted = false } = {}) {
   const rows = new Map(), calls = [];
   const key = (c,id) => c + ':' + id;
-  rows.set(key('Bookings','room'), {_id:'room',bookingNumber:'INERT',status:'Confirmed',quantity:1,checkIn:new Date('2026-10-01'),checkOut:new Date('2026-10-05')});
-  rows.set(key('BookingSummary','summary'), {_id:'summary',bookingNumber:'INERT',status:'Confirmed',googleConversionUploaded:true,googleConversionRetracted:retracted});
+  rows.set(key('Bookings','room'), {_id:'room',bookingNumber:'INERT',status:'Confirmed',quantity:1,roomCode:'adventure_suite',checkIn:new Date('2026-10-01'),checkOut:new Date('2026-10-05')});
+  rows.set(key('BookingSummary','summary'), {_id:'summary',bookingNumber:'INERT',status:'Confirmed',roomCount:1,googleConversionUploaded:true,googleConversionRetracted:retracted});
   const sdk = {
     async get(c,id) { return structuredClone(rows.get(key(c,id))); },
     async update(c,r) { calls.push(['update',c]); rows.set(key(c,r._id),structuredClone(r)); return structuredClone(r); },
-    query(c) { let filters=[]; return {eq(k,v){filters.push([k,v]);return this;},limit(){return this;},async find(){return {items:[...rows.entries()].filter(([k,v])=>k.startsWith(c+':')&&filters.every(([f,x])=>v[f]===x)).map(([,v])=>structuredClone(v))};}};}
+    async insert(c,r) { calls.push(['insert',c]); if(rows.has(key(c,r._id))) throw Error('DUPLICATE'); rows.set(key(c,r._id),structuredClone(r)); return structuredClone(r); },
+    query(c) { let filters=[]; return {eq(k,v){filters.push([k,v]);return this;},limit(){return this;},async find(){return {items:[...rows.entries()].filter(([k,v])=>k.startsWith(c+':')&&filters.every(([f,x])=>v[f]===x)).map(([,v])=>structuredClone(v)),hasNext(){return false;}};}};}
   };
   const forbidden = () => { calls.push(['FORBIDDEN']); throw Error('NO_PROVIDER_IO'); };
+  // Documented Data Items patch fake (shared with the cancellation suites) for backend/bookingSummaryWriter.
+  const dataItems = require('./summary-patch-fake.cjs').makeDataItemsFake(require('./summary-patch-fake.cjs').mapStore(rows,key));
   const external = {
-    crypto:{default:crypto}, 'wix-data':{default:sdk},
+    crypto:{default:crypto}, 'wix-data':{default:sdk}, ...dataItems.externals,
     'libphonenumber-js/max':{parsePhoneNumberFromString:(s,o)=>require('libphonenumber-js/max').parsePhoneNumberFromString(s,JSON.parse(JSON.stringify(o)))},
     'wix-web-module':{Permissions:{Anyone:0,Admin:1},webMethod:(_,f)=>f},
     'wix-fetch':{fetch:forbidden}, 'wix-secrets-backend':{getSecret:forbidden},

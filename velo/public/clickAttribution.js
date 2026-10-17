@@ -4,14 +4,19 @@
 import { local } from 'wix-storage-frontend';
 import { normalizePaidTouches } from 'public/paidTouchState';
 import { getAdsFormRequirement } from 'backend/adsFormRequirement.web';
-import { localBudget, remainingBudget, closeBudget, freshPolicyNonce, policyRequest, validPolicy, withinBudget } from 'public/adsPolicyProtocol';
+import { localBudget, remainingBudget, closeBudget, freshPolicyNonce, policyRequest, validPolicy, withinBudget, monotonicNow } from 'public/adsPolicyProtocol';
 const KEY = 'wl_click_attribution', CLEAR = 'wl_click_attribution_clear_pending';
 const REVOKED = 'wl_click_attribution_revoked';
 // Storage carries data, never a grant. Undefined admits startup reconciliation
 // only; null is an explicit empty admission. Only a bound Head confirm sets bytes.
 let admittedRaw;
-let partitionClosed = false;
-try { partitionClosed = !!local.getItem(REVOKED); } catch (_) { partitionClosed = true; }
+// Revocation marker is read lazily at first browser use, never at module evaluation
+// (no SDK storage call in the SSR import closure). Throwing storage stays closed.
+let partitionClosed;
+function closedPartition() {
+  if (partitionClosed === undefined) { try { partitionClosed = !!local.getItem(REVOKED); } catch (_) { partitionClosed = true; } }
+  return partitionClosed;
+}
 export function attributionStorageAdmitted(raw) { return admittedRaw !== undefined && raw === admittedRaw; }
 function closePartition() {
   partitionClosed = true; admittedRaw = null;
@@ -19,13 +24,24 @@ function closePartition() {
 }
 let component, sequence = 0, revision = 0, suspended = false, pending = null;
 let denied = true, nonce = '', channel = '';
+// Privacy-only binding: a per-copy nonce bound once at listener install,
+// independent of flags/readiness. It can only receive a Head revoke; it never
+// opens a channel, reads, admits or carries consent/grant information.
+let privacyNonce = '', privacyCopy = '', privacySequence = 0;
+function bindPrivacy(c) {
+  // Rotate the nonce on every bind; revokes addressed to an older nonce are stale
+  // by FIFO construction (the Head re-checks denial when it processes this bind).
+  if (!privacyCopy) privacyCopy = freshPolicyNonce();
+  privacyNonce = freshPolicyNonce();
+  if (privacyCopy && privacyNonce) try { c.postMessage({ type: 'wbe-click-attribution', v: 2, schema: 1, op: 'bind', sequence: ++privacySequence, nonce: privacyNonce, channel: privacyCopy, policy: null, record: null }); } catch (_) {}
+}
 let lateOpen = null;
 // Diagnostic v1: finite, value-free, once per stage/reason per worker lifetime.
 // Observation only: no permission, storage, timers or transport are added.
 const diagnosticSeen = new Set();
 function diagnostic(stage, reason) {
   if (!['policy', 'open', 'read', 'confirm', 'clear', 'worker'].includes(stage) ||
-      !['TIMEOUT', 'REJECTED', 'TRANSPORT_ERROR', 'CRYPTO_UNAVAILABLE', 'READY_EMPTY', 'READY_RECORD'].includes(reason)) return;
+      !['TIMEOUT', 'REJECTED', 'TRANSPORT_ERROR', 'CRYPTO_UNAVAILABLE', 'READY_EMPTY', 'READY_RECORD', 'UNBOUND'].includes(reason)) return;
   const key = stage + ':' + reason;
   if (diagnosticSeen.has(key) || diagnosticSeen.size >= 32) return;
   diagnosticSeen.add(key);
@@ -53,7 +69,8 @@ function wakeReadiness(d) {
       d.nonce !== watch.nonce || d.sequence !== watch.sequence || d.op !== 'open' ||
       !/^[a-f0-9]{32}$/.test(d.channel) || d.record !== null || typeof d.allowed !== 'boolean') return;
   cancelReadiness();
-  if (!d.allowed) { revoke(); return; }
+  // A late negative open is the Head's non-destructive UNBOUND refusal (O3): no erase, no consent change.
+  if (!d.allowed) { denied = true; return; }
   watch.task.remaining--;
   void waitAttribution(watch.task);
 }
@@ -68,6 +85,9 @@ function erase() { try { local.removeItem(KEY); } catch (_) {} }
 export function attributionDenied() { return denied || suspended; }
 // Local observation fence, not an atomic claim about the page partition.
 export function attributionRevision() { return revision; }
+// IO-free fence for a clear issued while denied/unadmitted: cancels pending readiness
+// and invalidates in-flight responses. Never opens a channel, writes storage or grants.
+export function fenceAttribution() { cancelReadiness(); revision++; }
 export function suspendAttribution(value) {
   cancelReadiness();
   suspended = !!value; revision++;
@@ -80,15 +100,17 @@ export function suspendAttribution(value) {
   }
 }
 export function initClickAttribution(w) {
+  closedPartition(); // first browser entry: latch the start-of-use revocation state
   if (component) return;
   try {
     const c = w('#wbeEventBridge');
     if (!c || typeof c.onMessage !== 'function' || typeof c.postMessage !== 'function') return;
     c.onMessage(event => {
       const d = event && event.data;
-      if (d && d.type === 'wbe-click-revoke' && d.v === 2 && d.schema === 1 && d.nonce === nonce &&
+      if (d && d.type === 'wbe-click-revoke' && d.v === 2 && d.schema === 1 &&
           Object.keys(d).sort().join(',') === 'channel,nonce,schema,type,v' &&
-          (!channel || d.channel === channel)) { revoke(); return; }
+          ((d.nonce === nonce && (!channel || d.channel === channel)) ||
+           (privacyNonce !== '' && d.nonce === privacyNonce && d.channel === privacyCopy))) { revoke(); return; }
       if (!pending) { wakeReadiness(d); return; }
       if (!pending || !d || d.type !== 'wbe-click-attribution-result' || d.v !== 2 || d.schema !== 1 ||
           Object.keys(d).sort().join(',') !== 'allowed,channel,nonce,op,record,schema,sequence,type,v' ||
@@ -103,6 +125,7 @@ export function initClickAttribution(w) {
       pending.finish({ ...d, record });
     });
     component = c; // Listener is installed before the first request.
+    bindPrivacy(c);
   } catch (_) {}
 }
 function request(op, policy, record, task) {
@@ -119,17 +142,23 @@ function request(op, policy, record, task) {
     pending = p;
     try {
       if (task && !remainingBudget(task)) { p.finish(null); return; }
-      component.postMessage({ type: 'wbe-click-attribution', v: 2, schema: 1, op, sequence: p.sequence, nonce, channel, policy, record });
+      // O3: open carries the copy id and the CURRENT privacy nonce, proving the binding to the Head.
+      component.postMessage({ type: 'wbe-click-attribution', v: 2, schema: 1, op, sequence: p.sequence, nonce, channel: op === 'open' ? privacyCopy : channel, policy, record });
     }
     catch (_) { diagnostic(op, 'TRANSPORT_ERROR'); p.finish(null); }
   });
 }
 async function openChannel(task) {
   const own = revision;
-  nonce = freshPolicyNonce(); channel = ''; sequence = 0;
-  if (!nonce) { diagnostic('open', 'CRYPTO_UNAVAILABLE'); return false; }
+  channel = ''; sequence = 0;
+  if (component) bindPrivacy(component); // new readiness epoch: older privacy revokes become stale
+  nonce = privacyNonce; // O3 coupling: the open nonce IS the freshly bound privacy nonce
+  // Cannot establish a binding (no usable crypto): missing verification, NOT withdrawal -> non-destructive hold.
+  if (!nonce || !privacyCopy) { diagnostic('open', 'CRYPTO_UNAVAILABLE'); return 'nocrypto'; }
   const opened = await request('open', null, null, task);
-  if (own !== revision || suspended || !opened || !opened.allowed) return false;
+  if (own !== revision || suspended || !opened) return false;
+  // allowed:false on open = UNBOUND (no current privacy binding): non-destructive hold.
+  if (!opened.allowed) { diagnostic('open', 'UNBOUND'); return 'unbound'; }
   channel = opened.channel;
   return true;
 }
@@ -146,9 +175,12 @@ function validRecord(record) {
   return !!normalizePaidTouches(record, Date.now());
 }
 function storedRecord() {
+  // Latch the start-of-use revocation state BEFORE any KEY IO: a failed KEY read can
+  // never leave the latch unset (a REVOKED read failure latches closed for this realm).
+  const closed = closedPartition();
   try {
     const raw = local.getItem(KEY);
-    if ((partitionClosed || admittedRaw !== undefined) && raw !== admittedRaw) return null;
+    if ((closed || admittedRaw !== undefined) && raw !== admittedRaw) return null;
     return normalizePaidTouches(JSON.parse(raw), Date.now());
   }
   catch (_) { return null; }
@@ -163,10 +195,12 @@ export async function clearPageAttribution(snapshot) {
   try { if (!record) record = JSON.parse(local.getItem(CLEAR)); } catch (_) {}
   if (!validRecord(record)) return;
   if (sameRecord(storedRecord(), record)) { closePartition(); erase(); }
-  try { local.setItem(CLEAR, JSON.stringify(record)); } catch (_) {}
-  if (!channel && !await openChannel()) return;
+  const written = JSON.stringify(record);
+  try { local.setItem(CLEAR, written); } catch (_) {}
+  if (!channel && await openChannel() !== true) return;
   const result = await request('clear', null, record);
-  if (result && result.allowed && result.record === null) { try { local.removeItem(CLEAR); } catch (_) {} }
+  // An acknowledged clear retires only the copy it wrote, never a newer one.
+  if (result && result.allowed && result.record === null) { try { if (local.getItem(CLEAR) === written) local.removeItem(CLEAR); } catch (_) {} }
 }
 export async function waitForClickAttribution() {
   return waitAttribution(Object.assign(localBudget(10000), { remaining: 2 }));
@@ -184,17 +218,31 @@ async function waitAttribution(task) {
       let target;
       try { target = JSON.parse(pendingClear); } catch (_) {}
       if (validRecord(target)) {
-        await clearPageAttribution(target);
+        const clearing = clearPageAttribution(target);
+        const mine = revision; // this task's epoch after the clear's synchronous bump
+        await clearing;
+        // Superseded (newer readiness, withdrawal, suspension or clear): yield without
+        // denying, re-claiming, erasing or opening on behalf of newer work.
+        if (revision !== mine) return;
         if (local.getItem(CLEAR)) { denied = true; return; }
         own = ++revision;
       } else local.removeItem(CLEAR); // The established attribution window has expired.
     }
-    if (!remainingBudget(task)) return;
+    if (!remainingBudget(task)) {
+      // Finite-clock expiry retains bytes for a later bound proposal. Only a current,
+      // unsuspended task in a realm whose monotonic clock is permanently unusable
+      // (it can never admit) deletes the unadmitted local copy. No channel, new
+      // identifier write, or grant.
+      if (own === revision && !suspended && !Number.isFinite(monotonicNow())) erase();
+      return;
+    }
     // Worker interval starts before open; the Head independently anchors at ACK.
     lease = localBudget(1500);
     const opened = await openChannel(task);
     if (own !== revision || suspended) return;
-    if (!opened) { denied = true; erase(); return; }
+    // O3: missing binding evidence (refusal, timeout, transport uncertainty) is a NON-DESTRUCTIVE
+    // no-admission hold: no KEY/CLEAR/REVOKED change. Only an authenticated revoke erases.
+    if (opened !== true) { denied = true; return; }
     const binding = policyRequest('attribution', 'read', nonce, channel);
     const policy = await withinBudget(async () => {
       if (!remainingBudget(task) || own !== revision || suspended) return null;

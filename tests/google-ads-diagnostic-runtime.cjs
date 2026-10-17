@@ -92,6 +92,7 @@ test('native module wiring uses one private synchronous sanitizer in both consum
   const external={
     'crypto':{default:{...f.globals.crypto,createSign:()=>({update(){return this;},sign:()=>Buffer.from('inert')})}},
     'wix-data':{default:f.sdk},
+    ...require('./summary-patch-fake.cjs').makeDataItemsFake({get(){return null;},set(){}},{beforePatch(){throw Error('HTTP400 must not patch Summary');}}).externals,
     'backend/settings.web':{getAllSettings:f.globals.getAllSettings},
     'wix-secrets-backend':{getSecret:async n=>n==='GOOGLE_SA_PRIVATE_KEY'?'INERT':f.globals.getSecret(n)},
     'wix-fetch':{fetch:async url=>{
@@ -107,7 +108,7 @@ test('native module wiring uses one private synchronous sanitizer in both consum
       const values=external[specifier];
       module=new vm.SyntheticModule(Object.keys(values),function(){for(const [k,v] of Object.entries(values))this.setExport(k,v);},{context});
     } else {
-      assert.ok(['backend/googleAdsAttemptJournal','backend/dataManagerClient.web','backend/googleAdsHttpDiagnostics'].includes(specifier), 'unexpected import '+specifier);
+      assert.ok(['backend/googleAdsAttemptJournal','backend/dataManagerClient.web','backend/googleAdsHttpDiagnostics','backend/bookingSummaryWriter'].includes(specifier), 'unexpected import '+specifier);
       module=new vm.SourceTextModule(fs.readFileSync(path.join(root,specifier.slice(8)+'.js'),'utf8'),{context,identifier:specifier});
     }
     cache.set(specifier,module); return module;

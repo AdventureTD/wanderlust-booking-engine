@@ -2,13 +2,18 @@
   "name": "wanderlust-custom-code-build",
   "private": true,
   "scripts": {
+    "test:offline": "node scripts/test-offline.cjs",
     "build:google-tag": "node scripts/build-google-tag.cjs",
     "check:google-tag": "node scripts/build-google-tag.cjs --check",
     "test:google-tag": "node tests/google-tag-size.cjs && node tests/google-tag-build-parity.cjs"
   },
   "devDependencies": {
     "acorn": "8.18.0",
-    "terser": "5.51.2"
+    "corvid-types": "0.4.454",
+    "eslint": "8.57.1",
+    "node-fetch": "2.7.0",
+    "terser": "5.51.2",
+    "typescript": "5.9.3"
   },
   "dependencies": {
     "libphonenumber-js": "1.13.13"

@@ -50,7 +50,9 @@ export function capturePaidTouch(value, landing, now) {
   const old = normalizePaidTouches(value, now), next = touch(landing, now);
   if (!next || (old && (sameIds(old.first, next) || sameIds(old.latest, next) ||
       Date.parse(next.capturedAt) < Date.parse(old.latest.capturedAt)))) return old;
-  return { v: 1, first: old ? old.first : { ...next }, latest: next };
+  // A live first is preserved. After first expires, only a distinct newer paid
+  // landing (not a direct visit, identical bundle or older landing) begins a new lifetime.
+  return { v: 1, first: old && old.first ? old.first : { ...next }, latest: next };
 }
 // Call only after permission has authorized both partitions in the same epoch.
 // This pure merge is data handling, never proof that a copy may be restored.

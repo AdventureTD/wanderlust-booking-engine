@@ -31,20 +31,20 @@
       "canonical_lf_sha256": "994a1c023b20f59ba3e7cb1e1817bfdef8c26d6de5650dcf934063ee369e92c2"
     },
     "velo/masterPage.js": {
-      "raw_sha256": "16ea680783e201ffa0d8eda36936fab2565e243d6ee18005804b5e6ffdee2181",
-      "canonical_lf_sha256": "2d1d608a497e85f680925fff257a06ac78ddfcf57364e5843eab0ce5f5360b56"
+      "raw_sha256": "b50b255e54936fc999f08f01c914c4c279714bf2fc743ff09d7ef0fc67da4f92",
+      "canonical_lf_sha256": "8ed514276a19adc92e35250b52d43d0f913c2bb0823942b9060f231e0436c1c3"
     },
     "velo/page-admin-bookings.js": {
       "raw_sha256": "9da8026cc69dee68b576e597bcae69325f47dc34f41228582563447f3ef21bc5",
       "canonical_lf_sha256": "429ee2ef9db58ec29acb3927a372fbf47ce64512929a2ec41093ada45766afc7"
     },
     "velo/page-booking-search.js": {
-      "raw_sha256": "e5b0af4762ee0f25671c0c808c385d0c69712218d939be44fd291870a54fb2ae",
-      "canonical_lf_sha256": "225fb309aeec814407c192b558887cb6fda26683a6be537b1a62fecce36e1697"
+      "raw_sha256": "655b70395cc61d121f3c545fae0be0607720d04c8c014a7cc113ef646f89713a",
+      "canonical_lf_sha256": "edb058c8dd68e9cfcd9ad5c64dc28745fe794b54156c30ca78bff21114234805"
     },
     "velo/page-booking-summary.js": {
-      "raw_sha256": "ea90f52c05959171d657063670538863700f39bfc303d8ac49e70197ea003307",
-      "canonical_lf_sha256": "4db430f56dd6221d34be2e417a07f3080c9699c3d69ec00ad9f581fdc750ceef"
+      "raw_sha256": "022316a0a7f69de30259af2512de7476d5f16f8000e2b6cd8381ab5f62925f6f",
+      "canonical_lf_sha256": "4f2c98f4b075a23c929a1dd62aedbfe74823a24d19e0dfd8f803d560156a1907"
     },
     "velo/page-collections-export.js": {
       "raw_sha256": "1517540564e40db673341710f7c5727c2a29b629740ede5388b6aef2702b73b7",
@@ -67,8 +67,8 @@
       "canonical_lf_sha256": "3f7030d099162e2dcd58c47c3ef71aaa31f71769c7304cabb7501cb6455fceaa"
     },
     "velo/backend/availability.web.js": {
-      "raw_sha256": "d17eaa16f8648c442540ac0d22765d22d7586f82685f95dba43b627cde4454f9",
-      "canonical_lf_sha256": "324d56dd3a1374e2ee640ef76e732278cbebaf4d3c9d642303716108103be397"
+      "raw_sha256": "87d135a414273e7f94940345023ceb849280a9a27b10083a24becbba45fbdb72",
+      "canonical_lf_sha256": "8279ffb8777ba9d30ef38b24de8cc0175d7e21e1524b7cf5d75c20057018c682"
     },
     "velo/backend/bookingCancellation.js": {
       "raw_sha256": "d7f8c99819c876e02781f18e40bf0b8aabc506dd3de8349866f168d18f40036f",
@@ -79,8 +79,8 @@
       "canonical_lf_sha256": "7d039c1e8245d483b498ca08e188c4894cb2fc638e19a2e9783149e69da874a7"
     },
     "velo/backend/dataManagerClient.web.js": {
-      "raw_sha256": "22d370efb092b975381cc16d71d41346e95f0a127b4cc0d27fc0e96c5a73ab52",
-      "canonical_lf_sha256": "9df00ef2975efbb6f7670167a98c8bbe52921e3d0867f0fe915b1461ff7650b0"
+      "raw_sha256": "bfd72d8a444678bfe5a966429ccb70d85fa4ce09d654752d72fd3b937c4c4c34",
+      "canonical_lf_sha256": "04208e76c9190ddb651db2d42ffde38ce35a19959f9649923c68a22b9372a17c"
     },
     "velo/backend/debug.web.js": {
       "raw_sha256": "62db89705b9aaa7325d0dce994e6c0c9b2704952a325d1d8e0331536d8b221a6",
@@ -99,8 +99,8 @@
       "canonical_lf_sha256": "01756442297adf23acb240b74d376bf9e54a589bdaaf07b59d6d187bdae56446"
     },
     "velo/backend/googleAdsProcessingDiagnostic.js": {
-      "raw_sha256": "7c97852ff90996725fb0c4c8a29411b553a61b9a909efc5d73f6bda3f586f672",
-      "canonical_lf_sha256": "41d981498709d953a7fefe4d0e67f1f99c6d5c317bba768f47e7595edfe727c8"
+      "raw_sha256": "fbebb8b72d8f1dde0ce33d21892476b0f2b37fec51c09a93d5f119c3a2781d33",
+      "canonical_lf_sha256": "ed000cd8eb353834f7ece2b29fbf87cf918740742df0706629fc02a16e43c12e"
     },
     "velo/backend/guestConsentLocationPolicy.js": {
       "raw_sha256": "0c79dd5cb4ad6430b5c1670547be02fa547120c49c49a9851d7d9b4456a0638d",
@@ -213,7 +213,7 @@
   },
   "candidate": {
     "velo/ATTRIBUTION_V2_INSTALL.md": {
-      "raw_sha256": "8a7d0575122b85c9a17ba69d018803d41486cb7359532502a82ce8a95e45eb9f",
+      "raw_sha256": "e35371e06736068bb18ed72f01ae328d824b59962de7aaca5f90a7bb27fe554e",
       "canonical_lf_sha256": "8a7d0575122b85c9a17ba69d018803d41486cb7359532502a82ce8a95e45eb9f"
     },
     "velo/backend/adsFormRequirement.web.js": {
@@ -221,28 +221,36 @@
       "canonical_lf_sha256": "37db1582a3cb073b72c0855b0cc7b21f51c8ccc89b9f3f7cdd159e444875ab64"
     },
     "velo/custom-code/event-bridge-iframe.html": {
-      "raw_sha256": "555d832114122ade8ca6c9d6b8d37d7092c5882c446b0d1a008eaa9f701d72a0",
-      "canonical_lf_sha256": "424e59509750f1cdcd706ba327466b12f231dc0ed53af685e8a7630ef21cab50"
+      "raw_sha256": "5976065b36a53313b3c447988e118aa7c04ccf819c6e2b6499b251dbfd3e53d8",
+      "canonical_lf_sha256": "834fdd651bebb1638afca7a9d4b3370aeb9d64d4b8fb95b1fcfe3b87df1acd38"
     },
     "velo/custom-code/google-tag-and-consent.html": {
-      "raw_sha256": "d0eabd56016d92a709a3d79adee0248ae08f3a005cb47aea2e56fe85611d2907",
-      "canonical_lf_sha256": "d0eabd56016d92a709a3d79adee0248ae08f3a005cb47aea2e56fe85611d2907"
+      "raw_sha256": "9d7dde1860ee5a7073619aa01942c7dd5c8caae02e78c5d5dc1786107e5e6a5a",
+      "canonical_lf_sha256": "9d7dde1860ee5a7073619aa01942c7dd5c8caae02e78c5d5dc1786107e5e6a5a"
     },
     "velo/custom-code/google-tag-and-consent.source.html": {
-      "raw_sha256": "9c59bf59a22c43612b05dbdd013cb31bea7e462726263fbcfa82bdf7d2363dc8",
-      "canonical_lf_sha256": "9c59bf59a22c43612b05dbdd013cb31bea7e462726263fbcfa82bdf7d2363dc8"
+      "raw_sha256": "172b451e886ea50232202efcb8a2cf7bab95fcead40f81b9a303776381f407b2",
+      "canonical_lf_sha256": "172b451e886ea50232202efcb8a2cf7bab95fcead40f81b9a303776381f407b2"
     },
     "velo/public/adsPolicyProtocol.js": {
-      "raw_sha256": "3ef648c10f09d1246be6c8cc9c0ad413f03c127e5f3dc5f60ce57f47ad3af51c",
+      "raw_sha256": "56afed4794c2d6c1d65be90111c0e681e6194266f8e9396ea664703b8d6f878b",
       "canonical_lf_sha256": "3ef648c10f09d1246be6c8cc9c0ad413f03c127e5f3dc5f60ce57f47ad3af51c"
     },
     "velo/public/clickAttribution.js": {
-      "raw_sha256": "86cf6ebdff5bd875c2128f1db81797b1f0c6d09922a99ac8554fab9227b26e6a",
-      "canonical_lf_sha256": "bf5d63a5ff564bfbb163a66cb8c7ef90708c7a3f678d0b6fb1425cdfc451866e"
+      "raw_sha256": "3a65c7995d32e45e7616033c4d56a312e9dd2b0dd918faf3323f88fa34d2aa98",
+      "canonical_lf_sha256": "1fd51490c2fd38614fabe4cb457fe1d22ea2fbad8d3a61e2e4375ecf9bcda57d"
     },
     "velo/public/tracking.js": {
-      "raw_sha256": "e4011e1f69aced6a303d1b4c73a87ee75457ff6ee1d851e26e817d5e45d9d7ad",
-      "canonical_lf_sha256": "97d43951a5292262e23f65a5de5477cf9f769cfa9324e852cef696a363443633"
+      "raw_sha256": "7dd81ba3645b48c8fff1bbfacbf62a370fe1e7a6b2bc9f38e75ff9cc2bb15d8b",
+      "canonical_lf_sha256": "5821444709c23afc822913471a8a78f9c882963edcf589c826543f80a375d867"
+    },
+    "velo/public/paidTouchState.js": {
+      "raw_sha256": "f27b0236a82cc8e43341817a11af040cd3799a53d3da396e636ba080178d19a2",
+      "canonical_lf_sha256": "7795c566cac91eef49c9fb69bb4e49d335d528fe4e1a505292821707afeff1f4"
+    },
+    "velo/backend/publicFlags.web.js": {
+      "raw_sha256": "e11a4e414651b24934eb9ea68aea938509f94b8ab16031d586c663dd98a4cc04",
+      "canonical_lf_sha256": "d4af65df28db8bd069717fd42e634c66e0f4f47e5f2b7d5989ea85ec750a97ec"
     }
   },
   "support": {
@@ -251,8 +259,8 @@
       "canonical_lf_sha256": "aafad2b0ce4cf767165a36943bac7dd2b356b1b0a5b22c0190e5b346e1e1298b"
     },
     "tests/ads-custom-form.cjs": {
-      "raw_sha256": "edea17323678bb574f5f42395cc8c3bd88c3e513ded30c662e27d075ee47055f",
-      "canonical_lf_sha256": "60545236a968b4b59ee33d42aefe35cba6d30b04e6135f256cc33f9eafb05dca"
+      "raw_sha256": "2491fdfa0d6b530069a539abb1aad8e23d0919dd43115ea7193cc8b7142f019a",
+      "canonical_lf_sha256": "655eaf52fbce68154e01acebca5ab75e9cb94ef1cb01d74c56e741624679cec7"
     },
     "tests/ads-location-integration.cjs": {
       "raw_sha256": "497d718fe6f06276766a6f82ceb764ac5adbf93d859170068f935e58d31e346f",
@@ -275,16 +283,16 @@
       "canonical_lf_sha256": "303dcc617a1c62d35a77c1a8703859e0c3fe85f632b209f931f16e5a1fa8d173"
     },
     "tests/attribution-clock-v2-pins.cjs": {
-      "raw_sha256": "488ba2601dcf2bc49931c30187a31c1ec31ee98e80eb3a143fd524ab3fc0543d",
-      "canonical_lf_sha256": "488ba2601dcf2bc49931c30187a31c1ec31ee98e80eb3a143fd524ab3fc0543d"
+      "raw_sha256": "175e649b2527cba68512b8c14e04bd0af4aa9ea8f18d2036abba1b7bb30a5177",
+      "canonical_lf_sha256": "175e649b2527cba68512b8c14e04bd0af4aa9ea8f18d2036abba1b7bb30a5177"
     },
     "tests/attribution-clock-v2-security.cjs": {
-      "raw_sha256": "ed67a496776872c28116eb078f6930b7aad4113fb50dc217cd1d29b16bbd560d",
+      "raw_sha256": "8c5c06ddf8a8d80ac4a69404596a265f6cdaf0f3b4987f8d6237e4386e5e99b6",
       "canonical_lf_sha256": "ed67a496776872c28116eb078f6930b7aad4113fb50dc217cd1d29b16bbd560d"
     },
     "tests/attribution-clock-v2.cjs": {
-      "raw_sha256": "8f517368814c36db280340d50f0d6a2baec7134755e6554f31a89ecfb2fa104b",
-      "canonical_lf_sha256": "8f517368814c36db280340d50f0d6a2baec7134755e6554f31a89ecfb2fa104b"
+      "raw_sha256": "11423f5a4a1da0a41944ef7e572a0d115f891a5c7a1656468bc6899413625046",
+      "canonical_lf_sha256": "11423f5a4a1da0a41944ef7e572a0d115f891a5c7a1656468bc6899413625046"
     },
     "tests/attribution-diagnostic-console.cjs": {
       "raw_sha256": "7e72fd9a167abeddccba64c0c05df6ac29a991953a9f256d6f165918c7f14f4e",
@@ -295,20 +303,20 @@
       "canonical_lf_sha256": "55f4ea1ce0897b0fc67bfed1b01e56f13ff44bf03122178eabe3d0b1b7c16565"
     },
     "tests/attribution-diagnostic-serialization.cjs": {
-      "raw_sha256": "3ca004d6503af831879ddce518e9eb65feed8aa38a0f85ab31d52c1b8f515f59",
-      "canonical_lf_sha256": "e718bb3164608df8e9898d196b9e38cde7cc93059076204c9de0986664902eae"
+      "raw_sha256": "1af95ab4f4c0f723014c05ba3b437570f32d052e934194dc48df7e5b5214e8ae",
+      "canonical_lf_sha256": "f2acc606cf9254d7d79455e7a1d38b099020d9d36d3c0b34d903abd6e73a7744"
     },
     "tests/attribution-diagnostics-lifecycle.cjs": {
-      "raw_sha256": "7a7d3b43f815383a71b4814e25e309f16d1ee975e72a3bd6f37a095d3e2b06a8",
-      "canonical_lf_sha256": "f16658d32580df4cda4e20fcbae938a93ea15eb24fc89351710ecfcb1ffc0c3e"
+      "raw_sha256": "39463799405526d29042633b61016c27af7d1ebce5ff0b5b23416886d9626ba4",
+      "canonical_lf_sha256": "5859ad907d63ad5bda22b19084026ec41b62f2b9a506e2a337eaa6f2596a3c5c"
     },
     "tests/attribution-diagnostics.cjs": {
       "raw_sha256": "2ed4a4e1b235e621f407ccf1882b35065f9003f0b4949dfe38260225573643ba",
       "canonical_lf_sha256": "ad6150a26bf814f7cdfb57f6660d3b0f0193ed2ce5ff15342fa4c0581238d883"
     },
     "tests/attribution-hotfix.cjs": {
-      "raw_sha256": "dd547d46858b02caccbf04aa51aedef166f6a496386a4295d39375811c967e6d",
-      "canonical_lf_sha256": "ac234fc88931dea11a99d0f08bdd0045b2dede10a2ac6e4adbb3ba9c33e1877e"
+      "raw_sha256": "f929ed52fdffe3ec42628ec381cfa7a0a79788c0007aa97099102de8b4182d3c",
+      "canonical_lf_sha256": "2f52325a047b576c004bfdbe3a4e157886b25758f92a584d9b8676265d74be12"
     },
     "tests/calendar-deletion-contract.cjs": {
       "raw_sha256": "50ac9f33e16d466cbacc6c6327ed51001dae392928bc9c0e0414d7ebbb9f4745",
@@ -363,28 +371,28 @@
       "canonical_lf_sha256": "fd99fcf1047bc440138e6d665827dce43cb50ef0dd74432f3c6b64c35553dffa"
     },
     "tests/click-attribution-corrections.cjs": {
-      "raw_sha256": "647bc713f59319a0fe575cb88ac52f0c76d1b5b8ef898ce93373ba1eb1dbb2dd",
-      "canonical_lf_sha256": "021d2e8aa1d8c588d46f6c20037eaea7f1ca4bfbc2fc337d334b2fce57440a04"
+      "raw_sha256": "1de2800b02078e2dfdf0fa2cc69cb775c00246991b72d53c5e68c4b0f5bfac32",
+      "canonical_lf_sha256": "e915f614d217e3e22781ea905809f663013502aa998386d9783eb11a32ed0770"
     },
     "tests/click-attribution-globalthis-compat.cjs": {
-      "raw_sha256": "86efe9e580c8c15cc366b0e9153e79ad04109a4712babbc423fad54e222f42a0",
-      "canonical_lf_sha256": "ebdbbbbdfe7d6af0a603e6b3348392c384687e08763884b4c59b8ed6dce42552"
+      "raw_sha256": "945aff8756b518aa744dc521307b82b192f88d136e6ed412ac4d72f9c212a678",
+      "canonical_lf_sha256": "3ee96c0c15b6be376b3e602ab0ffb5e74ce329b4a316c27ffea61e76e2153c76"
     },
     "tests/click-attribution-readiness-review.cjs": {
-      "raw_sha256": "89988b732fe393a3457d14f2360c60c734128460d6684c47a0ec6185de87196c",
-      "canonical_lf_sha256": "4e3c70e34290963885412eaa891a1a3c593c1d68926865b94bf7ff671ecdcdf0"
+      "raw_sha256": "0e04c962b320e16e2b5f610390e5f0db57a4d3452ac22799259612a186593b43",
+      "canonical_lf_sha256": "0e04c962b320e16e2b5f610390e5f0db57a4d3452ac22799259612a186593b43"
     },
     "tests/click-attribution-readiness.cjs": {
-      "raw_sha256": "8c261dab7f10cacc8d63c15a45c79e4e13abcb189dc8c4ad05dad0932ec2c430",
-      "canonical_lf_sha256": "9edf5df43e8501c2e6277ea79775bd040767f0827f4827f479a105f5dfee62ac"
+      "raw_sha256": "509a5f3429ee9bc5d248d5f07f63caffa815b880bb4efc141f902247e2045b33",
+      "canonical_lf_sha256": "e85a5b764d71c45bd450613d4014b910a509f2503eeb323d98d64fe7d457519c"
     },
     "tests/complete-cancellation.cjs": {
-      "raw_sha256": "1cd05c65706d1c632e52d0598f1b172e2db00f4b21604313a817285e807d609b",
-      "canonical_lf_sha256": "1367d54eccad18d0f55cbf7cbce812c7f13185fb4e87c02922d72c16985ca971"
+      "raw_sha256": "3e02cc90aed8c6722e5624f7ca6ad1cb0ef68bab5b0a55c07f5229f76bd230ec",
+      "canonical_lf_sha256": "93e08e86f8074b19aeb6ac8313d176a49916471797a8706455b9575ba5031e62"
     },
     "tests/google-ads-adjustment-unsupported.cjs": {
-      "raw_sha256": "54cb4331ce98b1a61205ca855e8a021652e84d5c90ee58b047745c03c2600b12",
-      "canonical_lf_sha256": "f1f9e8ddd0ac47685ee2976f66a5924eef4c16f56550e0db97c29fae2ce25105"
+      "raw_sha256": "35e4fa747b100dbd9d4f1a0563881a57ebe12e010343de025b7edbeedeaf5aa1",
+      "canonical_lf_sha256": "4d1b1290972cf3014505026054646088f8150f00a7ea0b67c0d5720e82339abc"
     },
     "tests/google-ads-admission-logging.cjs": {
       "raw_sha256": "9fbcee972bdce48278c143f29461acce97b98f6f9f12ce24892952b6c5eeae33",
@@ -403,36 +411,36 @@
       "canonical_lf_sha256": "6c91cbdff11506241a149f8e6e33962aa012db57bedc969ecd751087ca0be85d"
     },
     "tests/google-ads-diagnostic-runtime.cjs": {
-      "raw_sha256": "9b646fe422b56957ea2c88fe56d9c265f96425928c6a0107aaf9cb1ba9ca058e",
-      "canonical_lf_sha256": "4bdd958b5a7c679d43c1dadfb0251360a67d92bafcb42362feae9c48d621ba37"
+      "raw_sha256": "b47750452ef3e65d5d29d454e8b3b18191686dedf8bc10920dbc614c14855931",
+      "canonical_lf_sha256": "9aa115516d805d849bf16d3d5d8a66c612bfd9745aff203b8e543c20b308a03a"
     },
     "tests/google-ads-final-review.cjs": {
-      "raw_sha256": "f5e2d6add2a4202007f61b68f29d81bc1c279ff4568f776db666b50353d2aa20",
-      "canonical_lf_sha256": "5b0dcf8e6a7d2b61553799b4fdccf015414b2921b9abb411bfbe22aa43415f42"
+      "raw_sha256": "ac00efa77e16fe53aecedcc7eec6dbc869354463287e35ba4cfb2e1dd8618bc6",
+      "canonical_lf_sha256": "1dd5546f6816fdba3a8c0f067a46fa559c333b9162fb14323c00ec5c20f8b680"
     },
     "tests/google-ads-fresh-producer.cjs": {
-      "raw_sha256": "34c4b9c7f4f51dc0cfd40a5680df5cc3b5950318d987d2ec804b9db454ebca56",
-      "canonical_lf_sha256": "ad68c79dd8d2d6e2e1299dac671aa75dc0bcaaaa25b14da664f1e46011331199"
+      "raw_sha256": "f73d25666d5a06ce4a0d1a6e41f18a9939d9baac3a530fae13146c5984d28f08",
+      "canonical_lf_sha256": "837e2e0d1f351ad83dcb2afed7bfd05da1fd656e6f4fda161396f8f3992515d8"
     },
     "tests/google-ads-http-diagnostics.cjs": {
       "raw_sha256": "c8f0724fb496194418aa4fa02e563ab02f29a99148751c54f693c3975898438a",
       "canonical_lf_sha256": "032d03b55c416e212c33271956e3b76321982a97096dc251c13ec85b49d43fe6"
     },
     "tests/google-ads-identifier-async.cjs": {
-      "raw_sha256": "faf889fa3fa60d62b33469375e67a323f5e63e02da11349274b492ba6fca269a",
-      "canonical_lf_sha256": "2ef04c9c545c3aabeeb328edac0dd62af4fd78fea470c9458849163a61f9290b"
+      "raw_sha256": "aa62ce8ea2c78e5e137088d9e08d8edb1fc929bd2d81c2a6bdf3e5bef82524df",
+      "canonical_lf_sha256": "90856daac4846bccd715d34c10b186717925da3986087d4985dbc7ac0aae86fc"
     },
     "tests/google-ads-private-journal.cjs": {
-      "raw_sha256": "4b92908a9a78490524201f9dcbee5fdf41569788149b905ec45b4286a778400a",
-      "canonical_lf_sha256": "dc1ef0ebae4228738a3451657fdcf1020bd22ddcd87824c6141f53cf1801c1fb"
+      "raw_sha256": "2da64dc397d6784b9db92c78df79c28381f7b84584d069fae07c54dbfb742f14",
+      "canonical_lf_sha256": "3853d6b4dc5f502fd253e2f3ef735e338dd5a4c0013a50cbf5ad3777c272e6e1"
     },
     "tests/google-ads-processing-bounds.test.cjs": {
       "raw_sha256": "c6489eeffaefa70afdb37f486c01bd42b9612d1d534c3895eb008e8abf56c4b3",
       "canonical_lf_sha256": "dca45cf349c1558b9db533b45b3d9c7a51a70ca6182365297914f8f2eaa59f04"
     },
     "tests/google-ads-processing-diagnostic.test.cjs": {
-      "raw_sha256": "f1cd1cc848dcd29b930c4e7f22e693563bbe7de8e2f1921ba39cbe0ff3e5bbac",
-      "canonical_lf_sha256": "8fda3c36eec3bad815689306d42aa410165925b94f22b2aae039f12a86d91b26"
+      "raw_sha256": "e176d10242b1d40e9cf73454ab703a1d153686ce50366cb856aa1d4f6f1cd240",
+      "canonical_lf_sha256": "7d54e144ab5712c2c625b0398ff051ed839708b87de0bfdf6c44067495b82796"
     },
     "tests/google-ads-processing-native.test.cjs": {
       "raw_sha256": "12cf6757f8d601c5c0fdbaccf776cf92cd81266bd95951a23d75120f14044837",
@@ -451,8 +459,8 @@
       "canonical_lf_sha256": "657e49d560eb751c78e02fd92aef02dfac7bc8f68b3bca21932992e278ec97e6"
     },
     "tests/google-ads-summary-handoff.cjs": {
-      "raw_sha256": "0b7c88ed651a26667e8499a77dba004d61e99065dbdd6fe2c7a11a154d1a4801",
-      "canonical_lf_sha256": "907d4d1d7a9228a8c1d5eac3c537458685014d800f0d89e96ca623206e4248e2"
+      "raw_sha256": "1d635587398fffcc01b8a1a12eeb251a4b83d37d50d8c04c756bf034552e5b3a",
+      "canonical_lf_sha256": "a63a259994a47be05a927a4ae1c1e94c2d79f783ee3699d8e52845afd1881569"
     },
     "tests/google-ads-upload-reliability.cjs": {
       "raw_sha256": "fc93b00f1d8cf373850f1f07153354239cd74ca2ec93279a308c685cc3d64611",
@@ -463,12 +471,12 @@
       "canonical_lf_sha256": "b0464bd5f5058cf0b793deddff5357d494dfa561db5c71a4ac65795dde117fd8"
     },
     "tests/google-tag-size.cjs": {
-      "raw_sha256": "287c45b34559895755c22bba2b3f1ff67297d518e144a843e93aff1171cf3c98",
-      "canonical_lf_sha256": "4960b7648677ac76413f95ad27e6fa6238d1cede8e6356062b33cfd06265c316"
+      "raw_sha256": "7abe06490551a1146abbbd83548e4c4832b51d19e5cf071670e8a82c5d3a8f33",
+      "canonical_lf_sha256": "5f01470b28cd03ff34da06cc4bb17d709675f81c610247be39d5c53d5ea85a32"
     },
     "tests/legacy-date-handoff.cjs": {
-      "raw_sha256": "32e81fce7291266ab8d3206c27354149029b9e2f8d2f0d3566ddc0ae63d7c2d0",
-      "canonical_lf_sha256": "c200d8dfd35b7a2026f758e776bc456be2eec98477e80131f52e87120138035f"
+      "raw_sha256": "ab381098e2cd6d0d2926848255bbe00655d7927d1567c5d1c74713a5613391a9",
+      "canonical_lf_sha256": "422cb855e785c0f22e7f673e6ba19e3b84087c79482152a24de6feff153d0700"
     },
     "tests/legacy-search-eligible-rows.cjs": {
       "raw_sha256": "8efa1e215f699cc0fa082a519bd318ddd12a59d371db395e16198a47b8a50e9c",
@@ -483,8 +491,8 @@
       "canonical_lf_sha256": "31d4f644058585bf793daad2ad54f267aeb8364601e8351eda3413c488343749"
     },
     "tests/legacy-search-package-summary.cjs": {
-      "raw_sha256": "202ab352deb8331160b7319c6a850e1b6be38bc59f9d897cc0b32440838d8c1c",
-      "canonical_lf_sha256": "5c14bfde6ccae5c7c72a053f9fd53049d509f107272280283dd07baf65f8fb40"
+      "raw_sha256": "ed9e9d9827a1883c25f825cc48a36abf0e178c55ba069ceff9cbaf84f8630bd3",
+      "canonical_lf_sha256": "d19e15d08265f9621414e1b88115e01e7074f96bf1fc7ffb292f527f9ddf0d2c"
     },
     "tests/legacy-search-partial.cjs": {
       "raw_sha256": "f7ffc94ffe8d8567d662fb6819de28c6f1c49f4e123545cbf52fd96cb8efcbd5",
@@ -503,8 +511,8 @@
       "canonical_lf_sha256": "ec2d52756ead6e9b28e0e934dff8cbb78ce3235d56bd7bd3a833e578a4ecf083"
     },
     "tests/master-page-ssr.test.cjs": {
-      "raw_sha256": "9a7c50f6f40ffb2660e10f6b99d8bd38ad84b89269499a5d6b5385ce3d2b1ee7",
-      "canonical_lf_sha256": "6172b3255e9684f3ca466e3b1f307b102f6c0c746b6d7d81429c4f155bd2e8b1"
+      "raw_sha256": "a6f7b2f501de45591480e8128d24a33da5731a50a11bae767ffc5525b761a8f2",
+      "canonical_lf_sha256": "b93b5c9038df97b00060b69fdd3450540d8a97c5341e6538b1b14ff14d639171"
     },
     "tests/phone-library-fixture.cjs": {
       "raw_sha256": "d525d7736ac3e9a3d7b38ca2d49c990fb5da3b8c13dc4e725d21d83c6456853d",
@@ -515,12 +523,487 @@
       "canonical_lf_sha256": "b10c8cff9409d6f0e083239435ea767fac80fe5a316aa32242bf747b2ad7f29d"
     },
     "package.json": {
-      "raw_sha256": "40ada4864e3dd593504f4c6d9483a2107ae4ea42252438ebb92afa3e6de307b9",
-      "canonical_lf_sha256": "1350c7d00df11ca1a850fbd9a7718d36e520906751cdaf065fa76350e3ef48f1"
+      "raw_sha256": "6a171be7c7ea60889d710e86a2cd7717ab6929129d0c01237e7acf814407eb5f",
+      "canonical_lf_sha256": "c8d692d2a23a74996352269300bf096fbe041fdc41529909af85965932f34c1c"
     },
     "package-lock.json": {
-      "raw_sha256": "44162ef8284e2cdb96b63eaf8cfe0af87515d027cdf674519b0710dd141d8174",
-      "canonical_lf_sha256": "93d75d6fe9045622fc8249425e63ac7e49d100296a5e80d6b6790f7e69465449"
+      "raw_sha256": "63bb7841cc1ade39bddd5d521e3fdf13823fd92df23d3892a50c44e7a6ef4e16",
+      "canonical_lf_sha256": "02a83fa068f3c5798a3ec55591955798e2faa4248bc44b838a53a8b584fd263f"
+    },
+    "tests/paid-touch-new-lifetime.cjs": {
+      "raw_sha256": "fb07d226bf10b3b6d31b428989e44e89fa1236b0a1b3c346d12a547949798ab2",
+      "canonical_lf_sha256": "fb07d226bf10b3b6d31b428989e44e89fa1236b0a1b3c346d12a547949798ab2"
+    },
+    "tests/summary-patch-fake.cjs": {
+      "raw_sha256": "9078453984174f1558f3705be12de358b19350fcbf80af088608b5a8ca8e17e8",
+      "canonical_lf_sha256": "fc10c762c415238876554e3fbc1bfdf2f8336072ab575fd925bf7058d4d81aad"
+    },
+    "tests/public-tracking-flags.cjs": {
+      "raw_sha256": "98b3463a59a85b1585ed26881810c0e558d6912f9d8e367f09e9d0d6b24b4c8e",
+      "canonical_lf_sha256": "4637df54f859e0aad5c77899dab5d8aa62270f2ea5ab343d6a0db4eeaad32c57"
+    },
+    "tests/withdrawal-binding.cjs": {
+      "raw_sha256": "0b231d26b2e5458e514857df40aa49c2529c5bee590dc104d34e32308a5c5ddd",
+      "canonical_lf_sha256": "ddb370a6a04648bed0536dd0828a097b63c0665db59ead55e0f562a79dbc098a"
+    },
+    "tests/archive/withdrawal-binding-historical-w21.cjs": {
+      "raw_sha256": "629459cc9ef0e121853031fa57663032771a59225a3fd570b4735357b18f36a9",
+      "canonical_lf_sha256": "52f0c3126b97ed3b1f21c3b70f12e439f32ef6704ac4bcc1e0f2573af83f6162"
+    },
+    "tests/support/privacy-bind-projection.cjs": {
+      "raw_sha256": "974c71e1bc1b7a6d46e23e33b976163f0bb6a9e11c4d8e49ab787aa5dd78c715",
+      "canonical_lf_sha256": "974c71e1bc1b7a6d46e23e33b976163f0bb6a9e11c4d8e49ab787aa5dd78c715"
+    }
+  },
+  "rebase": {
+    "from": "82187d3",
+    "to": "2b946df+claude/option-b-b1-tests (uncommitted B1+B2+B4)",
+    "reason": "Re-pin only entries whose 82187d3 pin was verified valid and whose later changes are attributable to the listed commits; acceptance of protected changes depends on review of those commits.",
+    "entries": {
+      "velo/page-booking-search.js": {
+        "group": "protected",
+        "previous_canonical_lf_sha256": "225fb309aeec814407c192b558887cb6fda26683a6be537b1a62fecce36e1697",
+        "commits": [
+          "2b946df",
+          "36fa3ae",
+          "34ea16a",
+          "78876cf",
+          "a913e2f",
+          "claude/public-tracking-flags: public tracking flag getter + non-destructive hold (pending Ric review)"
+        ]
+      },
+      "velo/page-booking-summary.js": {
+        "group": "protected",
+        "previous_canonical_lf_sha256": "4db430f56dd6221d34be2e417a07f3080c9699c3d69ec00ad9f581fdc750ceef",
+        "commits": [
+          "1f82359",
+          "claude/bookingsummary-security: capability-gated Summary ops (pending Ric review)",
+          "claude/public-tracking-flags: public tracking flag getter + non-destructive hold (pending Ric review)",
+          "claude/withdrawal-binding: privacy-only binding prototype (design/offline proof, pending Ric review)"
+        ]
+      },
+      "velo/backend/availability.web.js": {
+        "group": "protected",
+        "previous_canonical_lf_sha256": "324d56dd3a1374e2ee640ef76e732278cbebaf4d3c9d642303716108103be397",
+        "commits": [
+          "1f82359",
+          "claude/bookingsummary-security: capability-gated Summary ops (pending Ric review)",
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "velo/backend/dataManagerClient.web.js": {
+        "group": "protected",
+        "previous_canonical_lf_sha256": "9df00ef2975efbb6f7670167a98c8bbe52921e3d0867f0fe915b1461ff7650b0",
+        "commits": [
+          "9a3ee61"
+        ]
+      },
+      "velo/backend/googleAdsProcessingDiagnostic.js": {
+        "group": "protected",
+        "previous_canonical_lf_sha256": "41d981498709d953a7fefe4d0e67f1f99c6d5c317bba768f47e7595edfe727c8",
+        "commits": [
+          "9a3ee61"
+        ]
+      },
+      "velo/custom-code/event-bridge-iframe.html": {
+        "group": "candidate",
+        "previous_canonical_lf_sha256": "424e59509750f1cdcd706ba327466b12f231dc0ed53af685e8a7630ef21cab50",
+        "commits": [
+          "1f82359",
+          "claude/withdrawal-binding: privacy-only binding prototype (design/offline proof, pending Ric review)",
+          "claude/withdrawal-binding: privacy-only binding prototype round 2 (over Head budget; design/offline proof)",
+          "claude/withdrawal-binding-o3: O3 binding-gated readiness (isolated)"
+        ]
+      },
+      "velo/custom-code/google-tag-and-consent.html": {
+        "group": "candidate",
+        "previous_canonical_lf_sha256": "d0eabd56016d92a709a3d79adee0248ae08f3a005cb47aea2e56fe85611d2907",
+        "commits": [
+          "1f82359",
+          "claude/option-b-b1-tests: Tom-approved B2 new-lifetime + B4 denied-clear fence + Head size reduction",
+          "claude/withdrawal-binding: privacy-only binding prototype (design/offline proof, pending Ric review)",
+          "claude/withdrawal-binding: privacy-only binding prototype round 2 (over Head budget; design/offline proof)",
+          "claude/withdrawal-binding-a: behavior-preserving Head size reductions (feasibility A)",
+          "claude/withdrawal-binding-o3: O3 binding-gated readiness (isolated)"
+        ]
+      },
+      "velo/custom-code/google-tag-and-consent.source.html": {
+        "group": "candidate",
+        "previous_canonical_lf_sha256": "9c59bf59a22c43612b05dbdd013cb31bea7e462726263fbcfa82bdf7d2363dc8",
+        "commits": [
+          "1f82359",
+          "claude/option-b-b1-tests: Tom-approved B2 new-lifetime + B4 denied-clear fence + Head size reduction",
+          "claude/withdrawal-binding: privacy-only binding prototype (design/offline proof, pending Ric review)",
+          "claude/withdrawal-binding: privacy-only binding prototype round 2 (over Head budget; design/offline proof)",
+          "claude/withdrawal-binding-a: behavior-preserving Head size reductions (feasibility A)",
+          "claude/withdrawal-binding-o3: O3 binding-gated readiness (isolated)"
+        ]
+      },
+      "velo/public/clickAttribution.js": {
+        "group": "candidate",
+        "previous_canonical_lf_sha256": "bf5d63a5ff564bfbb163a66cb8c7ef90708c7a3f678d0b6fb1425cdfc451866e",
+        "commits": [
+          "1f82359",
+          "claude/option-b-b1-tests: Tom-approved B2 new-lifetime + B4 denied-clear fence + Head size reduction",
+          "claude/option-b-b1-tests: approved supersession guard + unusable-clock erase + race suite (pending Ric review)",
+          "claude/option-b-b1-tests: comment correction + R8/R3 reachability (pending Ric review)",
+          "claude/withdrawal-binding: privacy-only binding prototype (design/offline proof, pending Ric review)",
+          "claude/withdrawal-binding: privacy-only binding prototype round 2 (over Head budget; design/offline proof)",
+          "claude/withdrawal-binding-o3: O3 binding-gated readiness (isolated)",
+          "claude/withdrawal-binding-o3 r2: non-destructive unverified-binding hold",
+          "claude/withdrawal-binding-o3 r2",
+          "claude/withdrawal-binding-o3 r3",
+          "claude/baseline-remediation: approved baseline repairs + lazy REVOKED init (uncommitted)",
+          "claude/baseline-remediation r2: lazy REVOKED latch-before-KEY correction (uncommitted)"
+        ]
+      },
+      "velo/public/tracking.js": {
+        "group": "candidate",
+        "previous_canonical_lf_sha256": "97d43951a5292262e23f65a5de5477cf9f769cfa9324e852cef696a363443633",
+        "commits": [
+          "1f82359",
+          "claude/option-b-b1-tests: Tom-approved B2 new-lifetime + B4 denied-clear fence + Head size reduction",
+          "claude/public-tracking-flags: public tracking flag getter + non-destructive hold (pending Ric review)"
+        ]
+      },
+      "tests/ads-custom-form.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "60545236a968b4b59ee33d42aefe35cba6d30b04e6135f256cc33f9eafb05dca",
+        "commits": [
+          "1f82359",
+          "claude/public-tracking-flags: public tracking flag getter + non-destructive hold (pending Ric review)",
+          "claude/withdrawal-binding-o3: O3 binding-gated readiness (isolated)",
+          "claude/withdrawal-binding-o3 r2: non-destructive unverified-binding hold"
+        ]
+      },
+      "tests/attribution-clock-v2.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "8f517368814c36db280340d50f0d6a2baec7134755e6554f31a89ecfb2fa104b",
+        "commits": [
+          "1f82359",
+          "claude/public-tracking-flags: public tracking flag getter + non-destructive hold (pending Ric review)",
+          "claude/withdrawal-binding: privacy-only binding prototype (design/offline proof, pending Ric review)",
+          "claude/withdrawal-binding: privacy-only binding prototype round 2 (over Head budget; design/offline proof)"
+        ]
+      },
+      "tests/click-attribution-corrections.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "021d2e8aa1d8c588d46f6c20037eaea7f1ca4bfbc2fc337d334b2fce57440a04",
+        "commits": [
+          "1f82359",
+          "claude/public-tracking-flags: public tracking flag getter + non-destructive hold (pending Ric review)"
+        ]
+      },
+      "tests/click-attribution-readiness-review.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "4e3c70e34290963885412eaa891a1a3c593c1d68926865b94bf7ff671ecdcdf0",
+        "commits": [
+          "claude/option-b-b1-tests (stale seam visit,readReady)",
+          "claude/withdrawal-binding-o3 r3"
+        ]
+      },
+      "tests/click-attribution-readiness.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "9edf5df43e8501c2e6277ea79775bd040767f0827f4827f479a105f5dfee62ac",
+        "commits": [
+          "claude/option-b-b1-tests (stale seam visit,readReady + asserting seam helper)",
+          "claude/withdrawal-binding-o3 r3"
+        ]
+      },
+      "tests/google-ads-fresh-producer.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "ad68c79dd8d2d6e2e1299dac671aa75dc0bcaaaa25b14da664f1e46011331199",
+        "commits": [
+          "1f82359",
+          "claude/bookingsummary-security: capability-gated Summary ops (pending Ric review)",
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "tests/google-ads-processing-diagnostic.test.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "8fda3c36eec3bad815689306d42aa410165925b94f22b2aae039f12a86d91b26",
+        "commits": [
+          "9a3ee61"
+        ]
+      },
+      "tests/google-ads-summary-handoff.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "907d4d1d7a9228a8c1d5eac3c537458685014d800f0d89e96ca623206e4248e2",
+        "commits": [
+          "claude/option-b-b1-tests (this branch: stale fixture seam/assertion repair)"
+        ]
+      },
+      "tests/legacy-search-package-summary.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "5c14bfde6ccae5c7c72a053f9fd53049d509f107272280283dd07baf65f8fb40",
+        "commits": [
+          "a913e2f"
+        ]
+      },
+      "velo/public/paidTouchState.js": {
+        "group": "candidate",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "1f82359 (new file, newly pinned)",
+          "claude/option-b-b1-tests: Tom-approved B2 new-lifetime + B4 denied-clear fence + Head size reduction"
+        ]
+      },
+      "tests/attribution-clock-v2-pins.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "488ba2601dcf2bc49931c30187a31c1ec31ee98e80eb3a143fd524ab3fc0543d",
+        "commits": [
+          "claude/option-b-b1-tests (artifact length 14877->14893 per 1f82359 Head; verified by google-tag-size)",
+          "claude/option-b-b1-tests: Tom-approved B2 new-lifetime + B4 denied-clear fence + Head size reduction",
+          "claude/withdrawal-binding: privacy-only binding prototype (design/offline proof, pending Ric review)",
+          "claude/withdrawal-binding: privacy-only binding prototype round 2 (over Head budget; design/offline proof)",
+          "claude/withdrawal-binding-a: behavior-preserving Head size reductions (feasibility A)",
+          "claude/withdrawal-binding-o3: O3 binding-gated readiness (isolated)"
+        ]
+      },
+      "tests/paid-touch-new-lifetime.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "claude/option-b-b1-tests: Tom-approved B2 new-lifetime + B4 denied-clear fence + Head size reduction",
+          "claude/option-b-b1-tests: B4 durable denied-state matrix tests (error/suspended/pending)",
+          "claude/option-b-b1-tests: B4g stored-denial test + size output clarification",
+          "claude/withdrawal-binding-o3 r3"
+        ]
+      },
+      "tests/google-tag-size.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "4960b7648677ac76413f95ad27e6fa6238d1cede8e6356062b33cfd06265c316",
+        "commits": [
+          "claude/option-b-b1-tests: Tom-approved B2 new-lifetime + B4 denied-clear fence + Head size reduction",
+          "claude/option-b-b1-tests: B4g stored-denial test + size output clarification"
+        ]
+      },
+      "tests/click-attribution-globalthis-compat.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "ebdbbbbdfe7d6af0a603e6b3348392c384687e08763884b4c59b8ed6dce42552",
+        "commits": [
+          "claude/option-b-b1-tests: globalthis-compat fixture migrated to current v2 graph (pending Ric review)",
+          "claude/withdrawal-binding-o3 r3",
+          "claude/withdrawal-binding-o3 r3 final: approved globalthis crypto assertion update"
+        ]
+      },
+      "tests/booking-summary-security.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "claude/bookingsummary-security: capability-gated Summary ops (pending Ric review)",
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "velo/backend/bookingSummaryCapability.js": {
+        "group": "candidate",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "claude/bookingsummary-security: capability-gated Summary ops (pending Ric review)",
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "velo/backend/bookingSummaryReporting.web.js": {
+        "group": "candidate",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "claude/bookingsummary-security: capability-gated Summary ops (pending Ric review)",
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "docs/booking-summary-security.md": {
+        "group": "support",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "claude/bookingsummary-security: capability-gated Summary ops (pending Ric review)",
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "velo/backend/microsoftAdsConversions.web.js": {
+        "group": "protected",
+        "previous_canonical_lf_sha256": "b20abf4eebbec2c146a1fbd86bc73dc47f23e2ab2526fdf145c2c46c84ce41a1",
+        "commits": [
+          "claude/bookingsummary-security: capability-gated Summary ops (pending Ric review)",
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "velo/backend/bookingSummaryWriter.js": {
+        "group": "candidate",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "tests/booking-summary-writer-races.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "tests/summary-patch-fake.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "velo/backend/bookingCancellation.js": {
+        "group": "protected",
+        "previous_canonical_lf_sha256": "e6bfd3689c13d0975854a89873c403e9725b76bd5d43fffb69bb43eef3b1b7ea",
+        "commits": [
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "velo/backend/googleAdsAttemptJournal.js": {
+        "group": "protected",
+        "previous_canonical_lf_sha256": "0de05689c498a7fbd9d5de8052329d414925b88297b23ffc577498fc7b235d9b",
+        "commits": [
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "tests/cancellation-blockers.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "77fe086d1fc5445a2e38c4d4c580172246a21bef8cb191525a4cd92382fc33ac",
+        "commits": [
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "tests/complete-cancellation.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "1367d54eccad18d0f55cbf7cbce812c7f13185fb4e87c02922d72c16985ca971",
+        "commits": [
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "tests/google-ads-diagnostic-runtime.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "4bdd958b5a7c679d43c1dadfb0251360a67d92bafcb42362feae9c48d621ba37",
+        "commits": [
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "tests/google-ads-identifier-async.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "2ef04c9c545c3aabeeb328edac0dd62af4fd78fea470c9458849163a61f9290b",
+        "commits": [
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "tests/google-ads-private-journal.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "dc1ef0ebae4228738a3451657fdcf1020bd22ddcd87824c6141f53cf1801c1fb",
+        "commits": [
+          "claude/bookingsummary-security-r4: field-scoped conditional patch writer (pending Ric review)"
+        ]
+      },
+      "velo/backend/publicFlags.web.js": {
+        "group": "candidate",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "claude/public-tracking-flags: public tracking flag getter + non-destructive hold (pending Ric review)"
+        ]
+      },
+      "tests/public-tracking-flags.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "claude/public-tracking-flags: public tracking flag getter + non-destructive hold (pending Ric review)",
+          "claude/withdrawal-binding-o3 r3"
+        ]
+      },
+      "docs/public-tracking-flags.md": {
+        "group": "support",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "claude/public-tracking-flags: public tracking flag getter + non-destructive hold (pending Ric review)"
+        ]
+      },
+      "velo/masterPage.js": {
+        "group": "protected",
+        "previous_canonical_lf_sha256": "2d1d608a497e85f680925fff257a06ac78ddfcf57364e5843eab0ce5f5360b56",
+        "commits": [
+          "claude/public-tracking-flags: public tracking flag getter + non-destructive hold (pending Ric review)"
+        ]
+      },
+      "tests/attribution-hotfix.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "ac234fc88931dea11a99d0f08bdd0045b2dede10a2ac6e4adbb3ba9c33e1877e",
+        "commits": [
+          "claude/public-tracking-flags: public tracking flag getter + non-destructive hold (pending Ric review)"
+        ]
+      },
+      "tests/legacy-date-handoff.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "c200d8dfd35b7a2026f758e776bc456be2eec98477e80131f52e87120138035f",
+        "commits": [
+          "claude/public-tracking-flags: public tracking flag getter + non-destructive hold (pending Ric review)"
+        ]
+      },
+      "tests/master-page-ssr.test.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "6172b3255e9684f3ca466e3b1f307b102f6c0c746b6d7d81429c4f155bd2e8b1",
+        "commits": [
+          "claude/public-tracking-flags: public tracking flag getter + non-destructive hold (pending Ric review)",
+          "claude/baseline-remediation: approved baseline repairs + lazy REVOKED init (uncommitted)"
+        ]
+      },
+      "tests/withdrawal-binding.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "claude/withdrawal-binding: privacy-only binding prototype (design/offline proof, pending Ric review)",
+          "claude/withdrawal-binding: privacy-only binding prototype round 2 (over Head budget; design/offline proof)",
+          "claude/withdrawal-binding-a: feasibility A + W21 measured capacity limit",
+          "claude/withdrawal-binding-o3: O3 binding-gated readiness (isolated)",
+          "claude/withdrawal-binding-o3 r2: non-destructive unverified-binding hold",
+          "claude/withdrawal-binding-o3 r3"
+        ]
+      },
+      "tests/archive/withdrawal-binding-historical-w21.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "claude/withdrawal-binding-o3: O3 binding-gated readiness (isolated)",
+          "claude/withdrawal-binding-o3 r2: non-destructive unverified-binding hold"
+        ]
+      },
+      "tests/support/privacy-bind-projection.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": null,
+        "commits": [
+          "claude/withdrawal-binding-o3 r3"
+        ]
+      },
+      "tests/google-ads-final-review.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "5b0dcf8e6a7d2b61553799b4fdccf015414b2921b9abb411bfbe22aa43415f42",
+        "commits": [
+          "claude/withdrawal-binding-o3 r3",
+          "claude/baseline-remediation: approved baseline repairs + lazy REVOKED init (uncommitted)"
+        ]
+      },
+      "tests/attribution-diagnostic-serialization.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "e718bb3164608df8e9898d196b9e38cde7cc93059076204c9de0986664902eae",
+        "commits": [
+          "claude/baseline-remediation: approved baseline repairs + lazy REVOKED init (uncommitted)"
+        ]
+      },
+      "tests/attribution-diagnostics-lifecycle.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "f16658d32580df4cda4e20fcbae938a93ea15eb24fc89351710ecfcb1ffc0c3e",
+        "commits": [
+          "claude/baseline-remediation: approved baseline repairs + lazy REVOKED init (uncommitted)"
+        ]
+      },
+      "tests/google-ads-adjustment-unsupported.cjs": {
+        "group": "support",
+        "previous_canonical_lf_sha256": "f1f9e8ddd0ac47685ee2976f66a5924eef4c16f56550e0db97c29fae2ce25105",
+        "commits": [
+          "claude/baseline-remediation: approved baseline repairs + lazy REVOKED init (uncommitted)"
+        ]
+      }
     }
   }
 }
