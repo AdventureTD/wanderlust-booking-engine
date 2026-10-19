@@ -1,10 +1,12 @@
 # Google Ads attribution — current owner report
 
-## Current status: live version 27118 published; empty-attribution handshake verified
+## Current status: WC-1046 processed successfully; attributed purchase not verified
 
 The tested Head snippet is activated and the coordinated Wix release is live at **100% exposure, version 27118**. The saved Head readback was exact; live inspection found one matching Head script and one matching iframe bridge. Home load and reload reported **READY_EMPTY** rather than the previous timeout. A normal-live-URL Search-to-Summary check retained version 27118, accepted a signed quote and displayed the expected total without confirming a booking. See [live release results](attribution-live-release-status.md).
 
-**No booking, invoice or conversion-import test was performed.** Paid-click/contact matching and Google's diagnostics remain unverified. Follow-up testing reproduced the XML-as-JSON exception in fresh Home contexts and traced the failing response/parse path to Bannersnack (403 XML returned to its JSON loader). The integration was left unchanged. Six guarded browser checkpoints reached READY_EMPTY, and the full 87-script regression rerun passed. Fresh Ads diagnostics still report no attempted imports with user-provided data; see [continued validation](continued-validation-status.md). Collection-security remediation remains deferred.
+**October 19 update:** The owner completed test booking **WC-1046** on October 17 and confirmed invoice receipt. Its journal recorded HTTP 200 ingestion acknowledgment for **5898.15 USD**. An exact-request diagnostic now returns **SUCCESS**, one record, no processing errors and no warnings for the correct Google Ads account/action. The earlier date-level Data Manager error row cannot establish that WC-1046 failed. The October 19 Ads UI review still showed zero attributed conversions/value and action-level user-data warnings; successful processing does not prove matching or attributed revenue. See [request-specific results and cleanup](wc1046-processing-status.md). The temporary private reader was removed and the original editor source save/reload-verified. No new publication or conversion resend occurred. Collection-security remediation remains deferred.
+
+**Historical pre-booking validation:** Before WC-1046, no booking/invoice/import test had been performed. Six guarded checkpoints reached READY_EMPTY and the 87-script regression rerun passed. The XML-as-JSON startup error was traced to Bannersnack (403 XML returned to its JSON loader), left unchanged. The earlier diagnostic labels in [continued validation](continued-validation-status.md) describe that pre-booking checkpoint, not the exact-request result above.
 
 ### Prior routing/test-site checkpoint
 
