@@ -8,6 +8,10 @@ The tested Head snippet is activated and the coordinated Wix release is live at 
 
 **Historical pre-booking validation:** Before WC-1046, no booking/invoice/import test had been performed. Six guarded checkpoints reached READY_EMPTY and the 87-script regression rerun passed. The XML-as-JSON startup error was traced to Bannersnack (403 XML returned to its JSON loader), left unchanged. The earlier diagnostic labels in [continued validation](continued-validation-status.md) describe that pre-booking checkpoint, not the exact-request result above.
 
+### Subsequent matching-path investigation
+
+Read-only account inspection and intercepted browser tests confirm the configured email selector works when its field is visible. An actual-source offline timing reproduction shows a slow consent-policy read can suppress the browser matching event while the backend conversion and invoice paths still run. This is a candidate mechanism, not WC-1046's established historical cause. A passive capture is prepared for an owner-operated diagnostic booking; see [matching investigation](wc1046-matching-investigation.md). No production fix has been applied.
+
 ### Prior routing/test-site checkpoint
 
 The routing correction is in code commit **573c995ca67380ee4f478937983456c00e5abd24**. The 24-case handler suite and fresh-clone **87/87 executable scripts** passed. Test version 27117 passed single-room and mixed-two-room pre-confirmation Summary checks; see [routing report](routing-fix-status.md).
