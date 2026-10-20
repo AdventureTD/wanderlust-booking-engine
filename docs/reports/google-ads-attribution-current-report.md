@@ -1,6 +1,10 @@
 # Google Ads attribution — current owner report
 
-## Current status: WC-1046 processed successfully; attributed purchase not verified
+## Current status: WC-1048 browser matching requests observed; Google processing pending
+
+The instrumented follow-up booking **WC-1048** emitted email-bearing Google form-data requests and completed both form-policy phases within their deadline. Its private journal confirms acknowledgment of **5898.15 USD**. Native request status at **2026-10-20T03:49:28Z** is **PROCESSING**, not failure or final success. No attributed purchase is established. The suspected policy timeout did not occur in this booking. A one-shot follow-up is scheduled; see [WC-1048 evidence and status](wc1048-first-status.md). The temporary private diagnostic was removed and the original editor source save/reload-verified; no publication or resend occurred.
+
+### Previous WC-1046 milestone
 
 The tested Head snippet is activated and the coordinated Wix release is live at **100% exposure, version 27118**. The saved Head readback was exact; live inspection found one matching Head script and one matching iframe bridge. Home load and reload reported **READY_EMPTY** rather than the previous timeout. A normal-live-URL Search-to-Summary check retained version 27118, accepted a signed quote and displayed the expected total without confirming a booking. See [live release results](attribution-live-release-status.md).
 

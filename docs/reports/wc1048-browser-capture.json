@@ -1,0 +1,621 @@
+{
+  "bookingNumber": "WC-1048",
+  "scope": "Passive browser request and bridge observations; no Google response bodies or identifier values retained",
+  "events": [
+    {
+      "atUnix": 1792467907.1843822,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-ads-form",
+        "emailFieldPresent": true,
+        "emailValuePresent": true,
+        "emailVisible": true,
+        "op": "start",
+        "phase": "prepare",
+        "sequence": 1
+      }
+    },
+    {
+      "atUnix": 1792467907.185382,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-ads-form-started",
+        "emailFieldPresent": true,
+        "emailValuePresent": true,
+        "emailVisible": true,
+        "phase": "prepare",
+        "sequence": 1
+      }
+    },
+    {
+      "atUnix": 1792467907.1863825,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-click-attribution-result",
+        "emailFieldPresent": true,
+        "emailValuePresent": true,
+        "emailVisible": true,
+        "op": "open",
+        "sequence": 1,
+        "allowed": true
+      }
+    },
+    {
+      "atUnix": 1792467907.1883826,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/adsFormRequirement.web.js/getAdsFormRequirement.ajax",
+      "methods": [
+        "getAdsFormRequirement"
+      ]
+    },
+    {
+      "atUnix": 1792467907.1883826,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/adsFormRequirement.web.js/getAdsFormRequirement.ajax",
+      "methods": [
+        "getAdsFormRequirement"
+      ]
+    },
+    {
+      "atUnix": 1792467907.3583539,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-telemetry-collector/v1/telemetry-messages",
+      "methods": []
+    },
+    {
+      "atUnix": 1792467907.490705,
+      "kind": "wix_response",
+      "path": "/_api/wix-code-telemetry-collector/v1/telemetry-messages",
+      "status": 200,
+      "elapsedMs": 141
+    },
+    {
+      "atUnix": 1792467907.545286,
+      "kind": "wix_response",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/adsFormRequirement.web.js/getAdsFormRequirement.ajax",
+      "status": 200,
+      "elapsedMs": 359
+    },
+    {
+      "atUnix": 1792467907.547287,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-click-attribution-result",
+        "emailFieldPresent": true,
+        "emailValuePresent": true,
+        "emailVisible": true,
+        "op": "read",
+        "sequence": 2,
+        "allowed": true
+      }
+    },
+    {
+      "atUnix": 1792467907.5482867,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-click-attribution-result",
+        "emailFieldPresent": true,
+        "emailValuePresent": true,
+        "emailVisible": true,
+        "op": "confirm",
+        "sequence": 3,
+        "allowed": true
+      }
+    },
+    {
+      "atUnix": 1792467907.5492861,
+      "kind": "attribution",
+      "stage": "worker",
+      "reason": "READY_EMPTY"
+    },
+    {
+      "atUnix": 1792467907.5502863,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/availability.web.js/createBooking.ajax",
+      "methods": []
+    },
+    {
+      "atUnix": 1792467907.5747235,
+      "kind": "wix_response",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/adsFormRequirement.web.js/getAdsFormRequirement.ajax",
+      "status": 200,
+      "elapsedMs": 390
+    },
+    {
+      "atUnix": 1792467907.5757234,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-ads-form",
+        "emailFieldPresent": true,
+        "emailValuePresent": true,
+        "emailVisible": true,
+        "op": "result",
+        "phase": "prepare",
+        "sequence": 1,
+        "requirement": "NOT_REQUIRED",
+        "purpose": "form"
+      }
+    },
+    {
+      "atUnix": 1792467907.8586857,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-telemetry-collector/v1/telemetry-messages",
+      "methods": []
+    },
+    {
+      "atUnix": 1792467907.9931781,
+      "kind": "wix_response",
+      "path": "/_api/wix-code-telemetry-collector/v1/telemetry-messages",
+      "status": 200,
+      "elapsedMs": 141
+    },
+    {
+      "atUnix": 1792467910.221809,
+      "kind": "wix_response",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/availability.web.js/createBooking.ajax",
+      "status": 200,
+      "elapsedMs": 2671
+    },
+    {
+      "atUnix": 1792467910.351022,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-telemetry-collector/v1/telemetry-messages",
+      "methods": []
+    },
+    {
+      "atUnix": 1792467910.4618912,
+      "kind": "wix_response",
+      "path": "/_api/wix-code-telemetry-collector/v1/telemetry-messages",
+      "status": 200,
+      "elapsedMs": 110
+    },
+    {
+      "atUnix": 1792467910.5534842,
+      "kind": "attribution",
+      "stage": "browser",
+      "reason": "RPC_INVOKED"
+    },
+    {
+      "atUnix": 1792467910.5554855,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/googleAdsConversions.web.js/recordBookingConversion.ajax",
+      "methods": [
+        "recordBookingConversion"
+      ]
+    },
+    {
+      "atUnix": 1792467910.5564864,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/availability.web.js/issueBookingInvoice.ajax",
+      "methods": []
+    },
+    {
+      "atUnix": 1792467910.5866427,
+      "kind": "google_request",
+      "host": "www.google.com",
+      "path": "/measurement/conversion",
+      "event": [
+        "purchase"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467910.5876431,
+      "kind": "google_request",
+      "host": "www.google.com",
+      "path": "/ccm/form-data/788746633",
+      "event": [],
+      "emailParameterPresent": true
+    },
+    {
+      "atUnix": 1792467910.5876431,
+      "kind": "google_request",
+      "host": "googleads.g.doubleclick.net",
+      "path": "/pagead/viewthroughconversion/788746633/",
+      "event": [
+        "purchase"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467910.588643,
+      "kind": "google_request",
+      "host": "www.google.com",
+      "path": "/rmkt/collect/788746633/",
+      "event": [
+        "purchase"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467910.589643,
+      "kind": "google_request",
+      "host": "www.google.com",
+      "path": "/ccm/collect",
+      "event": [
+        "purchase"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467910.589643,
+      "kind": "google_request",
+      "host": "ad.doubleclick.net",
+      "path": "/ccm/s/collect",
+      "event": [],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467910.589643,
+      "kind": "google_request",
+      "host": "analytics.google.com",
+      "path": "/g/collect",
+      "event": [
+        "purchase"
+      ],
+      "emailParameterPresent": true
+    },
+    {
+      "atUnix": 1792467910.5906432,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-ads-form",
+        "emailFieldPresent": true,
+        "emailValuePresent": true,
+        "emailVisible": true,
+        "op": "start",
+        "phase": "complete",
+        "sequence": 1
+      }
+    },
+    {
+      "atUnix": 1792467910.5921474,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-ads-form-started",
+        "emailFieldPresent": true,
+        "emailValuePresent": true,
+        "emailVisible": true,
+        "phase": "complete",
+        "sequence": 1
+      }
+    },
+    {
+      "atUnix": 1792467910.5921474,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/adsFormRequirement.web.js/getAdsFormRequirement.ajax",
+      "methods": [
+        "getAdsFormRequirement"
+      ]
+    },
+    {
+      "atUnix": 1792467910.6530128,
+      "kind": "google_request",
+      "host": "www.google.com",
+      "path": "/pagead/1p-user-list/788746633/",
+      "event": [
+        "purchase"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467910.8592498,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-telemetry-collector/v1/telemetry-messages",
+      "methods": []
+    },
+    {
+      "atUnix": 1792467910.8960278,
+      "kind": "wix_response",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/adsFormRequirement.web.js/getAdsFormRequirement.ajax",
+      "status": 200,
+      "elapsedMs": 312
+    },
+    {
+      "atUnix": 1792467910.907483,
+      "kind": "google_request",
+      "host": "www.google.com",
+      "path": "/pagead/form-data/788746633",
+      "event": [],
+      "emailParameterPresent": true
+    },
+    {
+      "atUnix": 1792467910.9084828,
+      "kind": "google_request",
+      "host": "www.google.com",
+      "path": "/ccm/form-data/788746633",
+      "event": [],
+      "emailParameterPresent": true
+    },
+    {
+      "atUnix": 1792467910.9084828,
+      "kind": "google_request",
+      "host": "googleads.g.doubleclick.net",
+      "path": "/pagead/viewthroughconversion/788746633/",
+      "event": [
+        "form_submit"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467910.909482,
+      "kind": "google_request",
+      "host": "www.google.com",
+      "path": "/rmkt/collect/788746633/",
+      "event": [
+        "form_submit"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467910.909482,
+      "kind": "google_request",
+      "host": "www.google.com",
+      "path": "/ccm/collect",
+      "event": [
+        "form_submit"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467910.9104817,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-ads-form",
+        "emailFieldPresent": true,
+        "emailValuePresent": true,
+        "emailVisible": true,
+        "op": "result",
+        "phase": "complete",
+        "sequence": 1,
+        "requirement": "NOT_REQUIRED",
+        "purpose": "form"
+      }
+    },
+    {
+      "atUnix": 1792467910.948079,
+      "kind": "google_request",
+      "host": "www.google.com",
+      "path": "/pagead/1p-user-list/788746633/",
+      "event": [
+        "form_submit"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467910.9967222,
+      "kind": "wix_response",
+      "path": "/_api/wix-code-telemetry-collector/v1/telemetry-messages",
+      "status": 200,
+      "elapsedMs": 141
+    },
+    {
+      "atUnix": 1792467913.438751,
+      "kind": "wix_response",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/googleAdsConversions.web.js/recordBookingConversion.ajax",
+      "status": 200,
+      "elapsedMs": 2875
+    },
+    {
+      "atUnix": 1792467913.9459531,
+      "kind": "google_request",
+      "host": "www.google-analytics.com",
+      "path": "/g/collect",
+      "event": [
+        "page_view"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467913.946954,
+      "kind": "google_request",
+      "host": "analytics.google.com",
+      "path": "/g/collect",
+      "event": [
+        "user_engagement"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467913.9479527,
+      "kind": "google_request",
+      "host": "stats.g.doubleclick.net",
+      "path": "/g/collect",
+      "event": [],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467914.120194,
+      "kind": "google_request",
+      "host": "googleads.g.doubleclick.net",
+      "path": "/pagead/viewthroughconversion/788746633/",
+      "event": [
+        "gtag.config"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467914.1217072,
+      "kind": "google_request",
+      "host": "www.google.com",
+      "path": "/rmkt/collect/788746633/",
+      "event": [
+        "gtag.config"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467914.123716,
+      "kind": "google_request",
+      "host": "www.google.com",
+      "path": "/ccm/collect",
+      "event": [
+        "page_view"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467914.1482651,
+      "kind": "google_request",
+      "host": "www.google.com",
+      "path": "/pagead/1p-user-list/788746633/",
+      "event": [
+        "gtag.config"
+      ],
+      "emailParameterPresent": false
+    },
+    {
+      "atUnix": 1792467914.5480192,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-app-registry-global/v1/public-code-config",
+      "methods": []
+    },
+    {
+      "atUnix": 1792467914.59569,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/publicFlags.web.js/getPublicTrackingFlags.ajax",
+      "methods": [
+        "getPublicTrackingFlags"
+      ]
+    },
+    {
+      "atUnix": 1792467914.6464765,
+      "kind": "wix_response",
+      "path": "/_api/wix-code-app-registry-global/v1/public-code-config",
+      "status": 200,
+      "elapsedMs": 109
+    },
+    {
+      "atUnix": 1792467914.8471284,
+      "kind": "wix_response",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/publicFlags.web.js/getPublicTrackingFlags.ajax",
+      "status": 200,
+      "elapsedMs": 265
+    },
+    {
+      "atUnix": 1792467915.0467377,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-telemetry-collector/v1/telemetry-messages",
+      "methods": []
+    },
+    {
+      "atUnix": 1792467915.099507,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-click-attribution-result",
+        "emailFieldPresent": false,
+        "emailValuePresent": false,
+        "emailVisible": false,
+        "op": "open",
+        "sequence": 1,
+        "allowed": true
+      }
+    },
+    {
+      "atUnix": 1792467915.108644,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-click-attribution-result",
+        "emailFieldPresent": false,
+        "emailValuePresent": false,
+        "emailVisible": false,
+        "op": "open",
+        "sequence": 1,
+        "allowed": true
+      }
+    },
+    {
+      "atUnix": 1792467915.1096525,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/adsFormRequirement.web.js/getAdsFormRequirement.ajax",
+      "methods": [
+        "getAdsFormRequirement"
+      ]
+    },
+    {
+      "atUnix": 1792467915.1682377,
+      "kind": "wix_response",
+      "path": "/_api/wix-code-telemetry-collector/v1/telemetry-messages",
+      "status": 200,
+      "elapsedMs": 125
+    },
+    {
+      "atUnix": 1792467915.4078004,
+      "kind": "wix_response",
+      "path": "/_api/wix-code-public-dispatcher-ng/siteview/_webMethods/backend/adsFormRequirement.web.js/getAdsFormRequirement.ajax",
+      "status": 200,
+      "elapsedMs": 297
+    },
+    {
+      "atUnix": 1792467915.4078004,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-click-attribution-result",
+        "emailFieldPresent": false,
+        "emailValuePresent": false,
+        "emailVisible": false,
+        "op": "read",
+        "sequence": 2,
+        "allowed": true
+      }
+    },
+    {
+      "atUnix": 1792467915.4087994,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-click-attribution-result",
+        "emailFieldPresent": false,
+        "emailValuePresent": false,
+        "emailVisible": false,
+        "op": "read",
+        "sequence": 2,
+        "allowed": true
+      }
+    },
+    {
+      "atUnix": 1792467915.4087994,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-click-attribution-result",
+        "emailFieldPresent": false,
+        "emailValuePresent": false,
+        "emailVisible": false,
+        "op": "confirm",
+        "sequence": 3,
+        "allowed": true
+      }
+    },
+    {
+      "atUnix": 1792467915.4087994,
+      "kind": "bridge",
+      "data": {
+        "name": "wbe-click-attribution-result",
+        "emailFieldPresent": false,
+        "emailValuePresent": false,
+        "emailVisible": false,
+        "op": "confirm",
+        "sequence": 3,
+        "allowed": true
+      }
+    },
+    {
+      "atUnix": 1792467915.4098065,
+      "kind": "attribution",
+      "stage": "worker",
+      "reason": "READY_EMPTY"
+    },
+    {
+      "atUnix": 1792467915.5476515,
+      "kind": "wix_request",
+      "path": "/_api/wix-code-telemetry-collector/v1/telemetry-messages",
+      "methods": []
+    },
+    {
+      "atUnix": 1792467915.6613562,
+      "kind": "wix_response",
+      "path": "/_api/wix-code-telemetry-collector/v1/telemetry-messages",
+      "status": 200,
+      "elapsedMs": 125
+    }
+  ]
+}

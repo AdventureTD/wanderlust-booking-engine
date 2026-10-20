@@ -1,0 +1,16 @@
+requestId: "1ea5a58b-2dd5-451f-8051-38928c74d72f"
+observedAtUtc: "2026-10-20T03:49:28.167Z"
+httpStatus: 200
+projectionComplete: false
+unknownReasonPresent: false
+failureCode: "INCOMPLETE_DATA"
+destinations: Array(1)jsonTableCopy JSON
+0: {...}jsonTableCopy JSON
+destinationMatch: true
+accountId: "9426928570"
+productDestinationId: "7690532327"
+requestStatus: "PROCESSING"
+recordCount: null
+errors: Array(0)jsonTableCopy JSON
+warnings: Array(0)jsonTableCopy JSON
+projectionComplete: false
