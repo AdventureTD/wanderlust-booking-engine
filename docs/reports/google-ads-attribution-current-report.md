@@ -1,8 +1,10 @@
 # Google Ads attribution — current owner report
 
-## Current status: WC-1048 browser matching requests observed; Google processing pending
+## Current status: WC-1048 processed successfully; attribution still unresolved
 
-The instrumented follow-up booking **WC-1048** emitted email-bearing Google form-data requests and completed both form-policy phases within their deadline. Its private journal confirms acknowledgment of **5898.15 USD**. Native request status at **2026-10-20T03:49:28Z** is **PROCESSING**, not failure or final success. No attributed purchase is established. The suspected policy timeout did not occur in this booking. A one-shot follow-up is scheduled; see [WC-1048 evidence and status](wc1048-first-status.md). The temporary private diagnostic was removed and the original editor source save/reload-verified; no publication or resend occurred.
+Native Google request status at **2026-10-22T00:18:16.050Z** is **SUCCESS**, one record, correct destination, no processing errors or warnings. Current account prerequisites are verified. An isolated, measurement-blocked reproduction using WC-1048's current stored email produced valid browser hashes matching backend hashing; it does not reconstruct original emitted bytes. WC-1048 has no retained paid-click identifiers, and ad-interaction eligibility is unproven. Its original capture ruled out the suspected form-policy timeout.
+
+The audit reproduced separate Gmail-plus and Googlemail normalization mismatches, neither applicable to WC-1048's stored email. Installed server payload construction also omits explicit consent; whether this affects this booking is unproven. No live fix, resend, settings change or BookingSummary permission change was made. The temporary status diagnostic was restored/save/reload-verified. See the [matching audit](wc1048-matching-audit.md), [sanitized comparisons](wc1048-matching-audit.json), and [Google support draft—not submitted](wc1048-google-support-draft.md). Earlier PROCESSING reports below are historical, not current status.
 
 ### Previous WC-1046 milestone
 

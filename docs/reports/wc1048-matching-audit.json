@@ -1,0 +1,134 @@
+{
+  "scope": "Isolated intercepted controls, not historical emitted-payload proof. All measurement blocked before data entry. Stored booking email read privately and never saved in evidence. No booking/submission/import occurred. Explicit-user-data condition runs after selector condition; not an isolated fresh-context A/B.",
+  "cases": {
+    "standard": {
+      "selectorOnly": {
+        "requestCount": 4,
+        "allValidHashes": true,
+        "allMatchBackend": true,
+        "allBlocked": true,
+        "normalizationVariants": []
+      },
+      "explicitUserData": {
+        "requestCount": 4,
+        "allValidHashes": true,
+        "allMatchBackend": true,
+        "allBlocked": true,
+        "normalizationVariants": []
+      }
+    },
+    "gmail_plus": {
+      "selectorOnly": {
+        "requestCount": 4,
+        "allValidHashes": true,
+        "allMatchBackend": false,
+        "allBlocked": true,
+        "normalizationVariants": [
+          "dotsRemovedPlusRetained"
+        ]
+      },
+      "explicitUserData": {
+        "requestCount": 4,
+        "allValidHashes": true,
+        "allMatchBackend": false,
+        "allBlocked": true,
+        "normalizationVariants": [
+          "dotsRemovedPlusRetained"
+        ]
+      }
+    },
+    "googlemail": {
+      "selectorOnly": {
+        "requestCount": 4,
+        "allValidHashes": true,
+        "allMatchBackend": false,
+        "allBlocked": true,
+        "normalizationVariants": [
+          "dotsAndPlusRemovedDomainRetained",
+          "dotsRemovedPlusRetained"
+        ]
+      },
+      "explicitUserData": {
+        "requestCount": 4,
+        "allValidHashes": true,
+        "allMatchBackend": false,
+        "allBlocked": true,
+        "normalizationVariants": [
+          "dotsAndPlusRemovedDomainRetained",
+          "dotsRemovedPlusRetained"
+        ]
+      }
+    },
+    "wc1048_stored_email": {
+      "selectorOnly": {
+        "requestCount": 4,
+        "allValidHashes": true,
+        "allMatchBackend": true,
+        "allBlocked": true,
+        "normalizationVariants": [
+          "dotsAndPlusRemovedDomainRetained",
+          "dotsRemovedPlusRetained",
+          "lowercaseOnly"
+        ]
+      },
+      "explicitUserData": {
+        "requestCount": 4,
+        "allValidHashes": true,
+        "allMatchBackend": true,
+        "allBlocked": true,
+        "normalizationVariants": [
+          "dotsAndPlusRemovedDomainRetained",
+          "dotsRemovedPlusRetained",
+          "lowercaseOnly"
+        ]
+      }
+    }
+  },
+  "bookingSnapshot": {
+    "bookingNumber": "WC-1048",
+    "emailIsGmailOrGooglemail": false,
+    "emailPlusAlias": false,
+    "attributionFields": [
+      {
+        "field": "gclid",
+        "present": false,
+        "checked": null
+      },
+      {
+        "field": "gbraid",
+        "present": false,
+        "checked": null
+      },
+      {
+        "field": "wbraid",
+        "present": false,
+        "checked": null
+      },
+      {
+        "field": "firstPaidTouch",
+        "present": false,
+        "checked": null
+      },
+      {
+        "field": "latestPaidTouch",
+        "present": false,
+        "checked": null
+      }
+    ]
+  },
+  "account": {
+    "customerId": "9426928570",
+    "autoTaggingEnabled": true,
+    "acceptedCustomerDataTerms": true,
+    "enhancedConversionsForLeadsEnabled": true,
+    "conversionCustomer": "9426928570",
+    "conversionTrackingId": "788746633",
+    "crossAccountConversionTrackingId": 0
+  },
+  "editorSourceMatchesRepositoryIgnoringLineEndingsAndFinalNewline": {
+    "googleAdsConversions.web.js": true,
+    "googleAdsAttemptJournal.js": true,
+    "dataManagerClient.web.js": true
+  },
+  "consent": "Installed builder omits request/event consent. Client serializes payload without adding consent. Historical browser consent flags not retained; absence is not proof of denial."
+}

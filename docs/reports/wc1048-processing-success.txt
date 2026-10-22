@@ -1,0 +1,16 @@
+requestId: "1ea5a58b-2dd5-451f-8051-38928c74d72f"
+observedAtUtc: "2026-10-22T00:18:16.050Z"
+httpStatus: 200
+projectionComplete: true
+unknownReasonPresent: false
+failureCode: null
+destinations: Array(1)jsonTableCopy JSON
+0: {...}jsonTableCopy JSON
+destinationMatch: true
+accountId: "9426928570"
+productDestinationId: "7690532327"
+requestStatus: "SUCCESS"
+recordCount: "1"
+errors: Array(0)jsonTableCopy JSON
+warnings: Array(0)jsonTableCopy JSON
+projectionComplete: true
