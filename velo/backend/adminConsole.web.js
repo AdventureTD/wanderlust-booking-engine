@@ -430,64 +430,83 @@ async function nextPaymentId() {
   return 'P-' + ('0000' + (maxN + 1)).slice(-4);
 }
 
+function paymentOperationRow(input, refund) {
+  const { operationId, bookingNumber, amount, datePaid, paymentMethod, note } = input || {};
+  if (typeof operationId !== 'string' || !/^[a-f0-9]{32}$/.test(operationId) || operationId.length !== 32) {
+    throw new Error('Payment operation ID required. Reload the updated admin page; do not repeat an uncertain old-page payment.');
+  }
+  if (input.currency !== undefined) throw new Error('Currency overrides are not supported by this payment ledger.');
+  const amt = money(amount);
+  const date = datePaid ? new Date(datePaid) : null;
+  if (typeof bookingNumber !== 'string' || !bookingNumber || bookingNumber.length > 100 ||
+      !Number.isFinite(amt) || amt <= 0 || !date || !Number.isFinite(date.getTime()) ||
+      (paymentMethod !== undefined && typeof paymentMethod !== 'string') ||
+      (note !== undefined && typeof note !== 'string')) throw new Error('Invalid payment details');
+  return {
+    _id: 'ap-' + operationId,
+    bookingNumber,
+    datePaid: date,
+    paymentAmount: refund ? -amt : amt,
+    paymentType: refund ? 'refund' : 'Credit Card',
+    paymentMethod: paymentMethod || 'Terminal',
+    note: note || '',
+  };
+}
+
+function reconcilePayment(existing, intended) {
+  if (!existing) return null;
+  const keys = ['_id', 'bookingNumber', 'paymentAmount', 'paymentType', 'paymentMethod', 'note'];
+  if (keys.some(key => existing[key] !== intended[key]) ||
+      new Date(existing.datePaid).getTime() !== intended.datePaid.getTime()) {
+    throw new Error('Payment operation conflicts with its recorded details. Do not create a new operation to retry it.');
+  }
+  return { ok: true, paymentId: existing.paymentId, warning: null };
+}
+
+async function recordAdminPayment(input, refund) {
+  await requireAdmin();
+  const row = paymentOperationRow(input, refund);
+  const read = () => wixData.get(BOOKING_PAYMENTS, row._id, { consistentRead: true });
+  const prior = reconcilePayment(await read(), row);
+  if (prior) return prior;
+  const sRes = await wixData.query(BOOKING_SUMMARIES)
+    .eq('bookingNumber', row.bookingNumber).limit(1).find();
+  if (!sRes.items.length) return { ok: false, error: 'BookingSummary not found' };
+  let capacityError;
+  try {
+    capacityError = await ensurePaymentRecordCapacity(row.bookingNumber);
+  } catch (error) {
+    const winner = reconcilePayment(await read(), row);
+    if (winner) return winner;
+    throw error;
+  }
+  if (capacityError) {
+    const winner = reconcilePayment(await read(), row);
+    if (winner) return winner;
+    return { ok: false, error: capacityError };
+  }
+  const warn = await (refund ? overRefundWarning : overpaymentWarning)(sRes.items[0], Math.abs(row.paymentAmount));
+  row.paymentId = await nextPaymentId();
+  try {
+    await wixData.insert(BOOKING_PAYMENTS, row);
+  } catch (error) {
+    const saved = reconcilePayment(await read(), row);
+    if (saved) return saved;
+    throw new Error('Payment outcome unknown. Retry unchanged details on this page; do not start a new payment.');
+  }
+  const saved = reconcilePayment(await read(), row);
+  if (!saved) throw new Error('Payment acknowledgment unavailable. Retry unchanged details.');
+  return { ...saved, warning: warn };
+}
+
 export const adminRecordPayment = webMethod(
   Permissions.Admin,
-  async ({ bookingNumber, amount, datePaid, paymentMethod, note }) => {
-    await requireAdmin();
-    if (!bookingNumber) throw new Error('bookingNumber required');
-    const amt = money(amount);
-    if (amt <= 0) return { ok: false, error: 'Payment amount must be positive' };
-
-    const sRes = await wixData.query(BOOKING_SUMMARIES)
-      .eq('bookingNumber', bookingNumber).limit(1).find();
-    if (!sRes.items.length) return { ok: false, error: 'BookingSummary not found' };
-
-    const capacityError = await ensurePaymentRecordCapacity(bookingNumber);
-    if (capacityError) return { ok: false, error: capacityError };
-
-    const warn = await overpaymentWarning(sRes.items[0], amt);
-    const paymentId = await nextPaymentId();
-    await wixData.insert(BOOKING_PAYMENTS, {
-      paymentId: paymentId,
-      bookingNumber: bookingNumber,
-      datePaid: datePaid ? new Date(datePaid) : new Date(),
-      paymentAmount: amt,
-      paymentType: 'Credit Card',
-      paymentMethod: paymentMethod || 'Terminal',
-      note: note || '',
-    });
-    return { ok: true, paymentId: paymentId, warning: warn };
-  }
+  async (input) => recordAdminPayment(input, false)
 );
 
 export const adminRecordRefund = webMethod(
   Permissions.Admin,
-  async ({ bookingNumber, amount, datePaid, paymentMethod, note }) => {
-    await requireAdmin();
-    if (!bookingNumber) throw new Error('bookingNumber required');
-    const amt = money(amount);
-    if (amt <= 0) return { ok: false, error: 'Refund amount must be positive' };
-
-    const sRes = await wixData.query(BOOKING_SUMMARIES)
-      .eq('bookingNumber', bookingNumber).limit(1).find();
-    if (!sRes.items.length) return { ok: false, error: 'BookingSummary not found' };
-
-    const capacityError = await ensurePaymentRecordCapacity(bookingNumber);
-    if (capacityError) return { ok: false, error: capacityError };
-
-    const warn = await overRefundWarning(sRes.items[0], amt);
-    const paymentId = await nextPaymentId();
-    await wixData.insert(BOOKING_PAYMENTS, {
-      paymentId: paymentId,
-      bookingNumber: bookingNumber,
-      datePaid: datePaid ? new Date(datePaid) : new Date(),
-      paymentAmount: -amt,
-      paymentType: 'refund',
-      paymentMethod: paymentMethod || 'Terminal',
-      note: note || '',
-    });
-    return { ok: true, paymentId: paymentId, warning: warn };
-  }
+  async (input) => recordAdminPayment(input, true)
 );
 
 async function getActiveInvoiceForBooking(bookingNumber) {

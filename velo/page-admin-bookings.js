@@ -1,5 +1,6 @@
 // Page code for /admin-bookings (member-restricted admin console)
 import wixLocation from 'wix-location';
+import { session } from 'wix-storage-frontend';
 import {
   adminListBookings,
   adminGetBooking,
@@ -11,6 +12,8 @@ import {
   adminIssueNewInvoice,
 } from 'backend/adminConsole.web';
 
+let _paymentSaveWired = false;
+let _paymentLegacyWired = false;
 let _currentBooking = null;
 let _detailRevision = 0;
 let _cancelBusy = false;
@@ -163,10 +166,13 @@ function wireDetailPanel() {
   }
   const saveBtn = tryFind('btnSaveChanges');
   if (saveBtn && typeof saveBtn.onClick === 'function') saveBtn.onClick(saveChanges);
-  const payBtn = tryFind('btnRecordPayment');
-  if (payBtn && typeof payBtn.onClick === 'function') payBtn.onClick(recordPayment);
-  const refBtn = tryFind('btnRecordRefund');
-  if (refBtn && typeof refBtn.onClick === 'function') refBtn.onClick(recordRefund);
+  if (!_paymentLegacyWired) {
+    const payBtn = tryFind('btnRecordPayment');
+    if (payBtn && typeof payBtn.onClick === 'function') payBtn.onClick(recordPayment);
+    const refBtn = tryFind('btnRecordRefund');
+    if (refBtn && typeof refBtn.onClick === 'function') refBtn.onClick(recordRefund);
+    _paymentLegacyWired = true;
+  }
   const cancelBtn = tryFind('btnCancelBooking');
   if (cancelBtn && typeof cancelBtn.onClick === 'function') cancelBtn.onClick(cancelBooking);
   const newInvBtn = tryFind('btnNewInvoice');
@@ -198,7 +204,9 @@ function populatePaymentTable() {
   });
   console.log('[WBE-ADMIN] populatePaymentTable rows:', rows.length);
   // Defer data assignment until the table is fully mounted.
+  const revision = _detailRevision;
   setTimeout(function () {
+    if (revision !== _detailRevision) return;
     paymentTable.data = rows;
     console.log('[WBE-ADMIN] paymentInfo.data assigned:', paymentTable.data.length);
   }, 50);
@@ -271,59 +279,124 @@ async function openDetail(bookingNumber) {
   }
 }
 
+const PAYMENT_PENDING_KEY = 'wbe.adminPayment.pending.v1';
+let _paymentBusy = false;
+let _pendingPayment = null;
+
+const PAYMENT_JOURNAL_KEY = 'wbe.adminPayment.journal.v1';
+let _paymentSettled = false;
+
+function readPaymentJournal() {
+  const raw = session.getItem(PAYMENT_JOURNAL_KEY);
+  if (!raw) return null;
+  const entry = JSON.parse(raw);
+  if (!entry || typeof entry.id !== 'string' || !/^[a-f0-9]{32}$/.test(entry.id) || entry.id.length !== 32 ||
+      typeof entry.fingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(entry.fingerprint) || entry.fingerprint.length !== 64 ||
+      typeof entry.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(entry.date) ||
+      !['pending', 'acknowledged'].includes(entry.state)) throw new Error('Payment recovery unavailable. Reconcile before proceeding.');
+  return entry;
+}
+
+function writePaymentJournal(entry) {
+  const raw = JSON.stringify(entry);
+  session.setItem(PAYMENT_JOURNAL_KEY, raw);
+  if (session.getItem(PAYMENT_JOURNAL_KEY) !== raw) throw new Error('Payment recovery storage unavailable. Keep this tab and retry unchanged details.');
+}
+
+async function paymentOperation(payload, refund, blankDate) {
+  // Read before minting, even when memory is available: unavailable storage is not absence.
+  const stored = readPaymentJournal();
+  let id = session.getItem(PAYMENT_PENDING_KEY);
+  if (id && (!/^[a-f0-9]{32}$/.test(id) || id.length !== 32)) throw new Error('Pending payment recovery is unavailable. Reconcile before proceeding.');
+  const pending = _pendingPayment || (!_paymentSettled && stored);
+  if (pending && id && pending.id !== id) throw new Error('Payment recovery conflicts. Reconcile before proceeding.');
+  if (pending && blankDate) payload.datePaid = pending.date;
+  if (typeof crypto === 'undefined' || !crypto.subtle || typeof crypto.subtle.digest !== 'function' || typeof crypto.getRandomValues !== 'function') throw new Error('Secure payment identity unavailable. No payment sent.');
+  // Canonical rounded amount and immutable server fields; never persist raw notes/PII.
+  const canonical = JSON.stringify([refund, payload.bookingNumber, Math.round(payload.amount * 100) / 100,
+    payload.datePaid, payload.paymentMethod, payload.note]);
+  const encoded = unescape(encodeURIComponent(canonical));
+  const digest = await crypto.subtle.digest('SHA-256', Uint8Array.from(encoded, c => c.charCodeAt(0)));
+  const fingerprint = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+  if (pending) {
+    if (pending.fingerprint !== fingerprint) throw new Error('Retry the pending payment with unchanged details before starting another.');
+    _pendingPayment = pending;
+    writePaymentJournal(pending);
+    return pending.id;
+  }
+  if (!id) {
+    const bytes = new Uint8Array(16);
+    if (crypto.getRandomValues(bytes) !== bytes) throw new Error('Secure payment identity unavailable.');
+    id = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  }
+  // Keep memory before any fallible write/readback; never mint around uncertainty.
+  _pendingPayment = { id, fingerprint, date: payload.datePaid, state: 'pending' };
+  _paymentSettled = false;
+  writePaymentJournal(_pendingPayment);
+  session.setItem(PAYMENT_PENDING_KEY, id);
+  if (session.getItem(PAYMENT_PENDING_KEY) !== id) throw new Error('Payment recovery storage unavailable. No payment sent.');
+  return id;
+}
+
 function wirePaymentSave() {
   const saveBtn = tryFind('btnPmtSave');
-  if (!saveBtn || typeof saveBtn.onClick !== 'function') return;
-  if (saveBtn.dataset && saveBtn.dataset.wired) return;
-  saveBtn.onClick(async function () {
-    const amtRaw = val('inputPayAmount');
-    const amt = Number(amtRaw.replace(/[^0-9.\-]/g, '')) || 0;
-    if (!amt) {
-      txt('paymentStatusText', 'Please enter an amount.');
-      return;
-    }
-    const datePaid = val('inputPayDate') || dstr(new Date());
-    const note = val('notes') || '';
-    const method = 'Terminal';
-    saveBtn.label = 'Saving...';
-    try {
-      let res;
-      if (amt > 0) {
-        res = await adminRecordPayment({
-          bookingNumber: _currentBooking.bookingNumber,
-          amount: amt,
-          datePaid: datePaid,
-          paymentMethod: method,
-          note: note,
-        });
-      } else {
-        res = await adminRecordRefund({
-          bookingNumber: _currentBooking.bookingNumber,
-          amount: Math.abs(amt),
-          datePaid: datePaid,
-          paymentMethod: method,
-          note: note,
-        });
-      }
-      if (res.ok) {
-        saveBtn.label = 'Saved';
-        setVal('inputPayAmount', '');
-        setVal('notes', '');
-        await openDetail(_currentBooking.bookingNumber);
-        setTimeout(function () { saveBtn.label = 'Save'; }, 1500);
-      } else {
-        saveBtn.label = 'Error';
-        txt('paymentStatusText', res.error || 'Payment failed');
-        setTimeout(function () { saveBtn.label = 'Save'; }, 2000);
-      }
-    } catch (e) {
-      saveBtn.label = 'Error';
-      console.error('[WBE-ADMIN] payment save error:', e && e.message || e);
-      txt('paymentStatusText', e && e.message || 'Payment failed');
-      setTimeout(function () { saveBtn.label = 'Save'; }, 2000);
-    }
-  });
-  try { saveBtn.dataset.wired = 'true'; } catch (e) {}
+  if (!saveBtn || typeof saveBtn.onClick !== 'function' || _paymentSaveWired) return;
+  saveBtn.onClick(() => submitPayment('save'));
+  _paymentSaveWired = true;
+}
+
+async function submitPayment(mode) {
+  if (_paymentBusy || !_currentBooking) return;
+  _paymentBusy = true;
+  const bookingNumber = _currentBooking.bookingNumber;
+  const revision = _detailRevision;
+  const current = () => revision === _detailRevision && _currentBooking && _currentBooking.bookingNumber === bookingNumber;
+  const controls = ['btnPmtSave', 'btnRecordPayment', 'btnRecordRefund'].map(tryFind).filter(Boolean);
+  const priorDisabled = controls.map(button => button.enabled === false);
+  try {
+    controls.forEach(button => button.disable());
+    const amount = mode === 'save' ? Number(String(val('inputPayAmount')).replace(/[^0-9.\-]/g, '')) :
+      Number(val(mode === 'refund' ? 'inputRefundAmount' : 'inputPayAmount'));
+    const refund = mode === 'refund' || (mode === 'save' && amount < 0);
+    if (!Number.isFinite(amount) || !amount || (mode !== 'save' && amount < 0)) throw new Error('Please enter a positive amount (negative Save amounts record a refund).');
+    const dateField = mode === 'save' ? 'inputPayDate' : refund ? 'dateRefund' : 'datePaid';
+    const noteField = mode === 'save' ? 'notes' : refund ? 'inputRefundNote' : 'inputPayNote';
+    const payload = {
+      bookingNumber,
+      amount: Math.abs(amount),
+      datePaid: dstr(val(dateField) || new Date()),
+      paymentMethod: mode === 'save' ? 'Terminal' : val(refund ? 'refundMethodDropdown' : 'payMethodDropdown') || 'Terminal',
+      note: String(val(noteField) || ''),
+    };
+    if (!Number.isFinite(new Date(payload.datePaid).getTime())) throw new Error('Please enter a valid payment date.');
+    payload.operationId = await paymentOperation(payload, refund, !val(dateField));
+    txt('paymentStatusText', 'Recording...');
+    const res = await (refund ? adminRecordRefund : adminRecordPayment)(payload);
+    if (!res || !res.ok) throw new Error(res && res.error || 'Payment outcome unknown; retry unchanged details.');
+    _pendingPayment.state = 'acknowledged';
+    // Retain an acknowledged journal across all deletion/clear faults and reload.
+    writePaymentJournal(_pendingPayment);
+    if (!current()) return;
+    session.removeItem(PAYMENT_PENDING_KEY);
+    if (session.getItem(PAYMENT_PENDING_KEY)) throw new Error('Recovery storage could not be cleared.');
+    const amountField = mode === 'refund' ? 'inputRefundAmount' : 'inputPayAmount';
+    setVal(amountField, '');
+    if (val(amountField) !== '') throw new Error('Amount could not be cleared.');
+    _pendingPayment = null;
+    _paymentSettled = true;
+    setVal(noteField, '');
+    txt('paymentStatusText', (res.warning ? 'Warning: ' + res.warning + ' ' : '') + 'Recorded (' + res.paymentId + ').');
+    await openDetail(bookingNumber);
+  } catch (error) {
+    if (current()) txt('paymentStatusText', _pendingPayment && _pendingPayment.state === 'acknowledged' ?
+      'Payment recorded. Form/recovery cleanup is incomplete. Keep this tab; retry the unchanged entry to reconcile only. Do not repeat the actual payment. ' + (error && error.message || '') :
+      'No new payment is authorized by this message. Keep this tab and retry unchanged details to reconcile. ' + (error && error.message || 'Payment outcome unknown.'));
+  } finally {
+    _paymentBusy = false;
+    controls.forEach((button, index) => {
+      try { if (!priorDisabled[index]) button.enable(); } catch (error) {}
+    });
+  }
 }
 
 function renderDetail() {
@@ -500,47 +573,8 @@ async function saveChanges() {
   }
 }
 
-async function recordPayment() {
-  if (!_currentBooking) return;
-  txt('paymentStatusText', 'Recording payment...');
-  try {
-    const res = await adminRecordPayment({
-      bookingNumber: _currentBooking.bookingNumber,
-      amount: Number(val('inputPayAmount')),
-      datePaid: val('datePaid') ? dstr(val('datePaid')) : undefined,
-      paymentMethod: val('payMethodDropdown') || '',
-      note: String(val('inputPayNote') || ''),
-    });
-    if (!res.ok) { txt('paymentStatusText', 'Error: ' + (res.error || 'unknown')); return; }
-    txt('paymentStatusText', (res.warning ? 'Warning: ' + res.warning + ' ' : '') + 'Payment recorded (' + res.paymentId + ').');
-    setVal('inputPayAmount', '');
-    setVal('inputPayNote', '');
-    await openDetail(_currentBooking.bookingNumber);
-  } catch (e) {
-    txt('paymentStatusText', 'Error: ' + (e && e.message || e));
-  }
-}
-
-async function recordRefund() {
-  if (!_currentBooking) return;
-  txt('paymentStatusText', 'Recording refund...');
-  try {
-    const res = await adminRecordRefund({
-      bookingNumber: _currentBooking.bookingNumber,
-      amount: Number(val('inputRefundAmount')),
-      datePaid: val('dateRefund') ? dstr(val('dateRefund')) : undefined,
-      paymentMethod: val('refundMethodDropdown') || '',
-      note: String(val('inputRefundNote') || ''),
-    });
-    if (!res.ok) { txt('paymentStatusText', 'Error: ' + (res.error || 'unknown')); return; }
-    txt('paymentStatusText', (res.warning ? 'Warning: ' + res.warning + ' ' : '') + 'Refund recorded (' + res.paymentId + ').');
-    setVal('inputRefundAmount', '');
-    setVal('inputRefundNote', '');
-    await openDetail(_currentBooking.bookingNumber);
-  } catch (e) {
-    txt('paymentStatusText', 'Error: ' + (e && e.message || e));
-  }
-}
+function recordPayment() { return submitPayment('payment'); }
+function recordRefund() { return submitPayment('refund'); }
 
 async function newInvoice() {
   if (!_currentBooking) return;
