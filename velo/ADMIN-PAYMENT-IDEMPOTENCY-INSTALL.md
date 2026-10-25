@@ -2,7 +2,7 @@
 
 ## Release boundary
 
-Replace **both** files together in one coordinated Wix site publication, after independent review:
+For this runtime-only correction, **update only the Admin Bookings page** if `backend/adminConsole.web.js` from commit `3a6062a45740927f0ff575bc8b894c5d30f3756b` is already deployed. Otherwise replace **both** files together in one coordinated Wix site publication, after independent review:
 
 - `velo/page-admin-bookings.js` → existing Admin Bookings page code.
 - `velo/backend/adminConsole.web.js` → existing `backend/adminConsole.web.js`.
@@ -11,10 +11,18 @@ No new CMS collections, custom fields, indexes, secrets, packages, or Editor ele
 
 GitHub delivery is not Wix installation/publication. This work did not access Editor or execute live financial actions. Before GitHub main delivery, verify Render's current Auto-Deploy/build filters: a main push may trigger Render even though no Render executable/configuration files change. Do not change Render settings as part of this correction.
 
+## Runtime compatibility correction
+
+The current page ignores absent optional legacy payment/refund buttons when locking controls. Wix can return an empty array for a missing ID; that array is truthy but has no `disable()` method. Previously this stopped Save before any payment request. The ordinary Save control remains locked, and duplicate/retry protection is unchanged.
+
+Payment feedback always gives the clicked button a finite outcome: `Check payment details`, `Recording...`, `Recorded`, or `Payment recorded` (the latter means recording was acknowledged but form cleanup needs reconciliation). The existing optional status text is also shown/expanded when available; failed getters, throws and rejected visibility promises cannot suppress the button feedback. Status errors use exact allowlisted messages, never raw SDK exceptions, payment identifiers or financial details. Unknown outcomes retain the same-operation journal and require reconciliation, not a new payment or repeated actual card/cash transfer.
+
+Only `velo/page-admin-bookings.js` changes at runtime in this correction; `velo/backend/adminConsole.web.js` must still match the coordinated duplicate-protection release. If backend installation is uncertain, install both current repository files together—do not combine a new page with an older backend. Anonymous published-source inspection can verify page code, not the private backend implementation. Hosted crypto/storage availability remains a separate prerequisite, not an established cause of this incident.
+
 ## Coordinated installation
 
 1. Stop administrative payment/refund entry during cutover. First reconcile any **uncertain old-page** submission against its actual financial transaction and exact CMS rows; do not retry it on the new page just because it failed visibly. Historical cleanup needs separate approval.
-2. Install both files without publishing an intermediate client/backend combination. Existing older pages without `operationId` now fail closed with an explicit reload/reconciliation message; there is no unsafe compatibility fallback. All four committed payment/refund call sites were on this page and are routed through the new common submit function.
+2. If the matching backend is already deployed, replace only the page; otherwise install both files without publishing an intermediate client/backend combination. Existing older pages without `operationId` now fail closed with an explicit reload/reconciliation message; there is no unsafe compatibility fallback. All four committed payment/refund call sites were on this page and are routed through the new common submit function.
 3. Check existing live BookingPayments hooks, automations, connected datasets and visual event handlers. None were found in repository source; live configuration was not inspected. In particular, hooks must not replace the supplied `_id`, mutate the immutable financial payload or create additional payment records. Native insert/get hooks remain enabled as before. Unique-ID protection covers this writer, not arbitrary other writers or hook side effects.
 4. Publish only with owner authorization; close/reload all **settled** old admin sessions. Verify actual hosted `crypto.getRandomValues` and Wix session-storage availability, admin permissions, native `_id` retention and the intended UI bindings using separately authorized nonproduction data. Offline tests do not establish hosted parity. A crypto/storage failure prevents dispatch rather than falling back to insecure IDs.
 
@@ -52,7 +60,7 @@ Official Wix contracts consulted:
 Run from a clean repository checkout with Node:
 
 ```
-node --test scripts/verify-admin-payment-idempotency.cjs scripts/verify-admin-payment-recovery.cjs scripts/verify-admin-payment-blockers.cjs
+node --test scripts/verify-admin-payment-idempotency.cjs scripts/verify-admin-payment-recovery.cjs scripts/verify-admin-payment-blockers.cjs scripts/verify-admin-payment-runtime.cjs
 ```
 
 The portable inert fixture loads the actual complete page/backend source with import/export adaptation. It denies unrelated mutation/provider entry and models native unique insert and direct ID reads; no live payment, refund, invoice, email, Calendar or Ads calls occur. It includes all original 13 schedules, the four-render/one-click regression, reload/ACK-loss recovery, concurrency, payload conflicts, stale-selection suppression and security failures. The explicitly labelled distinct-operation capacity/display-ID test demonstrates the **remaining limitation**, not its correction. The original incident WC-1026 rows and installed-source parity remain unknown; this change does not repair or reconcile them.

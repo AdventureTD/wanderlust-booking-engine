@@ -345,16 +345,87 @@ function wirePaymentSave() {
   _paymentSaveWired = true;
 }
 
+function paymentFeedback(message, buttonId, fallbackLabel) {
+  // Finite button feedback does not depend on asynchronous status visibility.
+  try {
+    const button = tryFind(buttonId);
+    if (button) safeSet(button, 'label', fallbackLabel);
+  } catch (error) {}
+  try {
+    const status = tryFind('paymentStatusText');
+    if (!status || typeof status.text !== 'string') return;
+    status.text = message;
+    ['show', 'expand'].forEach(method => {
+      try {
+        const reveal = status[method];
+        if (typeof reveal === 'function') Promise.resolve(reveal.call(status)).catch(() => {});
+      } catch (error) {}
+    });
+  } catch (error) {}
+}
+
+function paymentFailureMessage(error, sent) {
+  // This backend has fixed message discriminators, not public error codes.
+  // Exact equality only: never echo SDK text, suffixes, role lists or payloads.
+  let message;
+  try { message = error && error.message; } catch (ignored) {}
+  let detail = '';
+  switch (message) {
+    case 'Please enter a positive amount (negative Save amounts record a refund).':
+      detail = 'Please enter a positive amount (negative Save amounts record a refund).'; break;
+    case 'Please enter a valid payment date.':
+      detail = 'Please enter a valid payment date.'; break;
+    case 'Secure payment identity unavailable. No payment sent.':
+    case 'Secure payment identity unavailable.':
+      detail = 'Secure payment processing is not available in this browser.'; break;
+    case 'Payment operation ID required. Reload the updated admin page; do not repeat an uncertain old-page payment.':
+      detail = 'Use the updated admin page. Reconcile any uncertain old-page payment before proceeding.'; break;
+    case 'Invalid payment details':
+      detail = 'Check the payment amount, date and booking details.'; break;
+    case 'Currency overrides are not supported by this payment ledger.':
+      detail = 'Currency overrides are not supported.'; break;
+    case 'BookingSummary not found':
+      detail = 'The booking could not be found. Check booking records.'; break;
+    case 'A booking can contain a maximum of 4 payment or refund records.':
+      detail = 'The payment record limit has been reached. Check existing records.'; break;
+    case 'Payment operation conflicts with its recorded details. Do not create a new operation to retry it.':
+    case 'Retry the pending payment with unchanged details before starting another.':
+    case 'Payment recovery conflicts. Reconcile before proceeding.':
+      detail = 'The pending payment has conflicts. Reconcile the same operation with unchanged details.'; break;
+    case 'Payment recovery unavailable. Reconcile before proceeding.':
+    case 'Pending payment recovery is unavailable. Reconcile before proceeding.':
+    case 'Payment recovery storage unavailable. Keep this tab and retry unchanged details.':
+    case 'Payment recovery storage unavailable. No payment sent.':
+      detail = 'Payment recovery is unavailable. Keep this tab and check existing records.'; break;
+  }
+  return (sent ? 'Payment not confirmed. Check records; keep this tab and retry the same operation with unchanged details. Do not start a new payment. ' :
+    'No payment request was sent by this click. Keep this tab; reconcile any pending payment with unchanged details. ') + detail;
+}
+
 async function submitPayment(mode) {
   if (_paymentBusy || !_currentBooking) return;
+  const controls = [];
+  let sent = false;
+  let acknowledged = false;
+  let current = () => false;
+  const buttonId = mode === 'save' ? 'btnPmtSave' : mode === 'refund' ? 'btnRecordRefund' : 'btnRecordPayment';
   _paymentBusy = true;
-  const bookingNumber = _currentBooking.bookingNumber;
-  const revision = _detailRevision;
-  const current = () => revision === _detailRevision && _currentBooking && _currentBooking.bookingNumber === bookingNumber;
-  const controls = ['btnPmtSave', 'btnRecordPayment', 'btnRecordRefund'].map(tryFind).filter(Boolean);
-  const priorDisabled = controls.map(button => button.enabled === false);
   try {
-    controls.forEach(button => button.disable());
+    const bookingNumber = _currentBooking.bookingNumber;
+    const revision = _detailRevision;
+    current = () => revision === _detailRevision && _currentBooking && _currentBooking.bookingNumber === bookingNumber;
+    // Missing IDs and optional SDK capability getters must not prevent Save.
+    ['btnPmtSave', 'btnRecordPayment', 'btnRecordRefund'].forEach(id => {
+      try {
+        const button = tryFind(id);
+        if (!button) return;
+        const disable = button.disable;
+        const enable = button.enable;
+        const disabled = button.enabled === false;
+        if (typeof disable === 'function' && typeof enable === 'function') controls.push({ button, disable, enable, disabled });
+      } catch (error) {}
+    });
+    controls.forEach(control => control.disable.call(control.button));
     const amount = mode === 'save' ? Number(String(val('inputPayAmount')).replace(/[^0-9.\-]/g, '')) :
       Number(val(mode === 'refund' ? 'inputRefundAmount' : 'inputPayAmount'));
     const refund = mode === 'refund' || (mode === 'save' && amount < 0);
@@ -370,9 +441,11 @@ async function submitPayment(mode) {
     };
     if (!Number.isFinite(new Date(payload.datePaid).getTime())) throw new Error('Please enter a valid payment date.');
     payload.operationId = await paymentOperation(payload, refund, !val(dateField));
-    txt('paymentStatusText', 'Recording...');
+    if (current()) paymentFeedback('Recording...', buttonId, 'Recording...');
+    sent = true;
     const res = await (refund ? adminRecordRefund : adminRecordPayment)(payload);
     if (!res || !res.ok) throw new Error(res && res.error || 'Payment outcome unknown; retry unchanged details.');
+    acknowledged = true;
     _pendingPayment.state = 'acknowledged';
     // Retain an acknowledged journal across all deletion/clear faults and reload.
     writePaymentJournal(_pendingPayment);
@@ -385,16 +458,17 @@ async function submitPayment(mode) {
     _pendingPayment = null;
     _paymentSettled = true;
     setVal(noteField, '');
-    txt('paymentStatusText', (res.warning ? 'Warning: ' + res.warning + ' ' : '') + 'Recorded (' + res.paymentId + ').');
+    paymentFeedback(res.warning ? 'Recorded. Review the payment totals before proceeding.' : 'Recorded.', buttonId, 'Recorded');
     await openDetail(bookingNumber);
   } catch (error) {
-    if (current()) txt('paymentStatusText', _pendingPayment && _pendingPayment.state === 'acknowledged' ?
-      'Payment recorded. Form/recovery cleanup is incomplete. Keep this tab; retry the unchanged entry to reconcile only. Do not repeat the actual payment. ' + (error && error.message || '') :
-      'No new payment is authorized by this message. Keep this tab and retry unchanged details to reconcile. ' + (error && error.message || 'Payment outcome unknown.'));
+    const recorded = acknowledged || (_pendingPayment && _pendingPayment.state === 'acknowledged');
+    if (current()) paymentFeedback(recorded ?
+      'Payment recorded. Form/recovery cleanup is incomplete. Keep this tab; retry the unchanged entry to reconcile only. Do not repeat the actual payment.' :
+      paymentFailureMessage(error, sent), buttonId, recorded ? 'Payment recorded' : 'Check payment details');
   } finally {
     _paymentBusy = false;
-    controls.forEach((button, index) => {
-      try { if (!priorDisabled[index]) button.enable(); } catch (error) {}
+    controls.forEach(control => {
+      try { if (!control.disabled) control.enable.call(control.button); } catch (error) {}
     });
   }
 }
